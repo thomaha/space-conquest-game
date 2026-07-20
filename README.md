@@ -12,6 +12,8 @@ The game will be built using java. Starting with java26 but will upgrade when ne
 Framework will be spring boot. A UI-framework is not yet decided but will not be browser-based.
 
 ## Game components
+Every component in the game like race, technologies, technological applications, materials, professions, raw materials should fetch all properties from property files stored in the resources folder.  
+
 ### Time
 - The game time will run for many years. The lowest game speed is 1 minute per real second, with steps at 1 hour, 6 hours, 12 hours and 1 day per second. 
 - It is possible to pause the game.
@@ -39,9 +41,18 @@ The technology tree will feature different areas where researching an area will 
 For instance, the area of atomic fission would grant access to practical application in propulsion, energy production and weapons.
 Most technical applications will have several levels of miniaturization and optimization reflecting how useful that application is. For instance, 
 it might be better to build a spaceship with a highly optimized fission drive instead of using a newly researched fusion drive. 
-Each technical application has:
+Each technology has:
+- Id
 - Name
 - Description
+- Complexity: How challenging it is to discover.
+- List of required technologies to research
+
+Each technical application has:
+- Id
+- Name
+- Description
+- List of required technologies
 - List of factors it affects (power production, production increase, combat strength, etc.)
 - Cost to build per unit in work hours
 - List of required materials to build
@@ -49,6 +60,7 @@ Each technical application has:
 
 ### Materials
 What things are built from affect their properties. Building a spaceship from carbon nanotubes will make a strong and light ship, but require a huge industry producing nanotubes. 
+- Id
 - Name
 - Description
 - Chemical composition: List of elements and % of composition
@@ -58,6 +70,7 @@ What things are built from affect their properties. Building a spaceship from ca
 
 ### Races
 The races will have the properties of the population in an empire. 
+- Id
 - Name
 - Description
 - Intelligence: Influence research speed
@@ -73,6 +86,7 @@ The races will have the properties of the population in an empire.
 - Retirement age for each profession.
 
 ### Professions
+- Id
 - Name
 - Description
 - Type: What the profession is for: Soldier, farmer, ship crew, miner, industrial worker, scientist, engineer, etc.

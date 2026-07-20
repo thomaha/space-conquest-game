@@ -26,6 +26,11 @@
             <artifactId>space-conquest-control</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.almasb</groupId>
+            <artifactId>fxgl</artifactId>
+            <version>0.5.4</version>
+        </dependency>
     </dependencies>
 
 </project>

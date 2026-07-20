@@ -1,26 +1,33 @@
 package com.spaceconquest.frontend;
 
-import com.spaceconquest.control.Controller;
-import com.spaceconquest.control.HumanController;
-import com.spaceconquest.engine.GameEngine;
-import com.spaceconquest.engine.MockGameEngine;
+import com.almasb.fxgl.app.GameApplication;
+import com.almasb.fxgl.app.GameSettings;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Text;
 
-public class Main {
+import static com.almasb.fxgl.dsl.FXGL.*;
+
+public class Main extends GameApplication {
+
+    @Override
+    protected void initSettings(GameSettings settings) {
+        settings.setWidth(800);
+        settings.setHeight(600);
+        settings.setTitle("Space Conquest Game");
+        settings.setVersion("0.1");
+    }
+
+    @Override
+    protected void initUI() {
+        Text text = new Text("Hello Space Conquest!");
+        text.setFill(Color.WHITE);
+        text.setTranslateX(300);
+        text.setTranslateY(300);
+
+        addUINode(text);
+    }
+
     public static void main(String[] args) {
-        System.out.println("Starting Space Conquest Game...");
-
-        GameEngine engine = new MockGameEngine();
-        Controller player = new HumanController();
-
-        engine.start();
-        
-        // Simple game loop simulation
-        for (int i = 0; i < 3; i++) {
-            engine.update();
-            player.onGameStateUpdate(engine.getGameState());
-        }
-
-        engine.stop();
-        System.out.println("Game Over.");
+        launch(args);
     }
 }
