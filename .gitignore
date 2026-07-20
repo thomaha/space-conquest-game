@@ -1,0 +1,4 @@
+# Project exclude paths
+/control/target/
+/engine/target/
+/frontend/target/
