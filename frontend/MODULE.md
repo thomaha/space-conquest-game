@@ -4,3 +4,19 @@ This module serves as the entry point and user interface for the Space Conquest 
 
 ## Key Components
 - `Main`: The main class that extends FXGL's `GameApplication` to initialize the game and UI.
+
+## Display
+### Galaxy view
+Displays the galaxy map, allowing players to explore and manage their space empire.
+- Has a goto in the top right corner where the user can type name and navigate to the corresponding entity, setting it as focus with zoom level 1.
+  - On select should focus on the selected entity.
+  - Stars, planets, planetoids and moons are all searchable, and each search result shows an indicator of the body type.
+  - The select option should show what kind of entity it is.
+- Zoom in and out buttons. Using these should alter the zoom level and retain the current focus.
+- Shown entities should use their respective sizes and distances.
+- Entity names are not drawn permanently on the map; instead the name of a body is shown as a tooltip when the mouse pointer hovers over it.
+- Clicking on the map should focus on that point.
+- Double-clicking on an entity should focus on that entity with zoom level 1.
+- When focusing on an entity:
+  - A panel should show information about the entity in the right part of the screen, under the goto.
+  - The center of the entity should be used as the focus point for the display.

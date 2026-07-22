@@ -9,7 +9,7 @@ The game will have resources, technology, races, spaceships and combat both in s
 
 ## Technical stack
 The game will be built using java. Starting with java26 but will upgrade when new versions are stable.
-Framework will be spring boot. A UI-framework is not yet decided but will not be browser-based.
+Framework will be spring boot. A UI-framework is not yet decided but will not be browser-based. Starting with FXGL and see how that works out.
 
 ## Game components
 Every component in the game like race, technologies, technological applications, materials, professions, raw materials should fetch all properties from property files stored in the resources folder.  
@@ -30,7 +30,7 @@ A planet can have a population of multiple races. Some planets may be uninhabita
 Each planet will have mineable resources and industries which can be used to produce goods and technology. 
 Planets may have one or more moons. A moon is a separate entity from the planet and will have its own resources and industries. 
 Moons are usually smaller than planets and have less resources than their parent planet. Having a smaller mass means lower g-force, 
-so moving resources into space from a moon will require less force than from a planet. 
+so moving resources into space from a moon will require less force than from a planet.
 
 ### Asteroids
 Asteroids are small celestial bodies that orbit the sun. They are made up of a variety of materials and can be mined for resources. 
@@ -59,7 +59,9 @@ Each technical application has:
 - Complexity: How challenging it is to produce.
 
 ### Materials
-What things are built from affect their properties. Building a spaceship from carbon nanotubes will make a strong and light ship, but require a huge industry producing nanotubes. 
+What things are built from affect their properties. Building a spaceship from carbon nanotubes will make a strong and light ship, but require a huge industry producing nanotubes.
+For a material to be transported to space, the transportation cost must be payed. The cost will vary with infrastructure (the relevant technical applications used at the location ) and
+the g-force of the body the material is transported from, and is a number of credits per kg.
 - Id
 - Name
 - Description
@@ -89,7 +91,7 @@ The races will have the properties of the population in an empire.
 - Id
 - Name
 - Description
-- Type: What the profession is for: Soldier, farmer, ship crew, miner, industrial worker, scientist, engineer, etc.
+- Type: What the profession is for: Soldier, farmer, ship crew, miner, industrial worker, scientist, engineer, technician, police, buorocrate, etc.
 - Minimum intelligence requirement: Required for the profession
 - Minimum strength requirement: Required for the profession
 - Complexity: How complex the profession is. Influence how fast population can be trained for the population and how much experience is required to level up.
