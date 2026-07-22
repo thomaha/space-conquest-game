@@ -1,0 +1,271 @@
+[
+  {
+    "id": "sol",
+    "name": "Sol",
+    "description": "The home system of humanity.",
+    "sunMass": 1.989e30,
+    "sunDiameter": 1392700.0,
+    "planets": [
+      {
+        "id": "mercury",
+        "name": "Mercury",
+        "description": "The smallest planet in the Solar System.",
+        "mass": 3.285e23,
+        "gravity": 3.7,
+        "distance": 5.79e7,
+        "inclination": 7.01,
+        "diameter": 4879.0,
+        "resources": ["Iron", "Silicates"],
+        "moons": []
+      },
+      {
+        "id": "venus",
+        "name": "Venus",
+        "description": "The second planet from the Sun.",
+        "mass": 4.867e24,
+        "gravity": 8.87,
+        "distance": 1.082e8,
+        "inclination": 3.39,
+        "diameter": 12104.0,
+        "resources": ["Sulfur", "Carbon Dioxide"],
+        "moons": []
+      },
+      {
+        "id": "earth",
+        "name": "Earth",
+        "description": "The cradle of humanity.",
+        "mass": 5.972e24,
+        "gravity": 9.81,
+        "distance": 1.496e8,
+        "inclination": 0.0,
+        "diameter": 12742.0,
+        "resources": ["Water", "Iron", "Nitrogen"],
+        "moons": [
+          {
+            "id": "moon",
+            "name": "Moon",
+            "description": "Earth's only natural satellite.",
+            "mass": 7.342e22,
+            "gravity": 1.62,
+            "distance": 3.844e5,
+            "diameter": 3474.0,
+            "resources": ["Helium-3", "Silicon"]
+          }
+        ]
+      },
+      {
+        "id": "mars",
+        "name": "Mars",
+        "description": "The red planet.",
+        "mass": 6.39e23,
+        "gravity": 3.71,
+        "distance": 2.279e8,
+        "inclination": 1.85,
+        "diameter": 6779.0,
+        "resources": ["Iron Oxide", "Methane"],
+        "moons": [
+          {
+            "id": "phobos",
+            "name": "Phobos",
+            "description": "Larger of the two Martian moons.",
+            "mass": 1.0659e16,
+            "gravity": 0.0057,
+            "distance": 9.378e3,
+            "diameter": 22.2,
+            "resources": ["Carbon", "Silicates"]
+          },
+          {
+            "id": "deimos",
+            "name": "Deimos",
+            "description": "Smaller of the two Martian moons.",
+            "mass": 1.4762e15,
+            "gravity": 0.003,
+            "distance": 2.346e4,
+            "diameter": 12.4,
+            "resources": ["Ice", "Dust"]
+          }
+        ]
+      },
+      {
+        "id": "jupiter",
+        "name": "Jupiter",
+        "description": "The largest planet in the Solar System.",
+        "mass": 1.898e27,
+        "gravity": 24.79,
+        "distance": 7.785e8,
+        "inclination": 1.31,
+        "diameter": 139820.0,
+        "resources": ["Hydrogen", "Helium"],
+        "moons": [
+          {
+            "id": "io",
+            "name": "Io",
+            "description": "The most volcanically active body in the Solar System.",
+            "mass": 8.9319e22,
+            "gravity": 1.796,
+            "distance": 4.217e5,
+            "diameter": 3643.0,
+            "resources": ["Sulfur", "Silicates"]
+          },
+          {
+            "id": "europa",
+            "name": "Europa",
+            "description": "Has a sub-surface water ocean.",
+            "mass": 4.7998e22,
+            "gravity": 1.314,
+            "distance": 6.709e5,
+            "diameter": 3121.0,
+            "resources": ["Water Ice", "Oxygen"]
+          },
+          {
+            "id": "ganymede",
+            "name": "Ganymede",
+            "description": "The largest moon in the Solar System.",
+            "mass": 1.4819e23,
+            "gravity": 1.428,
+            "distance": 1.070e6,
+            "diameter": 5268.0,
+            "resources": ["Water Ice", "Silicates"]
+          },
+          {
+            "id": "callisto",
+            "name": "Callisto",
+            "description": "Most heavily cratered object in the Solar System.",
+            "mass": 1.0759e23,
+            "gravity": 1.235,
+            "distance": 1.883e6,
+            "diameter": 4821.0,
+            "resources": ["Water Ice", "Carbon"]
+          }
+        ]
+      },
+      {
+        "id": "saturn",
+        "name": "Saturn",
+        "description": "Known for its prominent ring system.",
+        "mass": 5.683e26,
+        "gravity": 10.44,
+        "distance": 1.434e9,
+        "inclination": 2.49,
+        "diameter": 116460.0,
+        "resources": ["Hydrogen", "Helium"],
+        "moons": [
+          {
+            "id": "titan",
+            "name": "Titan",
+            "description": "The only moon known to have a dense atmosphere.",
+            "mass": 1.3452e23,
+            "gravity": 1.352,
+            "distance": 1.222e6,
+            "diameter": 5150.0,
+            "resources": ["Methane", "Nitrogen"]
+          },
+          {
+            "id": "enceladus",
+            "name": "Enceladus",
+            "description": "Reflects almost 100% of the sunlight it receives.",
+            "mass": 1.0802e20,
+            "gravity": 0.113,
+            "distance": 2.380e5,
+            "diameter": 504.0,
+            "resources": ["Water Ice", "Ammonia"]
+          }
+        ]
+      },
+      {
+        "id": "uranus",
+        "name": "Uranus",
+        "description": "An ice giant with a tilted axis.",
+        "mass": 8.681e25,
+        "gravity": 8.69,
+        "distance": 2.871e9,
+        "inclination": 0.77,
+        "diameter": 50724.0,
+        "resources": ["Methane", "Water Ice", "Ammonia"],
+        "moons": [
+          {
+            "id": "titania",
+            "name": "Titania",
+            "description": "Largest moon of Uranus.",
+            "mass": 3.527e21,
+            "gravity": 0.379,
+            "distance": 4.359e5,
+            "diameter": 1578.0,
+            "resources": ["Ice", "Rock"]
+          },
+          {
+            "id": "oberon",
+            "name": "Oberon",
+            "description": "Second-largest moon of Uranus.",
+            "mass": 3.014e21,
+            "gravity": 0.346,
+            "distance": 5.835e5,
+            "diameter": 1523.0,
+            "resources": ["Ice", "Rock"]
+          }
+        ]
+      },
+      {
+        "id": "neptune",
+        "name": "Neptune",
+        "description": "The farthest known solar planet from the Sun.",
+        "mass": 1.024e26,
+        "gravity": 11.15,
+        "distance": 4.495e9,
+        "inclination": 1.77,
+        "diameter": 49244.0,
+        "resources": ["Methane", "Hydrogen", "Helium"],
+        "moons": [
+          {
+            "id": "triton",
+            "name": "Triton",
+            "description": "Largest moon of Neptune with a retrograde orbit.",
+            "mass": 2.14e22,
+            "gravity": 0.779,
+            "distance": 3.548e5,
+            "diameter": 2706.0,
+            "resources": ["Nitrogen", "Water Ice"]
+          }
+        ]
+      },
+      {
+        "id": "pluto",
+        "name": "Pluto",
+        "description": "A dwarf planet in the Kuiper belt.",
+        "mass": 1.303e22,
+        "gravity": 0.62,
+        "distance": 5.906e9,
+        "inclination": 17.1,
+        "diameter": 2376.0,
+        "type": "planetoid",
+        "resources": ["Nitrogen Ice", "Methane Ice", "Carbon Monoxide Ice"],
+        "moons": [
+          {
+            "id": "charon",
+            "name": "Charon",
+            "description": "The largest of the five known natural satellites of the dwarf planet Pluto.",
+            "mass": 1.586e21,
+            "gravity": 0.288,
+            "distance": 1.959e4,
+            "diameter": 1212.0,
+            "resources": ["Water Ice", "Ammonia Hydrates"]
+          }
+        ]
+      }
+    ],
+    "asteroidBelts": [
+      {
+        "id": "main",
+        "name": "Main Asteroid Belt",
+        "description": "Located between Mars and Jupiter.",
+        "resources": ["Iron", "Nickel", "Gold"]
+      },
+      {
+        "id": "kuiper",
+        "name": "Kuiper Belt",
+        "description": "Located beyond the orbit of Neptune.",
+        "resources": ["Ice", "Methane", "Ammonia"]
+      }
+    ]
+  }
+]
