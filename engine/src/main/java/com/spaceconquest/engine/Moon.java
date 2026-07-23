@@ -10,5 +10,6 @@ public record Moon(
     double gravity,
     double distance,
     double diameter,
-    List<String> resources
+    List<String> resources,
+    List<Population> populations
 ) {}

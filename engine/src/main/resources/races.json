@@ -1,0 +1,36 @@
+[
+  {
+    "id": "human",
+    "name": "Human",
+    "description": "A versatile and ambitious race from Earth.",
+    "intelligence": 1.0,
+    "physicalStrength": 1.0,
+    "societyStructure": "Individualist",
+    "preferredGForce": 1.0,
+    "preferredTemperature": 288.0,
+    "chemicalComposition": "Carbon based",
+    "breathingAtmosphere": "Oxygen based",
+    "fertileAgeStart": 15,
+    "fertileAgeEnd": 45,
+    "nutrientType": "Organic",
+    "nutrientSpreadRequirement": "Diverse",
+    "retirementAge": 65
+  },
+  {
+    "id": "vulkan",
+    "name": "Vulkan",
+    "description": "A logical and highly intelligent race from Vulkan.",
+    "intelligence": 1.5,
+    "physicalStrength": 1.2,
+    "societyStructure": "Individualist",
+    "preferredGForce": 1.2,
+    "preferredTemperature": 310.0,
+    "chemicalComposition": "Carbon based",
+    "breathingAtmosphere": "Oxygen based",
+    "fertileAgeStart": 20,
+    "fertileAgeEnd": 150,
+    "nutrientType": "Organic",
+    "nutrientSpreadRequirement": "Simple",
+    "retirementAge": 200
+  }
+]

@@ -1,8 +1,8 @@
-# Engine Module
+# Engine module
 
 This module contains the core game logic and state management for the Space Conquest Game.
 
-## Key Components
+## Key components
 - `GameEngine`: Interface defining the core loop and engine operations.
 - `GameState`: Represents the current state of the game world.
-- `MockGameEngine`: A mock implementation for testing and development.
+- `SpaceConquestEngine`: A mock implementation for testing and development.

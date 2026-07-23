@@ -23,16 +23,19 @@ The galaxy will consist of multiple systems. Systems with stars are solar system
 Planets, asteroids, comets and other stellar bodies might occur outside solar systems, but most planets are within solar systems. 
 Each planet with its own resources, technology level and population. 
 
-### Planets and moons
-All planets have a mass. The mass of a planet will influence its gravity and the amount of resources it can mine. 
-The gravity of a planet, or g-force, will influence how much it costs to move materials from the planet into orbit using propulsion. 
-A planet can have a population of multiple races. Some planets may be uninhabitable, while others may be habitable but not suitable for certain races.
-Each planet will have mineable resources and industries which can be used to produce goods and technology. 
-Planets may have one or more moons. A moon is a separate entity from the planet and will have its own resources and industries. 
-Moons are usually smaller than planets and have less resources than their parent planet. Having a smaller mass means lower g-force, 
+### Space entities
+Planets, moons and asteroids are alle space entities. They can all have a population of multiple races, as well as various buildings and technical installations. 
+Most entities will initially be uninhabitable, while others may be habitable but not suitable for certain races. Buildings and installations might later make the entity partly habitable.
+Each entity will have mineable resources and industries which can be used to produce goods and technology.
+All entities have a mass. The mass of an entity will influence its gravity and the amount of resources for each resource type it can mine.
+The gravity, or g-force, will influence how much it costs to move materials from the entity into orbit using propulsion.
+
+#### Planets and moons
+Planets may have one or more moons. A moon is a separate entity from the planet and will have its own population, resources and industries. 
+Moons are usually smaller than planets and have less resources than planets. Having a smaller mass means lower g-force, 
 so moving resources into space from a moon will require less force than from a planet.
 
-### Asteroids
+#### Asteroids
 Asteroids are small celestial bodies that orbit the sun. They are made up of a variety of materials and can be mined for resources. 
 Asteroids can be mined from space and can be used to build spaceships and other structures. Asteroids typically are tiny, making it easy to transport mined resources into space
 

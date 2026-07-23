@@ -6,5 +6,6 @@ public record AsteroidBelt(
     String id,
     String name,
     String description,
-    List<String> resources
+    List<String> resources,
+    List<Population> populations
 ) {}

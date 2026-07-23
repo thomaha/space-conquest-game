@@ -13,5 +13,6 @@ public record Planet(
     double diameter,
     String type,
     List<String> resources,
-    List<Moon> moons
+    List<Moon> moons,
+    List<Population> populations
 ) {}

@@ -1,7 +1,9 @@
 package com.spaceconquest.engine;
 
-public record GameState(long turn, String status) {
+import java.util.List;
+
+public record GameState(long turn, String status, List<SolarSystem> solarSystems) {
     public GameState() {
-        this(0, "INITIALIZING");
+        this(0, "INITIALIZING", List.of());
     }
 }

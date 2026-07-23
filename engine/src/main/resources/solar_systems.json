@@ -16,7 +16,8 @@
         "inclination": 7.01,
         "diameter": 4879.0,
         "resources": ["Iron", "Silicates"],
-        "moons": []
+        "moons": [],
+        "populations": []
       },
       {
         "id": "venus",
@@ -28,7 +29,8 @@
         "inclination": 3.39,
         "diameter": 12104.0,
         "resources": ["Sulfur", "Carbon Dioxide"],
-        "moons": []
+        "moons": [],
+        "populations": []
       },
       {
         "id": "earth",
@@ -49,7 +51,20 @@
             "gravity": 1.62,
             "distance": 3.844e5,
             "diameter": 3474.0,
-            "resources": ["Helium-3", "Silicon"]
+            "resources": ["Helium-3", "Silicon"],
+            "populations": []
+          }
+        ],
+        "populations": [
+          {
+            "raceId": "human",
+            "ageGroups": {
+              "0": 1000000000,
+              "20": 2000000000,
+              "40": 2500000000,
+              "60": 1500000000,
+              "80": 1000000000
+            }
           }
         ]
       },
@@ -72,7 +87,8 @@
             "gravity": 0.0057,
             "distance": 9.378e3,
             "diameter": 22.2,
-            "resources": ["Carbon", "Silicates"]
+            "resources": ["Carbon", "Silicates"],
+            "populations": []
           },
           {
             "id": "deimos",
@@ -82,9 +98,11 @@
             "gravity": 0.003,
             "distance": 2.346e4,
             "diameter": 12.4,
-            "resources": ["Ice", "Dust"]
+            "resources": ["Ice", "Dust"],
+            "populations": []
           }
-        ]
+        ],
+        "populations": []
       },
       {
         "id": "jupiter",
@@ -105,7 +123,8 @@
             "gravity": 1.796,
             "distance": 4.217e5,
             "diameter": 3643.0,
-            "resources": ["Sulfur", "Silicates"]
+            "resources": ["Sulfur", "Silicates"],
+            "populations": []
           },
           {
             "id": "europa",
@@ -115,7 +134,8 @@
             "gravity": 1.314,
             "distance": 6.709e5,
             "diameter": 3121.0,
-            "resources": ["Water Ice", "Oxygen"]
+            "resources": ["Water Ice", "Oxygen"],
+            "populations": []
           },
           {
             "id": "ganymede",
@@ -125,7 +145,8 @@
             "gravity": 1.428,
             "distance": 1.070e6,
             "diameter": 5268.0,
-            "resources": ["Water Ice", "Silicates"]
+            "resources": ["Water Ice", "Silicates"],
+            "populations": []
           },
           {
             "id": "callisto",
@@ -135,9 +156,11 @@
             "gravity": 1.235,
             "distance": 1.883e6,
             "diameter": 4821.0,
-            "resources": ["Water Ice", "Carbon"]
+            "resources": ["Water Ice", "Carbon"],
+            "populations": []
           }
-        ]
+        ],
+        "populations": []
       },
       {
         "id": "saturn",
@@ -158,7 +181,8 @@
             "gravity": 1.352,
             "distance": 1.222e6,
             "diameter": 5150.0,
-            "resources": ["Methane", "Nitrogen"]
+            "resources": ["Methane", "Nitrogen"],
+            "populations": []
           },
           {
             "id": "enceladus",
@@ -168,9 +192,11 @@
             "gravity": 0.113,
             "distance": 2.380e5,
             "diameter": 504.0,
-            "resources": ["Water Ice", "Ammonia"]
+            "resources": ["Water Ice", "Ammonia"],
+            "populations": []
           }
-        ]
+        ],
+        "populations": []
       },
       {
         "id": "uranus",
@@ -191,7 +217,8 @@
             "gravity": 0.379,
             "distance": 4.359e5,
             "diameter": 1578.0,
-            "resources": ["Ice", "Rock"]
+            "resources": ["Ice", "Rock"],
+            "populations": []
           },
           {
             "id": "oberon",
@@ -201,9 +228,11 @@
             "gravity": 0.346,
             "distance": 5.835e5,
             "diameter": 1523.0,
-            "resources": ["Ice", "Rock"]
+            "resources": ["Ice", "Rock"],
+            "populations": []
           }
-        ]
+        ],
+        "populations": []
       },
       {
         "id": "neptune",
@@ -224,9 +253,11 @@
             "gravity": 0.779,
             "distance": 3.548e5,
             "diameter": 2706.0,
-            "resources": ["Nitrogen", "Water Ice"]
+            "resources": ["Nitrogen", "Water Ice"],
+            "populations": []
           }
-        ]
+        ],
+        "populations": []
       },
       {
         "id": "pluto",
@@ -248,9 +279,11 @@
             "gravity": 0.288,
             "distance": 1.959e4,
             "diameter": 1212.0,
-            "resources": ["Water Ice", "Ammonia Hydrates"]
+            "resources": ["Water Ice", "Ammonia Hydrates"],
+            "populations": []
           }
-        ]
+        ],
+        "populations": []
       }
     ],
     "asteroidBelts": [
@@ -258,13 +291,15 @@
         "id": "main",
         "name": "Main Asteroid Belt",
         "description": "Located between Mars and Jupiter.",
-        "resources": ["Iron", "Nickel", "Gold"]
+        "resources": ["Iron", "Nickel", "Gold"],
+        "populations": []
       },
       {
         "id": "kuiper",
         "name": "Kuiper Belt",
         "description": "Located beyond the orbit of Neptune.",
-        "resources": ["Ice", "Methane", "Ammonia"]
+        "resources": ["Ice", "Methane", "Ammonia"],
+        "populations": []
       }
     ]
   }
