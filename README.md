@@ -61,9 +61,72 @@ Each technical application has:
 - List of required materials to build
 - Complexity: How challenging it is to produce.
 
+#### Technologies with applications as sub points
+All applications are on a scale from 0 to 10, where 0 means unknown and 10 means most effective and most advanced.
+To produce an item of a given tech-level, you will need a production facility of the correct type of the same tech-level.
+- Electricity
+  - Electronics
+  - Solar power
+  - Hydropower
+  - Wind power
+  - Nuclear power
+  - Thermoelectric power
+  - Batteries
+
+- Nuclear fission
+  - Fission reactors
+  - Fission weapons
+
+- Nuclear fusion
+  - Fusion reactors
+  - Fusion weapons
+
+- Industrial production
+  - Farming
+  - Ore refining
+  - Manufacturing
+  - Metallurgy
+
+- Rocketry
+  - Rocket engines
+  - Launch facilities
+  - Fission engines, req: Fission reactors
+  - Fusion engines, req: Fusion reactors
+  - Orbital rockets
+  - Interplanetary rockets
+  - Spacecraft
+  - Space stations
+
+- Energy fields, req: Electricity
+  - Shields
+
+- Particle weapons
+
+- Energy weapons, req: Energy fields
+
+- Nanotechnology. Required for electronics > 4
+
+- Robotics
+
+- Artificial intelligence
+
+
+### Raw materials
+Raw materials are mined or extracted in other ways from planetary bodies, asteroids, comets, moons and planets.
+Raw materials (ore, mixed gasses, deposits like oil, coal, natural gas, etc.) can be refined into resources (metals, pure gasses, etc.). Some metals might occur in pure form, 
+typically the nobler metals, but most will be mixed with other elements.
+Each planetary body has a unique composition of raw materials. Some planets, like earth, have most of their available raw materials in veins 
+in the crust, which have much higher concentration of certain minerals than the rest of the crust. The composition of veins will be based on the planet's composition.
+Finding such veins requires prospecting and will be the main way of extracting certain minerals. 
+In the game, a populated planet will start with a number of known veins with known content, while more can be found later. 
+A planet will have a finite number of veins. 
+- Plan for 60 to 80 different raw material types.
+- Resources can also be extracted from the planetary body outside of veins and deposits, and will be expected to have the default composition of the planetary body.
+- Asteroids are a special case; they might consist of rock, mixed metals or even pure metals.
+
 ### Materials
-What things are built from affect their properties. Building a spaceship from carbon nanotubes will make a strong and light ship, but require a huge industry producing nanotubes.
-For a material to be transported to space, the transportation cost must be payed. The cost will vary with infrastructure (the relevant technical applications used at the location ) and
+What things are built from affect their properties. Building a spaceship from carbon nanotubes will make a strong and lite ship, but require a huge industry producing nanotubes.
+For a material to be transported to space, the transportation cost must be paid. The cost will vary with infrastructure (the relevant technical applications used at the location) and
 the g-force of the body the material is transported from, and is a number of credits per kg.
 - Id
 - Name

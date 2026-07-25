@@ -8,12 +8,14 @@ public class SpaceConquestEngine implements GameEngine {
     private long turn = 0;
     private java.util.List<SolarSystem> solarSystems = new java.util.ArrayList<>();
     private java.util.List<Race> races = new java.util.ArrayList<>();
+    private java.util.List<Material> materials = new java.util.ArrayList<>();
     private final PopulationProcessor populationProcessor = new PopulationProcessor();
 
     public SpaceConquestEngine() {
         try {
             solarSystems = DataModelLoader.loadSolarSystems();
             races = DataModelLoader.loadRaces();
+            materials = DataModelLoader.loadMaterials();
         } catch (java.io.IOException e) {
             logger.error("Failed to load data", e);
         }
@@ -44,7 +46,8 @@ public class SpaceConquestEngine implements GameEngine {
         // Assume 1 turn = 1 year for simplicity in this mock
         solarSystems = solarSystems.stream()
             .map(ss -> new SolarSystem(
-                ss.id(), ss.name(), ss.description(), ss.sunMass(), ss.sunDiameter(),
+                ss.id(), ss.name(), ss.description(), ss.x(), ss.y(), ss.z(),
+                ss.sunMass(), ss.sunDiameter(),
                 ss.planets().stream().map(this::updatePlanet).toList(),
                 ss.asteroidBelts().stream().map(this::updateAsteroidBelt).toList()
             ))

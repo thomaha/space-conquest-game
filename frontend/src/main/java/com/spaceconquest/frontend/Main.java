@@ -40,13 +40,17 @@ public class Main extends GameApplication {
         getGameScene().setBackgroundColor(Color.BLACK);
 
         try {
-            SolarSystem solarSystem = DataModelLoader.loadSolarSystem("sol");
-            new SolarSystemRenderer(solarSystem, registry).render();
+            java.util.List<SolarSystem> solarSystems = DataModelLoader.loadSolarSystems();
+            registry.clear();
+            for (SolarSystem solarSystem : solarSystems) {
+                new SolarSystemRenderer(solarSystem, registry).render();
+            }
 
-            // Initial focus on Sun at zoom 5
-            camera.gotoEntity(solarSystem.name(), 5);
+            // Initial focus on Sol at zoom 5, then zoom out to galaxy view at zoom 10
+            camera.gotoEntity("Sol", 10);
+            camera.updateZoom();
         } catch (IOException e) {
-            logger.error("Failed to load solar system", e);
+            logger.error("Failed to load solar systems", e);
         }
     }
 

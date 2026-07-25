@@ -104,16 +104,30 @@ public class GameHud {
     }
 
     private void addInfoPanel() {
+        Button btnClose = new Button("X");
+        btnClose.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold;");
+        btnClose.setOnAction(e -> infoPanel.setVisible(false));
+
         Text infoTitle = getUIFactoryService().newText("info", Color.WHITE, 16.0);
+        
+        HBox header = new HBox(10, infoTitle, btnClose);
+        header.setAlignment(Pos.CENTER_LEFT);
+        // Push the close button to the right
+        header.setPrefWidth(220);
+        btnClose.setTranslateX(150);
+
         infoLabel = new Label();
         infoLabel.setTextFill(Color.WHITE);
         infoLabel.setWrapText(true);
         infoLabel.setPrefWidth(220);
-        infoPanel = new VBox(5, infoTitle, infoLabel);
-        infoPanel.setPrefWidth(230);
+
+        infoPanel = new VBox(5, header, infoLabel);
+        infoPanel.setPrefSize(230, 250);
         infoPanel.setTranslateX(getAppWidth() - 250);
         infoPanel.setTranslateY(230);
         infoPanel.setVisible(false);
+        infoPanel.setStyle("-fx-background-color: rgba(50, 50, 100, 0.7); -fx-padding: 10; -fx-background-radius: 5;");
+
         addUINode(infoPanel);
     }
 

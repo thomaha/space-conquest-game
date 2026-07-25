@@ -3,6 +3,9 @@
     "id": "sol",
     "name": "Sol",
     "description": "The home system of humanity.",
+    "x": 0.0,
+    "y": 0.0,
+    "z": 0.0,
     "sunMass": 1.989e30,
     "sunDiameter": 1392700.0,
     "planets": [
@@ -15,7 +18,7 @@
         "distance": 5.79e7,
         "inclination": 7.01,
         "diameter": 4879.0,
-        "resources": ["Iron", "Silicates"],
+        "resources": ["iron_ore", "silicates", "nickel_ore", "platinum_ore"],
         "moons": [],
         "populations": []
       },
@@ -28,7 +31,7 @@
         "distance": 1.082e8,
         "inclination": 3.39,
         "diameter": 12104.0,
-        "resources": ["Sulfur", "Carbon Dioxide"],
+        "resources": ["refined_sulfur", "carbon_dioxide_ice", "nitrogen_gas", "iron_ore"],
         "moons": [],
         "populations": []
       },
@@ -41,7 +44,7 @@
         "distance": 1.496e8,
         "inclination": 0.0,
         "diameter": 12742.0,
-        "resources": ["Water", "Iron", "Nitrogen"],
+        "resources": ["water_ice", "iron_ore", "nitrogen_gas", "oxygen_gas", "silicates"],
         "moons": [
           {
             "id": "moon",
@@ -51,7 +54,7 @@
             "gravity": 1.62,
             "distance": 3.844e5,
             "diameter": 3474.0,
-            "resources": ["Helium-3", "Silicon"],
+            "resources": ["helium_3", "refined_silicon", "silicates", "titanium_ore"],
             "populations": []
           }
         ],
@@ -77,7 +80,7 @@
         "distance": 2.279e8,
         "inclination": 1.85,
         "diameter": 6779.0,
-        "resources": ["Iron Oxide", "Methane"],
+        "resources": ["iron_ore", "methane_ice", "water_ice", "silicates"],
         "moons": [
           {
             "id": "phobos",
@@ -87,7 +90,7 @@
             "gravity": 0.0057,
             "distance": 9.378e3,
             "diameter": 22.2,
-            "resources": ["Carbon", "Silicates"],
+            "resources": ["refined_carbon", "silicates", "iron_ore"],
             "populations": []
           },
           {
@@ -98,7 +101,7 @@
             "gravity": 0.003,
             "distance": 2.346e4,
             "diameter": 12.4,
-            "resources": ["Ice", "Dust"],
+            "resources": ["water_ice", "silicates"],
             "populations": []
           }
         ],
@@ -113,7 +116,7 @@
         "distance": 7.785e8,
         "inclination": 1.31,
         "diameter": 139820.0,
-        "resources": ["Hydrogen", "Helium"],
+        "resources": ["hydrogen_gas", "helium_gas", "methane_ice", "ammonia_ice"],
         "moons": [
           {
             "id": "io",
@@ -123,7 +126,7 @@
             "gravity": 1.796,
             "distance": 4.217e5,
             "diameter": 3643.0,
-            "resources": ["Sulfur", "Silicates"],
+            "resources": ["refined_sulfur", "silicates", "iron_ore", "nickel_ore"],
             "populations": []
           },
           {
@@ -134,7 +137,7 @@
             "gravity": 1.314,
             "distance": 6.709e5,
             "diameter": 3121.0,
-            "resources": ["Water Ice", "Oxygen"],
+            "resources": ["water_ice", "oxygen_gas", "silicates", "magnesium_ore"],
             "populations": []
           },
           {
@@ -145,7 +148,7 @@
             "gravity": 1.428,
             "distance": 1.070e6,
             "diameter": 5268.0,
-            "resources": ["Water Ice", "Silicates"],
+            "resources": ["water_ice", "silicates"],
             "populations": []
           },
           {
@@ -156,7 +159,7 @@
             "gravity": 1.235,
             "distance": 1.883e6,
             "diameter": 4821.0,
-            "resources": ["Water Ice", "Carbon"],
+            "resources": ["water_ice", "refined_carbon", "silicates", "iron_ore"],
             "populations": []
           }
         ],
@@ -171,7 +174,7 @@
         "distance": 1.434e9,
         "inclination": 2.49,
         "diameter": 116460.0,
-        "resources": ["Hydrogen", "Helium"],
+        "resources": ["hydrogen_gas", "helium_gas", "methane_ice", "ammonia_ice"],
         "moons": [
           {
             "id": "titan",
@@ -181,7 +184,7 @@
             "gravity": 1.352,
             "distance": 1.222e6,
             "diameter": 5150.0,
-            "resources": ["Methane", "Nitrogen"],
+            "resources": ["methane_ice", "nitrogen_gas", "water_ice", "ammonia_ice", "refined_carbon"],
             "populations": []
           },
           {
@@ -192,7 +195,7 @@
             "gravity": 0.113,
             "distance": 2.380e5,
             "diameter": 504.0,
-            "resources": ["Water Ice", "Ammonia"],
+            "resources": ["water_ice", "ammonia_ice", "silicates", "nitrogen_gas"],
             "populations": []
           }
         ],
@@ -207,7 +210,7 @@
         "distance": 2.871e9,
         "inclination": 0.77,
         "diameter": 50724.0,
-        "resources": ["Methane", "Water Ice", "Ammonia"],
+        "resources": ["methane_ice", "water_ice", "ammonia_ice"],
         "moons": [
           {
             "id": "titania",
@@ -217,7 +220,7 @@
             "gravity": 0.379,
             "distance": 4.359e5,
             "diameter": 1578.0,
-            "resources": ["Ice", "Rock"],
+            "resources": ["water_ice", "silicates"],
             "populations": []
           },
           {
@@ -228,7 +231,7 @@
             "gravity": 0.346,
             "distance": 5.835e5,
             "diameter": 1523.0,
-            "resources": ["Ice", "Rock"],
+            "resources": ["water_ice", "silicates"],
             "populations": []
           }
         ],
@@ -243,7 +246,7 @@
         "distance": 4.495e9,
         "inclination": 1.77,
         "diameter": 49244.0,
-        "resources": ["Methane", "Hydrogen", "Helium"],
+        "resources": ["methane_ice", "hydrogen_gas", "helium_gas"],
         "moons": [
           {
             "id": "triton",
@@ -253,7 +256,7 @@
             "gravity": 0.779,
             "distance": 3.548e5,
             "diameter": 2706.0,
-            "resources": ["Nitrogen", "Water Ice"],
+            "resources": ["nitrogen_gas", "water_ice"],
             "populations": []
           }
         ],
@@ -269,7 +272,7 @@
         "inclination": 17.1,
         "diameter": 2376.0,
         "type": "planetoid",
-        "resources": ["Nitrogen Ice", "Methane Ice", "Carbon Monoxide Ice"],
+        "resources": ["nitrogen_gas", "methane_ice", "carbon_monoxide_ice", "water_ice"],
         "moons": [
           {
             "id": "charon",
@@ -279,7 +282,7 @@
             "gravity": 0.288,
             "distance": 1.959e4,
             "diameter": 1212.0,
-            "resources": ["Water Ice", "Ammonia Hydrates"],
+            "resources": ["water_ice", "ammonia_ice", "silicates", "methane_ice"],
             "populations": []
           }
         ],
@@ -291,16 +294,78 @@
         "id": "main",
         "name": "Main Asteroid Belt",
         "description": "Located between Mars and Jupiter.",
-        "resources": ["Iron", "Nickel", "Gold"],
+        "resources": ["iron_ore", "refined_nickel", "gold", "platinum_ore", "silicates", "copper_ore"],
         "populations": []
       },
       {
         "id": "kuiper",
         "name": "Kuiper Belt",
         "description": "Located beyond the orbit of Neptune.",
-        "resources": ["Ice", "Methane", "Ammonia"],
+        "resources": ["water_ice", "methane_ice", "ammonia_ice"],
         "populations": []
       }
     ]
+  },
+  {
+    "id": "alpha-centauri",
+    "name": "Alpha Centauri",
+    "description": "The closest star system to Sol.",
+    "x": 0.0,
+    "y": 0.0,
+    "z": 4.37,
+    "sunMass": 2.188e30,
+    "sunDiameter": 1700000.0,
+    "planets": [
+      {
+        "id": "proxima-b",
+        "name": "Proxima Centauri b",
+        "description": "A potentially habitable planet.",
+        "mass": 7.58e24,
+        "gravity": 10.0,
+        "distance": 7.5e6,
+        "inclination": 0.0,
+        "diameter": 14000.0,
+        "resources": ["water_ice", "iron_ore", "silicates", "nickel_ore", "aluminum_ore"],
+        "moons": [],
+        "populations": []
+      }
+    ],
+    "asteroidBelts": []
+  },
+  {
+    "id": "vulcan-system",
+    "name": "40 Eridani",
+    "description": "The system containing the planet Vulcan.",
+    "x": 16.3,
+    "y": 2.5,
+    "z": -5.0,
+    "sunMass": 1.67e30,
+    "sunDiameter": 1100000.0,
+    "planets": [
+      {
+        "id": "vulcan",
+        "name": "Vulcan",
+        "description": "A hot, logical world.",
+        "mass": 1.2e25,
+        "gravity": 14.0,
+        "distance": 1.5e8,
+        "inclination": 2.0,
+        "diameter": 15000.0,
+        "resources": ["copper_ore", "refined_iridium", "silicates", "iron_ore", "gold", "tin_ore"],
+        "moons": [],
+        "populations": [
+          {
+            "raceId": "vulkan",
+            "ageGroups": {
+              "20": 2000000000,
+              "50": 3000000000,
+              "100": 2000000000,
+              "150": 1000000000
+            }
+          }
+        ]
+      }
+    ],
+    "asteroidBelts": []
   }
 ]

@@ -1,6 +1,7 @@
 package com.spaceconquest.frontend;
 
 import com.almasb.fxgl.entity.Entity;
+import com.almasb.fxgl.entity.components.TypeComponent;
 import com.spaceconquest.engine.Moon;
 import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.SolarSystem;
@@ -28,7 +29,6 @@ public class SolarSystemRenderer {
     }
 
     public void render() {
-        registry.clear();
         displaySun();
         displayPlanets();
     }
@@ -37,9 +37,30 @@ public class SolarSystemRenderer {
         // Use a scale where 1,000,000 km = 15 pixels for the Sun's radius
         double sunRadius = (solarSystem.sunDiameter() / 2.0) / 1000000.0 * 15.0;
 
+        // Position based on system coordinates in light-years.
+        // Scale: 1 light-year = 2000 pixels for separation between systems.
+        double lyScale = 2000.0;
+        double offsetX = solarSystem.x() * lyScale;
+        double offsetY = solarSystem.y() * lyScale;
+        double offsetZ = solarSystem.z() * lyScale;
+
+        // Apply a simple orthographic-ish projection for the 3D coordinates.
+        // Y and Z contribute to the vertical position on screen.
+        double x = (getAppWidth() / 2.0) + offsetX;
+        double y = (getAppHeight() / 2.0) + (offsetY * 0.1) - (offsetZ * 0.2);
+
         Entity sun = entityBuilder()
-                .at(getAppWidth() / 2.0 - sunRadius, getAppHeight() / 2.0 - sunRadius)
+                .at(x - sunRadius, y - sunRadius)
                 .viewWithBBox(new Circle(sunRadius, sunRadius, sunRadius, Color.YELLOW))
+                .with(new TypeComponent("STAR"))
+                .buildAndAttach();
+
+        // Label for zoom levels 7+
+        entityBuilder()
+                .at(x, y + sunRadius + 5)
+                .view(getUIFactoryService().newText(solarSystem.name(), Color.WHITE, 12.0))
+                .with(new TypeComponent("SYSTEM_LABEL"))
+                .scaleOrigin(new javafx.geometry.Point2D(0, 0))
                 .buildAndAttach();
 
         String info = String.format(
@@ -59,6 +80,11 @@ public class SolarSystemRenderer {
         double minDistance = sunRadius + 20.0; // Minimum pixels from Sun to ensure visibility
         double squashingFactor = 0.05; // 5% height for "thin pancake" look
 
+        // Center position for this system
+        double lyScale = 2000.0;
+        double centerX = (getAppWidth() / 2.0) + (solarSystem.x() * lyScale);
+        double centerY = (getAppHeight() / 2.0) + (solarSystem.y() * lyScale * 0.1) - (solarSystem.z() * lyScale * 0.2);
+
         // Sort planets by distance for consistent rendering.
         planets.sort(Comparator.comparingDouble(Planet::distance));
 
@@ -71,10 +97,10 @@ public class SolarSystemRenderer {
             double logMax = Math.log(maxDistance);
             double radius = minDistance + ((logDist - logMin) / (logMax - logMin)) * (availableWidth - minDistance);
 
-            double x = (getAppWidth() / 2.0) + radius * Math.cos(angle);
+            double x = centerX + radius * Math.cos(angle);
             // Height above/below plane based on inclination.
             double verticalDeviation = radius * Math.sin(Math.toRadians(planet.inclination()));
-            double y = (getAppHeight() / 2.0) + (radius * Math.sin(angle) * squashingFactor) - verticalDeviation;
+            double y = centerY + (radius * Math.sin(angle) * squashingFactor) - verticalDeviation;
 
             // Planet diameter scaling: 10,000 km = 1 pixel radius, minimum radius 2.
             double planetRadius = Math.max(2.0, (planet.diameter() / 2.0) / 10000.0);

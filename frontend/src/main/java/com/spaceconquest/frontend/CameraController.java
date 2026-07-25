@@ -1,6 +1,7 @@
 package com.spaceconquest.frontend;
 
 import com.almasb.fxgl.entity.Entity;
+import com.almasb.fxgl.entity.components.TypeComponent;
 import javafx.geometry.Point2D;
 
 import java.util.function.Consumer;
@@ -104,6 +105,15 @@ public class CameraController {
         getGameScene().getViewport().setZoom(scale);
         set("zoomLevel", zoomLevel);
 
+        // Update system labels: counter-scaled to maintain constant screen size.
+        getGameWorld().getEntitiesByComponent(TypeComponent.class).stream()
+                .filter(e -> "SYSTEM_LABEL".equals(e.getComponent(TypeComponent.class).getValue()))
+                .forEach(e -> {
+                    e.setVisible(true);
+                    e.setScaleX(1.0 / scale);
+                    e.setScaleY(1.0 / scale);
+                });
+
         if (focusedEntity != null) {
             focusPoint = focusedEntity.getCenter();
         }
@@ -124,11 +134,11 @@ public class CameraController {
             case 3 -> 10.0;
             case 4 -> 5.0;
             case 5 -> 2.5;
-            case 6 -> 1.5;
-            case 7 -> 1.0;
-            case 8 -> 0.7;
-            case 9 -> 0.5;
-            case 10 -> 0.3;
+            case 6 -> 1.2;
+            case 7 -> 0.6;
+            case 8 -> 0.2;
+            case 9 -> 0.08;
+            case 10 -> 0.03;
             default -> 1.0;
         };
     }

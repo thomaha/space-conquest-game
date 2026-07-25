@@ -6,8 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class DataModelLoaderTest {
 
@@ -76,5 +75,62 @@ public class DataModelLoaderTest {
         assertEquals(1.5, vulkan.intelligence());
         assertEquals(1.2, vulkan.physicalStrength());
         assertEquals(200, vulkan.retirementAge());
+    }
+
+    @Test
+    public void testLoadMaterials() throws IOException {
+        List<Material> materials = DataModelLoader.loadMaterials();
+        assertNotNull(materials);
+        assertFalse(materials.isEmpty());
+
+        Material ironOre = materials.stream().filter(m -> m.id().equals("iron_ore")).findFirst().orElseThrow();
+        assertTrue(ironOre.foundInNature());
+        assertEquals(70.0, ironOre.composition().get("Fe"));
+
+        Material refinedIron = materials.stream().filter(m -> m.id().equals("refined_iron")).findFirst().orElseThrow();
+        assertFalse(refinedIron.foundInNature());
+
+        Material gold = materials.stream().filter(m -> m.id().equals("gold")).findFirst().orElseThrow();
+        assertTrue(gold.foundInNature());
+
+        Material helium3 = materials.stream().filter(m -> m.id().equals("helium_3")).findFirst().orElseThrow();
+        assertTrue(helium3.foundInNature());
+
+        Material steel = materials.stream().filter(m -> m.id().equals("steel")).findFirst().orElseThrow();
+        assertFalse(steel.foundInNature());
+        assertEquals(98.0, steel.composition().get("Fe"));
+
+        Material refinedSilicon = materials.stream().filter(m -> m.id().equals("refined_silicon")).findFirst().orElseThrow();
+        assertTrue(refinedSilicon.foundInNature());
+
+        Material refinedNickel = materials.stream().filter(m -> m.id().equals("refined_nickel")).findFirst().orElseThrow();
+        assertTrue(refinedNickel.foundInNature());
+
+        Material refinedCarbon = materials.stream().filter(m -> m.id().equals("refined_carbon")).findFirst().orElseThrow();
+        assertTrue(refinedCarbon.foundInNature());
+
+        Material refinedSulfur = materials.stream().filter(m -> m.id().equals("refined_sulfur")).findFirst().orElseThrow();
+        assertTrue(refinedSulfur.foundInNature());
+
+        Material lithiumOre = materials.stream().filter(m -> m.id().equals("lithium_ore")).findFirst().orElseThrow();
+        assertTrue(lithiumOre.foundInNature());
+
+        Material graphene = materials.stream().filter(m -> m.id().equals("graphene")).findFirst().orElseThrow();
+        assertFalse(graphene.foundInNature());
+        assertEquals(100.0, graphene.composition().get("C"));
+
+        Material hydrogenGas = materials.stream().filter(m -> m.id().equals("hydrogen_gas")).findFirst().orElseThrow();
+        assertTrue(hydrogenGas.foundInNature());
+
+        Material fusionFuel = materials.stream().filter(m -> m.id().equals("fusion_fuel_pellets")).findFirst().orElseThrow();
+        assertFalse(fusionFuel.foundInNature());
+        assertEquals(50.0, fusionFuel.composition().get("He3"));
+
+        Material manganese = materials.stream().filter(m -> m.id().equals("refined_manganese")).findFirst().orElseThrow();
+        assertEquals(100.0, manganese.composition().get("Mn"));
+        assertFalse(manganese.foundInNature());
+
+        Material deuterium = materials.stream().filter(m -> m.id().equals("deuterium_gas")).findFirst().orElseThrow();
+        assertEquals(100.0, deuterium.composition().get("H2"));
     }
 }
