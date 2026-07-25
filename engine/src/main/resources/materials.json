@@ -1,0 +1,920 @@
+[
+  {
+    "id": "iron_ore",
+    "name": "Iron Ore",
+    "description": "Common ore containing iron oxides.",
+    "foundInNature": true,
+    "composition": {
+      "Fe": 70,
+      "O": 30
+    },
+    "weightPerUnit": 5.0,
+    "strength": 0.0,
+    "complexity": 1
+  },
+  {
+    "id": "refined_iron",
+    "name": "Refined Iron",
+    "description": "Pure iron refined from ore.",
+    "foundInNature": false,
+    "composition": {
+      "Fe": 100
+    },
+    "weightPerUnit": 7.8,
+    "strength": 50.0,
+    "complexity": 2
+  },
+  {
+    "id": "carbon_nanotubes",
+    "name": "Carbon Nanotubes",
+    "description": "High-strength material made of carbon atoms.",
+    "foundInNature": false,
+    "composition": {
+      "C": 100
+    },
+    "weightPerUnit": 1.5,
+    "strength": 500.0,
+    "complexity": 8
+  },
+  {
+    "id": "silicates",
+    "name": "Silicates",
+    "description": "Rock-forming minerals found in the crust.",
+    "foundInNature": true,
+    "composition": {
+      "Si": 50,
+      "O": 50
+    },
+    "weightPerUnit": 2.6,
+    "strength": 10.0,
+    "complexity": 1
+  },
+  {
+    "id": "water_ice",
+    "name": "Water Ice",
+    "description": "Frozen water found on many planetary bodies.",
+    "foundInNature": true,
+    "composition": {
+      "H": 11,
+      "O": 89
+    },
+    "weightPerUnit": 1.0,
+    "strength": 5.0,
+    "complexity": 1
+  },
+  {
+    "id": "helium_3",
+    "name": "Helium-3",
+    "description": "Rare isotope of helium, useful for fusion.",
+    "foundInNature": true,
+    "composition": {
+      "He3": 100
+    },
+    "weightPerUnit": 0.001,
+    "strength": 0.0,
+    "complexity": 5
+  },
+  {
+    "id": "aluminum_ore",
+    "name": "Aluminum Ore (Bauxite)",
+    "description": "Ore containing aluminum hydroxides.",
+    "foundInNature": true,
+    "composition": {
+      "Al": 50,
+      "O": 40,
+      "H": 10
+    },
+    "weightPerUnit": 2.5,
+    "strength": 0.0,
+    "complexity": 2
+  },
+  {
+    "id": "refined_aluminum",
+    "name": "Refined Aluminum",
+    "description": "Lightweight metal refined from bauxite.",
+    "foundInNature": false,
+    "composition": {
+      "Al": 100
+    },
+    "weightPerUnit": 2.7,
+    "strength": 30.0,
+    "complexity": 3
+  },
+  {
+    "id": "copper_ore",
+    "name": "Copper Ore",
+    "description": "Ore containing various copper minerals.",
+    "foundInNature": true,
+    "composition": {
+      "Cu": 60,
+      "S": 40
+    },
+    "weightPerUnit": 4.5,
+    "strength": 0.0,
+    "complexity": 1
+  },
+  {
+    "id": "refined_copper",
+    "name": "Refined Copper",
+    "description": "Pure copper metal.",
+    "foundInNature": false,
+    "composition": {
+      "Cu": 100
+    },
+    "weightPerUnit": 8.9,
+    "strength": 20.0,
+    "complexity": 2
+  },
+  {
+    "id": "gold",
+    "name": "Gold",
+    "description": "Noble metal, often found in pure form.",
+    "foundInNature": true,
+    "composition": {
+      "Au": 100
+    },
+    "weightPerUnit": 19.3,
+    "strength": 10.0,
+    "complexity": 1
+  },
+  {
+    "id": "titanium_ore",
+    "name": "Titanium Ore (Ilmenite)",
+    "description": "Ore containing titanium and iron.",
+    "foundInNature": true,
+    "composition": {
+      "Ti": 30,
+      "Fe": 35,
+      "O": 35
+    },
+    "weightPerUnit": 4.7,
+    "strength": 0.0,
+    "complexity": 3
+  },
+  {
+    "id": "refined_titanium",
+    "name": "Refined Titanium",
+    "description": "Strong, lightweight metal.",
+    "foundInNature": false,
+    "composition": {
+      "Ti": 100
+    },
+    "weightPerUnit": 4.5,
+    "strength": 100.0,
+    "complexity": 5
+  },
+  {
+    "id": "refined_silicon",
+    "name": "Refined Silicon",
+    "description": "High-purity silicon used in electronics and semiconductors.",
+    "foundInNature": true,
+    "composition": {
+      "Si": 100
+    },
+    "weightPerUnit": 2.3,
+    "strength": 20.0,
+    "complexity": 4
+  },
+  {
+    "id": "silver_ore",
+    "name": "Silver Ore",
+    "description": "Ore containing silver minerals.",
+    "foundInNature": true,
+    "composition": {
+      "Ag": 40,
+      "S": 30,
+      "O": 30
+    },
+    "weightPerUnit": 5.5,
+    "strength": 0.0,
+    "complexity": 2
+  },
+  {
+    "id": "refined_silver",
+    "name": "Refined Silver",
+    "description": "High-conductivity metal, essential for high-end electronics.",
+    "foundInNature": false,
+    "composition": {
+      "Ag": 100
+    },
+    "weightPerUnit": 10.5,
+    "strength": 15.0,
+    "complexity": 3
+  },
+  {
+    "id": "lithium_ore",
+    "name": "Lithium Ore (Spodumene)",
+    "description": "Mineral containing lithium, used for batteries.",
+    "foundInNature": true,
+    "composition": {
+      "Li": 10,
+      "Al": 20,
+      "Si": 30,
+      "O": 40
+    },
+    "weightPerUnit": 2.6,
+    "strength": 0.0,
+    "complexity": 3
+  },
+  {
+    "id": "refined_lithium",
+    "name": "Refined Lithium",
+    "description": "Highly reactive metal used in advanced batteries and life support.",
+    "foundInNature": false,
+    "composition": {
+      "Li": 100
+    },
+    "weightPerUnit": 0.5,
+    "strength": 5.0,
+    "complexity": 5
+  },
+  {
+    "id": "lead_ore",
+    "name": "Lead Ore (Galena)",
+    "description": "Common ore for lead extraction.",
+    "foundInNature": true,
+    "composition": {
+      "Pb": 85,
+      "S": 15
+    },
+    "weightPerUnit": 7.5,
+    "strength": 0.0,
+    "complexity": 1
+  },
+  {
+    "id": "refined_lead",
+    "name": "Refined Lead",
+    "description": "Dense metal used for radiation shielding.",
+    "foundInNature": false,
+    "composition": {
+      "Pb": 100
+    },
+    "weightPerUnit": 11.3,
+    "strength": 10.0,
+    "complexity": 2
+  },
+  {
+    "id": "uranium_ore",
+    "name": "Uranium Ore (Pitchblende)",
+    "description": "Radioactive ore containing uranium oxides.",
+    "foundInNature": true,
+    "composition": {
+      "U": 60,
+      "O": 40
+    },
+    "weightPerUnit": 9.0,
+    "strength": 0.0,
+    "complexity": 4
+  },
+  {
+    "id": "refined_uranium",
+    "name": "Refined Uranium",
+    "description": "Heavy radioactive metal for fission reactors.",
+    "foundInNature": false,
+    "composition": {
+      "U": 100
+    },
+    "weightPerUnit": 19.1,
+    "strength": 30.0,
+    "complexity": 6
+  },
+  {
+    "id": "thorium_ore",
+    "name": "Thorium Ore (Monazite)",
+    "description": "Phosphate mineral containing thorium and rare earths.",
+    "foundInNature": true,
+    "composition": {
+      "Th": 15,
+      "Ce": 25,
+      "P": 20,
+      "O": 40
+    },
+    "weightPerUnit": 5.2,
+    "strength": 0.0,
+    "complexity": 4
+  },
+  {
+    "id": "refined_thorium",
+    "name": "Refined Thorium",
+    "description": "Radioactive metal used as a safer nuclear fuel alternative.",
+    "foundInNature": false,
+    "composition": {
+      "Th": 100
+    },
+    "weightPerUnit": 11.7,
+    "strength": 25.0,
+    "complexity": 6
+  },
+  {
+    "id": "steel",
+    "name": "Steel",
+    "description": "Alloy of iron and carbon, fundamental for construction.",
+    "foundInNature": false,
+    "composition": {
+      "Fe": 98,
+      "C": 2
+    },
+    "weightPerUnit": 7.85,
+    "strength": 150.0,
+    "complexity": 4
+  },
+  {
+    "id": "hydrogen_gas",
+    "name": "Hydrogen Gas",
+    "description": "The most abundant element, used as fuel and in chemical processes.",
+    "foundInNature": true,
+    "composition": {
+      "H": 100
+    },
+    "weightPerUnit": 0.09,
+    "strength": 0.0,
+    "complexity": 1
+  },
+  {
+    "id": "helium_gas",
+    "name": "Helium Gas",
+    "description": "Inert gas used in cooling and as a lifting gas.",
+    "foundInNature": true,
+    "composition": {
+      "He": 100
+    },
+    "weightPerUnit": 0.18,
+    "strength": 0.0,
+    "complexity": 1
+  },
+  {
+    "id": "oxygen_gas",
+    "name": "Oxygen Gas",
+    "description": "Essential for life support and as an oxidizer.",
+    "foundInNature": true,
+    "composition": {
+      "O": 100
+    },
+    "weightPerUnit": 1.43,
+    "strength": 0.0,
+    "complexity": 1
+  },
+  {
+    "id": "nitrogen_gas",
+    "name": "Nitrogen Gas",
+    "description": "Major component of atmospheres, used in industrial processes.",
+    "foundInNature": true,
+    "composition": {
+      "N": 100
+    },
+    "weightPerUnit": 1.25,
+    "strength": 0.0,
+    "complexity": 1
+  },
+  {
+    "id": "methane_ice",
+    "name": "Methane Ice",
+    "description": "Frozen methane found on outer solar system bodies.",
+    "foundInNature": true,
+    "composition": {
+      "C": 75,
+      "H": 25
+    },
+    "weightPerUnit": 0.42,
+    "strength": 2.0,
+    "complexity": 1
+  },
+  {
+    "id": "ammonia_ice",
+    "name": "Ammonia Ice",
+    "description": "Common volatile found in gas giant moons.",
+    "foundInNature": true,
+    "composition": {
+      "N": 82,
+      "H": 18
+    },
+    "weightPerUnit": 0.81,
+    "strength": 3.0,
+    "complexity": 1
+  },
+  {
+    "id": "platinum_ore",
+    "name": "Platinum Ore",
+    "description": "Rare ore containing platinum group metals.",
+    "foundInNature": true,
+    "composition": {
+      "Pt": 50,
+      "Fe": 30,
+      "S": 20
+    },
+    "weightPerUnit": 15.0,
+    "strength": 0.0,
+    "complexity": 5
+  },
+  {
+    "id": "refined_platinum",
+    "name": "Refined Platinum",
+    "description": "Corrosion-resistant precious metal used in catalysis and electronics.",
+    "foundInNature": false,
+    "composition": {
+      "Pt": 100
+    },
+    "weightPerUnit": 21.45,
+    "strength": 40.0,
+    "complexity": 6
+  },
+  {
+    "id": "palladium",
+    "name": "Palladium",
+    "description": "Rare metal used in hydrogen storage and electronics.",
+    "foundInNature": true,
+    "composition": {
+      "Pd": 100
+    },
+    "weightPerUnit": 12.0,
+    "strength": 35.0,
+    "complexity": 6
+  },
+  {
+    "id": "neodymium_ore",
+    "name": "Neodymium Ore",
+    "description": "Rare earth ore used for powerful magnets.",
+    "foundInNature": true,
+    "composition": {
+      "Nd": 20,
+      "Ce": 30,
+      "La": 20,
+      "O": 30
+    },
+    "weightPerUnit": 6.8,
+    "strength": 0.0,
+    "complexity": 5
+  },
+  {
+    "id": "refined_neodymium",
+    "name": "Refined Neodymium",
+    "description": "Key component for high-strength permanent magnets.",
+    "foundInNature": false,
+    "composition": {
+      "Nd": 100
+    },
+    "weightPerUnit": 7.0,
+    "strength": 20.0,
+    "complexity": 7
+  },
+  {
+    "id": "yttrium_ore",
+    "name": "Yttrium Ore",
+    "description": "Rare earth element used in superconductors.",
+    "foundInNature": true,
+    "composition": {
+      "Y": 25,
+      "O": 25,
+      "Si": 50
+    },
+    "weightPerUnit": 4.5,
+    "strength": 0.0,
+    "complexity": 5
+  },
+  {
+    "id": "refined_yttrium",
+    "name": "Refined Yttrium",
+    "description": "Used in lasers, superconductors, and LEDs.",
+    "foundInNature": false,
+    "composition": {
+      "Y": 100
+    },
+    "weightPerUnit": 4.47,
+    "strength": 25.0,
+    "complexity": 7
+  },
+  {
+    "id": "magnesium_ore",
+    "name": "Magnesium Ore (Magnesite)",
+    "description": "Common carbonate mineral containing magnesium.",
+    "foundInNature": true,
+    "composition": {
+      "Mg": 28,
+      "C": 14,
+      "O": 58
+    },
+    "weightPerUnit": 3.0,
+    "strength": 5.0,
+    "complexity": 2
+  },
+  {
+    "id": "refined_magnesium",
+    "name": "Refined Magnesium",
+    "description": "Lightweight structural metal.",
+    "foundInNature": false,
+    "composition": {
+      "Mg": 100
+    },
+    "weightPerUnit": 1.74,
+    "strength": 30.0,
+    "complexity": 3
+  },
+  {
+    "id": "tungsten_ore",
+    "name": "Tungsten Ore (Wolframite)",
+    "description": "Dense ore used for high-temperature applications.",
+    "foundInNature": true,
+    "composition": {
+      "W": 60,
+      "Fe": 10,
+      "Mn": 10,
+      "O": 20
+    },
+    "weightPerUnit": 7.5,
+    "strength": 0.0,
+    "complexity": 4
+  },
+  {
+    "id": "refined_tungsten",
+    "name": "Refined Tungsten",
+    "description": "Extremely dense metal with the highest melting point.",
+    "foundInNature": false,
+    "composition": {
+      "W": 100
+    },
+    "weightPerUnit": 19.25,
+    "strength": 200.0,
+    "complexity": 6
+  },
+  {
+    "id": "nickel_ore",
+    "name": "Nickel Ore",
+    "description": "Often found in meteorites and planetary cores.",
+    "foundInNature": true,
+    "composition": {
+      "Ni": 40,
+      "Fe": 40,
+      "S": 20
+    },
+    "weightPerUnit": 8.0,
+    "strength": 0.0,
+    "complexity": 2
+  },
+  {
+    "id": "refined_nickel",
+    "name": "Refined Nickel",
+    "description": "Used in superalloys and stainless steel.",
+    "foundInNature": true,
+    "composition": {
+      "Ni": 100
+    },
+    "weightPerUnit": 8.9,
+    "strength": 60.0,
+    "complexity": 3
+  },
+  {
+    "id": "cobalt_ore",
+    "name": "Cobalt Ore",
+    "description": "Ore used for high-strength alloys.",
+    "foundInNature": true,
+    "composition": {
+      "Co": 30,
+      "As": 40,
+      "S": 30
+    },
+    "weightPerUnit": 6.4,
+    "strength": 0.0,
+    "complexity": 3
+  },
+  {
+    "id": "refined_cobalt",
+    "name": "Refined Cobalt",
+    "description": "Magnetic metal used in batteries and jet engines.",
+    "foundInNature": false,
+    "composition": {
+      "Co": 100
+    },
+    "weightPerUnit": 8.9,
+    "strength": 70.0,
+    "complexity": 4
+  },
+  {
+    "id": "tin_ore",
+    "name": "Tin Ore (Cassiterite)",
+    "description": "Primary source of tin.",
+    "foundInNature": true,
+    "composition": {
+      "Sn": 78,
+      "O": 22
+    },
+    "weightPerUnit": 6.9,
+    "strength": 0.0,
+    "complexity": 1
+  },
+  {
+    "id": "refined_tin",
+    "name": "Refined Tin",
+    "description": "Used in soldering and corrosion-resistant coatings.",
+    "foundInNature": false,
+    "composition": {
+      "Sn": 100
+    },
+    "weightPerUnit": 7.3,
+    "strength": 10.0,
+    "complexity": 2
+  },
+  {
+    "id": "zinc_ore",
+    "name": "Zinc Ore (Sphalerite)",
+    "description": "Primary source of zinc.",
+    "foundInNature": true,
+    "composition": {
+      "Zn": 67,
+      "S": 33
+    },
+    "weightPerUnit": 4.0,
+    "strength": 0.0,
+    "complexity": 1
+  },
+  {
+    "id": "refined_zinc",
+    "name": "Refined Zinc",
+    "description": "Used for galvanizing and in alloys like brass.",
+    "foundInNature": false,
+    "composition": {
+      "Zn": 100
+    },
+    "weightPerUnit": 7.14,
+    "strength": 20.0,
+    "complexity": 2
+  },
+  {
+    "id": "beryllium_ore",
+    "name": "Beryllium Ore (Beryl)",
+    "description": "Rare ore used for lightweight aerospace components.",
+    "foundInNature": true,
+    "composition": {
+      "Be": 5,
+      "Al": 10,
+      "Si": 31,
+      "O": 54
+    },
+    "weightPerUnit": 2.7,
+    "strength": 5.0,
+    "complexity": 4
+  },
+  {
+    "id": "refined_beryllium",
+    "name": "Refined Beryllium",
+    "description": "Extremely stiff and lightweight metal for aerospace.",
+    "foundInNature": false,
+    "composition": {
+      "Be": 100
+    },
+    "weightPerUnit": 1.85,
+    "strength": 240.0,
+    "complexity": 7
+  },
+  {
+    "id": "graphene",
+    "name": "Graphene",
+    "description": "Single layer of carbon atoms with extraordinary properties.",
+    "foundInNature": false,
+    "composition": {
+      "C": 100
+    },
+    "weightPerUnit": 0.1,
+    "strength": 1000.0,
+    "complexity": 9
+  },
+  {
+    "id": "titanium_aluminide",
+    "name": "Titanium Aluminide",
+    "description": "Advanced intermetallic alloy for high-temperature use.",
+    "foundInNature": false,
+    "composition": {
+      "Ti": 65,
+      "Al": 35
+    },
+    "weightPerUnit": 3.9,
+    "strength": 400.0,
+    "complexity": 8
+  },
+  {
+    "id": "inconel_alloy",
+    "name": "Inconel Superalloy",
+    "description": "Nickel-chromium based superalloy for extreme environments.",
+    "foundInNature": false,
+    "composition": {
+      "Ni": 60,
+      "Cr": 20,
+      "Fe": 15,
+      "Mo": 5
+    },
+    "weightPerUnit": 8.4,
+    "strength": 600.0,
+    "complexity": 8
+  },
+  {
+    "id": "silicon_carbide",
+    "name": "Silicon Carbide",
+    "description": "Hard ceramic material used in armor and high-temp electronics.",
+    "foundInNature": false,
+    "composition": {
+      "Si": 70,
+      "C": 30
+    },
+    "weightPerUnit": 3.2,
+    "strength": 800.0,
+    "complexity": 7
+  },
+  {
+    "id": "aerogel",
+    "name": "Silica Aerogel",
+    "description": "Ultralight insulating material.",
+    "foundInNature": false,
+    "composition": {
+      "Si": 46,
+      "O": 54
+    },
+    "weightPerUnit": 0.02,
+    "strength": 1.0,
+    "complexity": 8
+  },
+  {
+    "id": "fusion_fuel_pellets",
+    "name": "Fusion Fuel Pellets",
+    "description": "Encapsulated Helium-3 and Deuterium for fusion reactors.",
+    "foundInNature": false,
+    "composition": {
+      "He3": 50,
+      "H2": 50
+    },
+    "weightPerUnit": 0.1,
+    "strength": 0.0,
+    "complexity": 9
+  },
+  {
+    "id": "bio_polymers",
+    "name": "Advanced Bio-Polymers",
+    "description": "Synthetic polymers derived from biological precursors.",
+    "foundInNature": false,
+    "composition": {
+      "C": 60,
+      "H": 20,
+      "O": 15,
+      "N": 5
+    },
+    "weightPerUnit": 1.1,
+    "strength": 100.0,
+    "complexity": 7
+  },
+  {
+    "id": "refined_manganese",
+    "name": "Refined Manganese",
+    "description": "Essential for steel production and alloys.",
+    "foundInNature": false,
+    "composition": {
+      "Mn": 100
+    },
+    "weightPerUnit": 7.21,
+    "strength": 40.0,
+    "complexity": 4
+  },
+  {
+    "id": "refined_carbon",
+    "name": "Refined Carbon (Graphite)",
+    "description": "Pure carbon used in steelmaking and as a lubricant.",
+    "foundInNature": true,
+    "composition": {
+      "C": 100
+    },
+    "weightPerUnit": 2.26,
+    "strength": 10.0,
+    "complexity": 2
+  },
+  {
+    "id": "refined_sulfur",
+    "name": "Refined Sulfur",
+    "description": "Non-metal element used in chemicals and sulfuric acid production.",
+    "foundInNature": true,
+    "composition": {
+      "S": 100
+    },
+    "weightPerUnit": 2.07,
+    "strength": 0.0,
+    "complexity": 2
+  },
+  {
+    "id": "refined_chromium",
+    "name": "Refined Chromium",
+    "description": "Hard metal used for stainless steel and corrosion resistance.",
+    "foundInNature": false,
+    "composition": {
+      "Cr": 100
+    },
+    "weightPerUnit": 7.19,
+    "strength": 90.0,
+    "complexity": 5
+  },
+  {
+    "id": "refined_molybdenum",
+    "name": "Refined Molybdenum",
+    "description": "Metal with very high melting point, used in superalloys.",
+    "foundInNature": false,
+    "composition": {
+      "Mo": 100
+    },
+    "weightPerUnit": 10.28,
+    "strength": 120.0,
+    "complexity": 6
+  },
+  {
+    "id": "refined_cerium",
+    "name": "Refined Cerium",
+    "description": "Rare earth metal used in polishing and alloys.",
+    "foundInNature": false,
+    "composition": {
+      "Ce": 100
+    },
+    "weightPerUnit": 6.77,
+    "strength": 20.0,
+    "complexity": 6
+  },
+  {
+    "id": "refined_lanthanum",
+    "name": "Refined Lanthanum",
+    "description": "Rare earth metal used in battery electrodes and specialized glass.",
+    "foundInNature": false,
+    "composition": {
+      "La": 100
+    },
+    "weightPerUnit": 6.16,
+    "strength": 15.0,
+    "complexity": 6
+  },
+  {
+    "id": "refined_phosphorus",
+    "name": "Refined Phosphorus",
+    "description": "Non-metal used in fertilizers and matches.",
+    "foundInNature": false,
+    "composition": {
+      "P": 100
+    },
+    "weightPerUnit": 1.82,
+    "strength": 0.0,
+    "complexity": 3
+  },
+  {
+    "id": "refined_arsenic",
+    "name": "Refined Arsenic",
+    "description": "Metalloid used in semiconductor dopants and alloys.",
+    "foundInNature": false,
+    "composition": {
+      "As": 100
+    },
+    "weightPerUnit": 5.73,
+    "strength": 5.0,
+    "complexity": 4
+  },
+  {
+    "id": "deuterium_gas",
+    "name": "Deuterium Gas",
+    "description": "Heavy isotope of hydrogen, essential for fusion energy.",
+    "foundInNature": false,
+    "composition": {
+      "H2": 100
+    },
+    "weightPerUnit": 0.18,
+    "strength": 0.0,
+    "complexity": 5
+  },
+  {
+    "id": "carbon_dioxide_ice",
+    "name": "Carbon Dioxide Ice",
+    "description": "Frozen carbon dioxide, also known as dry ice.",
+    "foundInNature": true,
+    "composition": {
+      "C": 27,
+      "O": 73
+    },
+    "weightPerUnit": 1.5,
+    "strength": 2.0,
+    "complexity": 1
+  },
+  {
+    "id": "carbon_monoxide_ice",
+    "name": "Carbon Monoxide Ice",
+    "description": "Frozen carbon monoxide, found in extreme cold environments.",
+    "foundInNature": true,
+    "composition": {
+      "C": 43,
+      "O": 57
+    },
+    "weightPerUnit": 1.1,
+    "strength": 1.0,
+    "complexity": 1
+  },
+  {
+    "id": "refined_iridium",
+    "name": "Refined Iridium",
+    "description": "Extremely dense and corrosion-resistant metal.",
+    "foundInNature": true,
+    "composition": {
+      "Ir": 100
+    },
+    "weightPerUnit": 22.56,
+    "strength": 150.0,
+    "complexity": 6
+  }
+]
