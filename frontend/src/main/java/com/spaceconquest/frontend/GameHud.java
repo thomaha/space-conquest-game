@@ -37,13 +37,31 @@ public class GameHud {
         return menubar;
     }
 
-    public void build() {
-        menubar.build();
+    public void build(Main main) {
+        menubar.build(main);
         addZoomControls();
         addSearchControls();
         addInfoPanel();
+        addMenuOverlays();
         camera.setInfoUpdater(this::updateInfoPanel);
         camera.updateZoom();
+    }
+
+    private void addMenuOverlays() {
+        VBox techRoot = menubar.getTechView().getRoot();
+        techRoot.setTranslateX(getAppWidth() / 2.0 - 400);
+        techRoot.setTranslateY(getAppHeight() / 2.0 - 300);
+        addUINode(techRoot);
+
+        VBox gameMenuRoot = menubar.getGameMenuView().getRoot();
+        gameMenuRoot.setTranslateX(getAppWidth() / 2.0 - 200);
+        gameMenuRoot.setTranslateY(getAppHeight() / 2.0 - 250);
+        addUINode(gameMenuRoot);
+
+        VBox galaxyListRoot = menubar.getGalaxyListView().getRoot();
+        galaxyListRoot.setTranslateX(getAppWidth() / 2.0 - 500);
+        galaxyListRoot.setTranslateY(getAppHeight() / 2.0 - 400);
+        addUINode(galaxyListRoot);
     }
 
     private void addZoomControls() {

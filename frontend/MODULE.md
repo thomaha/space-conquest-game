@@ -12,7 +12,7 @@ Displays the galaxy map, allowing players to explore and manage their space empi
 - Has a goto in the top right corner where the user can type name and navigate to the corresponding entity, setting it as focus with zoom level 1.
   - On select should focus on the selected entity.
   - Goto should be slightly below the menubar.
-  - Stars, planets, planetoids and moons are all searchable, and each search result shows an indicator of the body type.
+  - Stars, planets, planetoids, and moons are all searchable, and each search result shows an indicator of the body type.
   - The select option should show what kind of entity it is.
 - Zoom in and out buttons. Using these should alter the zoom level and retain the current focus. 
   - Mousewheel zooming should be supported.
@@ -28,6 +28,7 @@ Displays the galaxy map, allowing players to explore and manage their space empi
     - A slightly colored background with contrast to the text. 
     - The panel should also have some level of transparency, so parts of the galaxy can be seen in the background.
   - The center of the entity should be used as the focus point for the display.
+- The color of a star is decided by the mass of the star. We have a property file based on the Hertzsprung-Russel diagram that specifies the relationship. 
 
 ### Menubar
 Displays buttons with information about the different sectors of the game. Opening the corresponding page for a button should pause the game. Closing that page should resume the game, at the game speed it was before the page opened.
@@ -35,4 +36,12 @@ Displays buttons with information about the different sectors of the game. Openi
 - Diplomacy button. On button it displays diplomatic status. At war or at peace. On click of button opens the diplomacy page which will provide detailed information on all diplomatic relations between the empire and other empires. Will also show detailed information about the other empires.
 - Technology button. On button displays information about the progress of the currently researched technology. On click of the button opens the technology page which will show the entire technology tree, as far as the empire is aware of it. It will also provide detailed information on all technologies researched by the empire.
 - Spaceships and star bases button. On the button displays information about the current spaceship and starbase count. On click opens the spaceship and starbase page which will provide detailed information on all spaceships and starbases in the empire.
+- Galaxy view. Opens a display listing all (later will only list the entities known to the player) space entities in the galaxy grouped by star, then planet.
+  - The listing should have a visual representation of each space entity, along with name, type and known resources.  
+  - The visual representation for star should be based on the star size. For planet and moon it should be based on type and atmosphere.
 - Current time view. Displays the current time in the game and game speed. Include controls to adjust the game speed.
+- Game menu button. At extreme right position. Opening it gives options for Save, Load, Game settings and Exit.
+
+### Randomized galaxy
+create a function to generate a new random galaxy with a given number of solar systems. Solar systems have random planets, can have random moons, and will have randomized resources. Some planets might be inhabitated. Add a temporary button in the right part of the menu bar that triggers the generation of new galaxy and asks for the number of solar systems to generate. The galaxy data should be in memory only until game is saved, but follow the same structure as the json files we have made before.  
+make a property file based on the Hertzsprung–Russell diagram to specify the relation between star mass and star color. Use these properties to decide what colors stars are presented with on the galaxy map and in other places. Also use the diagram to specify a distribution of star masses to use when generating random galaxies.

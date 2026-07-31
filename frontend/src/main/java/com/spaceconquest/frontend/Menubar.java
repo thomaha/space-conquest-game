@@ -6,6 +6,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -31,16 +32,34 @@ public class Menubar {
     private Label detailText;
     private final Timeline clock = new Timeline();
     private TechnologyView techView;
+    private GameMenuView gameMenuView;
+    private GalaxyListView galaxyListView;
 
     private LocalDateTime gameTime = LocalDateTime.of(2200, 1, 1, 8, 0);
     private int speedIndex = 1;
     private int savedSpeedIndex = 1;
     private boolean paused;
     private boolean manuallyPaused;
+    private Main mainApp;
 
-    public void build() {
+    public TechnologyView getTechView() {
+        return techView;
+    }
+
+    public GameMenuView getGameMenuView() {
+        return gameMenuView;
+    }
+
+    public GalaxyListView getGalaxyListView() {
+        return galaxyListView;
+    }
+
+    public void build(Main mainApp) {
+        this.mainApp = mainApp;
         root = new VBox(8);
         techView = new TechnologyView(this);
+        gameMenuView = new GameMenuView(this);
+        galaxyListView = new GalaxyListView(this, mainApp);
         clockLabel = new Label();
         speedLabel = new Label();
         detailPanel = new VBox(8);
@@ -62,7 +81,8 @@ public class Menubar {
                         "Current status: At peace\n\nDiplomatic relations\nNo other empires have been encountered."),
                 techButton(),
                 navigationButton("Ships & Bases\n0 ships | 0 bases", "Spaceships and star bases",
-                        "Fleet overview\nSpaceships: 0\nStar bases: 0\n\nNo ships or star bases are currently registered in the empire."));
+                        "Fleet overview\nSpaceships: 0\nStar bases: 0\n\nNo ships or star bases are currently registered in the empire."),
+                galaxyButton());
 
         VBox timeView = new VBox(2, clockLabel, speedLabel);
         timeView.setAlignment(Pos.CENTER_RIGHT);
@@ -78,7 +98,32 @@ public class Menubar {
         faster.setTooltip(new javafx.scene.control.Tooltip("Increase game speed"));
         faster.setOnAction(e -> changeSpeed(1));
 
-        HBox timeControls = new HBox(4, timeView, slower, pause, faster);
+        Button gameMenu = new Button("Game Menu");
+        gameMenu.setStyle(buttonStyle());
+        gameMenu.setPrefHeight(52);
+        gameMenu.setOnAction(e -> gameMenuView.show());
+
+        Button genGalaxy = new Button("New Galaxy");
+        genGalaxy.setStyle(buttonStyle());
+        genGalaxy.setPrefHeight(52);
+        genGalaxy.setOnAction(e -> {
+            openPage();
+            TextInputDialog dialog = new TextInputDialog("10");
+            dialog.setTitle("Generate New Galaxy");
+            dialog.setHeaderText("Enter number of solar systems to generate:");
+            dialog.setContentText("Solar Systems:");
+            dialog.showAndWait().ifPresent(input -> {
+                try {
+                    int num = Integer.parseInt(input);
+                    mainApp.createNewGalaxy(num);
+                } catch (NumberFormatException ex) {
+                    // Ignore or show error
+                }
+            });
+            closePage();
+        });
+
+        HBox timeControls = new HBox(4, timeView, slower, pause, faster, genGalaxy, gameMenu);
         timeControls.setAlignment(Pos.CENTER_RIGHT);
         navigation.getChildren().add(timeControls);
         root.getChildren().add(navigation);
@@ -108,12 +153,7 @@ public class Menubar {
         root.setTranslateY(10);
         addUINode(root);
         addUINode(detailPanel);
-        
-        VBox techRoot = techView.getRoot();
-        techRoot.setTranslateX((getAppWidth() - 800) / 2.0);
-        techRoot.setTranslateY((getAppHeight() - 600) / 2.0);
-        addUINode(techRoot);
-        
+
         updateClockLabels();
         restartClock();
     }
@@ -127,8 +167,26 @@ public class Menubar {
         button.setStyle(buttonStyle());
         button.setOnAction(e -> {
             detailPanel.setVisible(false);
+            if (galaxyListView != null) galaxyListView.hide();
+            if (gameMenuView != null) gameMenuView.hide();
             openPage();
             techView.show();
+        });
+        return button;
+    }
+
+    private Button galaxyButton() {
+        Button button = new Button("Galaxy\nView");
+        button.setPrefWidth(205);
+        button.setPrefHeight(52);
+        button.setWrapText(true);
+        button.setAlignment(Pos.CENTER);
+        button.setStyle(buttonStyle());
+        button.setOnAction(e -> {
+            detailPanel.setVisible(false);
+            if (techView != null) techView.getRoot().setVisible(false);
+            if (gameMenuView != null) gameMenuView.hide();
+            galaxyListView.show(mainApp.getSolarSystems());
         });
         return button;
     }

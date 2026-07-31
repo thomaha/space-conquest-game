@@ -49,9 +49,18 @@ public class SolarSystemRenderer {
         double x = (getAppWidth() / 2.0) + offsetX;
         double y = (getAppHeight() / 2.0) + (offsetY * 0.1) - (offsetZ * 0.2);
 
+        Color starColor = Color.YELLOW;
+        if (solarSystem.sunColor() != null) {
+            try {
+                starColor = Color.web(solarSystem.sunColor());
+            } catch (IllegalArgumentException e) {
+                // Keep default
+            }
+        }
+
         Entity sun = entityBuilder()
                 .at(x - sunRadius, y - sunRadius)
-                .viewWithBBox(new Circle(sunRadius, sunRadius, sunRadius, Color.YELLOW))
+                .viewWithBBox(new Circle(sunRadius, sunRadius, sunRadius, starColor))
                 .with(new TypeComponent("STAR"))
                 .buildAndAttach();
 

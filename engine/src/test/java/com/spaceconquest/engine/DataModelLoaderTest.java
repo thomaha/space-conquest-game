@@ -152,4 +152,16 @@ public class DataModelLoaderTest {
         TechnicalApplication fissionEngine = rocketry.applications().stream().filter(a -> a.id().equals("fission_engines")).findFirst().orElseThrow();
         assertTrue(fissionEngine.requiredTechnologies().contains("fission_reactors"));
     }
+
+    @Test
+    public void testLoadStarProperties() throws IOException {
+        List<StarProperty> properties = DataModelLoader.loadStarProperties();
+        assertNotNull(properties);
+        assertEquals(7, properties.size());
+        
+        StarProperty sunType = properties.stream().filter(p -> p.spectralType().equals("G")).findFirst().orElseThrow();
+        assertEquals("#fff4ea", sunType.color());
+        assertEquals(0.8, sunType.minMassSolar());
+        assertEquals(1.04, sunType.maxMassSolar());
+    }
 }

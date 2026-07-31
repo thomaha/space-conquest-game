@@ -4,14 +4,17 @@ import com.almasb.fxgl.app.GameApplication;
 import com.almasb.fxgl.app.GameSettings;
 import com.almasb.fxgl.entity.Entity;
 import com.spaceconquest.engine.DataModelLoader;
+import com.spaceconquest.engine.GalaxyGenerator;
 import com.spaceconquest.engine.SolarSystem;
 import javafx.geometry.Point2D;
 import javafx.scene.input.MouseButton;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.paint.Color;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import static com.almasb.fxgl.dsl.FXGL.*;
@@ -26,6 +29,12 @@ public class Main extends GameApplication {
     private final GalaxyRegistry registry = new GalaxyRegistry();
     private final CameraController camera = new CameraController(registry);
     private GameHud hud;
+    private GalaxyGenerator generator;
+    private List<SolarSystem> currentSolarSystems;
+
+    public List<SolarSystem> getSolarSystems() {
+        return currentSolarSystems;
+    }
 
     @Override
     protected void initSettings(GameSettings settings) {
@@ -40,9 +49,10 @@ public class Main extends GameApplication {
         getGameScene().setBackgroundColor(Color.BLACK);
 
         try {
-            java.util.List<SolarSystem> solarSystems = DataModelLoader.loadSolarSystems();
+            generator = new GalaxyGenerator();
+            currentSolarSystems = DataModelLoader.loadSolarSystems();
             registry.clear();
-            for (SolarSystem solarSystem : solarSystems) {
+            for (SolarSystem solarSystem : currentSolarSystems) {
                 new SolarSystemRenderer(solarSystem, registry).render();
             }
 
@@ -50,8 +60,23 @@ public class Main extends GameApplication {
             camera.gotoEntity("Sol", 5);
             camera.updateZoom();
         } catch (IOException e) {
-            logger.error("Failed to load solar systems", e);
+            logger.error("Failed to load initial galaxy data", e);
         }
+    }
+
+    public void createNewGalaxy(int numSystems) {
+        registry.clear();
+        getGameWorld().getEntitiesCopy().forEach(Entity::removeFromWorld);
+
+        currentSolarSystems = generator.generate(numSystems);
+        for (SolarSystem ss : currentSolarSystems) {
+            new SolarSystemRenderer(ss, registry).render();
+        }
+
+        if (!currentSolarSystems.isEmpty()) {
+            camera.gotoEntity(currentSolarSystems.get(0).name(), 5);
+        }
+        camera.updateZoom();
     }
 
     @Override
@@ -85,7 +110,7 @@ public class Main extends GameApplication {
     @Override
     protected void initUI() {
         hud = new GameHud(camera, registry);
-        hud.build();
+        hud.build(this);
     }
 
     @Override

@@ -47,7 +47,7 @@ public class SpaceConquestEngine implements GameEngine {
         solarSystems = solarSystems.stream()
             .map(ss -> new SolarSystem(
                 ss.id(), ss.name(), ss.description(), ss.x(), ss.y(), ss.z(),
-                ss.sunMass(), ss.sunDiameter(),
+                ss.sunMass(), ss.sunDiameter(), ss.sunColor(),
                 ss.planets().stream().map(this::updatePlanet).toList(),
                 ss.asteroidBelts().stream().map(this::updateAsteroidBelt).toList()
             ))

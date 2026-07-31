@@ -11,6 +11,7 @@ public record SolarSystem(
     double z,
     double sunMass,
     double sunDiameter,
+    String sunColor,
     List<Planet> planets,
     List<AsteroidBelt> asteroidBelts
 ) {}
