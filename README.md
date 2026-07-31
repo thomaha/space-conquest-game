@@ -219,3 +219,16 @@ Food can be traded between empires that have sufficient diplomatic relations, bu
 
 ## How to Read
 Each module contains a `MODULE.md` file with specific details about its purpose and components to help AI agents navigate the codebase.
+
+## How to Build and Run
+- Build everything and run the tests: `mvn clean install`
+- Run only the engine tests: `mvn test -pl engine`
+- Start the game: `mvn javafx:run -pl frontend` (or run `com.spaceconquest.frontend.Main`)
+
+## Implemented so far
+- Static data model loaded from JSON property files: solar systems, races, materials, technologies with
+  applications, star properties (Hertzsprung-Russell) and professions.
+- Procedural galaxy generation with realistic star mass distribution and colors.
+- Galaxy map with zoom (buttons and mouse wheel), goto search, entity focus panels and tooltips.
+- Menubar with empire, diplomacy, technology, fleet, galaxy view and game menu pages; opening a page pauses
+  the game and closing it resumes at the previous speed.

@@ -164,4 +164,26 @@ public class DataModelLoaderTest {
         assertEquals(0.8, sunType.minMassSolar());
         assertEquals(1.04, sunType.maxMassSolar());
     }
+
+    @Test
+    public void testLoadProfessions() throws IOException {
+        List<Profession> professions = DataModelLoader.loadProfessions();
+        assertNotNull(professions);
+        assertFalse(professions.isEmpty());
+
+        Profession scientist = professions.stream().filter(p -> p.id().equals("scientist")).findFirst().orElseThrow();
+        assertEquals("Scientist", scientist.name());
+        assertEquals("scientist", scientist.type());
+        assertEquals(8, scientist.minimumIntelligence());
+        assertEquals(9, scientist.complexity());
+        assertEquals(72, scientist.retirementAge());
+
+        assertTrue(professions.stream().anyMatch(p -> p.id().equals("miner")));
+        assertEquals(professions.size(), professions.stream().map(Profession::id).distinct().count());
+    }
+
+    @Test
+    public void testDataIsCached() throws IOException {
+        assertSame(DataModelLoader.loadMaterials(), DataModelLoader.loadMaterials());
+    }
 }

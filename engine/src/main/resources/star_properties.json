@@ -1,0 +1,51 @@
+[
+  {
+    "spectralType": "O",
+    "color": "#9bb0ff",
+    "minMassSolar": 16.0,
+    "maxMassSolar": 100.0,
+    "probability": 0.0000003
+  },
+  {
+    "spectralType": "B",
+    "color": "#aabfff",
+    "minMassSolar": 2.1,
+    "maxMassSolar": 16.0,
+    "probability": 0.0013
+  },
+  {
+    "spectralType": "A",
+    "color": "#cad7ff",
+    "minMassSolar": 1.4,
+    "maxMassSolar": 2.1,
+    "probability": 0.006
+  },
+  {
+    "spectralType": "F",
+    "color": "#f8f7ff",
+    "minMassSolar": 1.04,
+    "maxMassSolar": 1.4,
+    "probability": 0.03
+  },
+  {
+    "spectralType": "G",
+    "color": "#fff4ea",
+    "minMassSolar": 0.8,
+    "maxMassSolar": 1.04,
+    "probability": 0.076
+  },
+  {
+    "spectralType": "K",
+    "color": "#ffd2a1",
+    "minMassSolar": 0.45,
+    "maxMassSolar": 0.8,
+    "probability": 0.121
+  },
+  {
+    "spectralType": "M",
+    "color": "#ffcc6f",
+    "minMassSolar": 0.08,
+    "maxMassSolar": 0.45,
+    "probability": 0.7646997
+  }
+]

@@ -4,6 +4,14 @@ This module serves as the entry point and user interface for the Space Conquest 
 
 ## Key Components
 - `Main`: The main class that extends FXGL's `GameApplication` to initialize the game and UI.
+- `GameHud`: Builds and positions all UI overlays (menubar, zoom controls, goto, page overlays).
+- `Menubar`: Top bar with the sector buttons, the time view and the game pause/resume handling for pages.
+- `CameraController`: Zoom, focus and goto navigation on the galaxy map.
+- `SolarSystemRenderer` / `GalaxyRegistry`: Renders solar systems and keeps track of rendered entities.
+- `TechnologyView`, `GalaxyListView`, `GameMenuView`: The page overlays opened from the menubar.
+
+> Note: all JavaFX nodes must be created inside `build()`/`initUI()` and never in static or field
+> initializers, otherwise FXGL fails at startup with `Toolkit not initialized`.
 
 ## Display
 ### Galaxy view

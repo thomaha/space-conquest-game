@@ -54,6 +54,27 @@ public class Menubar {
         return galaxyListView;
     }
 
+    /** The current speed setting index, used when saving the game. */
+    public int getSpeedIndex() {
+        return speedIndex;
+    }
+
+    /** The current in-game date and time. */
+    public LocalDateTime getGameTime() {
+        return gameTime;
+    }
+
+    /** Restores the game clock from a loaded save. */
+    public void restoreTime(LocalDateTime time, int speed) {
+        if (time != null) {
+            gameTime = time;
+        }
+        speedIndex = Math.max(0, Math.min(SPEED_NAMES.length - 1, speed));
+        savedSpeedIndex = speedIndex;
+        updateClockLabels();
+        restartClock();
+    }
+
     public void build(Main mainApp) {
         this.mainApp = mainApp;
         root = new VBox(8);

@@ -1,0 +1,122 @@
+[
+  {
+    "id": "farmer",
+    "name": "Farmer",
+    "description": "Produces food on planets and in food production modules.",
+    "type": "farmer",
+    "minimumIntelligence": 2,
+    "minimumStrength": 4,
+    "complexity": 2,
+    "retirementAge": 65
+  },
+  {
+    "id": "miner",
+    "name": "Miner",
+    "description": "Extracts raw materials from veins, deposits and asteroids.",
+    "type": "miner",
+    "minimumIntelligence": 2,
+    "minimumStrength": 6,
+    "complexity": 3,
+    "retirementAge": 60
+  },
+  {
+    "id": "industrial_worker",
+    "name": "Industrial worker",
+    "description": "Operates refineries and manufacturing facilities.",
+    "type": "industrial_worker",
+    "minimumIntelligence": 3,
+    "minimumStrength": 5,
+    "complexity": 4,
+    "retirementAge": 65
+  },
+  {
+    "id": "technician",
+    "name": "Technician",
+    "description": "Maintains technical installations, modules and power plants.",
+    "type": "technician",
+    "minimumIntelligence": 5,
+    "minimumStrength": 4,
+    "complexity": 5,
+    "retirementAge": 67
+  },
+  {
+    "id": "engineer",
+    "name": "Engineer",
+    "description": "Designs and builds installations, ships and modules.",
+    "type": "engineer",
+    "minimumIntelligence": 7,
+    "minimumStrength": 2,
+    "complexity": 7,
+    "retirementAge": 70
+  },
+  {
+    "id": "scientist",
+    "name": "Scientist",
+    "description": "Researches technologies and technical applications.",
+    "type": "scientist",
+    "minimumIntelligence": 8,
+    "minimumStrength": 1,
+    "complexity": 9,
+    "retirementAge": 72
+  },
+  {
+    "id": "soldier",
+    "name": "Soldier",
+    "description": "Conducts ground combat and defends colonies.",
+    "type": "soldier",
+    "minimumIntelligence": 3,
+    "minimumStrength": 7,
+    "complexity": 4,
+    "retirementAge": 50
+  },
+  {
+    "id": "ship_crew",
+    "name": "Ship crew",
+    "description": "Crews spaceships and space stations.",
+    "type": "ship_crew",
+    "minimumIntelligence": 5,
+    "minimumStrength": 5,
+    "complexity": 6,
+    "retirementAge": 60
+  },
+  {
+    "id": "police",
+    "name": "Police",
+    "description": "Maintains order and stability in the population.",
+    "type": "police",
+    "minimumIntelligence": 4,
+    "minimumStrength": 6,
+    "complexity": 4,
+    "retirementAge": 58
+  },
+  {
+    "id": "bureaucrat",
+    "name": "Bureaucrat",
+    "description": "Administers colonies, trade and empire logistics.",
+    "type": "bureaucrat",
+    "minimumIntelligence": 6,
+    "minimumStrength": 1,
+    "complexity": 5,
+    "retirementAge": 70
+  },
+  {
+    "id": "medic",
+    "name": "Medic",
+    "description": "Keeps the population healthy, improving growth and happiness.",
+    "type": "medic",
+    "minimumIntelligence": 7,
+    "minimumStrength": 3,
+    "complexity": 7,
+    "retirementAge": 68
+  },
+  {
+    "id": "teacher",
+    "name": "Teacher",
+    "description": "Trains the population, increasing training speed for other professions.",
+    "type": "teacher",
+    "minimumIntelligence": 6,
+    "minimumStrength": 1,
+    "complexity": 5,
+    "retirementAge": 70
+  }
+]
