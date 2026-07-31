@@ -38,6 +38,15 @@ public class DataModelLoader {
         }
     }
 
+    public static List<Technology> loadTechnologies() throws IOException {
+        try (InputStream is = DataModelLoader.class.getClassLoader().getResourceAsStream("technologies.json")) {
+            if (is == null) {
+                throw new IOException("Resource not found: technologies.json");
+            }
+            return objectMapper.readValue(is, new TypeReference<>() {});
+        }
+    }
+
     public static SolarSystem loadSolarSystem(String id) throws IOException {
         return loadSolarSystems().stream()
             .filter(ss -> ss.id().equals(id))

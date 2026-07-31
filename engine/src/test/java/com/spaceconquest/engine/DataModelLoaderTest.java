@@ -133,4 +133,23 @@ public class DataModelLoaderTest {
         Material deuterium = materials.stream().filter(m -> m.id().equals("deuterium_gas")).findFirst().orElseThrow();
         assertEquals(100.0, deuterium.composition().get("H2"));
     }
+
+    @Test
+    public void testLoadTechnologies() throws IOException {
+        List<Technology> technologies = DataModelLoader.loadTechnologies();
+        assertNotNull(technologies);
+        assertFalse(technologies.isEmpty());
+
+        Technology electricity = technologies.stream().filter(t -> t.id().equals("electricity")).findFirst().orElseThrow();
+        assertEquals("Electricity", electricity.name());
+        assertFalse(electricity.applications().isEmpty());
+
+        TechnicalApplication solar = electricity.applications().stream().filter(a -> a.id().equals("solar_power")).findFirst().orElseThrow();
+        assertEquals("Solar power", solar.name());
+        assertTrue(solar.affectedFactors().contains("power_production"));
+
+        Technology rocketry = technologies.stream().filter(t -> t.id().equals("rocketry")).findFirst().orElseThrow();
+        TechnicalApplication fissionEngine = rocketry.applications().stream().filter(a -> a.id().equals("fission_engines")).findFirst().orElseThrow();
+        assertTrue(fissionEngine.requiredTechnologies().contains("fission_reactors"));
+    }
 }

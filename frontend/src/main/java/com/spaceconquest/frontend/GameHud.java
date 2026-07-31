@@ -22,6 +22,7 @@ import static com.almasb.fxgl.dsl.FXGL.*;
 public class GameHud {
     private final CameraController camera;
     private final GalaxyRegistry registry;
+    private final Menubar menubar;
 
     private Label infoLabel;
     private VBox infoPanel;
@@ -29,9 +30,15 @@ public class GameHud {
     public GameHud(CameraController camera, GalaxyRegistry registry) {
         this.camera = camera;
         this.registry = registry;
+        this.menubar = new Menubar();
+    }
+
+    public Menubar getMenubar() {
+        return menubar;
     }
 
     public void build() {
+        menubar.build();
         addZoomControls();
         addSearchControls();
         addInfoPanel();
@@ -53,7 +60,7 @@ public class GameHud {
         HBox zoomControls = new HBox(10, zoomLabel, zoomValue, btnPlus, btnMinus);
         zoomControls.setAlignment(Pos.CENTER);
         zoomControls.setTranslateX(50);
-        zoomControls.setTranslateY(50);
+        zoomControls.setTranslateY(110);
         addUINode(zoomControls);
     }
 
@@ -99,7 +106,7 @@ public class GameHud {
 
         VBox searchControls = new VBox(0, searchField, suggestions);
         searchControls.setTranslateX(getAppWidth() - 250);
-        searchControls.setTranslateY(50);
+        searchControls.setTranslateY(110);
         addUINode(searchControls);
     }
 

@@ -25,12 +25,12 @@ public class Main extends GameApplication {
 
     private final GalaxyRegistry registry = new GalaxyRegistry();
     private final CameraController camera = new CameraController(registry);
-    private final GameHud hud = new GameHud(camera, registry);
+    private GameHud hud;
 
     @Override
     protected void initSettings(GameSettings settings) {
-        settings.setWidth(1200);
-        settings.setHeight(800);
+        settings.setWidth(1920);
+        settings.setHeight(1080);
         settings.setTitle("Space conquest game");
         settings.setVersion("0.1");
     }
@@ -46,8 +46,8 @@ public class Main extends GameApplication {
                 new SolarSystemRenderer(solarSystem, registry).render();
             }
 
-            // Initial focus on Sol at zoom 5, then zoom out to galaxy view at zoom 10
-            camera.gotoEntity("Sol", 10);
+            // Start centered on Sol at the requested close-up zoom level.
+            camera.gotoEntity("Sol", 5);
             camera.updateZoom();
         } catch (IOException e) {
             logger.error("Failed to load solar systems", e);
@@ -72,10 +72,19 @@ public class Main extends GameApplication {
             }
             camera.focusOnPoint(world);
         });
+
+        getGameScene().getContentRoot().setOnScroll(e -> {
+            if (e.getDeltaY() > 0) {
+                camera.zoomIn();
+            } else if (e.getDeltaY() < 0) {
+                camera.zoomOut();
+            }
+        });
     }
 
     @Override
     protected void initUI() {
+        hud = new GameHud(camera, registry);
         hud.build();
     }
 

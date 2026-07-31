@@ -1,0 +1,109 @@
+[
+  {
+    "id": "electricity",
+    "name": "Electricity",
+    "description": "Basic electrical power generation and distribution.",
+    "requiredTechnologies": [],
+    "applications": [
+      { "id": "electronics", "name": "Electronics", "description": "Electronic components and circuits.", "requiredTechnologies": [], "affectedFactors": [], "costToBuildPerUnit": 10.0, "requiredMaterials": [], "complexity": 2 },
+      { "id": "solar_power", "name": "Solar power", "description": "Harvesting energy from sunlight.", "requiredTechnologies": [], "affectedFactors": ["power_production"], "costToBuildPerUnit": 50.0, "requiredMaterials": [], "complexity": 3 },
+      { "id": "hydropower", "name": "Hydropower", "description": "Harvesting energy from flowing water.", "requiredTechnologies": [], "affectedFactors": ["power_production"], "costToBuildPerUnit": 100.0, "requiredMaterials": [], "complexity": 4 },
+      { "id": "wind_power", "name": "Wind power", "description": "Harvesting energy from wind.", "requiredTechnologies": [], "affectedFactors": ["power_production"], "costToBuildPerUnit": 40.0, "requiredMaterials": [], "complexity": 3 },
+      { "id": "nuclear_power_app", "name": "Nuclear power", "description": "Power generation from nuclear reactions.", "requiredTechnologies": [], "affectedFactors": ["power_production"], "costToBuildPerUnit": 500.0, "requiredMaterials": [], "complexity": 6 },
+      { "id": "thermoelectric_power", "name": "Thermoelectric power", "description": "Direct conversion of temperature differences to electric voltage.", "requiredTechnologies": [], "affectedFactors": ["power_production"], "costToBuildPerUnit": 80.0, "requiredMaterials": [], "complexity": 4 },
+      { "id": "batteries", "name": "Batteries", "description": "Storage of electrical energy.", "requiredTechnologies": [], "affectedFactors": ["energy_storage"], "costToBuildPerUnit": 20.0, "requiredMaterials": [], "complexity": 2 }
+    ]
+  },
+  {
+    "id": "nuclear_fission",
+    "name": "Nuclear fission",
+    "description": "Process of splitting heavy nuclei.",
+    "requiredTechnologies": [],
+    "applications": [
+      { "id": "fission_reactors", "name": "Fission reactors", "description": "Devices to initiate and control a sustained nuclear chain reaction.", "requiredTechnologies": [], "affectedFactors": ["power_production"], "costToBuildPerUnit": 1000.0, "requiredMaterials": [], "complexity": 7 },
+      { "id": "fission_weapons", "name": "Fission weapons", "description": "Explosive devices that derive their destructive force from nuclear reactions.", "requiredTechnologies": [], "affectedFactors": ["combat_strength"], "costToBuildPerUnit": 2000.0, "requiredMaterials": [], "complexity": 8 }
+    ]
+  },
+  {
+    "id": "nuclear_fusion",
+    "name": "Nuclear fusion",
+    "description": "Process of fusing light nuclei.",
+    "requiredTechnologies": [],
+    "applications": [
+      { "id": "fusion_reactors", "name": "Fusion reactors", "description": "Devices to initiate and control a sustained nuclear fusion reaction.", "requiredTechnologies": [], "affectedFactors": ["power_production"], "costToBuildPerUnit": 5000.0, "requiredMaterials": [], "complexity": 9 },
+      { "id": "fusion_weapons", "name": "Fusion weapons", "description": "Advanced nuclear weapons using fusion.", "requiredTechnologies": [], "affectedFactors": ["combat_strength"], "costToBuildPerUnit": 10000.0, "requiredMaterials": [], "complexity": 10 }
+    ]
+  },
+  {
+    "id": "industrial_production",
+    "name": "Industrial production",
+    "description": "Methods for mass production of goods.",
+    "requiredTechnologies": [],
+    "applications": [
+      { "id": "farming", "name": "Farming", "description": "Production of food and other products through agriculture.", "requiredTechnologies": [], "affectedFactors": ["food_production"], "costToBuildPerUnit": 5.0, "requiredMaterials": [], "complexity": 1 },
+      { "id": "ore_refining", "name": "Ore refining", "description": "Process of extracting metals from their ores.", "requiredTechnologies": [], "affectedFactors": ["production_increase"], "costToBuildPerUnit": 100.0, "requiredMaterials": [], "complexity": 3 },
+      { "id": "manufacturing", "name": "Manufacturing", "description": "Production of merchandise for use or sale using labour and machines.", "requiredTechnologies": [], "affectedFactors": ["production_increase"], "costToBuildPerUnit": 150.0, "requiredMaterials": [], "complexity": 4 },
+      { "id": "metallurgy", "name": "Metallurgy", "description": "Science and technology of metals.", "requiredTechnologies": [], "affectedFactors": ["production_increase"], "costToBuildPerUnit": 80.0, "requiredMaterials": [], "complexity": 3 }
+    ]
+  },
+  {
+    "id": "rocketry",
+    "name": "Rocketry",
+    "description": "Science of rocket design and flight.",
+    "requiredTechnologies": [],
+    "applications": [
+      { "id": "rocket_engines", "name": "Rocket engines", "description": "Engines that produce thrust by ejecting mass.", "requiredTechnologies": [], "affectedFactors": [], "costToBuildPerUnit": 200.0, "requiredMaterials": [], "complexity": 5 },
+      { "id": "launch_facilities", "name": "Launch facilities", "description": "Infrastructure for launching rockets.", "requiredTechnologies": [], "affectedFactors": [], "costToBuildPerUnit": 1000.0, "requiredMaterials": [], "complexity": 4 },
+      { "id": "fission_engines", "name": "Fission engines", "description": "Rocket engines using nuclear fission.", "requiredTechnologies": ["fission_reactors"], "affectedFactors": [], "costToBuildPerUnit": 3000.0, "requiredMaterials": [], "complexity": 8 },
+      { "id": "fusion_engines", "name": "Fusion engines", "description": "Rocket engines using nuclear fusion.", "requiredTechnologies": ["fusion_reactors"], "affectedFactors": [], "costToBuildPerUnit": 8000.0, "requiredMaterials": [], "complexity": 10 },
+      { "id": "orbital_rockets", "name": "Orbital rockets", "description": "Rockets capable of reaching orbit.", "requiredTechnologies": [], "affectedFactors": [], "costToBuildPerUnit": 500.0, "requiredMaterials": [], "complexity": 6 },
+      { "id": "interplanetary_rockets", "name": "Interplanetary rockets", "description": "Rockets capable of interplanetary travel.", "requiredTechnologies": [], "affectedFactors": [], "costToBuildPerUnit": 2000.0, "requiredMaterials": [], "complexity": 7 },
+      { "id": "spacecraft", "name": "Spacecraft", "description": "Vehicles designed for spaceflight.", "requiredTechnologies": [], "affectedFactors": [], "costToBuildPerUnit": 1500.0, "requiredMaterials": [], "complexity": 7 },
+      { "id": "space_stations", "name": "Space stations", "description": "Large spacecraft designed for long-term habitation.", "requiredTechnologies": [], "affectedFactors": [], "costToBuildPerUnit": 5000.0, "requiredMaterials": [], "complexity": 8 }
+    ]
+  },
+  {
+    "id": "energy_fields",
+    "name": "Energy fields",
+    "description": "Manipulation of energy to create fields.",
+    "requiredTechnologies": ["electricity"],
+    "applications": [
+      { "id": "shields", "name": "Shields", "description": "Protective energy barriers.", "requiredTechnologies": [], "affectedFactors": ["combat_strength"], "costToBuildPerUnit": 1000.0, "requiredMaterials": [], "complexity": 8 }
+    ]
+  },
+  {
+    "id": "particle_weapons",
+    "name": "Particle weapons",
+    "description": "Weapons that use a high-energy beam of atomic or subatomic particles.",
+    "requiredTechnologies": [],
+    "applications": []
+  },
+  {
+    "id": "energy_weapons",
+    "name": "Energy weapons",
+    "description": "Weapons that emit energy in an aimed direction without the means of a projectile.",
+    "requiredTechnologies": ["energy_fields"],
+    "applications": []
+  },
+  {
+    "id": "nanotechnology",
+    "name": "Nanotechnology",
+    "description": "Manipulation of matter on an atomic, molecular, and supramolecular scale.",
+    "requiredTechnologies": [],
+    "applications": []
+  },
+  {
+    "id": "robotics",
+    "name": "Robotics",
+    "description": "Interdisciplinary branch of engineering and science that includes mechanical engineering, electrical engineering, computer science, and others.",
+    "requiredTechnologies": [],
+    "applications": []
+  },
+  {
+    "id": "artificial_intelligence",
+    "name": "Artificial intelligence",
+    "description": "Intelligence demonstrated by machines, in contrast to the natural intelligence displayed by humans and animals.",
+    "requiredTechnologies": [],
+    "applications": []
+  }
+]

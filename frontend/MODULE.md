@@ -8,11 +8,15 @@ This module serves as the entry point and user interface for the Space Conquest 
 ## Display
 ### Galaxy view
 Displays the galaxy map, allowing players to explore and manage their space empire.
+- Has a menubar with options to change game speed and technology view.
 - Has a goto in the top right corner where the user can type name and navigate to the corresponding entity, setting it as focus with zoom level 1.
   - On select should focus on the selected entity.
+  - Goto should be slightly below the menubar.
   - Stars, planets, planetoids and moons are all searchable, and each search result shows an indicator of the body type.
   - The select option should show what kind of entity it is.
-- Zoom in and out buttons. Using these should alter the zoom level and retain the current focus.
+- Zoom in and out buttons. Using these should alter the zoom level and retain the current focus. 
+  - Mousewheel zooming should be supported.
+  - Should be slightly below the menubar.
 - Shown entities should use their respective sizes and distances.
 - Entity names are shown as a tooltip when the mouse pointer hovers over it.
 - For solar systems, a small label with the system name is displayed. These labels remain at a constant screen size as seen by the user regardless of the zoom level. This means the actual size must be recalculated when altering zoom level.
@@ -24,3 +28,11 @@ Displays the galaxy map, allowing players to explore and manage their space empi
     - A slightly colored background with contrast to the text. 
     - The panel should also have some level of transparency, so parts of the galaxy can be seen in the background.
   - The center of the entity should be used as the focus point for the display.
+
+### Menubar
+Displays buttons with information about the different sectors of the game. Opening the corresponding page for a button should pause the game. Closing that page should resume the game, at the game speed it was before the page opened.
+- Empire button. On the button is displayed total colonies and wealth. On click opens the empire page which will provide detailed information on all planets in the empire and the economy of the empire.
+- Diplomacy button. On button it displays diplomatic status. At war or at peace. On click of button opens the diplomacy page which will provide detailed information on all diplomatic relations between the empire and other empires. Will also show detailed information about the other empires.
+- Technology button. On button displays information about the progress of the currently researched technology. On click of the button opens the technology page which will show the entire technology tree, as far as the empire is aware of it. It will also provide detailed information on all technologies researched by the empire.
+- Spaceships and star bases button. On the button displays information about the current spaceship and starbase count. On click opens the spaceship and starbase page which will provide detailed information on all spaceships and starbases in the empire.
+- Current time view. Displays the current time in the game and game speed. Include controls to adjust the game speed.
