@@ -34,6 +34,8 @@ The gravity, or g-force, will influence how much it costs to move materials from
 Planets may have one or more moons. A moon is a separate entity from the planet and will have its own population, resources and industries. 
 Moons are usually smaller than planets and have less resources than planets. Having a smaller mass means lower g-force, 
 so moving resources into space from a moon will require less force than from a planet.
+Both planets and moons may have an atmosphere, which can affect the air pressure and temperature important for if a race can live on the planet or not.
+Planets and moons with enough mass and moderate temperature can have liquid water on their surface, which is important for life to exist.
 
 #### Asteroids
 Asteroids are small celestial bodies that orbit the sun. They are made up of a variety of materials and can be mined for resources. 

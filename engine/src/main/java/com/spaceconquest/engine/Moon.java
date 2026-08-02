@@ -10,6 +10,9 @@ public record Moon(
     double gravity,
     double distance,
     double diameter,
+    String atmosphere,
+    boolean hasLiquidWater,
+    double waterLevel,
     List<String> resources,
     List<Population> populations
 ) {}

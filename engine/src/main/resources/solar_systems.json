@@ -19,7 +19,10 @@
         "distance": 5.79e7,
         "inclination": 7.01,
         "diameter": 4879.0,
-        "type": "terrestrial",
+        "type": "barren",
+        "atmosphere": "none",
+        "hasLiquidWater": false,
+        "waterLevel": 0.0,
         "resources": ["iron_ore", "silicates", "nickel_ore", "platinum_ore"],
         "moons": [],
         "populations": []
@@ -33,7 +36,10 @@
         "distance": 1.082e8,
         "inclination": 3.39,
         "diameter": 12104.0,
-        "type": "terrestrial",
+        "type": "toxic",
+        "atmosphere": "dense_co2",
+        "hasLiquidWater": false,
+        "waterLevel": 0.0,
         "resources": ["refined_sulfur", "carbon_dioxide_ice", "nitrogen_gas", "iron_ore"],
         "moons": [],
         "populations": []
@@ -48,6 +54,9 @@
         "inclination": 0.0,
         "diameter": 12742.0,
         "type": "terrestrial",
+        "atmosphere": "nitrogen_oxygen",
+        "hasLiquidWater": true,
+        "waterLevel": 0.71,
         "resources": ["water_ice", "iron_ore", "nitrogen_gas", "oxygen_gas", "silicates"],
         "moons": [
           {
@@ -58,6 +67,9 @@
             "gravity": 1.62,
             "distance": 3.844e5,
             "diameter": 3474.0,
+            "atmosphere": "none",
+            "hasLiquidWater": false,
+            "waterLevel": 0.0,
             "resources": ["helium_3", "refined_silicon", "silicates", "titanium_ore"],
             "populations": []
           }
@@ -85,6 +97,9 @@
         "inclination": 1.85,
         "diameter": 6779.0,
         "type": "terrestrial",
+        "atmosphere": "thin_co2",
+        "hasLiquidWater": false,
+        "waterLevel": 0.05,
         "resources": ["iron_ore", "methane_ice", "water_ice", "silicates"],
         "moons": [
           {
@@ -95,6 +110,9 @@
             "gravity": 0.0057,
             "distance": 9.378e3,
             "diameter": 22.2,
+            "atmosphere": "none",
+            "hasLiquidWater": false,
+            "waterLevel": 0.0,
             "resources": ["refined_carbon", "silicates", "iron_ore"],
             "populations": []
           },
@@ -106,6 +124,9 @@
             "gravity": 0.003,
             "distance": 2.346e4,
             "diameter": 12.4,
+            "atmosphere": "none",
+            "hasLiquidWater": false,
+            "waterLevel": 0.0,
             "resources": ["water_ice", "silicates"],
             "populations": []
           }
@@ -122,6 +143,9 @@
         "inclination": 1.31,
         "diameter": 139820.0,
         "type": "gas_giant",
+        "atmosphere": "hydrogen_helium",
+        "hasLiquidWater": false,
+        "waterLevel": 0.0,
         "resources": ["hydrogen_gas", "helium_gas", "methane_ice", "ammonia_ice"],
         "moons": [
           {
@@ -132,6 +156,9 @@
             "gravity": 1.796,
             "distance": 4.217e5,
             "diameter": 3643.0,
+            "atmosphere": "trace_sulfur",
+            "hasLiquidWater": false,
+            "waterLevel": 0.0,
             "resources": ["refined_sulfur", "silicates", "iron_ore", "nickel_ore"],
             "populations": []
           },
@@ -143,6 +170,9 @@
             "gravity": 1.314,
             "distance": 6.709e5,
             "diameter": 3121.0,
+            "atmosphere": "trace_oxygen",
+            "hasLiquidWater": false,
+            "waterLevel": 0.1,
             "resources": ["water_ice", "oxygen_gas", "silicates", "magnesium_ore"],
             "populations": []
           },
@@ -154,6 +184,9 @@
             "gravity": 1.428,
             "distance": 1.070e6,
             "diameter": 5268.0,
+            "atmosphere": "trace_oxygen",
+            "hasLiquidWater": false,
+            "waterLevel": 0.05,
             "resources": ["water_ice", "silicates"],
             "populations": []
           },
@@ -165,6 +198,9 @@
             "gravity": 1.235,
             "distance": 1.883e6,
             "diameter": 4821.0,
+            "atmosphere": "trace_co2",
+            "hasLiquidWater": false,
+            "waterLevel": 0.05,
             "resources": ["water_ice", "refined_carbon", "silicates", "iron_ore"],
             "populations": []
           }
@@ -181,6 +217,9 @@
         "inclination": 2.49,
         "diameter": 116460.0,
         "type": "gas_giant",
+        "atmosphere": "hydrogen_helium",
+        "hasLiquidWater": false,
+        "waterLevel": 0.0,
         "resources": ["hydrogen_gas", "helium_gas", "methane_ice", "ammonia_ice"],
         "moons": [
           {
@@ -191,6 +230,9 @@
             "gravity": 1.352,
             "distance": 1.222e6,
             "diameter": 5150.0,
+            "atmosphere": "dense_nitrogen_methane",
+            "hasLiquidWater": false,
+            "waterLevel": 0.0,
             "resources": ["methane_ice", "nitrogen_gas", "water_ice", "ammonia_ice", "refined_carbon"],
             "populations": []
           },
@@ -202,6 +244,9 @@
             "gravity": 0.113,
             "distance": 2.380e5,
             "diameter": 504.0,
+            "atmosphere": "trace_water_vapor",
+            "hasLiquidWater": false,
+            "waterLevel": 0.2,
             "resources": ["water_ice", "ammonia_ice", "silicates", "nitrogen_gas"],
             "populations": []
           }
@@ -218,6 +263,9 @@
         "inclination": 0.77,
         "diameter": 50724.0,
         "type": "ice_giant",
+        "atmosphere": "hydrogen_helium_methane",
+        "hasLiquidWater": false,
+        "waterLevel": 0.0,
         "resources": ["methane_ice", "water_ice", "ammonia_ice"],
         "moons": [
           {
@@ -228,6 +276,9 @@
             "gravity": 0.379,
             "distance": 4.359e5,
             "diameter": 1578.0,
+            "atmosphere": "none",
+            "hasLiquidWater": false,
+            "waterLevel": 0.0,
             "resources": ["water_ice", "silicates"],
             "populations": []
           },
@@ -239,6 +290,9 @@
             "gravity": 0.346,
             "distance": 5.835e5,
             "diameter": 1523.0,
+            "atmosphere": "none",
+            "hasLiquidWater": false,
+            "waterLevel": 0.0,
             "resources": ["water_ice", "silicates"],
             "populations": []
           }
@@ -255,6 +309,7 @@
         "inclination": 1.77,
         "diameter": 49244.0,
         "type": "ice_giant",
+        "atmosphere": "hydrogen_helium_methane",
         "resources": ["methane_ice", "hydrogen_gas", "helium_gas"],
         "moons": [
           {
@@ -265,6 +320,8 @@
             "gravity": 0.779,
             "distance": 3.548e5,
             "diameter": 2706.0,
+            "atmosphere": "trace_nitrogen",
+            "hasLiquidWater": false,
             "resources": ["nitrogen_gas", "water_ice"],
             "populations": []
           }
@@ -280,7 +337,10 @@
         "distance": 5.906e9,
         "inclination": 17.1,
         "diameter": 2376.0,
-        "type": "planetoid",
+        "type": "dwarf_planet",
+        "atmosphere": "trace_nitrogen_methane",
+        "hasLiquidWater": false,
+        "waterLevel": 0.0,
         "resources": ["nitrogen_gas", "methane_ice", "carbon_monoxide_ice", "water_ice"],
         "moons": [
           {
@@ -291,6 +351,9 @@
             "gravity": 0.288,
             "distance": 1.959e4,
             "diameter": 1212.0,
+            "atmosphere": "none",
+            "hasLiquidWater": false,
+            "waterLevel": 0.0,
             "resources": ["water_ice", "ammonia_ice", "silicates", "methane_ice"],
             "populations": []
           }
@@ -335,6 +398,9 @@
         "inclination": 0.0,
         "diameter": 14000.0,
         "type": "terrestrial",
+        "atmosphere": "nitrogen_oxygen",
+        "hasLiquidWater": true,
+        "waterLevel": 0.45,
         "resources": ["water_ice", "iron_ore", "silicates", "nickel_ore", "aluminum_ore"],
         "moons": [],
         "populations": []
@@ -362,6 +428,9 @@
         "inclination": 2.0,
         "diameter": 15000.0,
         "type": "terrestrial",
+        "atmosphere": "nitrogen_oxygen",
+        "hasLiquidWater": true,
+        "waterLevel": 0.2,
         "resources": ["copper_ore", "refined_iridium", "silicates", "iron_ore", "gold", "tin_ore"],
         "moons": [],
         "populations": [

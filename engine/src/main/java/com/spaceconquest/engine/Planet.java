@@ -12,6 +12,9 @@ public record Planet(
     double inclination,
     double diameter,
     String type,
+    String atmosphere,
+    boolean hasLiquidWater,
+    double waterLevel,
     List<String> resources,
     List<Moon> moons,
     List<Population> populations

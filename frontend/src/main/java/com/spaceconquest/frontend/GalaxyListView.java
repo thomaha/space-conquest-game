@@ -105,18 +105,26 @@ public class GalaxyListView {
 
         // Star visual
         Circle starCircle = new Circle(Math.max(10, ss.sunDiameter() / 50000.0));
+        boolean isBlackHole = ss.description() != null && ss.description().contains("Black Hole");
+
         try {
-            starCircle.setFill(Color.web(ss.sunColor()));
+            starCircle.setFill(isBlackHole ? Color.BLACK : Color.web(ss.sunColor()));
+            if (isBlackHole) {
+                starCircle.setStroke(Color.DARKVIOLET);
+                starCircle.setStrokeWidth(2);
+                starCircle.setRadius(12); // Make it slightly more prominent in the list
+            }
         } catch (Exception e) {
             starCircle.setFill(Color.YELLOW);
         }
         
         VBox starInfo = new VBox(2);
-        Text starName = new Text(ss.name() + " (Star)");
+        Text starName = new Text(ss.name() + (isBlackHole ? " (Black Hole)" : " (Star)"));
         starName.setFill(Color.WHITE);
         starName.setFont(Font.font("Verdana", FontWeight.BOLD, 18));
         
-        Text starDetails = new Text(String.format("Type: Star | Size: %,.0f km", ss.sunDiameter()));
+        String typeStr = isBlackHole ? "Black Hole" : "Star";
+        Text starDetails = new Text(String.format("Type: %s | Size: %,.0f km", typeStr, ss.sunDiameter()));
         starDetails.setFill(Color.LIGHTGRAY);
         starDetails.setFont(Font.font("Verdana", 12));
 
@@ -145,7 +153,8 @@ public class GalaxyListView {
         Circle planetCircle = new Circle(8);
         planetCircle.setFill(getPlanetColor(p));
         if (hasAtmosphere(p)) {
-             planetCircle.setStroke(Color.LIGHTBLUE);
+             Color atmosColor = getAtmosphereColor(p.atmosphere());
+             planetCircle.setStroke(atmosColor);
              planetCircle.setStrokeWidth(2);
         }
 
@@ -155,8 +164,10 @@ public class GalaxyListView {
         planetName.setFont(Font.font("Verdana", FontWeight.BOLD, 16));
 
         String resourcesStr = resourceText(p.resources());
-        Text planetDetails = new Text(String.format("Type: %s | %s | Resources: %s",
-                p.type() != null ? p.type() : "unknown", populationText(p), resourcesStr));
+        String atmosphere = p.atmosphere() != null ? p.atmosphere().replace("_", " ") : "none";
+        String waterInfo = p.hasLiquidWater() ? " | Liquid Water: Yes" : "";
+        Text planetDetails = new Text(String.format("Type: %s | Atmosphere: %s%s | %s | Resources: %s",
+                p.type() != null ? p.type() : "unknown", atmosphere, waterInfo, populationText(p), resourcesStr));
         planetDetails.setFill(Color.GAINSBORO);
         planetDetails.setFont(Font.font("Verdana", 12));
 
@@ -190,7 +201,9 @@ public class GalaxyListView {
         moonName.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
 
         String resourcesStr = resourceText(m.resources());
-        Text moonDetails = new Text(String.format("Type: Moon | Resources: %s", resourcesStr));
+        String atmosphere = m.atmosphere() != null ? m.atmosphere().replace("_", " ") : "none";
+        String waterInfo = m.hasLiquidWater() ? " | Liquid Water: Yes" : "";
+        Text moonDetails = new Text(String.format("Type: Moon | Atmosphere: %s%s | Resources: %s", atmosphere, waterInfo, resourcesStr));
         moonDetails.setFill(Color.SILVER);
         moonDetails.setFont(Font.font("Verdana", 11));
 
@@ -206,7 +219,19 @@ public class GalaxyListView {
     }
 
     private static boolean hasAtmosphere(Planet p) {
-        return p.description() != null && p.description().toLowerCase().contains("atmosphere");
+        return p.atmosphere() != null && !p.atmosphere().equalsIgnoreCase("none");
+    }
+
+    private static Color getAtmosphereColor(String atmosphere) {
+        if (atmosphere == null) return Color.TRANSPARENT;
+        String lower = atmosphere.toLowerCase();
+        if (lower.contains("dense_co2")) return Color.LEMONCHIFFON;
+        if (lower.contains("oxygen")) return Color.LIGHTBLUE;
+        if (lower.contains("nitrogen")) return Color.POWDERBLUE;
+        if (lower.contains("methane")) return Color.AQUAMARINE;
+        if (lower.contains("hydrogen")) return Color.LIGHTSTEELBLUE;
+        if (lower.contains("sulfur")) return Color.PALEGOLDENROD;
+        return Color.LIGHTGRAY;
     }
 
     private static String populationText(Planet p) {
@@ -221,11 +246,37 @@ public class GalaxyListView {
     }
 
     private Color getPlanetColor(Planet p) {
+        Color baseColor = getBaseColor(p);
+
+        // Adjust for resources (e.g., iron makes it reddish)
+        if (p.resources() != null) {
+            if (p.resources().contains("iron_ore")) {
+                baseColor = baseColor.interpolate(Color.INDIANRED, 0.4);
+            }
+            if (p.resources().contains("refined_sulfur")) {
+                baseColor = baseColor.interpolate(Color.GOLDENROD, 0.3);
+            }
+        }
+
+        if (p.waterLevel() > 0) {
+            // Blend with water color (Royal Blue) based on water level
+            // We use a more subtle blend for Earth-like visuals
+            return baseColor.interpolate(Color.ROYALBLUE, p.waterLevel() * 0.8);
+        }
+        return baseColor;
+    }
+
+    private Color getBaseColor(Planet p) {
         String type = p.type() != null ? p.type().toLowerCase() : "unknown";
         if (type.contains("gas")) return Color.ORANGERED;
         if (type.contains("ice")) return Color.LIGHTCYAN;
         if (type.contains("terrestrial")) return Color.FORESTGREEN;
-        if (type.contains("rocky")) return Color.GRAY;
+        if (type.contains("desert")) return Color.SANDYBROWN;
+        if (type.contains("ocean")) return Color.ROYALBLUE;
+        if (type.contains("lava")) return Color.DARKRED;
+        if (type.contains("barren")) return Color.SLATEGRAY;
+        if (type.contains("toxic")) return Color.PALEGOLDENROD;
+        if (type.contains("dwarf") || type.contains("protoplanet")) return Color.DARKGRAY;
         return Color.BEIGE;
     }
 }

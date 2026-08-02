@@ -57,7 +57,8 @@ public class SpaceConquestEngine implements GameEngine {
     private Planet updatePlanet(Planet p) {
         return new Planet(
             p.id(), p.name(), p.description(), p.mass(), p.gravity(), p.distance(), 
-            p.inclination(), p.diameter(), p.type(), p.resources(),
+            p.inclination(), p.diameter(), p.type(), p.atmosphere(), p.hasLiquidWater(), 
+            p.waterLevel(), p.resources(),
             p.moons().stream().map(this::updateMoon).toList(),
             p.populations().stream().map(this::updatePopulation).toList()
         );
@@ -66,7 +67,7 @@ public class SpaceConquestEngine implements GameEngine {
     private Moon updateMoon(Moon m) {
         return new Moon(
             m.id(), m.name(), m.description(), m.mass(), m.gravity(), m.distance(),
-            m.diameter(), m.resources(),
+            m.diameter(), m.atmosphere(), m.hasLiquidWater(), m.waterLevel(), m.resources(),
             m.populations().stream().map(this::updatePopulation).toList()
         );
     }

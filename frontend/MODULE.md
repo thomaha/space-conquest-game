@@ -37,6 +37,7 @@ Displays the galaxy map, allowing players to explore and manage their space empi
     - The panel should also have some level of transparency, so parts of the galaxy can be seen in the background.
   - The center of the entity should be used as the focus point for the display.
 - The color of a star is decided by the mass of the star. We have a property file based on the Hertzsprung-Russel diagram that specifies the relationship. 
+- The visual look of a planet or moon is decided by a combination of the planet type, any atmosphere present and how much surface water is present. What resources are present on the planet may also affect the visual look. For instance, a dry planet with much iron should be redish.
 
 ### Menubar
 Displays buttons with information about the different sectors of the game. Opening the corresponding page for a button should pause the game. Closing that page should resume the game, at the game speed it was before the page opened.

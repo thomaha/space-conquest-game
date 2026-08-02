@@ -26,6 +26,8 @@ public class DataModelLoaderTest {
         assertEquals(1.496e8, earth.distance());
         assertEquals(0.0, earth.inclination());
         assertEquals(12742.0, earth.diameter());
+        assertTrue(earth.hasLiquidWater());
+        assertEquals(0.71, earth.waterLevel(), 0.001);
         
         assertEquals(1, earth.populations().size());
         Population humanPop = earth.populations().getFirst();
@@ -38,11 +40,13 @@ public class DataModelLoaderTest {
         assertEquals("Moon", moon.name());
         assertEquals(3.844e5, moon.distance());
         assertEquals(3474.0, moon.diameter());
+        assertFalse(moon.hasLiquidWater());
+        assertEquals(0.0, moon.waterLevel());
 
         Planet pluto = sol.planets().stream().filter(p -> p.id().equals("pluto")).findFirst().orElseThrow();
         assertEquals("Pluto", pluto.name());
         assertEquals(17.1, pluto.inclination());
-        assertEquals("planetoid", pluto.type());
+        assertEquals("dwarf_planet", pluto.type());
         assertEquals(1, pluto.moons().size());
         
         assertEquals(2, sol.asteroidBelts().size());
@@ -157,12 +161,23 @@ public class DataModelLoaderTest {
     public void testLoadStarProperties() throws IOException {
         List<StarProperty> properties = DataModelLoader.loadStarProperties();
         assertNotNull(properties);
-        assertEquals(7, properties.size());
+        assertEquals(11, properties.size());
         
-        StarProperty sunType = properties.stream().filter(p -> p.spectralType().equals("G")).findFirst().orElseThrow();
+        StarProperty sunType = properties.stream().filter(p -> p.spectralType().contains("G")).findFirst().orElseThrow();
         assertEquals("#fff4ea", sunType.color());
         assertEquals(0.8, sunType.minMassSolar());
         assertEquals(1.04, sunType.maxMassSolar());
+        assertEquals(0.8, sunType.hasPlanetsProbability());
+        assertEquals(0.3, sunType.isBinaryProbability());
+
+        StarProperty redGiant = properties.stream().filter(p -> p.spectralType().equals("Red Giant")).findFirst().orElseThrow();
+        assertEquals("#ff5a00", redGiant.color());
+        assertEquals(0.05, redGiant.hasPlanetsProbability());
+        assertEquals(0.3, redGiant.isBinaryProbability());
+
+        StarProperty blackHole = properties.stream().filter(p -> p.spectralType().equals("Black Hole")).findFirst().orElseThrow();
+        assertEquals("#000000", blackHole.color());
+        assertEquals(0.0, blackHole.hasPlanetsProbability());
     }
 
     @Test

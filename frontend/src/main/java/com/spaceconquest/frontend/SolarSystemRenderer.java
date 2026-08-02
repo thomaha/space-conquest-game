@@ -58,11 +58,26 @@ public class SolarSystemRenderer {
             }
         }
 
-        Entity sun = entityBuilder()
-                .at(x - sunRadius, y - sunRadius)
-                .viewWithBBox(new Circle(sunRadius, sunRadius, sunRadius, starColor))
-                .with(new TypeComponent("STAR"))
-                .buildAndAttach();
+        // Special rendering for black holes
+        Entity sun;
+        if (solarSystem.description().contains("Black Hole")) {
+            // Draw an event horizon (black) with a small accretion disk hint (purple/dark blue border)
+            Circle eventHorizon = new Circle(sunRadius, sunRadius, sunRadius, Color.BLACK);
+            eventHorizon.setStroke(Color.DARKVIOLET);
+            eventHorizon.setStrokeWidth(2.0);
+
+            sun = entityBuilder()
+                    .at(x - sunRadius, y - sunRadius)
+                    .viewWithBBox(eventHorizon)
+                    .with(new TypeComponent("STAR"))
+                    .buildAndAttach();
+        } else {
+            sun = entityBuilder()
+                    .at(x - sunRadius, y - sunRadius)
+                    .viewWithBBox(new Circle(sunRadius, sunRadius, sunRadius, starColor))
+                    .with(new TypeComponent("STAR"))
+                    .buildAndAttach();
+        }
 
         // Label for zoom levels 7+
         entityBuilder()
@@ -114,16 +129,25 @@ public class SolarSystemRenderer {
             // Planet diameter scaling: 10,000 km = 1 pixel radius, minimum radius 2.
             double planetRadius = Math.max(2.0, (planet.diameter() / 2.0) / 10000.0);
 
+            Circle planetCircle = new Circle(planetRadius, planetRadius, planetRadius, getPlanetColor(planet));
+            if (planet.atmosphere() != null && !planet.atmosphere().equalsIgnoreCase("none")) {
+                planetCircle.setStroke(getAtmosphereColor(planet.atmosphere()));
+                planetCircle.setStrokeWidth(Math.max(1.0, planetRadius * 0.2));
+            }
+
             Entity planetEntity = entityBuilder()
                     .at(x - planetRadius, y - planetRadius)
-                    .viewWithBBox(new Circle(planetRadius, planetRadius, planetRadius, Color.LIGHTBLUE))
+                    .viewWithBBox(planetCircle)
                     .buildAndAttach();
 
             String planetType = planet.type() != null ? planet.type() : "planet";
+            String waterInfo = planet.hasLiquidWater() ? String.format("%nliquid water: Yes") : "";
             String info = String.format(
-                    "%s: %s%nmass: %.3e kg%ngravity: %.2f m/s^2%ndistance from sun: %.3e km%ndiameter: %.0f km%ninclination: %.2f deg%nresources: %s%nmoons: %d",
+                    "%s: %s%nmass: %.3e kg%ngravity: %.2f m/s^2%ndistance from sun: %.3e km%ndiameter: %.0f km%ninclination: %.2f deg%natmosphere: %s%s%nresources: %s%nmoons: %d",
                     planetType, planet.name(), planet.mass(), planet.gravity(), planet.distance(),
                     planet.diameter(), planet.inclination(),
+                    planet.atmosphere() != null ? planet.atmosphere().replace("_", " ") : "none",
+                    waterInfo,
                     String.join(", ", planet.resources()), planet.moons().size());
             registry.register(planet.name(), planetEntity, planetType, info);
             registerHover(planetEntity, planet.name());
@@ -154,10 +178,13 @@ public class SolarSystemRenderer {
                     .viewWithBBox(new Circle(moonRadius, moonRadius, moonRadius, Color.GRAY))
                     .buildAndAttach();
 
+            String waterInfo = moon.hasLiquidWater() ? String.format("%nliquid water: Yes") : "";
             String info = String.format(
-                    "moon: %s (orbiting %s)%nmass: %.3e kg%ngravity: %.2f m/s^2%ndistance from planet: %.3e km%ndiameter: %.0f km%nresources: %s",
+                    "moon: %s (orbiting %s)%nmass: %.3e kg%ngravity: %.2f m/s^2%ndistance from planet: %.3e km%ndiameter: %.0f km%natmosphere: %s%s%nresources: %s",
                     moon.name(), planet.name(), moon.mass(), moon.gravity(),
                     moon.distance(), moon.diameter(),
+                    moon.atmosphere() != null ? moon.atmosphere().replace("_", " ") : "none",
+                    waterInfo,
                     String.join(", ", moon.resources()));
             registry.register(moon.name(), moonEntity, "moon", info);
             registerHover(moonEntity, moon.name());
@@ -173,5 +200,52 @@ public class SolarSystemRenderer {
         tooltip.setShowDelay(Duration.millis(100));
         entity.getViewComponent().getChildren().forEach(node ->
                 Tooltip.install(node, tooltip));
+    }
+
+    private Color getAtmosphereColor(String atmosphere) {
+        if (atmosphere == null) return Color.TRANSPARENT;
+        String lower = atmosphere.toLowerCase();
+        if (lower.contains("dense_co2")) return Color.LEMONCHIFFON;
+        if (lower.contains("oxygen")) return Color.LIGHTBLUE;
+        if (lower.contains("nitrogen")) return Color.POWDERBLUE;
+        if (lower.contains("methane")) return Color.AQUAMARINE;
+        if (lower.contains("hydrogen")) return Color.LIGHTSTEELBLUE;
+        if (lower.contains("sulfur")) return Color.PALEGOLDENROD;
+        return Color.LIGHTGRAY;
+    }
+
+    private Color getPlanetColor(Planet p) {
+        Color baseColor = getBaseColor(p);
+
+        // Adjust for resources (e.g., iron makes it reddish)
+        if (p.resources() != null) {
+            if (p.resources().contains("iron_ore")) {
+                baseColor = baseColor.interpolate(Color.INDIANRED, 0.4);
+            }
+            if (p.resources().contains("refined_sulfur")) {
+                baseColor = baseColor.interpolate(Color.GOLDENROD, 0.3);
+            }
+        }
+
+        if (p.waterLevel() > 0) {
+            // Blend with water color (Royal Blue) based on water level
+            // We use a more subtle blend for Earth-like visuals
+            return baseColor.interpolate(Color.ROYALBLUE, p.waterLevel() * 0.8);
+        }
+        return baseColor;
+    }
+
+    private Color getBaseColor(Planet p) {
+        String type = p.type() != null ? p.type().toLowerCase() : "unknown";
+        if (type.contains("gas")) return Color.ORANGERED;
+        if (type.contains("ice")) return Color.LIGHTCYAN;
+        if (type.contains("terrestrial")) return Color.FORESTGREEN;
+        if (type.contains("desert")) return Color.SANDYBROWN;
+        if (type.contains("ocean")) return Color.ROYALBLUE;
+        if (type.contains("lava")) return Color.DARKRED;
+        if (type.contains("barren")) return Color.SLATEGRAY;
+        if (type.contains("toxic")) return Color.PALEGOLDENROD;
+        if (type.contains("dwarf") || type.contains("protoplanet")) return Color.DARKGRAY;
+        return Color.BEIGE;
     }
 }

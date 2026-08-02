@@ -5,5 +5,7 @@ public record StarProperty(
     String color,
     double minMassSolar,
     double maxMassSolar,
-    double probability
+    double probability,
+    double hasPlanetsProbability,
+    double isBinaryProbability
 ) {}
