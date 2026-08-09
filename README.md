@@ -15,7 +15,7 @@ Framework will be spring boot. A UI-framework is not yet decided but will not be
 Every component in the game like race, technologies, technological applications, materials, professions, raw materials should fetch all properties from property files stored in the resources folder.  
 
 ### Time
-- The game time will run for many years. The lowest game speed is 1 minute per real second, with steps at 1 hour, 6 hours, 12 hours and 1 day per second. 
+- The game time will run for many years. The lowest game speed is 1 minute per real second, with steps at 1 hour, 6 hours, 12 hours, 1 day, 5 days, 10 days per second. 
 - It is possible to pause the game.
 
 ### Galaxy
@@ -112,6 +112,15 @@ To produce an item of a given tech-level, you will need a production facility of
 
 - Artificial intelligence
 
+### Weapons
+We must have weapons that fulfill different roles so that there is a point to research different technologies and combine them on ships and stations. 
+Also, designing ships to fulfill different roles should be encouraged. Weapons are unlocked and improved by researching various technological applications. 
+Some weapons are better at long range and some are better at close range.
+
+#### Weapon types
+- Offensive ship weapons. For attacking other ships and space stations.
+- Defensive ship weapons. Point defense. For shooting incoming missiles, torpedoes, small fighter or bomber crafts and particles from offensive particle weapons.
+- Bombs. Makes big explosions. Best for bombarding planets.
 
 ### Raw materials
 Raw materials are mined or extracted in other ways from planetary bodies, asteroids, comets, moons and planets.
