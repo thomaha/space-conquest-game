@@ -222,7 +222,7 @@ public class SolarSystemRenderer {
             if (p.resources().contains("iron_ore")) {
                 baseColor = baseColor.interpolate(Color.INDIANRED, 0.4);
             }
-            if (p.resources().contains("refined_sulfur")) {
+            if (p.resources().contains("sulfur") || p.resources().contains("refined_sulfur")) {
                 baseColor = baseColor.interpolate(Color.GOLDENROD, 0.3);
             }
         }

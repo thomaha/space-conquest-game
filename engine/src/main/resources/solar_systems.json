@@ -40,7 +40,7 @@
         "atmosphere": "dense_co2",
         "hasLiquidWater": false,
         "waterLevel": 0.0,
-        "resources": ["refined_sulfur", "carbon_dioxide_ice", "nitrogen_gas", "iron_ore"],
+        "resources": ["sulfur", "carbon_dioxide_ice", "nitrogen_gas", "iron_ore"],
         "moons": [],
         "populations": []
       },
@@ -70,7 +70,7 @@
             "atmosphere": "none",
             "hasLiquidWater": false,
             "waterLevel": 0.0,
-            "resources": ["helium_3", "refined_silicon", "silicates", "titanium_ore"],
+            "resources": ["helium_3", "silicon", "silicates", "titanium_ore"],
             "populations": []
           }
         ],
@@ -113,7 +113,7 @@
             "atmosphere": "none",
             "hasLiquidWater": false,
             "waterLevel": 0.0,
-            "resources": ["refined_carbon", "silicates", "iron_ore"],
+            "resources": ["carbon", "silicates", "iron_ore"],
             "populations": []
           },
           {
@@ -159,7 +159,7 @@
             "atmosphere": "trace_sulfur",
             "hasLiquidWater": false,
             "waterLevel": 0.0,
-            "resources": ["refined_sulfur", "silicates", "iron_ore", "nickel_ore"],
+            "resources": ["sulfur", "silicates", "iron_ore", "nickel_ore"],
             "populations": []
           },
           {
@@ -201,7 +201,7 @@
             "atmosphere": "trace_co2",
             "hasLiquidWater": false,
             "waterLevel": 0.05,
-            "resources": ["water_ice", "refined_carbon", "silicates", "iron_ore"],
+            "resources": ["water_ice", "carbon", "silicates", "iron_ore"],
             "populations": []
           }
         ],
@@ -233,7 +233,7 @@
             "atmosphere": "dense_nitrogen_methane",
             "hasLiquidWater": false,
             "waterLevel": 0.0,
-            "resources": ["methane_ice", "nitrogen_gas", "water_ice", "ammonia_ice", "refined_carbon"],
+            "resources": ["methane_ice", "nitrogen_gas", "water_ice", "ammonia_ice", "carbon"],
             "populations": []
           },
           {
@@ -366,7 +366,7 @@
         "id": "main",
         "name": "Main Asteroid Belt",
         "description": "Located between Mars and Jupiter.",
-        "resources": ["iron_ore", "refined_nickel", "gold", "platinum_ore", "silicates", "copper_ore"],
+        "resources": ["iron_ore", "nickel", "gold", "platinum_ore", "silicates", "copper_ore"],
         "populations": []
       },
       {
@@ -431,7 +431,7 @@
         "atmosphere": "nitrogen_oxygen",
         "hasLiquidWater": true,
         "waterLevel": 0.2,
-        "resources": ["copper_ore", "refined_iridium", "silicates", "iron_ore", "gold", "tin_ore"],
+        "resources": ["copper_ore", "iridium", "silicates", "iron_ore", "gold", "tin_ore"],
         "moons": [],
         "populations": [
           {

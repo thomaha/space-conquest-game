@@ -107,15 +107,24 @@ public class TechnologyView {
         techBox.setPadding(new Insets(10));
         techBox.setStyle("-fx-background-color: rgba(60, 80, 120, 0.5); -fx-background-radius: 5;");
 
+        HBox titleRow = new HBox(10);
+        titleRow.setAlignment(Pos.CENTER_LEFT);
+
         Text techName = new Text(tech.name());
         techName.setFill(Color.LIGHTBLUE);
         techName.setFont(Font.font("Verdana", FontWeight.BOLD, 18));
+
+        Text techComplexity = new Text("(Complexity: " + tech.complexity() + ")");
+        techComplexity.setFill(Color.LIGHTSKYBLUE);
+        techComplexity.setFont(Font.font("Verdana", 12));
+
+        titleRow.getChildren().addAll(techName, techComplexity);
 
         Text techDesc = new Text(tech.description());
         techDesc.setFill(Color.WHITE);
         techDesc.setWrappingWidth(740);
 
-        techBox.getChildren().addAll(techName, techDesc);
+        techBox.getChildren().addAll(titleRow, techDesc);
 
         if (!tech.requiredTechnologies().isEmpty()) {
             Text reqs = new Text("Requires: " + String.join(", ", tech.requiredTechnologies()));
@@ -139,7 +148,7 @@ public class TechnologyView {
     private VBox createAppBox(TechnicalApplication app) {
         VBox appBox = new VBox(2);
         
-        Text appName = new Text("• " + app.name());
+        Text appName = new Text("• " + app.name() + " (Cost: " + (int) app.costToBuildPerUnit() + " hrs, Complexity: " + app.complexity() + ")");
         appName.setFill(Color.LIGHTGREEN);
         appName.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
 
@@ -155,6 +164,20 @@ public class TechnologyView {
              reqs.setFill(Color.ORANGE);
              reqs.setFont(Font.font("Verdana", 10));
              appBox.getChildren().add(reqs);
+        }
+
+        if (!app.affectedFactors().isEmpty()) {
+            Text factors = new Text("  Affects: " + String.join(", ", app.affectedFactors()));
+            factors.setFill(Color.LIGHTCYAN);
+            factors.setFont(Font.font("Verdana", 10));
+            appBox.getChildren().add(factors);
+        }
+
+        if (!app.requiredMaterials().isEmpty()) {
+            Text materials = new Text("  Materials: " + String.join(", ", app.requiredMaterials()));
+            materials.setFill(Color.KHAKI);
+            materials.setFont(Font.font("Verdana", 10));
+            appBox.getChildren().add(materials);
         }
 
         return appBox;

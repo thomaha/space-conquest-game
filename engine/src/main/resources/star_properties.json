@@ -2,100 +2,222 @@
   {
     "spectralType": "O (Main Sequence)",
     "color": "#9bb0ff",
+    "description": "Massive, ultra-hot blue stars with intense stellar winds. Their violent radiation strips away volatile elements in the inner system, leaving rocky bodies scorched but rich in heavy metal residues.",
     "minMassSolar": 16.0,
     "maxMassSolar": 100.0,
     "probability": 0.0000003,
     "hasPlanetsProbability": 0.01,
-    "isBinaryProbability": 0.8
+    "isBinaryProbability": 0.8,
+    "systemCompositionModifiers": {
+      "volatileIceAbundance": 0.05,
+      "heavyMetalAbundance": 1.1,
+      "radioactiveOreAbundance": 1.3,
+      "gasGiantProbabilityModifier": 0.2,
+      "radiationHazardLevel": 0.95
+    }
   },
   {
     "spectralType": "B (Main Sequence)",
     "color": "#aabfff",
+    "description": "Highly luminous blue-white stars with short lifespans. Systems feature dense planetary rings and active accretion dust, offering moderate heavy metal veins but very few stable, frozen worlds.",
     "minMassSolar": 2.1,
     "maxMassSolar": 16.0,
-    "probability": 0.0013,
+    "probability": 0.0012,
     "hasPlanetsProbability": 0.1,
-    "isBinaryProbability": 0.5
+    "isBinaryProbability": 0.5,
+    "systemCompositionModifiers": {
+      "volatileIceAbundance": 0.2,
+      "heavyMetalAbundance": 1.0,
+      "radioactiveOreAbundance": 1.2,
+      "gasGiantProbabilityModifier": 0.6,
+      "radiationHazardLevel": 0.7
+    }
   },
   {
     "spectralType": "A (Main Sequence)",
     "color": "#cad7ff",
+    "description": "Bright white stars common across the galaxy. Their systems present a balanced mix of rocky planets and young gas giants, though inner worlds suffer from elevated ultraviolet radiation.",
     "minMassSolar": 1.4,
     "maxMassSolar": 2.1,
-    "probability": 0.006,
+    "probability": 0.0055,
     "hasPlanetsProbability": 0.3,
-    "isBinaryProbability": 0.4
+    "isBinaryProbability": 0.4,
+    "systemCompositionModifiers": {
+      "volatileIceAbundance": 0.5,
+      "heavyMetalAbundance": 0.9,
+      "radioactiveOreAbundance": 1.0,
+      "gasGiantProbabilityModifier": 0.8,
+      "radiationHazardLevel": 0.4
+    }
   },
   {
     "spectralType": "F (Main Sequence)",
     "color": "#f8f7ff",
+    "description": "Yellow-white stars transitioning into highly stable energetic brackets. These systems are excellent staging grounds for industrial logistics, yielding balanced planetary compositions and vast asteroid belts.",
     "minMassSolar": 1.04,
     "maxMassSolar": 1.4,
-    "probability": 0.03,
+    "probability": 0.028,
     "hasPlanetsProbability": 0.5,
-    "isBinaryProbability": 0.3
+    "isBinaryProbability": 0.3,
+    "systemCompositionModifiers": {
+      "volatileIceAbundance": 0.8,
+      "heavyMetalAbundance": 1.0,
+      "radioactiveOreAbundance": 1.0,
+      "gasGiantProbabilityModifier": 1.0,
+      "radiationHazardLevel": 0.2
+    }
   },
   {
     "spectralType": "G (Main Sequence)",
     "color": "#fff4ea",
+    "description": "Yellow dwarfs equivalent to Earth's sun. Exceptional planetary formation stability makes these systems premium sectors for agriculture and expansive colonization, yielding uniform mineral resource layouts.",
     "minMassSolar": 0.8,
     "maxMassSolar": 1.04,
-    "probability": 0.076,
+    "probability": 0.072,
     "hasPlanetsProbability": 0.8,
-    "isBinaryProbability": 0.3
+    "isBinaryProbability": 0.3,
+    "systemCompositionModifiers": {
+      "volatileIceAbundance": 1.0,
+      "heavyMetalAbundance": 1.0,
+      "radioactiveOreAbundance": 1.0,
+      "gasGiantProbabilityModifier": 1.0,
+      "radiationHazardLevel": 0.1
+    }
   },
   {
     "spectralType": "K (Main Sequence)",
     "color": "#ffd2a1",
+    "description": "Orange dwarfs with incredibly long, stable lifespans. They boast the highest density of resource-rich terrestrial planets, offering highly accessible crust veins and safe deep-space shipping lanes.",
     "minMassSolar": 0.45,
     "maxMassSolar": 0.8,
-    "probability": 0.121,
+    "probability": 0.115,
     "hasPlanetsProbability": 0.8,
-    "isBinaryProbability": 0.2
+    "isBinaryProbability": 0.2,
+    "systemCompositionModifiers": {
+      "volatileIceAbundance": 1.2,
+      "heavyMetalAbundance": 1.1,
+      "radioactiveOreAbundance": 0.9,
+      "gasGiantProbabilityModifier": 1.1,
+      "radiationHazardLevel": 0.05
+    }
   },
   {
     "spectralType": "M (Main Sequence)",
-    "color": "#ffcc6f",
+    "color": "#ff5200",
+    "description": "Dim, long-lived red dwarfs making up the vast majority of the galaxy. Planets are often tidally locked and blasted by erratic solar flares, though outer moons hold massive reservoirs of pristine ice reserves.",
     "minMassSolar": 0.08,
     "maxMassSolar": 0.45,
-    "probability": 0.758,
+    "probability": 0.72,
     "hasPlanetsProbability": 0.4,
-    "isBinaryProbability": 0.1
+    "isBinaryProbability": 0.1,
+    "systemCompositionModifiers": {
+      "volatileIceAbundance": 1.5,
+      "heavyMetalAbundance": 0.8,
+      "radioactiveOreAbundance": 0.7,
+      "gasGiantProbabilityModifier": 1.3,
+      "radiationHazardLevel": 0.25
+    }
+  },
+  {
+    "spectralType": "Brown Dwarf (L/T/Y)",
+    "color": "#701c1c",
+    "description": "Failed sub-stellar objects missing the mass to trigger hydrogen fusion. These dark systems are difficult to locate on scanners but act as invaluable refueling caches rich in primordial gases.",
+    "minMassSolar": 0.01,
+    "maxMassSolar": 0.08,
+    "probability": 0.05,
+    "hasPlanetsProbability": 0.3,
+    "isBinaryProbability": 0.1,
+    "systemCompositionModifiers": {
+      "volatileIceAbundance": 2.2,
+      "heavyMetalAbundance": 0.4,
+      "radioactiveOreAbundance": 0.3,
+      "gasGiantProbabilityModifier": 1.8,
+      "radiationHazardLevel": 0.0
+    }
   },
   {
     "spectralType": "Red Giant",
     "color": "#ff5a00",
+    "description": "Dying stars expanding to engulf their inner systems. Nearby rocky worlds are completely melted into molten slag, boiling away all atmospheres while exposing deep, pure subterranean mineral veins.",
     "minMassSolar": 0.3,
     "maxMassSolar": 8.0,
-    "probability": 0.004,
+    "probability": 0.0038,
     "hasPlanetsProbability": 0.05,
-    "isBinaryProbability": 0.3
+    "isBinaryProbability": 0.3,
+    "systemCompositionModifiers": {
+      "volatileIceAbundance": 0.1,
+      "heavyMetalAbundance": 1.6,
+      "radioactiveOreAbundance": 1.5,
+      "gasGiantProbabilityModifier": 0.4,
+      "radiationHazardLevel": 0.5
+    }
   },
   {
     "spectralType": "Blue Giant",
     "color": "#00d2ff",
+    "description": "Rare, hyper-luminous giants burning through fuel rapidly. The extreme radiation environment poses severe structural risks to spaceships, but their asteroid systems hold highly concentrated heavy ores.",
     "minMassSolar": 10.0,
     "maxMassSolar": 50.0,
     "probability": 0.0001,
     "hasPlanetsProbability": 0.01,
-    "isBinaryProbability": 0.7
+    "isBinaryProbability": 0.7,
+    "systemCompositionModifiers": {
+      "volatileIceAbundance": 0.02,
+      "heavyMetalAbundance": 1.8,
+      "radioactiveOreAbundance": 1.6,
+      "gasGiantProbabilityModifier": 0.1,
+      "radiationHazardLevel": 0.9
+    }
   },
   {
     "spectralType": "White Dwarf",
     "color": "#ffffff",
+    "description": "The super-dense metallic core of a dead star. The outer system layers were blown away during its death cycle, leaving a stellar graveyard filled with shattered, planet-sized metallic remnants.",
     "minMassSolar": 0.1,
     "maxMassSolar": 1.4,
-    "probability": 0.0035997,
+    "probability": 0.0034,
     "hasPlanetsProbability": 0.01,
-    "isBinaryProbability": 0.2
+    "isBinaryProbability": 0.2,
+    "systemCompositionModifiers": {
+      "volatileIceAbundance": 0.05,
+      "heavyMetalAbundance": 2.5,
+      "radioactiveOreAbundance": 1.8,
+      "gasGiantProbabilityModifier": 0.0,
+      "radiationHazardLevel": 0.3
+    }
+  },
+  {
+    "spectralType": "Neutron Star",
+    "color": "#bce6ff",
+    "description": "A collapsed stellar remnant with a crushing gravitational footprint and spinning magnetic field. These hyper-dense hazards provide a high concentration of rare elements like iridium and platinum group metals.",
+    "minMassSolar": 1.4,
+    "maxMassSolar": 3.0,
+    "probability": 0.0014,
+    "hasPlanetsProbability": 0.02,
+    "isBinaryProbability": 0.4,
+    "systemCompositionModifiers": {
+      "volatileIceAbundance": 0.01,
+      "heavyMetalAbundance": 3.0,
+      "radioactiveOreAbundance": 2.2,
+      "gasGiantProbabilityModifier": 0.0,
+      "radiationHazardLevel": 0.85
+    }
   },
   {
     "spectralType": "Black Hole",
     "color": "#000000",
+    "description": "An infinite gravitational singularity formed by a collapsed hypergiant core. Captures high-mass rogue planets and crushed asteroids into its swirling accretion disk, hiding extremely high-value anomalies.",
     "minMassSolar": 3.0,
     "maxMassSolar": 100.0,
-    "probability": 0.000001,
-    "hasPlanetsProbability": 0.0,
-    "isBinaryProbability": 0.5
+    "probability": 0.0000007,
+    "hasPlanetsProbability": 0.005,
+    "isBinaryProbability": 0.5,
+    "systemCompositionModifiers": {
+      "volatileIceAbundance": 0.0,
+      "heavyMetalAbundance": 3.5,
+      "radioactiveOreAbundance": 2.5,
+      "gasGiantProbabilityModifier": 0.0,
+      "radiationHazardLevel": 1.0
+    }
   }
 ]

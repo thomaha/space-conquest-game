@@ -7,7 +7,7 @@
     "minimumIntelligence": 2,
     "minimumStrength": 4,
     "complexity": 2,
-    "retirementAge": 65
+    "retirementAge": 1.0
   },
   {
     "id": "miner",
@@ -17,7 +17,7 @@
     "minimumIntelligence": 2,
     "minimumStrength": 6,
     "complexity": 3,
-    "retirementAge": 60
+    "retirementAge": 0.92
   },
   {
     "id": "industrial_worker",
@@ -27,7 +27,7 @@
     "minimumIntelligence": 3,
     "minimumStrength": 5,
     "complexity": 4,
-    "retirementAge": 65
+    "retirementAge": 1.0
   },
   {
     "id": "technician",
@@ -37,7 +37,7 @@
     "minimumIntelligence": 5,
     "minimumStrength": 4,
     "complexity": 5,
-    "retirementAge": 67
+    "retirementAge": 1.03
   },
   {
     "id": "engineer",
@@ -47,7 +47,7 @@
     "minimumIntelligence": 7,
     "minimumStrength": 2,
     "complexity": 7,
-    "retirementAge": 70
+    "retirementAge": 1.08
   },
   {
     "id": "scientist",
@@ -57,7 +57,7 @@
     "minimumIntelligence": 8,
     "minimumStrength": 1,
     "complexity": 9,
-    "retirementAge": 72
+    "retirementAge": 1.11
   },
   {
     "id": "soldier",
@@ -67,7 +67,7 @@
     "minimumIntelligence": 3,
     "minimumStrength": 7,
     "complexity": 4,
-    "retirementAge": 50
+    "retirementAge": 0.77
   },
   {
     "id": "ship_crew",
@@ -77,7 +77,7 @@
     "minimumIntelligence": 5,
     "minimumStrength": 5,
     "complexity": 6,
-    "retirementAge": 60
+    "retirementAge": 0.92
   },
   {
     "id": "police",
@@ -87,7 +87,7 @@
     "minimumIntelligence": 4,
     "minimumStrength": 6,
     "complexity": 4,
-    "retirementAge": 58
+    "retirementAge": 0.89
   },
   {
     "id": "bureaucrat",
@@ -97,7 +97,7 @@
     "minimumIntelligence": 6,
     "minimumStrength": 1,
     "complexity": 5,
-    "retirementAge": 70
+    "retirementAge": 1.08
   },
   {
     "id": "medic",
@@ -107,16 +107,16 @@
     "minimumIntelligence": 7,
     "minimumStrength": 3,
     "complexity": 7,
-    "retirementAge": 68
+    "retirementAge": 1.05
   },
   {
     "id": "teacher",
     "name": "Teacher",
-    "description": "Trains the population, increasing training speed for other professions.",
+    "description": "Trains the population, increasing training speed for other professions based on their skill level.",
     "type": "teacher",
     "minimumIntelligence": 6,
     "minimumStrength": 1,
     "complexity": 5,
-    "retirementAge": 70
+    "retirementAge": 1.08
   }
 ]

@@ -2,108 +2,951 @@
   {
     "id": "electricity",
     "name": "Electricity",
-    "description": "Basic electrical power generation and distribution.",
+    "description": "Basic electrical power generation, circuit distribution, and storage systems.",
+    "complexity": 1,
     "requiredTechnologies": [],
     "applications": [
-      { "id": "electronics", "name": "Electronics", "description": "Electronic components and circuits.", "requiredTechnologies": [], "affectedFactors": [], "costToBuildPerUnit": 10.0, "requiredMaterials": [], "complexity": 2 },
-      { "id": "solar_power", "name": "Solar power", "description": "Harvesting energy from sunlight.", "requiredTechnologies": [], "affectedFactors": ["power_production"], "costToBuildPerUnit": 50.0, "requiredMaterials": [], "complexity": 3 },
-      { "id": "hydropower", "name": "Hydropower", "description": "Harvesting energy from flowing water.", "requiredTechnologies": [], "affectedFactors": ["power_production"], "costToBuildPerUnit": 100.0, "requiredMaterials": [], "complexity": 4 },
-      { "id": "wind_power", "name": "Wind power", "description": "Harvesting energy from wind.", "requiredTechnologies": [], "affectedFactors": ["power_production"], "costToBuildPerUnit": 40.0, "requiredMaterials": [], "complexity": 3 },
-      { "id": "nuclear_power_app", "name": "Nuclear power", "description": "Power generation from nuclear reactions.", "requiredTechnologies": [], "affectedFactors": ["power_production"], "costToBuildPerUnit": 500.0, "requiredMaterials": [], "complexity": 6 },
-      { "id": "thermoelectric_power", "name": "Thermoelectric power", "description": "Direct conversion of temperature differences to electric voltage.", "requiredTechnologies": [], "affectedFactors": ["power_production"], "costToBuildPerUnit": 80.0, "requiredMaterials": [], "complexity": 4 },
-      { "id": "batteries", "name": "Batteries", "description": "Storage of electrical energy.", "requiredTechnologies": [], "affectedFactors": ["energy_storage"], "costToBuildPerUnit": 20.0, "requiredMaterials": [], "complexity": 2 }
+      {
+        "id": "electronics",
+        "name": "Electronics",
+        "description": "Electronic components and circuits for power routing and control systems.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["electronics_production"],
+        "costToBuildPerUnit": 10.0,
+        "requiredMaterials": ["silicon", "copper_ore"],
+        "complexity": 2
+      },
+      {
+        "id": "solar_power",
+        "name": "Solar power",
+        "description": "Photovoltaic energy harvesting from ambient sunlight.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["power_production"],
+        "costToBuildPerUnit": 50.0,
+        "requiredMaterials": ["silicon", "silicates"],
+        "complexity": 3
+      },
+      {
+        "id": "hydropower",
+        "name": "Hydropower",
+        "description": "Hydroelectric generation utilizing planetary water flow and liquid dynamics.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["power_production"],
+        "costToBuildPerUnit": 100.0,
+        "requiredMaterials": ["steel", "silicates"],
+        "complexity": 4
+      },
+      {
+        "id": "wind_power",
+        "name": "Wind power",
+        "description": "Atmospheric kinetic turbine generation harnessing planetary wind currents.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["power_production"],
+        "costToBuildPerUnit": 40.0,
+        "requiredMaterials": ["steel", "refined_aluminum"],
+        "complexity": 3
+      },
+      {
+        "id": "thermoelectric_power",
+        "name": "Thermoelectric power",
+        "description": "Direct Seebeck-effect conversion of thermal gradients into electric voltage.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["power_production"],
+        "costToBuildPerUnit": 80.0,
+        "requiredMaterials": ["copper_ore", "refined_lead"],
+        "complexity": 4
+      },
+      {
+        "id": "nuclear_power_app",
+        "name": "Nuclear power",
+        "description": "Controlled thermal energy generation from fissionable atomic fuel.",
+        "requiredTechnologies": ["nuclear_fission"],
+        "affectedFactors": ["power_production"],
+        "costToBuildPerUnit": 500.0,
+        "requiredMaterials": ["uranium_ore", "steel"],
+        "complexity": 6
+      },
+      {
+        "id": "fusion_power_app",
+        "name": "Fusion power",
+        "description": "High-density thermal energy generation from sustained light-element fusion.",
+        "requiredTechnologies": ["nuclear_fusion"],
+        "affectedFactors": ["power_production"],
+        "costToBuildPerUnit": 2000.0,
+        "requiredMaterials": ["helium_3", "superconducting_cuprates", "refined_titanium"],
+        "complexity": 9
+      },
+      {
+        "id": "antimatter_power_app",
+        "name": "Antimatter power",
+        "description": "Extreme energy generation through controlled matter-antimatter annihilation.",
+        "requiredTechnologies": ["antimatter"],
+        "affectedFactors": ["power_production"],
+        "costToBuildPerUnit": 10000.0,
+        "requiredMaterials": ["superconducting_cuprates", "radiation_hardened_semiconductors"],
+        "complexity": 10
+      },
+      {
+        "id": "batteries",
+        "name": "Batteries",
+        "description": "Chemical and solid-state storage arrays for electrical reserves.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["energy_storage"],
+        "costToBuildPerUnit": 20.0,
+        "requiredMaterials": ["lithium_ore", "copper_ore"],
+        "complexity": 2
+      }
     ]
   },
   {
     "id": "nuclear_fission",
     "name": "Nuclear fission",
-    "description": "Process of splitting heavy nuclei.",
-    "requiredTechnologies": [],
+    "description": "Process of splitting heavy atomic nuclei to release binding energy.",
+    "complexity": 4,
+    "requiredTechnologies": ["electricity"],
     "applications": [
-      { "id": "fission_reactors", "name": "Fission reactors", "description": "Devices to initiate and control a sustained nuclear chain reaction.", "requiredTechnologies": [], "affectedFactors": ["power_production"], "costToBuildPerUnit": 1000.0, "requiredMaterials": [], "complexity": 7 },
-      { "id": "fission_weapons", "name": "Fission weapons", "description": "Explosive devices that derive their destructive force from nuclear reactions.", "requiredTechnologies": [], "affectedFactors": ["combat_strength"], "costToBuildPerUnit": 2000.0, "requiredMaterials": [], "complexity": 8 }
+      {
+        "id": "fission_reactors",
+        "name": "Fission reactors",
+        "description": "Devices to initiate and control a sustained nuclear fission chain reaction.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["power_production"],
+        "costToBuildPerUnit": 1000.0,
+        "requiredMaterials": ["uranium_ore", "steel", "lead_ore"],
+        "complexity": 7
+      },
+      {
+        "id": "fission_weapons",
+        "name": "Fission weapons",
+        "description": "Explosive devices that derive their destructive force from nuclear fission reactions.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["combat_strength"],
+        "costToBuildPerUnit": 2000.0,
+        "requiredMaterials": ["uranium_ore", "steel"],
+        "complexity": 8
+      }
     ]
   },
   {
     "id": "nuclear_fusion",
     "name": "Nuclear fusion",
-    "description": "Process of fusing light nuclei.",
-    "requiredTechnologies": [],
+    "description": "Process of fusing light atomic nuclei into heavier elements under extreme heat and pressure.",
+    "complexity": 7,
+    "requiredTechnologies": ["nuclear_fission"],
     "applications": [
-      { "id": "fusion_reactors", "name": "Fusion reactors", "description": "Devices to initiate and control a sustained nuclear fusion reaction.", "requiredTechnologies": [], "affectedFactors": ["power_production"], "costToBuildPerUnit": 5000.0, "requiredMaterials": [], "complexity": 9 },
-      { "id": "fusion_weapons", "name": "Fusion weapons", "description": "Advanced nuclear weapons using fusion.", "requiredTechnologies": [], "affectedFactors": ["combat_strength"], "costToBuildPerUnit": 10000.0, "requiredMaterials": [], "complexity": 10 }
+      {
+        "id": "fusion_reactors",
+        "name": "Fusion reactors",
+        "description": "Magnetic confinement devices to sustain thermonuclear fusion reactions.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["power_production"],
+        "costToBuildPerUnit": 5000.0,
+        "requiredMaterials": ["helium_3", "superconducting_cuprates", "refined_titanium"],
+        "complexity": 9
+      },
+      {
+        "id": "fusion_weapons",
+        "name": "Fusion weapons",
+        "description": "Advanced thermonuclear weapons using multistage fusion for massive explosive yields.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["combat_strength"],
+        "costToBuildPerUnit": 10000.0,
+        "requiredMaterials": ["helium_3", "refined_titanium", "uranium_ore"],
+        "complexity": 10
+      }
     ]
   },
   {
     "id": "industrial_production",
     "name": "Industrial production",
-    "description": "Methods for mass production of goods.",
+    "description": "Methods and infrastructure for large-scale extraction, agriculture, refining, and manufacturing.",
+    "complexity": 2,
     "requiredTechnologies": [],
     "applications": [
-      { "id": "farming", "name": "Farming", "description": "Production of food and other products through agriculture.", "requiredTechnologies": [], "affectedFactors": ["food_production"], "costToBuildPerUnit": 5.0, "requiredMaterials": [], "complexity": 1 },
-      { "id": "ore_refining", "name": "Ore refining", "description": "Process of extracting metals from their ores.", "requiredTechnologies": [], "affectedFactors": ["production_increase"], "costToBuildPerUnit": 100.0, "requiredMaterials": [], "complexity": 3 },
-      { "id": "manufacturing", "name": "Manufacturing", "description": "Production of merchandise for use or sale using labour and machines.", "requiredTechnologies": [], "affectedFactors": ["production_increase"], "costToBuildPerUnit": 150.0, "requiredMaterials": [], "complexity": 4 },
-      { "id": "metallurgy", "name": "Metallurgy", "description": "Science and technology of metals.", "requiredTechnologies": [], "affectedFactors": ["production_increase"], "costToBuildPerUnit": 80.0, "requiredMaterials": [], "complexity": 3 }
+      {
+        "id": "industrial_soil_cultivation",
+        "name": "Industrial soil cultivation",
+        "description": "Large-scale mechanized harvesting of native or terraformed soils using basic irrigation and chemical fertilizers.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["food_production", "water_table_depletion"],
+        "costToBuildPerUnit": 15.0,
+        "requiredMaterials": ["nitrates", "phosphates", "potash"],
+        "complexity": 2
+      },
+      {
+        "id": "automated_biosphere_macro_farms",
+        "name": "Automated biosphere macro-farms",
+        "description": "Giant, drone-managed agricultural zones equipped with climate-control arrays to protect crops from extreme planetary weather shifts.",
+        "requiredTechnologies": ["robotics"],
+        "affectedFactors": ["crop_yield_stability", "power_consumption"],
+        "costToBuildPerUnit": 250.0,
+        "requiredMaterials": ["steel", "industrial_ceramics", "silicon"],
+        "complexity": 5
+      },
+      {
+        "id": "hydroponic_growth_arrays",
+        "name": "Hydroponic growth arrays",
+        "description": "Growing plants in nutrient-rich water solutions instead of soil, stacked vertically to maximize space inside orbital habitats.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["space_station_capacity_usage", "food_production", "water_consumption"],
+        "costToBuildPerUnit": 80.0,
+        "requiredMaterials": ["water_ice", "nitrates", "phosphates", "industrial_ceramics"],
+        "complexity": 3
+      },
+      {
+        "id": "aeroponic_nutrient_misting",
+        "name": "Aeroponic nutrient misting",
+        "description": "Suspending plant roots in the air and using automated micro-nozzles to spray them with mist. This radically optimizes resource consumption.",
+        "requiredTechnologies": ["nanotechnology"],
+        "affectedFactors": ["water_consumption", "crop_growth_speed", "electronics_complexity"],
+        "costToBuildPerUnit": 180.0,
+        "requiredMaterials": ["silicon", "industrial_ceramics", "nitrates"],
+        "complexity": 6
+      },
+      {
+        "id": "biomass_processing",
+        "name": "Biomass processing",
+        "description": "Refining agricultural waste and fast-growing plant fibers into organic plastics, insulation materials, and clothing.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["manufacturing_cost", "petrochemical_reliance"],
+        "costToBuildPerUnit": 60.0,
+        "requiredMaterials": ["hydrocarbons"],
+        "complexity": 3
+      },
+      {
+        "id": "algae_carbon_scrubbing",
+        "name": "Algae carbon scrubbing",
+        "description": "Cultivating specialized genetic strains of algae in massive fluid vats exposed to artificial light fields to recycle breathable air.",
+        "requiredTechnologies": ["energy_fields"],
+        "affectedFactors": ["life_support_duration", "power_consumption"],
+        "costToBuildPerUnit": 120.0,
+        "requiredMaterials": ["water_ice", "nitrogen_gas", "silicates"],
+        "complexity": 4
+      },
+      {
+        "id": "bioreactor_tissue_printing",
+        "name": "Bioreactor tissue printing",
+        "description": "Cultivating animal proteins and complex plant tissues directly inside industrial synthetic vats.",
+        "requiredTechnologies": ["biological_cloning", "nanotechnology"],
+        "affectedFactors": ["food_production", "work_hours_per_unit"],
+        "costToBuildPerUnit": 400.0,
+        "requiredMaterials": ["water_ice", "nitrates", "phosphates", "silicon"],
+        "complexity": 8
+      },
+      {
+        "id": "pyrometallurgical_smelting",
+        "name": "Pyrometallurgical smelting",
+        "description": "Uses high thermal energy (coal, oil, basic electricity) to melt and separate common ores into basic metals.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["material_yield", "power_consumption", "pollution_generation"],
+        "costToBuildPerUnit": 50.0,
+        "requiredMaterials": ["iron_ore", "carbon"],
+        "complexity": 2
+      },
+      {
+        "id": "chemical_leaching_hydrometallurgy",
+        "name": "Chemical leaching & hydrometallurgy",
+        "description": "Uses chemical acids and gasses to dissolve and extract noble or rare-earth metals from complex crust veins.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["rare_element_extraction_rate", "work_hours_per_unit"],
+        "costToBuildPerUnit": 120.0,
+        "requiredMaterials": ["sulfur", "nitrogen_gas"],
+        "complexity": 4
+      },
+      {
+        "id": "centrifugal_isotope_separation",
+        "name": "Centrifugal & gaseous isotope separation",
+        "description": "Separates specific heavy isotopes from mined radioactive materials.",
+        "requiredTechnologies": ["nuclear_fission"],
+        "affectedFactors": ["fission_fuel_purity"],
+        "costToBuildPerUnit": 350.0,
+        "requiredMaterials": ["uranium_ore", "steel", "superconducting_cuprates"],
+        "complexity": 7
+      },
+      {
+        "id": "zero_g_magnetic_refining",
+        "name": "Zero-G magnetic refining",
+        "description": "Uses the vacuum and weightlessness of space alongside magnetic fields to perfectly separate pristine metals from asteroid rock without atmospheric contamination.",
+        "requiredTechnologies": ["rocketry"],
+        "affectedFactors": ["material_purity", "power_consumption"],
+        "costToBuildPerUnit": 500.0,
+        "requiredMaterials": ["superconducting_cuprates", "refined_titanium"],
+        "complexity": 6
+      },
+      {
+        "id": "automated_assembly_lines",
+        "name": "Automated assembly lines",
+        "description": "Robotic and mechanical arms mass-producing parts.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["cost_to_build", "workforce_demand"],
+        "costToBuildPerUnit": 200.0,
+        "requiredMaterials": ["steel", "silicon", "copper_ore"],
+        "complexity": 4
+      },
+      {
+        "id": "nanofabrication_matrices",
+        "name": "Nanofabrication matrices",
+        "description": "Tiny machines constructing electronic boards and micro-components block-by-block. Required for producing high-complexity electronics.",
+        "requiredTechnologies": ["nanotechnology"],
+        "affectedFactors": ["max_complexity_cap"],
+        "costToBuildPerUnit": 800.0,
+        "requiredMaterials": ["silicon", "superconducting_cuprates", "refined_gallium"],
+        "complexity": 8
+      },
+      {
+        "id": "replicators_matter_synthesizers",
+        "name": "Replicators / matter synthesizers",
+        "description": "Converts raw electrical energy or base scrap elements directly into complex components.",
+        "requiredTechnologies": ["nanotechnology"],
+        "affectedFactors": ["required_mined_materials", "power_consumption", "work_hours_per_unit"],
+        "costToBuildPerUnit": 2500.0,
+        "requiredMaterials": ["superconducting_cuprates", "radiation_hardened_semiconductors"],
+        "complexity": 9
+      },
+      {
+        "id": "heavy_steel_titanium_alloying",
+        "name": "Heavy steel & titanium alloying",
+        "description": "Forging heavy structural metals for ground structures and early spacecraft. High weight, medium strength.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["material_strength", "weight_per_unit"],
+        "costToBuildPerUnit": 100.0,
+        "requiredMaterials": ["iron_ore", "titanium_ore", "carbon"],
+        "complexity": 3
+      },
+      {
+        "id": "crystal_lattice_tuning",
+        "name": "Crystal lattice tuning",
+        "description": "Using electromagnetic fields during cooling to arrange atoms into perfect, flawless crystal structures.",
+        "requiredTechnologies": ["superconductors"],
+        "affectedFactors": ["material_strength", "complexity"],
+        "costToBuildPerUnit": 450.0,
+        "requiredMaterials": ["superconducting_cuprates", "refined_titanium", "isotopic_graphite"],
+        "complexity": 7
+      },
+      {
+        "id": "radiation_ablative_shielding",
+        "name": "Radiation ablative shielding",
+        "description": "Creating composite alloys designed specifically to absorb cosmic rays and dissipate heat from laser weapons.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["energy_weapon_resistance", "weight_per_unit"],
+        "costToBuildPerUnit": 300.0,
+        "requiredMaterials": ["lead_ore", "industrial_ceramics", "isotopic_graphite"],
+        "complexity": 5
+      },
+      {
+        "id": "orbital_drydocks",
+        "name": "Orbital drydocks",
+        "description": "Space station modules capable of assembling large hull frames in microgravity.",
+        "requiredTechnologies": ["rocketry"],
+        "affectedFactors": ["max_ship_size_cap"],
+        "costToBuildPerUnit": 1500.0,
+        "requiredMaterials": ["steel", "refined_titanium", "industrial_ceramics"],
+        "complexity": 7
+      },
+      {
+        "id": "microgravity_foundry",
+        "name": "Microgravity foundry",
+        "description": "Allows the manufacturing of materials that require perfect weightlessness to form correctly, such as foaming metals or flawless fiber optics.",
+        "requiredTechnologies": ["rocketry"],
+        "affectedFactors": ["unlock_exotic_materials"],
+        "costToBuildPerUnit": 900.0,
+        "requiredMaterials": ["steel", "superconducting_cuprates", "silicates"],
+        "complexity": 6
+      },
+      {
+        "id": "asteroid_capture_processing",
+        "name": "Asteroid capture & processing",
+        "description": "Anchoring a production facility directly onto a captured asteroid to mine, refine and manufacture ship hulls entirely in deep space.",
+        "requiredTechnologies": ["rocketry"],
+        "affectedFactors": ["transport_cost_to_orbit"],
+        "costToBuildPerUnit": 2000.0,
+        "requiredMaterials": ["steel", "refined_titanium", "superconducting_cuprates"],
+        "complexity": 8
+      }
     ]
   },
   {
     "id": "rocketry",
     "name": "Rocketry",
-    "description": "Science of rocket design and flight.",
-    "requiredTechnologies": [],
+    "description": "Science of rocket design, reaction propulsion, and spaceflight infrastructure.",
+    "complexity": 3,
+    "requiredTechnologies": ["electricity"],
     "applications": [
-      { "id": "rocket_engines", "name": "Rocket engines", "description": "Engines that produce thrust by ejecting mass.", "requiredTechnologies": [], "affectedFactors": [], "costToBuildPerUnit": 200.0, "requiredMaterials": [], "complexity": 5 },
-      { "id": "launch_facilities", "name": "Launch facilities", "description": "Infrastructure for launching rockets.", "requiredTechnologies": [], "affectedFactors": [], "costToBuildPerUnit": 1000.0, "requiredMaterials": [], "complexity": 4 },
-      { "id": "fission_engines", "name": "Fission engines", "description": "Rocket engines using nuclear fission.", "requiredTechnologies": ["fission_reactors"], "affectedFactors": [], "costToBuildPerUnit": 3000.0, "requiredMaterials": [], "complexity": 8 },
-      { "id": "fusion_engines", "name": "Fusion engines", "description": "Rocket engines using nuclear fusion.", "requiredTechnologies": ["fusion_reactors"], "affectedFactors": [], "costToBuildPerUnit": 8000.0, "requiredMaterials": [], "complexity": 10 },
-      { "id": "orbital_rockets", "name": "Orbital rockets", "description": "Rockets capable of reaching orbit.", "requiredTechnologies": [], "affectedFactors": [], "costToBuildPerUnit": 500.0, "requiredMaterials": [], "complexity": 6 },
-      { "id": "interplanetary_rockets", "name": "Interplanetary rockets", "description": "Rockets capable of interplanetary travel.", "requiredTechnologies": [], "affectedFactors": [], "costToBuildPerUnit": 2000.0, "requiredMaterials": [], "complexity": 7 },
-      { "id": "spacecraft", "name": "Spacecraft", "description": "Vehicles designed for spaceflight.", "requiredTechnologies": [], "affectedFactors": [], "costToBuildPerUnit": 1500.0, "requiredMaterials": [], "complexity": 7 },
-      { "id": "space_stations", "name": "Space stations", "description": "Large spacecraft designed for long-term habitation.", "requiredTechnologies": [], "affectedFactors": [], "costToBuildPerUnit": 5000.0, "requiredMaterials": [], "complexity": 8 }
+      {
+        "id": "rocket_engines",
+        "name": "Rocket engines",
+        "description": "Chemical engines that produce thrust by ejecting accelerated combustion mass.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["propulsion_power"],
+        "costToBuildPerUnit": 200.0,
+        "requiredMaterials": ["steel", "hydrocarbons", "oxygen_gas"],
+        "complexity": 5
+      },
+      {
+        "id": "launch_facilities",
+        "name": "Launch facilities",
+        "description": "Ground infrastructure for staging and launching rockets into orbit.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["launch_capacity"],
+        "costToBuildPerUnit": 1000.0,
+        "requiredMaterials": ["silicates", "steel"],
+        "complexity": 4
+      },
+      {
+        "id": "fission_engines",
+        "name": "Fission engines",
+        "description": "Thermal rocket engines powered by controlled nuclear fission reactions.",
+        "requiredTechnologies": ["nuclear_fission"],
+        "affectedFactors": ["propulsion_efficiency", "thrust"],
+        "costToBuildPerUnit": 3000.0,
+        "requiredMaterials": ["uranium_ore", "refined_titanium", "industrial_ceramics"],
+        "complexity": 8
+      },
+      {
+        "id": "fusion_engines",
+        "name": "Fusion engines",
+        "description": "High-impulse rocket engines powered by magnetic-confinement fusion reactions.",
+        "requiredTechnologies": ["nuclear_fusion"],
+        "affectedFactors": ["propulsion_efficiency", "interplanetary_speed"],
+        "costToBuildPerUnit": 8000.0,
+        "requiredMaterials": ["helium_3", "superconducting_cuprates", "refined_titanium"],
+        "complexity": 10
+      },
+      {
+        "id": "orbital_rockets",
+        "name": "Orbital rockets",
+        "description": "Expendable or reusable multi-stage rockets capable of reaching planetary orbit.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["payload_to_orbit"],
+        "costToBuildPerUnit": 500.0,
+        "requiredMaterials": ["aluminum_ore", "hydrocarbons", "oxygen_gas"],
+        "complexity": 6
+      },
+      {
+        "id": "interplanetary_rockets",
+        "name": "Interplanetary rockets",
+        "description": "Spacecraft stages designed for long-distance transit across solar systems.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["interplanetary_range"],
+        "costToBuildPerUnit": 2000.0,
+        "requiredMaterials": ["refined_titanium", "hydrogen_gas", "steel"],
+        "complexity": 7
+      },
+      {
+        "id": "spacecraft",
+        "name": "Spacecraft",
+        "description": "Manned and unmanned vehicles designed for operational spaceflight and maneuvering.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["space_mobility"],
+        "costToBuildPerUnit": 1500.0,
+        "requiredMaterials": ["refined_titanium", "industrial_ceramics", "silicon"],
+        "complexity": 7
+      },
+      {
+        "id": "space_stations",
+        "name": "Space stations",
+        "description": "Large orbital platforms designed for permanent habitation, science, and industry.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["orbital_habitation_capacity"],
+        "costToBuildPerUnit": 5000.0,
+        "requiredMaterials": ["steel", "refined_titanium", "silicates", "industrial_ceramics"],
+        "complexity": 8
+      }
+    ]
+  },
+  {
+    "id": "surface_to_orbit_infrastructure",
+    "name": "Surface-to-orbit infrastructure",
+    "description": "Mega-engineering and high-efficiency installations for planetary launch and payload delivery.",
+    "complexity": 6,
+    "requiredTechnologies": ["rocketry", "industrial_production"],
+    "applications": [
+      {
+        "id": "mass_driver_launch_tracks",
+        "name": "Mass driver launch tracks",
+        "description": "Ground-based electromagnetic rails that rail-launch raw unrefined resources directly into low orbit using pure electrical energy.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["launch_transport_cost", "power_consumption", "cargo_damage_risk"],
+        "costToBuildPerUnit": 3000.0,
+        "requiredMaterials": ["steel", "superconducting_cuprates", "silicates"],
+        "complexity": 7
+      },
+      {
+        "id": "space_elevators",
+        "name": "Space elevators / orbital tethers",
+        "description": "Massive planetary tethers anchoring a ground station to a geostationary orbital platform, permanently dropping launch costs.",
+        "requiredTechnologies": ["superconductors"],
+        "affectedFactors": ["launch_transport_cost", "structural_material_cost"],
+        "costToBuildPerUnit": 15000.0,
+        "requiredMaterials": ["carbon", "superconducting_cuprates", "refined_titanium"],
+        "complexity": 9
+      }
+    ]
+  },
+  {
+    "id": "waste_management",
+    "name": "Waste management and closed loops",
+    "description": "Closed-loop ecological systems, byproduct recycling, and industrial pollution mitigation technologies.",
+    "complexity": 4,
+    "requiredTechnologies": ["industrial_production"],
+    "applications": [
+      {
+        "id": "gas_capture_scrubbing",
+        "name": "Gas capture and scrubbing arrays",
+        "description": "Heavy industrial filters inside refining foundries that capture chemical off-gasses before they escape into the planet's atmosphere or space.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["gas_extraction_yield", "pollution_generation"],
+        "costToBuildPerUnit": 180.0,
+        "requiredMaterials": ["industrial_ceramics", "steel", "carbon"],
+        "complexity": 4
+      },
+      {
+        "id": "slag_processing_molecular_reclaiming",
+        "name": "Slag processing and molecular reclaiming",
+        "description": "Dissolving left-over industrial rock slag using chemical leaching pools to extract trace amounts of noble metals.",
+        "requiredTechnologies": ["nanotechnology"],
+        "affectedFactors": ["mineral_vein_lifetime", "power_consumption", "work_hours_per_unit"],
+        "costToBuildPerUnit": 350.0,
+        "requiredMaterials": ["sulfur", "silicon", "industrial_ceramics"],
+        "complexity": 6
+      }
+    ]
+  },
+  {
+    "id": "interstellar_shipping_optimization",
+    "name": "Interstellar shipping optimization",
+    "description": "Standardized cargo logistics frameworks and automated bulk transport networks.",
+    "complexity": 5,
+    "requiredTechnologies": ["rocketry"],
+    "applications": [
+      {
+        "id": "automated_cargo_route_freighters",
+        "name": "Automated cargo route freighters",
+        "description": "Standardizing cargo containers to automate bulk hauling networks between mining moons and manufacturing hubs.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["shipping_lane_work_hours", "fleet_fuel_efficiency"],
+        "costToBuildPerUnit": 1200.0,
+        "requiredMaterials": ["steel", "refined_titanium", "silicon"],
+        "complexity": 6
+      }
+    ]
+  },
+  {
+    "id": "supply_chain_automation",
+    "name": "Supply chain automation and industrial computing",
+    "description": "Advanced computerized logistics, robotic coordination, and cybernetic production management.",
+    "complexity": 6,
+    "requiredTechnologies": ["robotics", "electricity"],
+    "applications": [
+      {
+        "id": "just_in_time_logistics_networks",
+        "name": "Just-in-time logistics networks",
+        "description": "Computerized inventory routing that syncs local mining output with manufacturing factory demands across an entire star system.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["material_storage_capacity", "production_delay_penalties"],
+        "costToBuildPerUnit": 400.0,
+        "requiredMaterials": ["silicon", "copper_ore"],
+        "complexity": 5
+      },
+      {
+        "id": "cybernetic_workforce_integration",
+        "name": "Cybernetic workforce integration",
+        "description": "Deploying specialized, non-sentient AI clusters to oversee heavy manufacturing plants, removing human safety bottlenecks.",
+        "requiredTechnologies": ["artificial_intelligence"],
+        "affectedFactors": ["production_complexity_capacity", "workforce_demand", "emp_vulnerability"],
+        "costToBuildPerUnit": 1000.0,
+        "requiredMaterials": ["radiation_hardened_semiconductors", "superconducting_cuprates"],
+        "complexity": 7
+      }
+    ]
+  },
+  {
+    "id": "geological_prospecting",
+    "name": "Geological prospecting and orbital scanning",
+    "description": "Surface and orbital scanning systems to identify crust veins and deep planetary resource caches.",
+    "complexity": 3,
+    "requiredTechnologies": ["energy_fields"],
+    "applications": [
+      {
+        "id": "orbital_hyperspectral_mapping",
+        "name": "Orbital hyper-spectral mapping",
+        "description": "Scanning a planetary body from orbit using infrared and deep-radar sensors to discover obvious surface deposits and shallow veins.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["vein_discovery_speed", "planetary_map_visibility"],
+        "costToBuildPerUnit": 300.0,
+        "requiredMaterials": ["silicon", "industrial_ceramics", "silicates"],
+        "complexity": 4
+      },
+      {
+        "id": "seismic_crustal_sounding",
+        "name": "Seismic crustal sounding",
+        "description": "Detonating controlled explosive charges on a planet's surface to bounce acoustic waves through the crust, revealing hidden deep-layer veins.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["deep_vein_discovery_chance", "prospecting_work_hours"],
+        "costToBuildPerUnit": 200.0,
+        "requiredMaterials": ["steel", "hydrocarbons"],
+        "complexity": 3
+      }
+    ]
+  },
+  {
+    "id": "superconductors",
+    "name": "Superconductors",
+    "description": "Materials exhibiting zero electrical resistance and expulsion of magnetic fields at high temperatures.",
+    "complexity": 5,
+    "requiredTechnologies": ["electricity", "industrial_production"],
+    "applications": []
+  },
+  {
+    "id": "computers",
+    "name": "Computers",
+    "description": "Information processing architectures from digital microprocessors to quantum matrix computation.",
+    "complexity": 2,
+    "requiredTechnologies": ["electricity"],
+    "applications": [
+      {
+        "id": "electronic_computers",
+        "name": "Electronic computers",
+        "description": "Electronic semiconductor computers for automated administration and scientific data analysis.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["research_speed", "administrative_efficiency"],
+        "costToBuildPerUnit": 100.0,
+        "requiredMaterials": ["silicon", "copper_ore"],
+        "complexity": 3
+      },
+      {
+        "id": "quantum_computers",
+        "name": "Quantum computers",
+        "description": "Quantum computers utilizing superposition and entanglement for complex simulations and instant communications.",
+        "requiredTechnologies": ["superconductors"],
+        "affectedFactors": ["research_speed", "cryptography", "financial_latency"],
+        "costToBuildPerUnit": 1200.0,
+        "requiredMaterials": ["superconducting_cuprates", "radiation_hardened_semiconductors"],
+        "complexity": 8
+      }
     ]
   },
   {
     "id": "energy_fields",
     "name": "Energy fields",
-    "description": "Manipulation of energy to create fields.",
-    "requiredTechnologies": ["electricity"],
+    "description": "Manipulation and projection of electromagnetic and force fields through active emitter arrays.",
+    "complexity": 5,
+    "requiredTechnologies": ["superconductors"],
     "applications": [
-      { "id": "shields", "name": "Shields", "description": "Protective energy barriers.", "requiredTechnologies": [], "affectedFactors": ["combat_strength"], "costToBuildPerUnit": 1000.0, "requiredMaterials": [], "complexity": 8 }
+      {
+        "id": "shields",
+        "name": "Shields",
+        "description": "Protective energy barriers that absorb and disperse incoming kinetic and energy damage.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["combat_strength", "shield_capacity"],
+        "costToBuildPerUnit": 1000.0,
+        "requiredMaterials": ["superconducting_cuprates", "refined_titanium"],
+        "complexity": 8
+      },
+      {
+        "id": "scanners",
+        "name": "Scanners",
+        "description": "Active electromagnetic sensor arrays for tactical and long-range system detection.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["sensor_range", "detection_accuracy"],
+        "costToBuildPerUnit": 600.0,
+        "requiredMaterials": ["radiation_hardened_semiconductors", "superconducting_cuprates"],
+        "complexity": 6
+      }
     ]
   },
   {
-    "id": "particle_weapons",
-    "name": "Particle weapons",
-    "description": "Weapons that use a high-energy beam of atomic or subatomic particles.",
-    "requiredTechnologies": [],
-    "applications": []
+    "id": "electromagnetic_weapons",
+    "name": "Electromagnetic weapons",
+    "description": "Weapons using electromagnetic acceleration or particle streams to project offensive firepower.",
+    "complexity": 6,
+    "requiredTechnologies": ["energy_fields"],
+    "applications": [
+      {
+        "id": "mass_drivers",
+        "name": "Mass drivers",
+        "description": "High-velocity electromagnetic rail launchers firing dense kinetic slugs over extreme ranges. Slow bolts, heavy shield damage, long range.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["combat_strength", "shield_damage", "long_range"],
+        "costToBuildPerUnit": 1500.0,
+        "requiredMaterials": ["superconducting_cuprates", "refined_titanium", "tungsten_ore"],
+        "complexity": 7
+      },
+      {
+        "id": "particle_beams",
+        "name": "Particle beams",
+        "description": "Particle accelerators delivering high-energy relativistic ions that disrupt electronic systems and penetrate armor.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["combat_strength", "armor_penetration", "range"],
+        "costToBuildPerUnit": 2200.0,
+        "requiredMaterials": ["superconducting_cuprates", "radiation_hardened_semiconductors"],
+        "complexity": 8
+      }
+    ]
   },
   {
     "id": "energy_weapons",
     "name": "Energy weapons",
-    "description": "Weapons that emit energy in an aimed direction without the means of a projectile.",
+    "description": "Weapons that emit directed energy including lasers, plasma, and electromagnetic pulses.",
+    "complexity": 6,
     "requiredTechnologies": ["energy_fields"],
-    "applications": []
+    "applications": [
+      {
+        "id": "laser_weapons",
+        "name": "Laser weapons",
+        "description": "Coherent high-frequency optical beams delivering instant thermal energy at medium combat range. Weak in atmosphere, weak against shields.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["combat_strength", "accuracy"],
+        "costToBuildPerUnit": 1200.0,
+        "requiredMaterials": ["industrial_ceramics", "superconducting_cuprates", "silicon"],
+        "complexity": 6
+      },
+      {
+        "id": "plasma_weapons",
+        "name": "Plasma weapons",
+        "description": "Projectors firing magnetically contained packets of superheated plasma that melt heavy hull armor at short range.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["combat_strength", "armor_damage"],
+        "costToBuildPerUnit": 2000.0,
+        "requiredMaterials": ["refined_titanium", "superconducting_cuprates", "industrial_ceramics"],
+        "complexity": 8
+      },
+      {
+        "id": "emp_weapons",
+        "name": "EMP weapons",
+        "description": "Non-lethal pulse emitters designed to overwhelm electrical circuits and temporarily disable enemy ship systems.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["combat_strength", "system_disable_duration"],
+        "costToBuildPerUnit": 1400.0,
+        "requiredMaterials": ["superconducting_cuprates", "radiation_hardened_semiconductors"],
+        "complexity": 7
+      }
+    ]
+  },
+  {
+    "id": "defensive_weapons",
+    "name": "Defensive weapons",
+    "description": "Point defense systems (PDS) for intercepting incoming missiles, torpedoes, and strike craft.",
+    "complexity": 4,
+    "requiredTechnologies": ["industrial_production", "energy_fields"],
+    "applications": [
+      {
+        "id": "flak_cannons",
+        "name": "Flak cannons",
+        "description": "Fires bursts of shrapnel. Cheap to manufacture, highly effective at shredding swarms of fragile bombers or missiles.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["point_defense_rating", "anti_missile_efficiency"],
+        "costToBuildPerUnit": 400.0,
+        "requiredMaterials": ["steel", "lead_ore"],
+        "complexity": 4
+      },
+      {
+        "id": "pd_lasers",
+        "name": "PD lasers",
+        "description": "Low-yield, rapid-tracking lasers. Instantly zaps incoming physical torpedoes or particle streams before they hit the main shields.",
+        "requiredTechnologies": ["energy_weapons"],
+        "affectedFactors": ["point_defense_rating", "reaction_time", "power_consumption"],
+        "costToBuildPerUnit": 800.0,
+        "requiredMaterials": ["superconducting_cuprates", "industrial_ceramics", "silicon"],
+        "complexity": 6
+      }
+    ]
   },
   {
     "id": "nanotechnology",
     "name": "Nanotechnology",
-    "description": "Manipulation of matter on an atomic, molecular, and supramolecular scale.",
-    "requiredTechnologies": [],
+    "description": "Manipulation and manufacturing of matter on an atomic, molecular, and supramolecular scale.",
+    "complexity": 7,
+    "requiredTechnologies": ["computers", "industrial_production"],
     "applications": []
+  },
+  {
+    "id": "antimatter",
+    "name": "Antimatter",
+    "description": "Creation, magnetic containment, and utilization of antiparticles for power and extreme-yield weaponry.",
+    "complexity": 9,
+    "requiredTechnologies": ["superconductors", "nuclear_fusion"],
+    "applications": [
+      {
+        "id": "antimatter_harvesting_storage",
+        "name": "Antimatter harvesting / storage",
+        "description": "Magnetic containment facilities capable of holding positrons and antiprotons.",
+        "requiredTechnologies": ["superconductors"],
+        "affectedFactors": ["antimatter_storage_capacity", "containment_safety"],
+        "costToBuildPerUnit": 8000.0,
+        "requiredMaterials": ["superconducting_cuprates", "radiation_hardened_semiconductors", "refined_titanium"],
+        "complexity": 9
+      },
+      {
+        "id": "antimatter_bombs",
+        "name": "Antimatter bombs / warheads",
+        "description": "The ultimate destructive bomb category for erasing planetary fortifications or vaporizing enemy capital ships.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["bombardment_damage", "combat_strength"],
+        "costToBuildPerUnit": 20000.0,
+        "requiredMaterials": ["superconducting_cuprates", "refined_titanium"],
+        "complexity": 10
+      },
+      {
+        "id": "antimatter_engines",
+        "name": "Antimatter engines",
+        "description": "Extremely high-impulse propulsion that allows rapid interstellar transit inside a star system.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["propulsion_efficiency", "transit_speed"],
+        "costToBuildPerUnit": 15000.0,
+        "requiredMaterials": ["superconducting_cuprates", "refined_titanium", "radiation_hardened_semiconductors"],
+        "complexity": 10
+      }
+    ]
   },
   {
     "id": "robotics",
     "name": "Robotics",
-    "description": "Interdisciplinary branch of engineering and science that includes mechanical engineering, electrical engineering, computer science, and others.",
-    "requiredTechnologies": [],
+    "description": "Interdisciplinary engineering of autonomous, programmable machines for heavy industry, space, and combat.",
+    "complexity": 4,
+    "requiredTechnologies": ["computers", "electricity"],
     "applications": []
   },
   {
     "id": "artificial_intelligence",
     "name": "Artificial intelligence",
-    "description": "Intelligence demonstrated by machines, in contrast to the natural intelligence displayed by humans and animals.",
-    "requiredTechnologies": [],
+    "description": "Synthetic cognitive reasoning, autonomous decision networks, and advanced machine intelligence.",
+    "complexity": 7,
+    "requiredTechnologies": ["computers", "robotics"],
     "applications": []
+  },
+  {
+    "id": "gene_technology",
+    "name": "Gene technology",
+    "description": "Genetic sequencing, editing, and therapeutic treatments for biological organisms.",
+    "complexity": 4,
+    "requiredTechnologies": ["industrial_production"],
+    "applications": [
+      {
+        "id": "gene_sequencing",
+        "name": "Gene sequencing",
+        "description": "High-throughput identification and mapping of genetic sequences across alien and terrestrial species.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["biological_research_speed", "trait_identification"],
+        "costToBuildPerUnit": 200.0,
+        "requiredMaterials": ["silicon", "silicates"],
+        "complexity": 4
+      },
+      {
+        "id": "gene_editing",
+        "name": "Gene editing",
+        "description": "Precision synthetic molecular tools for modifying genetic traits and eliminating hereditary defects.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["species_adaptability", "reproduction_health"],
+        "costToBuildPerUnit": 500.0,
+        "requiredMaterials": ["silicon", "industrial_ceramics"],
+        "complexity": 6
+      },
+      {
+        "id": "gene_therapy",
+        "name": "Gene therapy",
+        "description": "Targeted genetic treatments to improve health, extend lifespan, and adjust baseline retirement age.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["lifespan", "baseline_retirement_age", "disease_resistance"],
+        "costToBuildPerUnit": 800.0,
+        "requiredMaterials": ["industrial_ceramics", "silicon"],
+        "complexity": 7
+      }
+    ]
+  },
+  {
+    "id": "biological_cloning",
+    "name": "Biological cloning",
+    "description": "Somatic cell cloning, rapid cellular replication, and artificial gestators.",
+    "complexity": 6,
+    "requiredTechnologies": ["gene_technology"],
+    "applications": []
+  },
+  {
+    "id": "transhumanism",
+    "name": "Transhumanism & digital consciousness",
+    "description": "Integration of cybernetics, neural interfaces, and digital consciousness transfer.",
+    "complexity": 8,
+    "requiredTechnologies": ["artificial_intelligence", "gene_technology"],
+    "applications": [
+      {
+        "id": "cybernetic_augmentation",
+        "name": "Cybernetic augmentation",
+        "description": "Blends robotics with gene therapy to permanently enhance workforce productivity or ground-combat troop effectiveness.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["workforce_productivity", "troop_combat_strength"],
+        "costToBuildPerUnit": 1500.0,
+        "requiredMaterials": ["radiation_hardened_semiconductors", "refined_titanium", "superconducting_cuprates"],
+        "complexity": 8
+      },
+      {
+        "id": "mind_uploading_digital_immortality",
+        "name": "Mind uploading / digital immortality",
+        "description": "Converts citizens into digital data, drastically reducing farming needs and transitioning population into server architecture.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["food_consumption", "server_capacity_demand", "lifespan"],
+        "costToBuildPerUnit": 5000.0,
+        "requiredMaterials": ["superconducting_cuprates", "radiation_hardened_semiconductors", "silicon"],
+        "complexity": 10
+      }
+    ]
+  },
+  {
+    "id": "gravitational_engineering",
+    "name": "Gravitational engineering",
+    "description": "Artificial gravity manipulation, inertial dampening, and singularity containment.",
+    "complexity": 9,
+    "requiredTechnologies": ["energy_fields"],
+    "applications": [
+      {
+        "id": "inertial_dampeners",
+        "name": "Inertial dampeners",
+        "description": "Neutralizes g-forces. Allows massive capital ships to turn tightly without crushing the crew inside, or lets fighters accelerate instantly.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["ship_maneuverability", "max_g_force_tolerance"],
+        "costToBuildPerUnit": 4000.0,
+        "requiredMaterials": ["superconducting_cuprates", "refined_titanium"],
+        "complexity": 9
+      },
+      {
+        "id": "artificial_gravity",
+        "name": "Artificial gravity / grav-plating",
+        "description": "Essential for maintaining crew health on permanent space stations and long-term spacecraft.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["habitation_health", "crew_morale"],
+        "costToBuildPerUnit": 3000.0,
+        "requiredMaterials": ["superconducting_cuprates", "steel"],
+        "complexity": 8
+      },
+      {
+        "id": "singularity_reactors",
+        "name": "Singularity reactors",
+        "description": "Harnessing micro-black holes for near-infinite power generation, surpassing fusion reactors.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["power_production"],
+        "costToBuildPerUnit": 25000.0,
+        "requiredMaterials": ["superconducting_cuprates", "radiation_hardened_semiconductors", "isotopic_graphite"],
+        "complexity": 10
+      }
+    ]
+  },
+  {
+    "id": "warp",
+    "name": "Warp",
+    "description": "Faster-than-light interstellar travel via spacetime metric distortion.",
+    "complexity": 10,
+    "requiredTechnologies": ["gravitational_engineering"],
+    "applications": [
+      {
+        "id": "warp_drive",
+        "name": "Warp drive",
+        "description": "Distorts spacetime to enable interstellar travel between adjacent star systems.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["interstellar_travel_speed", "power_consumption"],
+        "costToBuildPerUnit": 50000.0,
+        "requiredMaterials": ["superconducting_cuprates", "radiation_hardened_semiconductors", "isotopic_graphite"],
+        "complexity": 10
+      }
+    ]
   }
 ]

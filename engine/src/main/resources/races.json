@@ -32,5 +32,23 @@
     "nutrientType": "Organic",
     "nutrientSpreadRequirement": "Simple",
     "retirementAge": 200
+  },
+  {
+    "id": "silicon_core",
+    "name": "Silicon core",
+    "description": "Crystalline, silicon-based organisms native to airless rocky worlds. They do not eat plants or animals, subsisting entirely on raw planetary minerals.",
+    "intelligence": 0.5,
+    "physicalStrength": 1.8,
+    "societyStructure": "Collectivist",
+    "preferredGForce": 0.1,
+    "preferredTemperature": 120.0,
+    "chemicalComposition": "Silicon based",
+    "breathingAtmosphere": "Vacuum compatible",
+    "fertileAgeStart": 50,
+    "fertileAgeEnd": 600,
+    "nutrientType": "Rock",
+    "nutrientSpreadRequirement": "Diverse",
+    "retirementAge": 700
   }
+
 ]
