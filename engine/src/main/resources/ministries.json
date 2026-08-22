@@ -1,0 +1,73 @@
+[
+  {
+    "id": "ministry_industry_refining",
+    "name": "Ministry of industry and refining",
+    "description": "Enhances raw vein extraction rates and alloy processing speeds across all industrial centers.",
+    "optimalProfessionIds": [
+      "industrial_worker",
+      "miner"
+    ],
+    "baseEfficiencyModifier": 1.10,
+    "synergyEfficiencyModifier": 1.25,
+    "targetModifiers": [
+      "VEIN_EXTRACTION_SPEED",
+      "ALLOY_PROCESSING_SPEED"
+    ]
+  },
+  {
+    "id": "ministry_agricultural_biosphere",
+    "name": "Ministry of agricultural and biosphere stability",
+    "description": "Increases food production efficiency and nutrient spread happiness modifiers.",
+    "optimalProfessionIds": [
+      "farmer"
+    ],
+    "baseEfficiencyModifier": 1.10,
+    "synergyEfficiencyModifier": 1.25,
+    "targetModifiers": [
+      "FOOD_PRODUCTION_YIELD",
+      "NUTRIENT_HAPPINESS"
+    ]
+  },
+  {
+    "id": "ministry_technology_application",
+    "name": "Ministry of technology and technological application",
+    "description": "Accelerates research speed variables and lowers upgrade complexity ratings.",
+    "optimalProfessionIds": [
+      "scientist"
+    ],
+    "baseEfficiencyModifier": 1.10,
+    "synergyEfficiencyModifier": 1.25,
+    "targetModifiers": [
+      "RESEARCH_SPEED",
+      "UPGRADE_COMPLEXITY_REDUCTION"
+    ]
+  },
+  {
+    "id": "ministry_defense_logistics",
+    "name": "Ministry of defense and logistics procurement",
+    "description": "Boosts the ground combat strength of soldiers and lowers spaceframe manufacturing times.",
+    "optimalProfessionIds": [
+      "soldier",
+      "engineer"
+    ],
+    "baseEfficiencyModifier": 1.10,
+    "synergyEfficiencyModifier": 1.25,
+    "targetModifiers": [
+      "GROUND_COMBAT_STRENGTH",
+      "SPACEFRAME_BUILD_TIME"
+    ]
+  },
+  {
+    "id": "ministry_finance_commerce",
+    "name": "Ministry of finance and central commerce",
+    "description": "Raises the collection efficiency of transaction tariff rates across all commercial hubs.",
+    "optimalProfessionIds": [
+      "bureaucrat"
+    ],
+    "baseEfficiencyModifier": 1.10,
+    "synergyEfficiencyModifier": 1.25,
+    "targetModifiers": [
+      "TARIFF_COLLECTION_EFFICIENCY"
+    ]
+  }
+]

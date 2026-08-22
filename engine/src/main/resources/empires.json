@@ -1,0 +1,92 @@
+[
+  {
+    "id": "terran_confederation",
+    "name": "Terran Confederation",
+    "raceId": "human",
+    "societyStructure": "Individualist",
+    "treasuryCredits": 50000.0,
+    "corporateTaxRate": 0.15,
+    "controlledSystemIds": [
+      "sol"
+    ],
+    "ministries": [
+      {
+        "portfolioId": "ministry_industry_refining",
+        "assignedCitizenProfessionId": "industrial_worker",
+        "calculatedEfficiencyModifier": 1.25
+      },
+      {
+        "portfolioId": "ministry_agricultural_biosphere",
+        "assignedCitizenProfessionId": "farmer",
+        "calculatedEfficiencyModifier": 1.25
+      },
+      {
+        "portfolioId": "ministry_technology_application",
+        "assignedCitizenProfessionId": "scientist",
+        "calculatedEfficiencyModifier": 1.25
+      },
+      {
+        "portfolioId": "ministry_defense_logistics",
+        "assignedCitizenProfessionId": "soldier",
+        "calculatedEfficiencyModifier": 1.25
+      },
+      {
+        "portfolioId": "ministry_finance_commerce",
+        "assignedCitizenProfessionId": "bureaucrat",
+        "calculatedEfficiencyModifier": 1.10
+      }
+    ],
+    "systemGovernorAssignments": {
+      "sol": "gov_sol_human"
+    },
+    "unlockedTechIds": [
+      "basic_automation",
+      "advanced_fission"
+    ],
+    "activeShipDesignIds": [
+      "cargo_transport_mk1",
+      "scout_corvette_mk1"
+    ]
+  },
+  {
+    "id": "silicon_hegemony",
+    "name": "Silicon Hegemony",
+    "raceId": "silicon_core",
+    "societyStructure": "Collectivist",
+    "treasuryCredits": 40000.0,
+    "corporateTaxRate": 0.20,
+    "controlledSystemIds": [],
+    "ministries": [
+      {
+        "portfolioId": "ministry_industry_refining",
+        "assignedCitizenProfessionId": "miner",
+        "calculatedEfficiencyModifier": 1.25
+      },
+      {
+        "portfolioId": "ministry_defense_logistics",
+        "assignedCitizenProfessionId": "engineer",
+        "calculatedEfficiencyModifier": 1.25
+      }
+    ],
+    "systemGovernorAssignments": {},
+    "unlockedTechIds": [
+      "deep_core_drilling"
+    ],
+    "activeShipDesignIds": [
+      "heavy_mining_barge"
+    ]
+  },
+  {
+    "id": "plasma_convergence",
+    "name": "Plasma Convergence",
+    "raceId": "plasma_anomaly",
+    "societyStructure": "Hive mind",
+    "treasuryCredits": 0.0,
+    "corporateTaxRate": 0.0,
+    "controlledSystemIds": [],
+    "ministries": [],
+    "systemGovernorAssignments": {},
+    "unlockedTechIds": [],
+    "activeShipDesignIds": []
+  }
+]

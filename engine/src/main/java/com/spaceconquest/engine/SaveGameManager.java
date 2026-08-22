@@ -66,6 +66,94 @@ public class SaveGameManager {
     }
 
     /**
+     * Saves the given game state to the given file.
+     */
+    public void save(File file, GameState gameState, int gameSpeed, String gameTime) throws IOException {
+        if (gameState == null || gameState.solarSystems() == null) {
+            throw new IOException("Nothing to save: no game state loaded");
+        }
+        File target = withExtension(file);
+        if (target.getParentFile() != null) {
+            Files.createDirectories(target.getParentFile().toPath());
+        }
+        SaveGame save = new SaveGame(
+                SaveGame.CURRENT_VERSION,
+                Instant.now().toString(),
+                gameSpeed,
+                gameTime,
+                gameState.solarSystems(),
+                gameState.empires(),
+                gameState.corporations(),
+                gameState.commercialHubs(),
+                gameState.shadowSyndicates(),
+                gameState.diplomaticRelations(),
+                gameState.systemGovernors(),
+                gameState.researchProjects(),
+                gameState.technologyExchangeRoutes(),
+                gameState.shipDesigns(),
+                gameState.fleets(),
+                gameState.geologicalDeposits(),
+                gameState.powerGrids(),
+                gameState.industrialFacilities(),
+                gameState.expansionProjects(),
+                gameState.orbitalStations(),
+                gameState.spaceElevators(),
+                gameState.constructionProjects(),
+                gameState.sleeperAgents(),
+                gameState.espionageOperations(),
+                gameState.pirateBases(),
+                gameState.terraformingProjects(),
+                gameState.megastructures(),
+                gameState.galacticCommunity(),
+                gameState.tradeRoutes(),
+                gameState.fogOfWarStates()
+        );
+        mapper.writeValue(target, save);
+    }
+
+    /**
+     * Saves the given game state to a file with the given name inside the save directory.
+     */
+    public Path save(String name, GameState gameState, int gameSpeed, String gameTime) throws IOException {
+        File target = withExtension(saveDirectory.resolve(name).toFile());
+        save(target, gameState, gameSpeed, gameTime);
+        return target.toPath();
+    }
+
+    /**
+     * Performs a quick save to the standard quicksave slot.
+     */
+    public Path quickSave(GameState gameState, int gameSpeed, String gameTime) throws IOException {
+        return save("quicksave", gameState, gameSpeed, gameTime);
+    }
+
+    /**
+     * Performs an auto save to the standard autosave slot.
+     */
+    public Path autoSave(GameState gameState, int gameSpeed, String gameTime) throws IOException {
+        return save("autosave", gameState, gameSpeed, gameTime);
+    }
+
+    /**
+     * Deletes a save file by name.
+     */
+    public boolean deleteSave(String name) {
+        File target = withExtension(saveDirectory.resolve(name).toFile());
+        if (target.exists() && target.isFile()) {
+            return target.delete();
+        }
+        return false;
+    }
+
+    /**
+     * Loads a save from the given name inside the save directory.
+     */
+    public SaveGame load(String name) throws IOException {
+        File target = withExtension(saveDirectory.resolve(name).toFile());
+        return load(target);
+    }
+
+    /**
      * Loads a save from the given file.
      */
     public SaveGame load(File file) throws IOException {

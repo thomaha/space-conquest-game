@@ -2,7 +2,7 @@
   {
     "id": "human",
     "name": "Human",
-    "description": "A versatile and ambitious race from Earth.",
+    "description": "A highly versatile, ambitious, and adaptable species native to Earth. They feature a balanced physical and intellectual baseline, allowing them to expand across diverse industrial sectors.",
     "intelligence": 1.0,
     "physicalStrength": 1.0,
     "societyStructure": "Individualist",
@@ -14,7 +14,75 @@
     "fertileAgeEnd": 45,
     "nutrientType": "Organic",
     "nutrientSpreadRequirement": "Diverse",
-    "retirementAge": 65
+    "naturalLifespan": 85
+  },
+  {
+    "id": "silicon_core",
+    "name": "Silicon core",
+    "description": "Crystalline, slow-growing organisms native to airless, high-density rocky worlds. They bypass organic carbon cellular traits completely, using rock elements as a direct structural nutrient base.",
+    "intelligence": 1.2,
+    "physicalStrength": 1.8,
+    "societyStructure": "Collectivist",
+    "preferredGForce": 0.1,
+    "preferredTemperature": 120.0,
+    "chemicalComposition": "Silicon based",
+    "breathingAtmosphere": "Vacuum compatible",
+    "fertileAgeStart": 50,
+    "fertileAgeEnd": 600,
+    "nutrientType": "Rock",
+    "nutrientSpreadRequirement": "Diverse",
+    "naturalLifespan": 800
+  },
+  {
+    "id": "ammonia_entity",
+    "name": "Ammonia entity",
+    "description": "Frigid organic lifeforms developed within high-pressure, liquid-ammonia environments. They treat water and heat as immediate lethal hazards.",
+    "intelligence": 1.0,
+    "physicalStrength": 0.8,
+    "societyStructure": "Collectivist",
+    "preferredGForce": 0.5,
+    "preferredTemperature": 210.0,
+    "chemicalComposition": "Hydro-nitrogen composite",
+    "breathingAtmosphere": "Nitrogen based",
+    "fertileAgeStart": 12,
+    "fertileAgeEnd": 80,
+    "nutrientType": "Gas",
+    "nutrientSpreadRequirement": "Simple",
+    "naturalLifespan": 110
+  },
+  {
+    "id": "synthetic_machine",
+    "name": "Synthetic machine",
+    "description": "Fully inorganic, self-replicating artificial intelligences integrated into crystalline processing chassis. They exist outside organic lifecycle metrics.",
+    "intelligence": 1.5,
+    "physicalStrength": 1.4,
+    "societyStructure": "Individualist",
+    "preferredGForce": 0.0,
+    "preferredTemperature": 150.0,
+    "chemicalComposition": "Refined metal / Silicon substrate",
+    "breathingAtmosphere": "Vacuum compatible",
+    "fertileAgeStart": 0,
+    "fertileAgeEnd": 0,
+    "nutrientType": "Electricity",
+    "nutrientSpreadRequirement": "Simple",
+    "naturalLifespan": 9999
+  },
+  {
+    "id": "plasma_anomaly",
+    "name": "Plasma anomaly",
+    "description": "Ethereal, gaseous organisms composed of coherent, self-sustaining magnetic loops trapping superheated ionized gas. They are native to the high-energy envelopes of active stellar cores.",
+    "intelligence": 1.4,
+    "physicalStrength": 0.5,
+    "societyStructure": "Hive mind",
+    "preferredGForce": 5.0,
+    "preferredTemperature": 1500.0,
+    "chemicalComposition": "Ionized gas / Electromagnetic plasma",
+    "breathingAtmosphere": "Vacuum compatible",
+    "fertileAgeStart": 5,
+    "fertileAgeEnd": 120,
+    "nutrientType": "Metal",
+    "nutrientSpreadRequirement": "Simple",
+    "naturalLifespan": 180
   },
   {
     "id": "vulkan",
@@ -31,24 +99,6 @@
     "fertileAgeEnd": 150,
     "nutrientType": "Organic",
     "nutrientSpreadRequirement": "Simple",
-    "retirementAge": 200
-  },
-  {
-    "id": "silicon_core",
-    "name": "Silicon core",
-    "description": "Crystalline, silicon-based organisms native to airless rocky worlds. They do not eat plants or animals, subsisting entirely on raw planetary minerals.",
-    "intelligence": 0.5,
-    "physicalStrength": 1.8,
-    "societyStructure": "Collectivist",
-    "preferredGForce": 0.1,
-    "preferredTemperature": 120.0,
-    "chemicalComposition": "Silicon based",
-    "breathingAtmosphere": "Vacuum compatible",
-    "fertileAgeStart": 50,
-    "fertileAgeEnd": 600,
-    "nutrientType": "Rock",
-    "nutrientSpreadRequirement": "Diverse",
-    "retirementAge": 700
+    "naturalLifespan": 200
   }
-
 ]

@@ -1,7 +1,58 @@
-# Control Module
+# Control module
 
-This module handles input and game control logic for players and AI.
+This module handles input, autonomous decision agents and game command execution pipelines for players and AI controllers.
 
-## Key Components
-- `Controller`: Interface for processing game state updates and issuing commands.
-- `HumanController`: Implementation for handling player input.
+## Key components
+- `Controller`: Interface for observing game state updates.
+- `HumanController`: Player controller for receiving game state updates and staging interactive commands.
+- `CommandQueue`: Thread-safe staging queue validating and executing game commands during turn transitions.
+- `GameCommand`: Interface for validated state mutation commands.
+- `SetTariffRateCommand`: Command adjusting transaction tariff rates at commercial hubs.
+- `SubsidizeCorporationCommand`: Command transferring state treasury credits to subsidize corporations.
+- `AssignGovernorCommand`: Command appointing system governors to solar systems.
+- `AppointMinisterCommand`: Command assigning ministers to imperial cabinet portfolios.
+- `SetDiplomaticTierCommand`: Command establishing or updating bilateral diplomatic relation tiers.
+- `NationalizeAssetCommand`: Command allowing sovereign empires to nationalize corporate assets.
+- `CorporateInvestCommand`: Command for corporations to invest capital in infrastructure or ships.
+- `StartResearchCommand`: Command initiating or reassigning scientific research projects.
+- `SelectOptimizationPathCommand`: Command selecting performance or miniaturization optimization paths.
+- `ReverseEngineerSalvageCommand`: Command injecting progress vectors from foreign component salvage.
+- `DesignShipCommand`: Command registering physics-validated spaceship blueprints.
+- `QueueShipBuildCommand`: Command manufacturing and commissioning spacecraft into active fleets.
+- `MoveFleetCommand`: Command ordering sub-light repositioning or FTL warp transits.
+- `SetFleetStanceCommand`: Command setting fleet tactical stances.
+- `BuildFacilityCommand`: Command constructing planetary industrial facilities.
+- `ExpandFacilityCommand`: Command queuing facility tier scaling upgrades.
+- `StartProspectingMissionCommand`: Command initiating stochastic geological prospecting surveys.
+- `BombardPlanetCommand`: Command executing orbital bombardment using kinetic darts, nuclear fission or planet-crackers.
+- `InvadePlanetCommand`: Command launching planetary ground sieges and surface invasions.
+- `ColonizePlanetCommand`: Command deploying colony ships to seed virgin worlds.
+- `EnactMartialLawCommand`: Command enacting emergency planetary martial law.
+- `SetPassengerTransitModeCommand`: Command toggling conscious vs cryogenic stasis passenger transport.
+- `LoadPassengersCommand`: Command embarking passenger and troop cohorts onto transport spacecraft.
+- `LaunchMassDriverPayloadCommand`: Command launching mineral freight from surface mass drivers into orbit.
+- `ScanAnomalyCommand`: Command directing science fleets to investigate deep-space anomalies.
+- `ProposeDiplomaticPactCommand`: Command dispatching bilateral treaty proposals to foreign states.
+- `DeclareWarCommand`: Command formally declaring war with casus belli justification tracking.
+- `BuildOrbitalStationCommand`: Command deploying new orbital space stations with initial power and control modules.
+- `BuildSpaceElevatorCommand`: Command constructing planetary space elevator tethers to reduce launch costs to near zero.
+- `AddStationModuleCommand`: Command installing specialized functional modules onto orbital stations.
+- `DeployConstructionShipCommand`: Command ordering construction vessels to assemble macro-structures at target coordinates.
+- `InfiltrateAgentCommand`: Command embedding sleeper operatives in foreign colonies and corporations.
+- `LaunchCovertOperationCommand`: Command initiating covert sabotage, technology theft and false-flag operations.
+- `ExtortSupplyLineCommand`: Command directing syndicate pirate bases to extort private corporate supply lines.
+- `SetFacilityRecipeCommand`: Command configuring the active chemical or metallurgical refinement recipe of a facility.
+- `DistributeConsumerGoodsCommand`: Command supplying consumer goods to colonies to raise living standards and lower crime.
+- `StartTerraformingProjectCommand`: Command funding and initiating planetary atmospheric geoengineering and biological seeding.
+- `BuildMegastructureCommand`: Command initiating construction of Dyson swarms, stellar lifters, ringworlds and hyperlane gateways.
+- `ProposeResolutionCommand`: Command introducing legislative charters, treaties and economic sanctions to the Galactic Senate.
+- `VoteResolutionCommand`: Command casting democratic votes on active Galactic Senate resolutions.
+- `CreateTradeRouteCommand`: Command establishing automated cargo logistics supply routes between commercial hubs.
+- `CancelTradeRouteCommand`: Command deactivating an automated cargo supply route.
+- `ScanSystemCommand`: Command directing sensor arrays or explorer fleets to deep-scan an uncharted solar system.
+- `PlaceFacilityOnTileCommand`: Command constructing an industrial processing facility positioned directly on a surface biome tile.
+- `TargetSubsystemCommand`: Command setting the tactical subsystem target priority (warp drive, weapons, shields, engines) during fleet battles.
+- `CreateCustomEmpireCommand`: Command instantiating and registering a custom sovereign empire and species archetype into the game state.
+- `EmpireAIController`: Autonomous decision agent managing imperial cabinets, governors, corporate subsidies, diplomacy, senate votes and research.
+- `CorporationAIController`: Autonomous decision agent evaluating market shortcomings, investing in facilities and generating proprietary ship blueprints.
+- `ShadowSyndicateAIController`: Autonomous decision agent monitoring shadow capital pools and pirate operations.

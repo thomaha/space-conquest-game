@@ -48,6 +48,39 @@ public class DataModelLoader {
         return load("professions.json", new TypeReference<>() {});
     }
 
+    public static List<Empire> loadEmpires() throws IOException {
+        return load("empires.json", new TypeReference<>() {});
+    }
+
+    public static List<Corporation> loadCorporations() throws IOException {
+        return load("corporations.json", new TypeReference<>() {});
+    }
+
+    public static List<MinistryPortfolio> loadMinistries() throws IOException {
+        return load("ministries.json", new TypeReference<>() {});
+    }
+
+    public static Empire loadEmpire(String id) throws IOException {
+        return loadEmpires().stream()
+                .filter(e -> e.id().equals(id))
+                .findFirst()
+                .orElseThrow(() -> new IOException("Empire not found: " + id));
+    }
+
+    public static Corporation loadCorporation(String id) throws IOException {
+        return loadCorporations().stream()
+                .filter(c -> c.id().equals(id))
+                .findFirst()
+                .orElseThrow(() -> new IOException("Corporation not found: " + id));
+    }
+
+    public static MinistryPortfolio loadMinistry(String id) throws IOException {
+        return loadMinistries().stream()
+                .filter(m -> m.id().equals(id))
+                .findFirst()
+                .orElseThrow(() -> new IOException("Ministry portfolio not found: " + id));
+    }
+
     public static SolarSystem loadSolarSystem(String id) throws IOException {
         return loadSolarSystems().stream()
                 .filter(ss -> ss.id().equals(id))

@@ -1,0 +1,74 @@
+[
+  {
+    "id": "corp_sol_extraction",
+    "name": "Asteroid Mining Syndicate",
+    "empireId": "terran_confederation",
+    "headquartersEntityId": "earth",
+    "marketOrientation": "EXTRACTION",
+    "liquidCapitalReserves": 25000.0,
+    "ownedFacilityIds": [
+      "mining_outpost_ceres"
+    ],
+    "ownedShipIds": [
+      "mine_ship_alpha_1"
+    ],
+    "claimedVeinIds": [
+      "vein_iron_01"
+    ]
+  },
+  {
+    "id": "corp_terran_transport",
+    "name": "Terran Interplanetary Transport",
+    "empireId": "terran_confederation",
+    "headquartersEntityId": "earth",
+    "marketOrientation": "TRANSPORT",
+    "liquidCapitalReserves": 35000.0,
+    "ownedFacilityIds": [
+      "cargo_terminal_earth"
+    ],
+    "ownedShipIds": [
+      "cargo_freighter_01",
+      "cargo_freighter_02"
+    ],
+    "claimedVeinIds": []
+  },
+  {
+    "id": "corp_sol_refining",
+    "name": "Sol Metallurgy & Refining",
+    "empireId": "terran_confederation",
+    "headquartersEntityId": "earth",
+    "marketOrientation": "METALLURGY",
+    "liquidCapitalReserves": 30000.0,
+    "ownedFacilityIds": [
+      "foundry_luna"
+    ],
+    "ownedShipIds": [],
+    "claimedVeinIds": []
+  },
+  {
+    "id": "corp_bio_harvest",
+    "name": "BioHarvest Conglomerate",
+    "empireId": "terran_confederation",
+    "headquartersEntityId": "earth",
+    "marketOrientation": "AGRICULTURE",
+    "liquidCapitalReserves": 20000.0,
+    "ownedFacilityIds": [
+      "hydroponics_dome_01"
+    ],
+    "ownedShipIds": [],
+    "claimedVeinIds": []
+  },
+  {
+    "id": "corp_stellar_consumer",
+    "name": "Stellar Consumer Dynamics",
+    "empireId": "terran_confederation",
+    "headquartersEntityId": "earth",
+    "marketOrientation": "CONSUMER",
+    "liquidCapitalReserves": 18000.0,
+    "ownedFacilityIds": [
+      "consumer_factory_01"
+    ],
+    "ownedShipIds": [],
+    "claimedVeinIds": []
+  }
+]

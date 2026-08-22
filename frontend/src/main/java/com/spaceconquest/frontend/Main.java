@@ -5,6 +5,7 @@ import com.almasb.fxgl.app.GameSettings;
 import com.almasb.fxgl.entity.Entity;
 import com.spaceconquest.engine.DataModelLoader;
 import com.spaceconquest.engine.GalaxyGenerator;
+import com.spaceconquest.engine.GameStartScenario;
 import com.spaceconquest.engine.SolarSystem;
 import javafx.geometry.Point2D;
 import javafx.scene.input.MouseButton;
@@ -28,12 +29,22 @@ public class Main extends GameApplication {
 
     private final GalaxyRegistry registry = new GalaxyRegistry();
     private final CameraController camera = new CameraController(registry);
+    private final com.spaceconquest.engine.SpaceConquestEngine engine = new com.spaceconquest.engine.SpaceConquestEngine();
     private GameHud hud;
     private GalaxyGenerator generator;
     private List<SolarSystem> currentSolarSystems;
+    private GameStartScenario currentScenario = GameStartScenario.PRE_SPACE_FLIGHT;
+
+    public com.spaceconquest.engine.SpaceConquestEngine getEngine() {
+        return engine;
+    }
 
     public List<SolarSystem> getSolarSystems() {
         return currentSolarSystems;
+    }
+
+    public GameStartScenario getCurrentScenario() {
+        return currentScenario;
     }
 
     @Override
@@ -65,10 +76,15 @@ public class Main extends GameApplication {
     }
 
     public void createNewGalaxy(int numSystems) {
+        createNewGalaxy(numSystems, GameStartScenario.PRE_SPACE_FLIGHT);
+    }
+
+    public void createNewGalaxy(int numSystems, GameStartScenario scenario) {
+        this.currentScenario = scenario != null ? scenario : GameStartScenario.PRE_SPACE_FLIGHT;
         registry.clear();
         getGameWorld().getEntitiesCopy().forEach(Entity::removeFromWorld);
 
-        currentSolarSystems = generator.generate(numSystems);
+        currentSolarSystems = generator.generate(numSystems, currentScenario);
         for (SolarSystem ss : currentSolarSystems) {
             new SolarSystemRenderer(ss, registry).render();
         }
@@ -77,6 +93,60 @@ public class Main extends GameApplication {
             camera.gotoEntity(currentSolarSystems.get(0).name(), 5);
         }
         camera.updateZoom();
+    }
+
+    public void loadGame(String saveName) {
+        try {
+            com.spaceconquest.engine.SaveGameManager mgr = new com.spaceconquest.engine.SaveGameManager();
+            java.io.File file = mgr.getSaveDirectory().resolve(saveName.endsWith(".scsave") ? saveName : saveName + ".scsave").toFile();
+            if (file.exists()) {
+                com.spaceconquest.engine.SaveGame save = mgr.load(file);
+                engine.applyGameState(new com.spaceconquest.engine.GameState(
+                        0, "RUNNING", save.solarSystems(), save.empires(), save.corporations(),
+                        save.commercialHubs(), save.shadowSyndicates(), save.diplomaticRelations(),
+                        save.systemGovernors(), save.researchProjects(), save.technologyExchangeRoutes(),
+                        save.shipDesigns(), save.fleets(), save.geologicalDeposits(), save.powerGrids(),
+                        save.industrialFacilities(), save.expansionProjects(), save.orbitalStations(),
+                        save.spaceElevators(), save.constructionProjects(), save.sleeperAgents(),
+                        save.espionageOperations(), save.pirateBases(), save.terraformingProjects(),
+                        save.megastructures(), save.galacticCommunity(), save.tradeRoutes(), save.fogOfWarStates()
+                ));
+                if (save.solarSystems() != null && !save.solarSystems().isEmpty()) {
+                    registry.clear();
+                    getGameWorld().getEntitiesCopy().forEach(Entity::removeFromWorld);
+                    currentSolarSystems = save.solarSystems();
+                    for (SolarSystem ss : currentSolarSystems) {
+                        new SolarSystemRenderer(ss, registry).render();
+                    }
+                    if (!currentSolarSystems.isEmpty()) {
+                        camera.gotoEntity(currentSolarSystems.get(0).name(), 5);
+                    }
+                    camera.updateZoom();
+                }
+            }
+        } catch (IOException e) {
+            logger.error("Failed to load save " + saveName, e);
+        }
+    }
+
+    public void saveGame(String saveName) {
+        try {
+            com.spaceconquest.engine.SaveGameManager mgr = new com.spaceconquest.engine.SaveGameManager();
+            mgr.save(saveName, engine.getGameState(), 1, "Day 1");
+            logger.info("Saved game successfully as: " + saveName);
+        } catch (IOException e) {
+            logger.error("Failed to save game as " + saveName, e);
+        }
+    }
+
+    public void quickSave() {
+        try {
+            com.spaceconquest.engine.SaveGameManager mgr = new com.spaceconquest.engine.SaveGameManager();
+            mgr.quickSave(engine.getGameState(), 1, "Day 1");
+            logger.info("Quick saved game successfully.");
+        } catch (IOException e) {
+            logger.error("Failed to quick save game", e);
+        }
     }
 
     @Override

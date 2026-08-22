@@ -58,29 +58,41 @@ public class GameMenuView {
         buttonsBox.setAlignment(Pos.CENTER);
         buttonsBox.setPadding(new Insets(20));
 
-        Button btnSave = createMenuButton("Save Game");
+        Button btnNewGame = createMenuButton("New Game");
+        btnNewGame.setOnAction(e -> {
+            hide();
+            menubar.startNewGameSetup();
+        });
+
+        Button btnSave = createMenuButton("Quick Save");
         btnSave.setOnAction(e -> {
-            System.out.println("Save Game clicked - Not implemented yet");
-            // TODO: Implement save logic
+            if (menubar.getMainApp() != null) {
+                menubar.getMainApp().quickSave();
+            }
+            hide();
         });
 
-        Button btnLoad = createMenuButton("Load Game");
-        btnLoad.setOnAction(e -> {
-            System.out.println("Load Game clicked - Not implemented yet");
-            // TODO: Implement load logic
+        Button btnCampaign = createMenuButton("Campaign & Saves");
+        btnCampaign.setOnAction(e -> {
+            hide();
+            if (menubar.getCampaignManagerView() != null) {
+                menubar.getCampaignManagerView().show();
+            }
         });
 
-        Button btnSettings = createMenuButton("Settings");
-        btnSettings.setOnAction(e -> {
-            System.out.println("Settings clicked - Not implemented yet");
-            // TODO: Implement settings logic
+        Button btnAudioSettings = createMenuButton("Audio Settings");
+        btnAudioSettings.setOnAction(e -> {
+            hide();
+            if (menubar.getAudioSettingsView() != null) {
+                menubar.getAudioSettingsView().show();
+            }
         });
 
         Button btnExit = createMenuButton("Exit to Desktop");
         btnExit.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 18px;");
         btnExit.setOnAction(e -> getGameController().exit());
 
-        buttonsBox.getChildren().addAll(btnSave, btnLoad, btnSettings, btnExit);
+        buttonsBox.getChildren().addAll(btnNewGame, btnSave, btnCampaign, btnAudioSettings, btnExit);
 
         root.getChildren().addAll(headerContainer, buttonsBox);
         root.setVisible(false);

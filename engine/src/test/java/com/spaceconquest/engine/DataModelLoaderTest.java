@@ -57,7 +57,7 @@ public class DataModelLoaderTest {
     public void testLoadRaces() throws IOException {
         List<Race> races = DataModelLoader.loadRaces();
         assertNotNull(races);
-        assertEquals(3, races.size());
+        assertEquals(6, races.size());
 
         Race human = races.stream().filter(r -> r.id().equals("human")).findFirst().orElseThrow();
         assertEquals("Human", human.name());
@@ -72,20 +72,82 @@ public class DataModelLoaderTest {
         assertEquals(45, human.fertileAgeEnd());
         assertEquals("Organic", human.nutrientType());
         assertEquals("Diverse", human.nutrientSpreadRequirement());
-        assertEquals(65, human.retirementAge());
+        assertEquals(85, human.naturalLifespan());
+        assertEquals(85, human.retirementAge());
+        assertEquals(5.0, human.calculateActualIntelligenceScore());
+        assertEquals(5.0, human.calculateActualStrengthScore());
+
+        Race silicon = races.stream().filter(r -> r.id().equals("silicon_core")).findFirst().orElseThrow();
+        assertEquals("Silicon core", silicon.name());
+        assertEquals(1.2, silicon.intelligence());
+        assertEquals(1.8, silicon.physicalStrength());
+        assertEquals("Collectivist", silicon.societyStructure());
+        assertEquals(0.1, silicon.preferredGForce());
+        assertEquals(120.0, silicon.preferredTemperature());
+        assertEquals("Silicon based", silicon.chemicalComposition());
+        assertEquals("Vacuum compatible", silicon.breathingAtmosphere());
+        assertEquals(50, silicon.fertileAgeStart());
+        assertEquals(600, silicon.fertileAgeEnd());
+        assertEquals("Rock", silicon.nutrientType());
+        assertEquals("Diverse", silicon.nutrientSpreadRequirement());
+        assertEquals(800, silicon.naturalLifespan());
+        assertEquals(800, silicon.retirementAge());
+        assertEquals(6.0, silicon.calculateActualIntelligenceScore(), 0.001);
+        assertEquals(9.0, silicon.calculateActualStrengthScore(), 0.001);
+
+        Race ammonia = races.stream().filter(r -> r.id().equals("ammonia_entity")).findFirst().orElseThrow();
+        assertEquals("Ammonia entity", ammonia.name());
+        assertEquals(1.0, ammonia.intelligence());
+        assertEquals(0.8, ammonia.physicalStrength());
+        assertEquals("Collectivist", ammonia.societyStructure());
+        assertEquals(0.5, ammonia.preferredGForce());
+        assertEquals(210.0, ammonia.preferredTemperature());
+        assertEquals("Hydro-nitrogen composite", ammonia.chemicalComposition());
+        assertEquals("Nitrogen based", ammonia.breathingAtmosphere());
+        assertEquals(12, ammonia.fertileAgeStart());
+        assertEquals(80, ammonia.fertileAgeEnd());
+        assertEquals("Gas", ammonia.nutrientType());
+        assertEquals("Simple", ammonia.nutrientSpreadRequirement());
+        assertEquals(110, ammonia.naturalLifespan());
+
+        Race synthetic = races.stream().filter(r -> r.id().equals("synthetic_machine")).findFirst().orElseThrow();
+        assertEquals("Synthetic machine", synthetic.name());
+        assertEquals(1.5, synthetic.intelligence());
+        assertEquals(1.4, synthetic.physicalStrength());
+        assertEquals("Individualist", synthetic.societyStructure());
+        assertEquals(0.0, synthetic.preferredGForce());
+        assertEquals(150.0, synthetic.preferredTemperature());
+        assertEquals("Refined metal / Silicon substrate", synthetic.chemicalComposition());
+        assertEquals("Vacuum compatible", synthetic.breathingAtmosphere());
+        assertEquals(0, synthetic.fertileAgeStart());
+        assertEquals(0, synthetic.fertileAgeEnd());
+        assertEquals("Electricity", synthetic.nutrientType());
+        assertEquals("Simple", synthetic.nutrientSpreadRequirement());
+        assertEquals(9999, synthetic.naturalLifespan());
+        assertEquals(7.5, synthetic.calculateActualIntelligenceScore(), 0.001);
+        assertEquals(7.0, synthetic.calculateActualStrengthScore(), 0.001);
+
+        Race plasma = races.stream().filter(r -> r.id().equals("plasma_anomaly")).findFirst().orElseThrow();
+        assertEquals("Plasma anomaly", plasma.name());
+        assertEquals(1.4, plasma.intelligence());
+        assertEquals(0.5, plasma.physicalStrength());
+        assertEquals("Hive mind", plasma.societyStructure());
+        assertEquals(5.0, plasma.preferredGForce());
+        assertEquals(1500.0, plasma.preferredTemperature());
+        assertEquals("Ionized gas / Electromagnetic plasma", plasma.chemicalComposition());
+        assertEquals("Vacuum compatible", plasma.breathingAtmosphere());
+        assertEquals(5, plasma.fertileAgeStart());
+        assertEquals(120, plasma.fertileAgeEnd());
+        assertEquals("Metal", plasma.nutrientType());
+        assertEquals("Simple", plasma.nutrientSpreadRequirement());
+        assertEquals(180, plasma.naturalLifespan());
 
         Race vulkan = races.stream().filter(r -> r.id().equals("vulkan")).findFirst().orElseThrow();
         assertEquals("Vulkan", vulkan.name());
         assertEquals(1.5, vulkan.intelligence());
         assertEquals(1.2, vulkan.physicalStrength());
-        assertEquals(200, vulkan.retirementAge());
-
-        Race silicon = races.stream().filter(r -> r.id().equals("silicon_core")).findFirst().orElseThrow();
-        assertEquals("Silicon core", silicon.name());
-        assertEquals(0.5, silicon.intelligence());
-        assertEquals(1.8, silicon.physicalStrength());
-        assertEquals("Collectivist", silicon.societyStructure());
-        assertEquals(700, silicon.retirementAge());
+        assertEquals("Individualist", vulkan.societyStructure());
+        assertEquals(200, vulkan.naturalLifespan());
     }
 
     @Test
@@ -223,6 +285,54 @@ public class DataModelLoaderTest {
         Material radSemiconductors = materials.stream().filter(m -> m.id().equals("radiation_hardened_semiconductors")).findFirst().orElseThrow();
         assertFalse(radSemiconductors.foundInNature());
         assertEquals(50.0, radSemiconductors.composition().get("Si"));
+
+        Material boronOre = materials.stream().filter(m -> m.id().equals("boron_ore")).findFirst().orElseThrow();
+        assertTrue(boronOre.foundInNature());
+
+        Material rareEarthFluorides = materials.stream().filter(m -> m.id().equals("rare_earth_fluorides")).findFirst().orElseThrow();
+        assertTrue(rareEarthFluorides.foundInNature());
+
+        Material neutronium = materials.stream().filter(m -> m.id().equals("hyperdense_neutronium")).findFirst().orElseThrow();
+        assertFalse(neutronium.foundInNature());
+        assertEquals(5000.0, neutronium.strength());
+
+        Material tachyon = materials.stream().filter(m -> m.id().equals("tachyon_condensate")).findFirst().orElseThrow();
+        assertFalse(tachyon.foundInNature());
+        assertEquals(10, tachyon.complexity());
+
+        Material metamaterials = materials.stream().filter(m -> m.id().equals("metamaterial_composites")).findFirst().orElseThrow();
+        assertFalse(metamaterials.foundInNature());
+
+        Material antimatterCell = materials.stream().filter(m -> m.id().equals("antimatter_containment_cell")).findFirst().orElseThrow();
+        assertFalse(antimatterCell.foundInNature());
+
+        Material plasmonic = materials.stream().filter(m -> m.id().equals("exotic_plasmonic_alloys")).findFirst().orElseThrow();
+        assertFalse(plasmonic.foundInNature());
+
+        Material spinGlass = materials.stream().filter(m -> m.id().equals("quantum_spin_glass")).findFirst().orElseThrow();
+        assertFalse(spinGlass.foundInNature());
+
+        Material superinsulator = materials.stream().filter(m -> m.id().equals("cryogenic_superinsulator")).findFirst().orElseThrow();
+        assertFalse(superinsulator.foundInNature());
+
+        Material boronNitride = materials.stream().filter(m -> m.id().equals("crystalline_boron_nitride")).findFirst().orElseThrow();
+        assertFalse(boronNitride.foundInNature());
+
+        Material monoWire = materials.stream().filter(m -> m.id().equals("monomolecular_wire")).findFirst().orElseThrow();
+        assertFalse(monoWire.foundInNature());
+
+        Material progMatter = materials.stream().filter(m -> m.id().equals("programmable_matter")).findFirst().orElseThrow();
+        assertFalse(progMatter.foundInNature());
+
+        Material nanofluid = materials.stream().filter(m -> m.id().equals("polymorphic_nanofluid")).findFirst().orElseThrow();
+        assertFalse(nanofluid.foundInNature());
+
+        Material rtg = materials.stream().filter(m -> m.id().equals("radioisotopic_thermoelectric_matrix")).findFirst().orElseThrow();
+        assertFalse(rtg.foundInNature());
+
+        Material metallicH2 = materials.stream().filter(m -> m.id().equals("stabilized_metallic_hydrogen")).findFirst().orElseThrow();
+        assertFalse(metallicH2.foundInNature());
+        assertEquals(2500.0, metallicH2.strength());
     }
 
     @Test
@@ -332,55 +442,147 @@ public class DataModelLoaderTest {
     public void testLoadProfessions() throws IOException {
         List<Profession> professions = DataModelLoader.loadProfessions();
         assertNotNull(professions);
-        assertFalse(professions.isEmpty());
+        assertEquals(12, professions.size());
 
         List<Race> races = DataModelLoader.loadRaces();
         Race human = races.stream().filter(r -> r.id().equals("human")).findFirst().orElseThrow();
         Race vulkan = races.stream().filter(r -> r.id().equals("vulkan")).findFirst().orElseThrow();
+        Race silicon = races.stream().filter(r -> r.id().equals("silicon_core")).findFirst().orElseThrow();
+        Race synthetic = races.stream().filter(r -> r.id().equals("synthetic_machine")).findFirst().orElseThrow();
 
+        // 1. Soldier test (Species.md: Human Soldier: 85 * 0.55 = 46.75 -> 47)
+        Profession soldier = professions.stream().filter(p -> p.id().equals("soldier")).findFirst().orElseThrow();
+        assertEquals("Soldier", soldier.name());
+        assertEquals("soldier", soldier.type());
+        assertEquals(3, soldier.minimumIntelligence());
+        assertEquals(7, soldier.minimumStrength());
+        assertEquals(4, soldier.complexity());
+        assertEquals(0.55, soldier.retirementLifespanPercentage(), 0.001);
+        assertEquals(0.55, soldier.retirementAge(), 0.001);
+        assertEquals(46.75, soldier.calculateExactRetirementAge(human.naturalLifespan()), 0.001);
+        assertEquals(47, soldier.calculateRetirementAge(human));
+        assertEquals(110, soldier.calculateRetirementAge(vulkan));
+        assertEquals(440, soldier.calculateRetirementAge(silicon));
+        assertFalse(soldier.qualifies(human)); // Human strength score 5.0 < 7
+        assertTrue(soldier.qualifies(silicon)); // Silicon strength score 9.0 >= 7 and int score 6.0 >= 3
+
+        // 2. Scientist test (Species.md: Human Scientist: 85 * 0.85 = 72.25 -> 72)
         Profession scientist = professions.stream().filter(p -> p.id().equals("scientist")).findFirst().orElseThrow();
         assertEquals("Scientist", scientist.name());
         assertEquals("scientist", scientist.type());
         assertEquals(8, scientist.minimumIntelligence());
+        assertEquals(1, scientist.minimumStrength());
         assertEquals(9, scientist.complexity());
-        assertEquals(1.11, scientist.retirementAge(), 0.001);
+        assertEquals(0.85, scientist.retirementLifespanPercentage(), 0.001);
+        assertEquals(72.25, scientist.calculateExactRetirementAge(human.naturalLifespan()), 0.001);
         assertEquals(72, scientist.calculateRetirementAge(human));
-        assertEquals(222, scientist.calculateRetirementAge(vulkan));
+        assertEquals(170, scientist.calculateRetirementAge(vulkan));
+        assertEquals(680, scientist.calculateRetirementAge(silicon));
 
-        Profession farmer = professions.stream().filter(p -> p.id().equals("farmer")).findFirst().orElseThrow();
-        assertEquals(1.0, farmer.retirementAge(), 0.001);
-        assertEquals(65, farmer.calculateRetirementAge(human));
-        assertEquals(200, farmer.calculateRetirementAge(vulkan));
-
-        Profession soldier = professions.stream().filter(p -> p.id().equals("soldier")).findFirst().orElseThrow();
-        assertEquals(0.77, soldier.retirementAge(), 0.001);
-        assertEquals(50, soldier.calculateRetirementAge(human));
-        assertEquals(154, soldier.calculateRetirementAge(vulkan));
-
+        // 3. Miner test (Species.md: Silicon Core Miner: 800 * 0.65 = 520)
         Profession miner = professions.stream().filter(p -> p.id().equals("miner")).findFirst().orElseThrow();
-        assertEquals(0.92, miner.retirementAge(), 0.001);
-        assertEquals(60, miner.calculateRetirementAge(human));
-        assertEquals(184, miner.calculateRetirementAge(vulkan));
+        assertEquals("Miner", miner.name());
+        assertEquals("miner", miner.type());
+        assertEquals(2, miner.minimumIntelligence());
+        assertEquals(6, miner.minimumStrength());
+        assertEquals(3, miner.complexity());
+        assertEquals(0.65, miner.retirementLifespanPercentage(), 0.001);
+        assertEquals(55.25, miner.calculateExactRetirementAge(human.naturalLifespan()), 0.001);
+        assertEquals(55, miner.calculateRetirementAge(human));
+        assertEquals(130, miner.calculateRetirementAge(vulkan));
+        assertEquals(520, miner.calculateRetirementAge(silicon));
+        assertTrue(miner.qualifies(silicon));
 
-        Race silicon = races.stream().filter(r -> r.id().equals("silicon_core")).findFirst().orElseThrow();
-        assertEquals(700, farmer.calculateRetirementAge(silicon));
-        assertEquals(777, scientist.calculateRetirementAge(silicon));
-        assertEquals(539, soldier.calculateRetirementAge(silicon));
-        assertEquals(644, miner.calculateRetirementAge(silicon));
+        // 4. Farmer test
+        Profession farmer = professions.stream().filter(p -> p.id().equals("farmer")).findFirst().orElseThrow();
+        assertEquals(0.76, farmer.retirementLifespanPercentage(), 0.001);
+        assertEquals(65, farmer.calculateRetirementAge(human));
+        assertEquals(152, farmer.calculateRetirementAge(vulkan));
+        assertEquals(608, farmer.calculateRetirementAge(silicon));
 
-        // Technology-adjusted baseline retirement age testing
-        int techAdjustedHumanBaseline = 80;
-        assertEquals(80, farmer.calculateRetirementAge(techAdjustedHumanBaseline));
-        assertEquals(89, scientist.calculateRetirementAge(techAdjustedHumanBaseline));
-        assertEquals(62, soldier.calculateRetirementAge(techAdjustedHumanBaseline));
-        assertEquals(74, miner.calculateRetirementAge(techAdjustedHumanBaseline));
+        // 5. Technician and Police qualification checks (Species.md: Humans 5.0 clears tech/police req 4-5)
+        Profession technician = professions.stream().filter(p -> p.id().equals("technician")).findFirst().orElseThrow();
+        assertTrue(technician.qualifies(human)); // req: int 5, str 4 -> human has 5.0, 5.0
+        Profession police = professions.stream().filter(p -> p.id().equals("police")).findFirst().orElseThrow();
+        assertFalse(police.qualifies(human)); // req: int 4, str 6 -> human str is 5.0
 
-        assertTrue(professions.stream().anyMatch(p -> p.id().equals("miner")));
+        // 6. Technology-adjusted baseline natural lifespan testing (e.g. Gene Therapy pushes human lifespan to 100)
+        int techAdjustedHumanLifespan = 100;
+        assertEquals(76, farmer.calculateRetirementAge(techAdjustedHumanLifespan));
+        assertEquals(85, scientist.calculateRetirementAge(techAdjustedHumanLifespan));
+        assertEquals(55, soldier.calculateRetirementAge(techAdjustedHumanLifespan));
+        assertEquals(65, miner.calculateRetirementAge(techAdjustedHumanLifespan));
+
+        // Verify all profession IDs are unique
         assertEquals(professions.size(), professions.stream().map(Profession::id).distinct().count());
+    }
+
+    @Test
+    public void testLoadEmpires() throws IOException {
+        List<Empire> empires = DataModelLoader.loadEmpires();
+        assertNotNull(empires);
+        assertEquals(3, empires.size());
+
+        Empire terran = DataModelLoader.loadEmpire("terran_confederation");
+        assertEquals("Terran Confederation", terran.name());
+        assertEquals("human", terran.raceId());
+        assertEquals("Individualist", terran.societyStructure());
+        assertEquals(50000.0, terran.treasuryCredits());
+        assertEquals(0.15, terran.corporateTaxRate(), 0.001);
+        assertEquals(List.of("sol"), terran.controlledSystemIds());
+        assertEquals(5, terran.ministries().size());
+        assertEquals("gov_sol_human", terran.systemGovernorAssignments().get("sol"));
+
+        Empire silicon = DataModelLoader.loadEmpire("silicon_hegemony");
+        assertEquals("Collectivist", silicon.societyStructure());
+        assertEquals(40000.0, silicon.treasuryCredits());
+
+        Empire hive = DataModelLoader.loadEmpire("plasma_convergence");
+        assertEquals("Hive mind", hive.societyStructure());
+        assertEquals(0.0, hive.treasuryCredits());
+        assertTrue(hive.ministries().isEmpty());
+    }
+
+    @Test
+    public void testLoadCorporations() throws IOException {
+        List<Corporation> corporations = DataModelLoader.loadCorporations();
+        assertNotNull(corporations);
+        assertEquals(5, corporations.size());
+
+        Corporation extraction = DataModelLoader.loadCorporation("corp_sol_extraction");
+        assertEquals("Asteroid Mining Syndicate", extraction.name());
+        assertEquals("EXTRACTION", extraction.marketOrientation());
+        assertEquals("terran_confederation", extraction.empireId());
+        assertEquals(25000.0, extraction.liquidCapitalReserves());
+
+        Corporation transport = DataModelLoader.loadCorporation("corp_terran_transport");
+        assertEquals("TRANSPORT", transport.marketOrientation());
+        assertEquals(2, transport.ownedShipIds().size());
+    }
+
+    @Test
+    public void testLoadMinistries() throws IOException {
+        List<MinistryPortfolio> ministries = DataModelLoader.loadMinistries();
+        assertNotNull(ministries);
+        assertEquals(5, ministries.size());
+
+        MinistryPortfolio industry = DataModelLoader.loadMinistry("ministry_industry_refining");
+        assertEquals("Ministry of industry and refining", industry.name());
+        assertTrue(industry.optimalProfessionIds().contains("industrial_worker"));
+        assertTrue(industry.optimalProfessionIds().contains("miner"));
+        assertEquals(1.10, industry.baseEfficiencyModifier(), 0.001);
+        assertEquals(1.25, industry.synergyEfficiencyModifier(), 0.001);
+
+        MinistryPortfolio defense = DataModelLoader.loadMinistry("ministry_defense_logistics");
+        assertTrue(defense.targetModifiers().contains("GROUND_COMBAT_STRENGTH"));
+        assertTrue(defense.targetModifiers().contains("SPACEFRAME_BUILD_TIME"));
     }
 
     @Test
     public void testDataIsCached() throws IOException {
         assertSame(DataModelLoader.loadMaterials(), DataModelLoader.loadMaterials());
+        assertSame(DataModelLoader.loadEmpires(), DataModelLoader.loadEmpires());
+        assertSame(DataModelLoader.loadCorporations(), DataModelLoader.loadCorporations());
+        assertSame(DataModelLoader.loadMinistries(), DataModelLoader.loadMinistries());
     }
 }

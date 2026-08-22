@@ -42,26 +42,8 @@ public class GameHud {
         addZoomControls();
         addSearchControls();
         addInfoPanel();
-        addMenuOverlays();
         camera.setInfoUpdater(this::updateInfoPanel);
         camera.updateZoom();
-    }
-
-    private void addMenuOverlays() {
-        VBox techRoot = menubar.getTechView().getRoot();
-        techRoot.setTranslateX(getAppWidth() / 2.0 - 400);
-        techRoot.setTranslateY(getAppHeight() / 2.0 - 300);
-        addUINode(techRoot);
-
-        VBox gameMenuRoot = menubar.getGameMenuView().getRoot();
-        gameMenuRoot.setTranslateX(getAppWidth() / 2.0 - 200);
-        gameMenuRoot.setTranslateY(getAppHeight() / 2.0 - 250);
-        addUINode(gameMenuRoot);
-
-        VBox galaxyListRoot = menubar.getGalaxyListView().getRoot();
-        galaxyListRoot.setTranslateX(getAppWidth() / 2.0 - 500);
-        galaxyListRoot.setTranslateY(getAppHeight() / 2.0 - 400);
-        addUINode(galaxyListRoot);
     }
 
     private void addZoomControls() {
@@ -79,7 +61,9 @@ public class GameHud {
         zoomControls.setAlignment(Pos.CENTER);
         zoomControls.setTranslateX(50);
         zoomControls.setTranslateY(110);
-        addUINode(zoomControls);
+        if (zoomControls.getParent() == null) {
+            addUINode(zoomControls);
+        }
     }
 
     private void addSearchControls() {
@@ -125,7 +109,9 @@ public class GameHud {
         VBox searchControls = new VBox(0, searchField, suggestions);
         searchControls.setTranslateX(getAppWidth() - 250);
         searchControls.setTranslateY(110);
-        addUINode(searchControls);
+        if (searchControls.getParent() == null) {
+            addUINode(searchControls);
+        }
     }
 
     private void addInfoPanel() {
@@ -153,7 +139,9 @@ public class GameHud {
         infoPanel.setVisible(false);
         infoPanel.setStyle("-fx-background-color: rgba(50, 50, 100, 0.7); -fx-padding: 10; -fx-background-radius: 5;");
 
-        addUINode(infoPanel);
+        if (infoPanel.getParent() == null) {
+            addUINode(infoPanel);
+        }
     }
 
     private void updateInfoPanel(String info) {

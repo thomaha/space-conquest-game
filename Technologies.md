@@ -1,6 +1,6 @@
 #### Technologies with applications
 All applications can be improved upon by doing more research on it. Applications have a base type with a given starting cost in work and materials and effect of what it can achieve.
-When improving an application by researching it, you can either increase its effect at the cost of more complexity and materials or better materials, or the research can result in reduced cost in work and materials.
+When improving an application by researching it, you can either increase its effect at the cost of more complexity and materials or better materials or the research can result in reduced cost in work and materials.
 There should be some randomness to the actual effect of such research.
 To produce an item of a given complexity, you will need a production facility of the correct type and ability to produce items of that complexity, as well as the required materials and work force.
 - Electricity
@@ -23,15 +23,15 @@ To produce an item of a given complexity, you will need a production facility of
     - Fusion weapons
 
 - Industrial production
-    - Farming applications take planetary raw materials (like liquid water, raw nitrogen, phosphates, and soil minerals) or space station power grids and convert them into complex biological matter.
-        - Open-world agriculture (Planetary surfaces). This area focuses on utilizing natural planetary biomes, atmospheres, and soil compositions to grow biological matter at a massive scale.
+    - Farming applications take planetary raw materials (like liquid water, raw nitrogen, phosphates and soil minerals) or space station power grids and convert them into complex biological matter.
+        - Open-world agriculture (Planetary surfaces). This area focuses on utilizing natural planetary biomes, atmospheres and soil compositions to grow biological matter at a massive scale.
             - Application: Industrial soil cultivation
                 - Description: Large-scale mechanized harvesting of native or terraformed soils using basic irrigation and chemical fertilizers.
                 - Factors affected: Food production (+), planetary water table depletion (+), work hours per unit (low).
             - Application: Automated biosphere macro-farms
                 - Description: Giant, drone-managed agricultural zones equipped with climate-control arrays to protect crops from extreme planetary weather shifts.
                 - Factors affected: Crop yield stability (+++), electricity demand (+), material production complexity (medium).
-        - Closed-loop life support (Space infrastructure). When a colony is on a barren moon, an asteroid, or a deep-space station, farming must be completely insulated from the vacuum of space.
+        - Closed-loop life support (Space infrastructure). When a colony is on a barren moon, an asteroid or a deep-space station, farming must be completely insulated from the vacuum of space.
             - Application: Hydroponic growth arrays
                 - Description: Growing plants in nutrient-rich water solutions instead of soil, stacked vertically to maximize space inside orbital habitats.
                 - Factors affected: Space station capacity usage (--), food production (+), liquid water demand (++).
@@ -40,7 +40,7 @@ To produce an item of a given complexity, you will need a production facility of
                 - Factors affected: Water consumption (---), crop growth speed (++), electronics complexity (+).
         - Industrial bio-synthesis (Advanced manufacturing inputs) This area transitions farming from food production into a source of raw structural materials and chemical components.
             - Application: Biomass processing
-                - Description: Refining agricultural waste and fast-growing plant fibers into organic plastics, insulation materials, and clothing.
+                - Description: Refining agricultural waste and fast-growing plant fibers into organic plastics, insulation materials and clothing.
                 - Factors affected: Manufacturing material cost (-), reliance on petrochemical deposits (--).
             - Application: Algae carbon scrubbing (Req: Energy fields)
                 - Description: Cultivating specialized genetic strains of algae in massive fluid vats exposed to artificial light fields to recycle breathable air.
@@ -62,7 +62,7 @@ To produce an item of a given complexity, you will need a production facility of
         - Application: Zero-G magnetic refining req: Orbital production
             - Description: Uses the vacuum and weightlessness of space alongside magnetic fields to perfectly separate pristine metals from asteroid rock without atmospheric contamination.
             - Factors affected: Material purity (+++), space station power demand (+).
-    - Manufacturing (materials ➔ finished modules) This is where materials are physically cut, pressed, and assembled into components.
+    - Manufacturing (materials ➔ finished modules) This is where materials are physically cut, pressed and assembled into components.
         - Application: Automated assembly lines (base level)
             - Description: Robotic and mechanical arms mass-producing parts.
             - Factors affected: Cost to build per unit in work hours (--), workforce demand (-).
@@ -87,7 +87,7 @@ To produce an item of a given complexity, you will need a production facility of
         - Application: Microgravity foundry
             - Description: Allows the manufacturing of materials that require perfect weightlessness to form correctly, such as foaming metals or flawless fiber optics.
             - Factors affected: Unlocks exotic space-only material types.
-        - Application: Asteroid capture & processing HUI
+        - Application: Asteroid capture & processing
             - Description: Anchoring a production facility directly onto a captured asteroid to mine, refine and manufacture ship hulls entirely in deep space.
             - Factors affected: Transportation credit cost to orbit (reduced to 0 for these specific materials).
 
@@ -101,6 +101,45 @@ To produce an item of a given complexity, you will need a production facility of
     - Spacecraft
     - Space stations
 
+  - Early-era rocketry and surface-to-orbit logistics
+    Before an empire masters advanced macro-engineering like *Space Elevators* or electromagnetic *Mass Driver Launch Tracks*, chemical and early nuclear rocketry represents the absolute, single path for launching structural mass past a planet's gravity well. Rockets serve a dual operational role: they function as the primary logistical surface-to-orbit freighters and act as a civilization's first space explorers, charting nearby moons and adjacent planets.
+
+    - The surface-to-orbit gravity bottleneck
+      Launching mass into space from a terrestrial planet is a hard physics-bounded restriction. Every kilogram of structural hull plating, electronics substrates and stored payload weight requires an exponential counter-allocation of propellant, calculated directly using the target planet's physical attributes:
+
+      Launch Propellant Mass (kg) = Total Payload Mass * \left( e^{\frac{\Delta V}{\text{Engine Efficiency (Isp)}}} - 1 \right) \times \text{Planetary Gravity Well Factor}$$
+
+*   **The logistical tax:** Early-era empires must allocate thousands of kilograms of unrefined fuel elements—such as `hydrogen_gas` or compressed off-gasses derived from `chemical and gas processing` operations—just to lift basic payloads into low orbit.
+*   **The moon staging strategy:** Because moons like Earth's satellite possess drastically lower surface gravity vectors (`1.62` vs. Earth's `9.81`) and `atmosphere: none`, the rocket launch fuel tax on a moon is slashed by over 80%. This creates a massive economic incentive for early players to haul light manufacturing components to low-G moons first, using them as efficient, fuel-saving staging hubs to assemble the empire's first true interstellar fleets.
+
+  - The rocket modular component system
+    To provide deep technical progression without clogging up the capital spaceship database, early rockets operate on an independent, specialized **Rocket Component System**. Unlike true spaceships, which use open-frame modular slots designed for flexible customization, early rocketry frames utilize **Rigid Stage Slots** categorized into explicit, sequential engineering zones.
+
+    Rockets cannot mount complex capital modules like *Shield Grids*, *Continuous Beam Lasers* or *Commerce Modules*. Instead, users design rockets by populating three dedicated stage types:
+
+    ##### Propulsion tier components
+    *   **Liquid-chemical rocket engine:** A low-complexity (Level 1) primitive booster. It generates immense raw thrust required to escape heavy gravity fields but has a terrible fuel efficiency rating, consuming massive volumes of `hydrogen_gas` or liquid hydrocarbon composites per launch.
+    *   **Solid-fuel booster ring:** High-thrust, single-use launch straps. They cannot be deactivated once ignited. They drastically increase initial launch lift capabilities at the cost of high structural dead-weight penalties once depleted.
+    *   **Nuclear fission thermal rocket (NTR):** Unlocked by bridging *Nuclear Fission* with *Rocketry*. It utilizes a mini fission reactor core to heat hydrogen gas, delivering near-double the fuel efficiency of chemical thrusters.
+    *   *Systemic factors:* A medium-complexity (Level 4) unit. Its high efficiency makes it the ultimate engine choice for long-range *Explorers* mapping the solar rim, but its heavy lead shielding increases the dry mass footprint, limiting its raw liftoff thrust capability on heavy terrestrial planets.
+
+    ##### Core booster components
+    *   **Cryogenic bulk fuel tank:** Lightweight aluminum-lithium tanks designed to hold liquid propellants. Larger tanks expand the delta-V range of the rocket, allowing it to reach further planetary nodes at the cost of increasing total liftoff mass.
+    *   **Avionics and guidance matrix:** The computer brain of the rocket, assembled using `refined_silicon` and copper circuitry. Upgrading this matrix lowers the random chance of catastrophic launch failure or navigation trajectory deviations.
+
+    ##### Payload stage components
+    *   **Pioneer exploration module:** Fits the rocket with hyper-spectral mapping arrays and basic seismic sounding tools. Turns the rocket into an early *Explorer* capable of executing the empire's first automated scouting runs to discover basic surface veins on nearby planets.
+    *   **Automated satellite deployment pack:** Deploys communication or prospecting satellites into a target planet's orbit, scanning the celestial entity from above to flip hidden material tags to visible states before colonies land.
+    *   **Bulk cargo capsule:** A heavy, structural shell designed to ferry raw ores, refined metals or conscious workforce cohorts from the planetary surface up to early orbital space base anchors.
+
+    #### Rocket technology progression tree
+    Players can scale up their early rocketry operations by investing research hours directly into the sub-points of the *Rocketry* branch. Evolving rocketry technology shifts game values across three absolute vectors:
+
+    *   **Bigger (starframe scale upgrades):** Unlocks larger hull templates, moving rocket tiers from light orbital lifters up to massive multi-stage heavy-lift vehicles. This expands total *Payload Stage* capacity, letting players launch complex components like *Control Modules* or heavy *Power Modules* into orbit to seed early space stations.
+    *   **Faster (impulse trajectory calculations):** Upgrading propellant chemical configurations or magnetic gas channeling reduces the total game turns required for a rocket to transit from the home world to adjacent solar coordinates, accelerating early-game resource pooling.
+    *   **More efficient (the cost mitigation path):** Directly raises the baseline engine efficiency variables across all liquid and nuclear propulsion components.
+      *   *The economic impact:* Advanced efficiency research drops the raw material fuel requirement per launch. This lets players transition their home world's industry away from constant, brute-force chemical gas harvesting and refocus their workforce training pipelines on high-complexity electronics or metallurgy production.
+    
 - Surface-to-orbit infrastructure (Req: Rocketry + Advanced materials)
     - Application: Mass driver launch tracks
     - Description: Ground-based electromagnetic rails that rail-launch raw unrefined resources (like iron_ore or silicates) directly into low orbit using pure electrical energy.
@@ -186,7 +225,7 @@ To produce an item of a given complexity, you will need a production facility of
     - Mind uploading / digital immortality: Converts citizens into digital data. Gameplay effect: Drastically reduces the reliance on farming and biological space requirements, transitioning your civilization's workforce into pure server architecture.
 
 - Gravitational engineering, req: Energy fields, Warp
-    - Inertial dampeners: Neutralizes g-forces. Allows massive capital ships to turn tightly without crushing the crew inside, or lets fighters accelerate instantly.
+    - Inertial dampeners: Neutralizes g-forces. Allows massive capital ships to turn tightly without crushing the crew inside or lets fighters accelerate instantly.
     - Artificial gravity / grav-plating: Essential for maintaining crew health on permanent space stations and long-term spacecraft.
     - Singularity reactors: Harnessing micro-black holes for near-infinite power generation, surpassing fusion reactors.
 
@@ -195,7 +234,7 @@ To produce an item of a given complexity, you will need a production facility of
         - Base application (level 1) base cost: Extremely high work and rarest materials (e.g., exotic matter / antimatter).
         - Base effect: Allows travel between adjacent star systems at high power cost
         - Random upgrade research outcomes: When a player spends resources to research
-            - Spatial stabilization (breakthrough - 10%): Warp speed increases by 30%, and the post-warp power drain is reduced to 20%. Complexity remains unchanged.
+            - Spatial stabilization (breakthrough - 10%): Warp speed increases by 30% and the post-warp power drain is reduced to 20%. Complexity remains unchanged.
             - Engine optimization (success - 50%): The player chooses between: Option A (effect focus): +15% travel range across the galactic map. Option B (cost focus): -20% material cost to manufacture future warp engines.
             - Volatile folding (flawed design - 30%): Warp speed increases by 20%, but the engine's complexity spikes. It has a tiny random chance to damage the ship's hull on activation.
             - Subspace tear (catastrophic setback - 10%): The research fails to increase speed. Instead, the engine radiates massive amounts of energy. The ship becomes highly visible on enemy scanners across the galaxy whenever it drops out of warp.
