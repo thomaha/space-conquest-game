@@ -104,11 +104,11 @@ public class ShipDesignValidatorTest {
         ShipModule weakThruster = new ShipModule("mod_engine", "Weak Thruster", "MEDIUM", 4, 10000.0, 100.0, 0.0, 100000.0, 2, Map.of(), Map.of());
 
         // Total mass ~ 15000 (frame) + 30000 (modules) = 45000 kg
-        // On 2.5g planet with 2.0 atm pressure:
-        // Min thrust = 45000 * 2.5 * 9.81 * (1 + 2.0) = 45000 * 2.5 * 9.81 * 3 = 3,310,875 N > 100,000 N
+        // On 24.525 m/s² planet with 2.0 atm pressure:
+        // Min thrust = 45000 * 24.525 * (1 + 2.0) = 45000 * 24.525 * 3 = 3,310,875 N > 100,000 N
         ShipDesignValidator.ValidationResult result = validator.validate(
                 ShipRole.COMBAT_SHIP, mediumFrame, List.of(reactor, weakThruster),
-                steel, steel, 0.0, 2.5, 2.0, 5
+                steel, steel, 0.0, 24.525, 2.0, 5
         );
 
         assertFalse(result.isLaunchCapable(), "Ship with weak thrust cannot blast off from high-G dense world");

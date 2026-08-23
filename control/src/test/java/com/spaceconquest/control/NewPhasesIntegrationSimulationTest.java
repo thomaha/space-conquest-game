@@ -32,14 +32,16 @@ public class NewPhasesIntegrationSimulationTest {
 
     @Test
     public void testTerraformingAndMegastructureCommandsAndTurnProgression() {
-        // 1. Give terran confederation sufficient credits for megastructure and terraforming
+        // 1. Give terran confederation sufficient credits and required research for megastructure and terraforming
         List<Empire> updatedEmpires = engine.getGameState().empires().stream().map(e -> {
             if ("terran_confederation".equalsIgnoreCase(e.id())) {
+                List<String> techs = new java.util.ArrayList<>(e.unlockedTechIds());
+                if (!techs.contains("stellar_megastructures")) techs.add("stellar_megastructures");
                 return new Empire(
                         e.id(), e.name(), e.raceId(), e.societyStructure(),
                         200000.0, e.corporateTaxRate(), e.controlledSystemIds(),
                         e.ministries(), e.systemGovernorAssignments(),
-                        e.unlockedTechIds(), e.activeShipDesignIds()
+                        techs, e.activeShipDesignIds()
                 );
             }
             return e;

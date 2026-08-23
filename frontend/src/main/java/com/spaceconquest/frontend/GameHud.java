@@ -47,10 +47,15 @@ public class GameHud {
     }
 
     private void addZoomControls() {
+        double scale = ScreenSettingsManager.getInstance().getUiScale();
         Button btnPlus = new Button("+");
+        btnPlus.setStyle("-fx-cursor: hand;");
+        btnPlus.setCursor(javafx.scene.Cursor.HAND);
         btnPlus.setOnAction(e -> camera.zoomIn());
 
         Button btnMinus = new Button("-");
+        btnMinus.setStyle("-fx-cursor: hand;");
+        btnMinus.setCursor(javafx.scene.Cursor.HAND);
         btnMinus.setOnAction(e -> camera.zoomOut());
 
         Text zoomLabel = getUIFactoryService().newText("zoom: ", Color.WHITE, 18.0);
@@ -59,20 +64,25 @@ public class GameHud {
 
         HBox zoomControls = new HBox(10, zoomLabel, zoomValue, btnPlus, btnMinus);
         zoomControls.setAlignment(Pos.CENTER);
-        zoomControls.setTranslateX(50);
-        zoomControls.setTranslateY(110);
+        zoomControls.getTransforms().setAll(new javafx.scene.transform.Scale(scale, scale, 0, 0));
+        zoomControls.setTranslateX(50 * scale);
+        zoomControls.setTranslateY(110 * scale);
+        Menubar.setupOverlayEventInterception(zoomControls);
         if (zoomControls.getParent() == null) {
             addUINode(zoomControls);
         }
     }
 
     private void addSearchControls() {
+        double scale = ScreenSettingsManager.getInstance().getUiScale();
         TextField searchField = new TextField();
         searchField.setPromptText("goto star, planet or moon...");
         searchField.setPrefWidth(200);
 
         ListView<String> suggestions = new ListView<>();
         suggestions.setPrefSize(200, 150);
+        suggestions.setStyle("-fx-cursor: hand;");
+        suggestions.setCursor(javafx.scene.Cursor.HAND);
         suggestions.setVisible(false);
 
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
@@ -107,16 +117,20 @@ public class GameHud {
         });
 
         VBox searchControls = new VBox(0, searchField, suggestions);
-        searchControls.setTranslateX(getAppWidth() - 250);
-        searchControls.setTranslateY(110);
+        searchControls.getTransforms().setAll(new javafx.scene.transform.Scale(scale, scale, 0, 0));
+        searchControls.setTranslateX(getAppWidth() - (250 * scale));
+        searchControls.setTranslateY(110 * scale);
+        Menubar.setupOverlayEventInterception(searchControls);
         if (searchControls.getParent() == null) {
             addUINode(searchControls);
         }
     }
 
     private void addInfoPanel() {
+        double scale = ScreenSettingsManager.getInstance().getUiScale();
         Button btnClose = new Button("X");
-        btnClose.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold;");
+        btnClose.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnClose.setCursor(javafx.scene.Cursor.HAND);
         btnClose.setOnAction(e -> infoPanel.setVisible(false));
 
         Text infoTitle = getUIFactoryService().newText("info", Color.WHITE, 16.0);
@@ -134,10 +148,12 @@ public class GameHud {
 
         infoPanel = new VBox(5, header, infoLabel);
         infoPanel.setPrefSize(230, 250);
-        infoPanel.setTranslateX(getAppWidth() - 250);
-        infoPanel.setTranslateY(230);
+        infoPanel.getTransforms().setAll(new javafx.scene.transform.Scale(scale, scale, 0, 0));
+        infoPanel.setTranslateX(getAppWidth() - (250 * scale));
+        infoPanel.setTranslateY(230 * scale);
         infoPanel.setVisible(false);
         infoPanel.setStyle("-fx-background-color: rgba(50, 50, 100, 0.7); -fx-padding: 10; -fx-background-radius: 5;");
+        Menubar.setupOverlayEventInterception(infoPanel);
 
         if (infoPanel.getParent() == null) {
             addUINode(infoPanel);

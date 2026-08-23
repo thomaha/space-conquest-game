@@ -5,6 +5,7 @@ import com.almasb.fxgl.entity.components.TypeComponent;
 import com.spaceconquest.engine.Moon;
 import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.SolarSystem;
+import com.spaceconquest.engine.megastructure.Megastructure;
 import javafx.scene.control.Tooltip;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
@@ -16,21 +17,28 @@ import java.util.List;
 import static com.almasb.fxgl.dsl.FXGL.*;
 
 /**
- * Renders a {@link SolarSystem} (its sun, planets and moons) as FXGL entities
+ * Renders a {@link SolarSystem} (its sun, planets, moons and megastructures) as FXGL entities
  * and registers every searchable body in the {@link GalaxyRegistry}.
  */
 public class SolarSystemRenderer {
     private final SolarSystem solarSystem;
     private final GalaxyRegistry registry;
+    private final List<Megastructure> megastructures;
 
     public SolarSystemRenderer(SolarSystem solarSystem, GalaxyRegistry registry) {
+        this(solarSystem, registry, List.of());
+    }
+
+    public SolarSystemRenderer(SolarSystem solarSystem, GalaxyRegistry registry, List<Megastructure> megastructures) {
         this.solarSystem = solarSystem;
         this.registry = registry;
+        this.megastructures = megastructures != null ? megastructures : List.of();
     }
 
     public void render() {
         displaySun();
         displayPlanets();
+        displayMegastructures();
     }
 
     private void displaySun() {
@@ -153,6 +161,60 @@ public class SolarSystemRenderer {
             registerHover(planetEntity, planet.name());
 
             displayMoons(planet, x, y);
+        }
+    }
+
+    private void displayMegastructures() {
+        if (megastructures == null || megastructures.isEmpty()) return;
+
+        double lyScale = 2000.0;
+        double centerX = (getAppWidth() / 2.0) + (solarSystem.x() * lyScale);
+        double centerY = (getAppHeight() / 2.0) + (solarSystem.y() * lyScale * 0.1) - (solarSystem.z() * lyScale * 0.2);
+
+        List<Megastructure> systemMegas = megastructures.stream()
+                .filter(m -> m.systemId().equalsIgnoreCase(solarSystem.name()) ||
+                        m.systemId().equalsIgnoreCase(solarSystem.name().toLowerCase().replace(" ", "_")))
+                .toList();
+
+        int index = 0;
+        for (Megastructure mega : systemMegas) {
+            double angle = (2 * Math.PI * index) / Math.max(1, systemMegas.size());
+            double orbitRadius = 60.0 + (index * 25.0);
+            double megaX = centerX + orbitRadius * Math.cos(angle);
+            double megaY = centerY + (orbitRadius * 0.15) * Math.sin(angle);
+
+            double visualSize = mega.isOperational() ? 14.0 : 10.0;
+            Circle visualShape = new Circle(visualSize / 2.0);
+
+            if (mega.isOperational()) {
+                visualShape.setFill(Color.GOLD);
+                visualShape.setStroke(Color.CYAN);
+                visualShape.setStrokeWidth(2.0);
+            } else {
+                visualShape.setFill(Color.DARKORANGE);
+                visualShape.setStroke(Color.WHITE);
+                visualShape.setStrokeWidth(1.5);
+                visualShape.getStrokeDashArray().addAll(3.0, 3.0);
+            }
+
+            Entity megaEntity = entityBuilder()
+                    .at(megaX - visualSize / 2.0, megaY - visualSize / 2.0)
+                    .viewWithBBox(visualShape)
+                    .with(new TypeComponent("MEGASTRUCTURE"))
+                    .buildAndAttach();
+
+            String info = String.format(
+                    "megastructure: %s%ntype: %s%nstatus: %s (stage %d/%d)%nsystem: %s%npower output: %,.0f kW%nhabitation: %,d",
+                    mega.name(), mega.type(),
+                    mega.isOperational() ? "Operational" : "Under construction",
+                    mega.currentStage(), mega.totalStages(),
+                    solarSystem.name(),
+                    mega.energyYieldKw(), mega.habitableCapacity()
+            );
+
+            registry.register(mega.name(), megaEntity, "megastructure", info);
+            registerHover(megaEntity, String.format("%s [%s]", mega.name(), mega.isOperational() ? "Complete" : "Under Construction"));
+            index++;
         }
     }
 

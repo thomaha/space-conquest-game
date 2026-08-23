@@ -7,7 +7,7 @@ Every race entry in the population database is governed by a unified structural 
 *   **Intelligence:** A floating-point modifier mapping the species' natural intellectual capacity against a standard baseline ($1.0$). Modifies technological research speeds and dictates entry into high-complexity professions.
 *   **Physical strength:** A floating-point modifier mapping manual power against a standard baseline ($1.0$). Directly scales ground combat calculations and accelerates low-complexity industrial output.
 *   **Society structure:** Specifies the baseline organization model as *Individualist*, *Collectivist* or *Hive Mind*. Dictates exponential vs. linear population reproduction profiles and determines if the public/private economic split is active.
-*   **Preferred g-force:** The ideal gravitational constant (measured in standard Gs) for optimal biological or mechanical operation. Deviations introduce severe structural and health penalties.
+*   **Preferred gravity:** The ideal gravitational acceleration (measured in SI units: m/s²) for optimal biological or mechanical operation. Deviations introduce severe structural and health penalties.
 *   **Preferred temperature:** The optimal ambient environment thermal rating measured in Kelvin ($K$).
 *   **Chemical composition:** The primary element scaffolding of the species' cell structure or physical housing frame.
 *   **Breathing atmosphere:** The mandatory gas compound required to maintain localized respiration or structural envelope pressure.
@@ -27,7 +27,7 @@ The five primary biochemical and physical classifications of sapient life forms 
 *   **Intelligence:** 1.0
 *   **Physical strength:** 1.0
 *   **Society structure:** Individualist
-*   **Preferred g-force:** 1.0
+*   **Preferred gravity:** 9.81 m/s²
 *   **Preferred temperature:** 288.0
 *   **Chemical composition:** Carbon based
 *   **Breathing atmosphere:** Oxygen based
@@ -44,7 +44,7 @@ The five primary biochemical and physical classifications of sapient life forms 
 *   **Intelligence:** 1.2
 *   **Physical strength:** 1.8
 *   **Society structure:** Collectivist
-*   **Preferred g-force:** 0.1
+*   **Preferred gravity:** 1.0 m/s²
 *   **Preferred temperature:** 120.0
 *   **Chemical composition:** Silicon based
 *   **Breathing atmosphere:** Vacuum compatible
@@ -61,7 +61,7 @@ The five primary biochemical and physical classifications of sapient life forms 
 *   **Intelligence:** 1.0
 *   **Physical strength:** 0.8
 *   **Society structure:** Collectivist
-*   **Preferred g-force:** 0.5
+*   **Preferred gravity:** 4.9 m/s²
 *   **Preferred temperature:** 210.0
 *   **Chemical composition:** Hydro-nitrogen composite
 *   **Breathing atmosphere:** Nitrogen based
@@ -78,7 +78,7 @@ The five primary biochemical and physical classifications of sapient life forms 
 *   **Intelligence:** 1.5
 *   **Physical strength:** 1.4
 *   **Society structure:** Individualist
-*   **Preferred g-force:** 0.0
+*   **Preferred gravity:** 0.0 m/s²
 *   **Preferred temperature:** 150.0
 *   **Chemical composition:** Refined metal / Silicon substrate
 *   **Breathing atmosphere:** Vacuum compatible
@@ -95,7 +95,7 @@ The five primary biochemical and physical classifications of sapient life forms 
 *   **Intelligence:** 1.4
 *   **Physical strength:** 0.5
 *   **Society structure:** Hive mind
-*   **Preferred g-force:** 5.0
+*   **Preferred gravity:** 49.0 m/s²
 *   **Preferred temperature:** 1500.0
 *   **Chemical composition:** Ionized gas / Electromagnetic plasma
 *   **Breathing atmosphere:** Vacuum compatible (Requires high ambient radiation)

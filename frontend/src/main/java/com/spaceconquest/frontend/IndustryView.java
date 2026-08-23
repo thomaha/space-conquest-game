@@ -7,6 +7,8 @@ import com.spaceconquest.control.command.SetFacilityRecipeCommand;
 import com.spaceconquest.control.command.StartProspectingMissionCommand;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.industry.refinement.RefinementProcessor;
+import com.spaceconquest.engine.industry.refinement.RefinementRecipe;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -136,6 +138,9 @@ public class IndustryView {
 
         // 3. Expansion Projects Section
         content.getChildren().add(createExpansionSection());
+
+        // 4. Refinement & Metallurgical Alloy Recipes
+        content.getChildren().add(createRefinementAlloysSection());
     }
 
     private VBox createConstructionWorkbench() {
@@ -257,19 +262,27 @@ public class IndustryView {
                     }
                 });
 
+                ComboBox<String> recipeCombo = new ComboBox<>();
+                for (RefinementRecipe rec : RefinementProcessor.STANDARD_RECIPES) {
+                    recipeCombo.getItems().add(rec.id());
+                }
+                recipeCombo.setValue(RefinementProcessor.STANDARD_RECIPES.get(0).id());
+                recipeCombo.setStyle("-fx-font-size: 10px;");
+
                 Button recipeBtn = new Button("Set recipe");
                 recipeBtn.setStyle("-fx-background-color: #00b894; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
                 recipeBtn.setOnAction(e -> {
                     if (humanController != null) {
+                        String selectedRecipe = recipeCombo.getValue();
                         humanController.stageCommand(new SetFacilityRecipeCommand(
-                                fac.id(), "recipe_advanced_composite"
+                                fac.id(), selectedRecipe
                         ));
-                        feedbackLabel.setText("Updated active manufacturing recipe for facility " + fac.id());
+                        feedbackLabel.setText("Updated active manufacturing recipe for facility " + fac.id() + " to " + selectedRecipe);
                         feedbackLabel.setTextFill(Color.LIGHTGREEN);
                     }
                 });
 
-                topRow.getChildren().addAll(facTitle, recipeBtn, upgradeBtn);
+                topRow.getChildren().addAll(facTitle, recipeCombo, recipeBtn, upgradeBtn);
 
                 Text facStatus = new Text(String.format("  Throughput multiplier: %.2fx | Expansion status: %s",
                         fac.getEffectiveThroughputMultiplier(),
@@ -324,6 +337,54 @@ public class IndustryView {
                 card.getChildren().addAll(projInfo, barRow);
                 section.getChildren().add(card);
             }
+        }
+
+        return section;
+    }
+
+    private VBox createRefinementAlloysSection() {
+        VBox section = new VBox(8);
+        section.setPadding(new Insets(10));
+        section.setStyle("-fx-background-color: rgba(20, 35, 60, 0.7); -fx-background-radius: 8; -fx-border-color: #55efc4; -fx-border-width: 1; -fx-border-radius: 8;");
+
+        Text header = new Text("Chemical refinement and metallurgical alloy recipes catalog (" + RefinementProcessor.STANDARD_RECIPES.size() + ")");
+        header.setFill(Color.PALEGREEN);
+        header.setFont(Font.font("Verdana", FontWeight.BOLD, 15));
+        section.getChildren().add(header);
+
+        for (RefinementRecipe recipe : RefinementProcessor.STANDARD_RECIPES) {
+            VBox card = new VBox(4);
+            card.setPadding(new Insets(8));
+            card.setStyle("-fx-background-color: rgba(15, 25, 45, 0.6); -fx-background-radius: 6;");
+
+            HBox row1 = new HBox(10);
+            row1.setAlignment(Pos.CENTER_LEFT);
+
+            Text recipeName = new Text(recipe.name() + " (" + recipe.id() + ")");
+            recipeName.setFill(Color.WHITE);
+            recipeName.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
+
+            Label catBadge = new Label(recipe.category());
+            catBadge.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: #00cec9; -fx-font-weight: bold; -fx-padding: 2 6 2 6; -fx-background-radius: 4; -fx-font-size: 10;");
+
+            Label envBadge = new Label("Env: " + recipe.operationalEnvironment());
+            envBadge.setStyle("-fx-background-color: #34495e; -fx-text-fill: #dfe6e9; -fx-padding: 2 6 2 6; -fx-background-radius: 4; -fx-font-size: 10;");
+
+            Label tierBadge = new Label("Tier " + recipe.minFacilityTier() + "+ (" + recipe.primaryProfessionId() + ")");
+            tierBadge.setStyle("-fx-background-color: #6c5ce7; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 2 6 2 6; -fx-background-radius: 4; -fx-font-size: 10;");
+
+            row1.getChildren().addAll(recipeName, catBadge, envBadge, tierBadge);
+
+            Text inputsText = new Text("  Inputs: " + recipe.inputMaterialsKg() + " | Energy: " + recipe.powerDrawKw() + " kW");
+            inputsText.setFill(Color.LIGHTCYAN);
+            inputsText.setFont(Font.font("Verdana", 11));
+
+            Text outputsText = new Text("  Outputs: " + recipe.outputMaterialsKg() + (recipe.byproductMaterialsKg().isEmpty() ? "" : " | Byproducts: " + recipe.byproductMaterialsKg()));
+            outputsText.setFill(Color.LIGHTGREEN);
+            outputsText.setFont(Font.font("Verdana", 11));
+
+            card.getChildren().addAll(row1, inputsText, outputsText);
+            section.getChildren().add(card);
         }
 
         return section;

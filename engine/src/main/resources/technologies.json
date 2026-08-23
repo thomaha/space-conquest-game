@@ -948,5 +948,34 @@
         "complexity": 10
       }
     ]
+  },
+  {
+    "id": "stellar_megastructures",
+    "name": "Stellar megastructures",
+    "description": "Grand mega-engineering enabling construction of Dyson swarms, star lifters, ringworlds and hyperlane gateways.",
+    "complexity": 9,
+    "requiredTechnologies": ["gravitational_engineering", "surface_to_orbit_infrastructure"],
+    "applications": [
+      {
+        "id": "dyson_swarm_assembly",
+        "name": "Dyson swarm assembly",
+        "description": "Orbital solar collector swarms orbiting a star to harness massive stellar power.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["megastructure_construction_speed", "power_production"],
+        "costToBuildPerUnit": 50000.0,
+        "requiredMaterials": ["superconducting_cuprates", "radiation_hardened_semiconductors", "refined_titanium"],
+        "complexity": 9
+      },
+      {
+        "id": "hyperlane_gateway_construction",
+        "name": "Hyperlane gateway construction",
+        "description": "Deep-space artificial gateways enabling instantaneous interstellar transit.",
+        "requiredTechnologies": ["warp"],
+        "affectedFactors": ["interstellar_travel_speed"],
+        "costToBuildPerUnit": 80000.0,
+        "requiredMaterials": ["superconducting_cuprates", "radiation_hardened_semiconductors", "refined_titanium"],
+        "complexity": 10
+      }
+    ]
   }
 ]

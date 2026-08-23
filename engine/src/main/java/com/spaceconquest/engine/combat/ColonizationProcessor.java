@@ -57,12 +57,12 @@ public class ColonizationProcessor {
             return new ColonizationResult(false, targetPlanet, colonyFleet, "No eligible Colony Ship in fleet");
         }
 
-        // 2. Validate Environmental Habitability (Gravity tolerance)
-        double gravDiff = Math.abs(race.preferredGForce() - targetPlanet.gravity());
-        if (gravDiff > 2.0) {
+        // 2. Validate Environmental Habitability (Gravity tolerance in SI units m/s²)
+        double gravDiff = Math.abs(race.preferredGravity() - targetPlanet.gravity());
+        if (gravDiff > 20.0) {
             return new ColonizationResult(false, targetPlanet, colonyFleet,
-                    String.format("Surface gravity (%.2fg) exceeds species survival tolerance (%.2fg)",
-                            targetPlanet.gravity(), race.preferredGForce()));
+                    String.format("Surface gravity (%.2f m/s²) exceeds species survival tolerance (%.2f m/s²)",
+                            targetPlanet.gravity(), race.preferredGravity()));
         }
 
         // 3. Initialize Virgin Colony Population Cohort (1000 colonists aged 20)

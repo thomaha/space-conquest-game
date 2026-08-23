@@ -553,12 +553,33 @@ public class GalaxyCanvasView {
 
         // 6. Draw Megastructures
         for (Megastructure mega : megastructures) {
+            SolarSystem sys = solarSystems.stream()
+                    .filter(s -> s.id().equalsIgnoreCase(mega.systemId()) || s.name().equalsIgnoreCase(mega.systemId()))
+                    .findFirst()
+                    .orElse(null);
+
+            double mx = sys != null ? centerX + sys.x() * 1.5 * zoomFactor + 30.0 * zoomFactor : centerX + 50.0 * zoomFactor;
+            double my = sys != null ? centerY + sys.y() * 1.5 * zoomFactor - 30.0 * zoomFactor : centerY + 50.0 * zoomFactor;
+
             if (mega.isOperational()) {
-                double mx = centerX + 50.0 * zoomFactor;
-                double my = centerY + 50.0 * zoomFactor;
-                gc.setStroke(Color.web("#f39c12"));
-                gc.setLineWidth(2.0);
+                gc.setStroke(Color.web("#f1c40f"));
+                gc.setLineWidth(2.0 * zoomFactor);
                 gc.strokeOval(mx - 10 * zoomFactor, my - 10 * zoomFactor, 20 * zoomFactor, 20 * zoomFactor);
+
+                gc.setFill(Color.web("#00cec9"));
+                gc.fillOval(mx - 4 * zoomFactor, my - 4 * zoomFactor, 8 * zoomFactor, 8 * zoomFactor);
+
+                gc.setFill(Color.GOLD);
+                gc.setFont(Font.font("Verdana", FontWeight.BOLD, 9 * zoomFactor));
+                gc.fillText(mega.name(), mx - 20 * zoomFactor, my - 14 * zoomFactor);
+            } else {
+                gc.setStroke(Color.web("#e67e22"));
+                gc.setLineWidth(1.5 * zoomFactor);
+                gc.strokeOval(mx - 8 * zoomFactor, my - 8 * zoomFactor, 16 * zoomFactor, 16 * zoomFactor);
+
+                gc.setFill(Color.LIGHTGRAY);
+                gc.setFont(Font.font("Verdana", FontWeight.NORMAL, 8 * zoomFactor));
+                gc.fillText(mega.name() + " [Const]", mx - 20 * zoomFactor, my - 12 * zoomFactor);
             }
         }
     }

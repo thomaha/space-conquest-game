@@ -16,7 +16,7 @@ public record CustomEmpireProfile(
         String biochemicalType,
         double optimalTemperatureKelvin,
         double optimalPressureAtm,
-        double optimalGravityG,
+        double optimalGravity,
         List<String> selectedTraitIds,
         IdeologicalEthics ethics,
         double startingTreasuryBonus
@@ -37,6 +37,15 @@ public record CustomEmpireProfile(
         if (ethics == null) ethics = IdeologicalEthics.balancedDefault();
     }
 
+    /**
+     * Backward-compatible alias for optimalGravity.
+     *
+     * @return optimal gravity in m/s²
+     */
+    public double optimalGravityG() {
+        return optimalGravity;
+    }
+
     public static CustomEmpireProfile createDefault() {
         return new CustomEmpireProfile(
                 "custom_solar_alliance",
@@ -49,7 +58,7 @@ public record CustomEmpireProfile(
                 BIO_CARBON_HUMANOID,
                 288.15,
                 1.0,
-                1.0,
+                9.81,
                 List.of(SpeciesTrait.TRAIT_INTELLIGENT, SpeciesTrait.TRAIT_ADAPTIVE),
                 IdeologicalEthics.balancedDefault(),
                 50000.0

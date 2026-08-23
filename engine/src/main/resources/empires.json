@@ -49,6 +49,44 @@
     ]
   },
   {
+    "id": "vulkan_forge",
+    "name": "Vulkan High Command",
+    "raceId": "vulkan",
+    "societyStructure": "Individualist",
+    "treasuryCredits": 60000.0,
+    "corporateTaxRate": 0.10,
+    "controlledSystemIds": [
+      "vulcan-system"
+    ],
+    "ministries": [
+      {
+        "portfolioId": "ministry_technology_application",
+        "assignedCitizenProfessionId": "scientist",
+        "calculatedEfficiencyModifier": 1.30
+      },
+      {
+        "portfolioId": "ministry_defense_logistics",
+        "assignedCitizenProfessionId": "soldier",
+        "calculatedEfficiencyModifier": 1.25
+      },
+      {
+        "portfolioId": "ministry_industry_refining",
+        "assignedCitizenProfessionId": "engineer",
+        "calculatedEfficiencyModifier": 1.20
+      }
+    ],
+    "systemGovernorAssignments": {
+      "vulcan-system": "gov_vulcan"
+    },
+    "unlockedTechIds": [
+      "basic_automation",
+      "advanced_fission"
+    ],
+    "activeShipDesignIds": [
+      "scout_corvette_mk1"
+    ]
+  },
+  {
     "id": "silicon_hegemony",
     "name": "Silicon Hegemony",
     "raceId": "silicon_core",

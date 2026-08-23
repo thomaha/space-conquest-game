@@ -197,9 +197,9 @@ public class EmpireCreationWizardView {
         pressureSlider = new Slider(0.1, 5.0, 1.0);
         pressureSlider.setShowTickLabels(true);
 
-        Label gravLbl = new Label("Optimal gravity (G):");
+        Label gravLbl = new Label("Optimal gravity (m/s²):");
         gravLbl.setTextFill(Color.LIGHTCYAN);
-        gravitySlider = new Slider(0.2, 3.0, 1.0);
+        gravitySlider = new Slider(0.5, 30.0, 9.81);
         gravitySlider.setShowTickLabels(true);
 
         grid.add(tempLbl, 0, 1);

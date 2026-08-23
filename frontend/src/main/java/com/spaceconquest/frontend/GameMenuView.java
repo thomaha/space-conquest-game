@@ -32,7 +32,7 @@ public class GameMenuView {
         root.setStyle("-fx-background-color: rgba(12, 20, 42, 0.95); " +
                       "-fx-border-color: #78aaff; -fx-border-width: 2; " +
                       "-fx-border-radius: 10; -fx-background-radius: 10;");
-        root.setPrefSize(400, 500);
+        root.setPrefSize(400, 560);
         root.setAlignment(Pos.TOP_CENTER);
 
         Text title = new Text("Game menu");
@@ -40,7 +40,8 @@ public class GameMenuView {
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 24));
 
         Button closeButton = new Button("X");
-        closeButton.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 16px;");
+        closeButton.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 16px; -fx-cursor: hand;");
+        closeButton.setCursor(javafx.scene.Cursor.HAND);
         closeButton.setOnAction(e -> hide());
 
         HBox header = new HBox(title);
@@ -88,11 +89,22 @@ public class GameMenuView {
             }
         });
 
+        Button btnScreenSettings = createMenuButton("Screen settings");
+        btnScreenSettings.setOnAction(e -> {
+            hide();
+            if (menubar.getScreenSettingsView() != null) {
+                menubar.getScreenSettingsView().show();
+            }
+        });
+
         Button btnExit = createMenuButton("Exit to desktop");
-        btnExit.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 18px;");
+        btnExit.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 18px; -fx-cursor: hand;");
+        btnExit.setCursor(javafx.scene.Cursor.HAND);
+        btnExit.setOnMouseEntered(e -> btnExit.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 18px; -fx-cursor: hand;"));
+        btnExit.setOnMouseExited(e -> btnExit.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 18px; -fx-cursor: hand;"));
         btnExit.setOnAction(e -> getGameController().exit());
 
-        buttonsBox.getChildren().addAll(btnNewGame, btnSave, btnCampaign, btnAudioSettings, btnExit);
+        buttonsBox.getChildren().addAll(btnNewGame, btnSave, btnCampaign, btnAudioSettings, btnScreenSettings, btnExit);
 
         root.getChildren().addAll(headerContainer, buttonsBox);
         root.setVisible(false);
@@ -102,10 +114,11 @@ public class GameMenuView {
         Button btn = new Button(text);
         btn.setPrefWidth(300);
         btn.setPrefHeight(50);
-        btn.setStyle("-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 18px;");
+        btn.setCursor(javafx.scene.Cursor.HAND);
+        btn.setStyle("-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 18px; -fx-cursor: hand;");
         
-        btn.setOnMouseEntered(e -> btn.setStyle("-fx-background-color: #4e6a85; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 18px;"));
-        btn.setOnMouseExited(e -> btn.setStyle("-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 18px;"));
+        btn.setOnMouseEntered(e -> btn.setStyle("-fx-background-color: #4e6a85; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 18px; -fx-cursor: hand;"));
+        btn.setOnMouseExited(e -> btn.setStyle("-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 18px; -fx-cursor: hand;"));
         
         return btn;
     }

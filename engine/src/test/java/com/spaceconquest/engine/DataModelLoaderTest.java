@@ -64,7 +64,8 @@ public class DataModelLoaderTest {
         assertEquals(1.0, human.intelligence());
         assertEquals(1.0, human.physicalStrength());
         assertEquals("Individualist", human.societyStructure());
-        assertEquals(1.0, human.preferredGForce());
+        assertEquals(9.81, human.preferredGravity());
+        assertEquals(9.81, human.preferredGForce());
         assertEquals(288.0, human.preferredTemperature());
         assertEquals("Carbon based", human.chemicalComposition());
         assertEquals("Oxygen based", human.breathingAtmosphere());
@@ -82,7 +83,8 @@ public class DataModelLoaderTest {
         assertEquals(1.2, silicon.intelligence());
         assertEquals(1.8, silicon.physicalStrength());
         assertEquals("Collectivist", silicon.societyStructure());
-        assertEquals(0.1, silicon.preferredGForce());
+        assertEquals(1.0, silicon.preferredGravity());
+        assertEquals(1.0, silicon.preferredGForce());
         assertEquals(120.0, silicon.preferredTemperature());
         assertEquals("Silicon based", silicon.chemicalComposition());
         assertEquals("Vacuum compatible", silicon.breathingAtmosphere());
@@ -100,7 +102,8 @@ public class DataModelLoaderTest {
         assertEquals(1.0, ammonia.intelligence());
         assertEquals(0.8, ammonia.physicalStrength());
         assertEquals("Collectivist", ammonia.societyStructure());
-        assertEquals(0.5, ammonia.preferredGForce());
+        assertEquals(4.9, ammonia.preferredGravity());
+        assertEquals(4.9, ammonia.preferredGForce());
         assertEquals(210.0, ammonia.preferredTemperature());
         assertEquals("Hydro-nitrogen composite", ammonia.chemicalComposition());
         assertEquals("Nitrogen based", ammonia.breathingAtmosphere());
@@ -115,6 +118,7 @@ public class DataModelLoaderTest {
         assertEquals(1.5, synthetic.intelligence());
         assertEquals(1.4, synthetic.physicalStrength());
         assertEquals("Individualist", synthetic.societyStructure());
+        assertEquals(0.0, synthetic.preferredGravity());
         assertEquals(0.0, synthetic.preferredGForce());
         assertEquals(150.0, synthetic.preferredTemperature());
         assertEquals("Refined metal / Silicon substrate", synthetic.chemicalComposition());
@@ -132,7 +136,8 @@ public class DataModelLoaderTest {
         assertEquals(1.4, plasma.intelligence());
         assertEquals(0.5, plasma.physicalStrength());
         assertEquals("Hive mind", plasma.societyStructure());
-        assertEquals(5.0, plasma.preferredGForce());
+        assertEquals(49.0, plasma.preferredGravity());
+        assertEquals(49.0, plasma.preferredGForce());
         assertEquals(1500.0, plasma.preferredTemperature());
         assertEquals("Ionized gas / Electromagnetic plasma", plasma.chemicalComposition());
         assertEquals("Vacuum compatible", plasma.breathingAtmosphere());
@@ -147,6 +152,8 @@ public class DataModelLoaderTest {
         assertEquals(1.5, vulkan.intelligence());
         assertEquals(1.2, vulkan.physicalStrength());
         assertEquals("Individualist", vulkan.societyStructure());
+        assertEquals(14.0, vulkan.preferredGravity());
+        assertEquals(14.0, vulkan.preferredGForce());
         assertEquals(200, vulkan.naturalLifespan());
     }
 
@@ -339,7 +346,7 @@ public class DataModelLoaderTest {
     public void testLoadTechnologies() throws IOException {
         List<Technology> technologies = DataModelLoader.loadTechnologies();
         assertNotNull(technologies);
-        assertEquals(25, technologies.size());
+        assertEquals(26, technologies.size());
 
         Technology electricity = technologies.stream().filter(t -> t.id().equals("electricity")).findFirst().orElseThrow();
         assertEquals("Electricity", electricity.name());
@@ -398,6 +405,13 @@ public class DataModelLoaderTest {
         assertEquals(10, warpDrive.complexity());
         assertEquals(50000.0, warpDrive.costToBuildPerUnit(), 0.001);
         assertEquals(8, warpDrive.calculateOptimizedComplexity(2, 1.0));
+
+        Technology megaTech = technologies.stream().filter(t -> t.id().equals("stellar_megastructures")).findFirst().orElseThrow();
+        assertEquals("Stellar megastructures", megaTech.name());
+        assertEquals(9, megaTech.complexity());
+        assertTrue(megaTech.requiredTechnologies().contains("gravitational_engineering"));
+        assertTrue(megaTech.requiredTechnologies().contains("surface_to_orbit_infrastructure"));
+        assertEquals(2, megaTech.applications().size());
 
         // Verify all required materials exist in materials.json
         List<Material> materials = DataModelLoader.loadMaterials();
@@ -521,7 +535,7 @@ public class DataModelLoaderTest {
     public void testLoadEmpires() throws IOException {
         List<Empire> empires = DataModelLoader.loadEmpires();
         assertNotNull(empires);
-        assertEquals(3, empires.size());
+        assertEquals(4, empires.size());
 
         Empire terran = DataModelLoader.loadEmpire("terran_confederation");
         assertEquals("Terran Confederation", terran.name());
@@ -532,6 +546,16 @@ public class DataModelLoaderTest {
         assertEquals(List.of("sol"), terran.controlledSystemIds());
         assertEquals(5, terran.ministries().size());
         assertEquals("gov_sol_human", terran.systemGovernorAssignments().get("sol"));
+
+        Empire vulkan = DataModelLoader.loadEmpire("vulkan_forge");
+        assertEquals("Vulkan High Command", vulkan.name());
+        assertEquals("vulkan", vulkan.raceId());
+        assertEquals("Individualist", vulkan.societyStructure());
+        assertEquals(60000.0, vulkan.treasuryCredits());
+        assertEquals(0.10, vulkan.corporateTaxRate(), 0.001);
+        assertEquals(List.of("vulcan-system"), vulkan.controlledSystemIds());
+        assertEquals(3, vulkan.ministries().size());
+        assertEquals("gov_vulcan", vulkan.systemGovernorAssignments().get("vulcan-system"));
 
         Empire silicon = DataModelLoader.loadEmpire("silicon_hegemony");
         assertEquals("Collectivist", silicon.societyStructure());

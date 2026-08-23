@@ -10,6 +10,7 @@ import com.spaceconquest.engine.biome.PlanetBiomeGrid;
 import com.spaceconquest.engine.biome.SurfaceTile;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
 import com.spaceconquest.engine.industry.PowerGridState;
+import com.spaceconquest.engine.megastructure.Megastructure;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -41,6 +42,7 @@ public class PlanetDetailView {
     private String playerEmpireId = "terran_confederation";
     private final List<GeologicalDeposit> deposits = new ArrayList<>();
     private final List<PowerGridState> powerGrids = new ArrayList<>();
+    private final List<Megastructure> megastructures = new ArrayList<>();
 
     public PlanetDetailView(Menubar menubar) {
         this.menubar = menubar;
@@ -55,6 +57,10 @@ public class PlanetDetailView {
         if (empireId != null && !empireId.isEmpty()) {
             this.playerEmpireId = empireId;
         }
+    }
+
+    public List<Megastructure> getMegastructures() {
+        return megastructures;
     }
 
     private void build() {
@@ -114,11 +120,18 @@ public class PlanetDetailView {
     }
 
     public void updateData(List<GeologicalDeposit> newDeposits, List<PowerGridState> newGrids) {
+        updateData(newDeposits, newGrids, null);
+    }
+
+    public void updateData(List<GeologicalDeposit> newDeposits, List<PowerGridState> newGrids, List<Megastructure> newMegastructures) {
         deposits.clear();
         if (newDeposits != null) deposits.addAll(newDeposits);
 
         powerGrids.clear();
         if (newGrids != null) powerGrids.addAll(newGrids);
+
+        megastructures.clear();
+        if (newMegastructures != null) megastructures.addAll(newMegastructures);
 
         if (root.isVisible()) {
             renderContent();
@@ -137,7 +150,10 @@ public class PlanetDetailView {
         // 3. Power Grids Section
         content.getChildren().add(createPowerGridsSection());
 
-        // 4. Geological Mineral Veins Section
+        // 4. Megastructures Section
+        content.getChildren().add(createMegastructuresSection());
+
+        // 5. Geological Mineral Veins Section
         content.getChildren().add(createGeologicalDepositsSection());
     }
 
@@ -146,7 +162,7 @@ public class PlanetDetailView {
         section.setPadding(new Insets(10));
         section.setStyle("-fx-background-color: rgba(20, 35, 60, 0.7); -fx-background-radius: 8; -fx-border-color: #3498db; -fx-border-width: 1; -fx-border-radius: 8;");
 
-        Text header = new Text("Planetary surface biome grid and facility adjacency matrix (4x4)");
+        Text header = new Text("Planetary surface biome grid and facility adjacency matrix");
         header.setFill(Color.AQUA);
         header.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
         section.getChildren().add(header);
@@ -155,18 +171,41 @@ public class PlanetDetailView {
         Planet demoPlanet = new Planet("earth", "Earth", "Terrestrial world", 5.97e24, 1.0, 1.0, 0, 12742, "TERRESTRIAL", "Oxygen-Nitrogen", true, 0.71, List.of(), List.of(), List.of());
         PlanetBiomeGrid grid = proc.generateDefaultGrid(demoPlanet, deposits);
 
-        GridPane tileGrid = new GridPane();
-        tileGrid.setHgap(8);
-        tileGrid.setVgap(8);
+        if (grid.totalTiles() == 0) {
+            VBox gasCard = new VBox(6);
+            gasCard.setPadding(new Insets(12));
+            gasCard.setStyle("-fx-background-color: rgba(30, 45, 75, 0.6); -fx-background-radius: 6;");
+
+            Label gasTitle = new Label("Gas giant celestial body");
+            gasTitle.setTextFill(Color.GOLD);
+            gasTitle.setFont(Font.font("Verdana", FontWeight.BOLD, 11));
+
+            Label gasDesc = new Label("Gas giant celestial body — Gaseous atmosphere with no solid surface crust for ground facilities. Surface tile development unavailable.");
+            gasDesc.setTextFill(Color.LIGHTGRAY);
+            gasDesc.setFont(Font.font("Verdana", 10));
+            gasDesc.setWrapText(true);
+
+            gasCard.getChildren().addAll(gasTitle, gasDesc);
+            section.getChildren().add(gasCard);
+            return section;
+        }
+
+        VBox surfaceGridContainer = new VBox(6);
+        surfaceGridContainer.setAlignment(Pos.CENTER);
+        surfaceGridContainer.setPadding(new Insets(4));
 
         for (int r = 0; r < grid.rows(); r++) {
-            for (int c = 0; c < grid.columns(); c++) {
+            HBox rowBox = new HBox(6);
+            rowBox.setAlignment(Pos.CENTER);
+            int colsInRow = grid.columnsInRow(r);
+
+            for (int c = 0; c < colsInRow; c++) {
                 SurfaceTile tile = grid.getTile(r, c);
                 if (tile == null) continue;
 
                 VBox tileCard = new VBox(4);
                 tileCard.setPadding(new Insets(6));
-                tileCard.setPrefSize(190, 75);
+                tileCard.setPrefSize(120, 58);
 
                 String colorStyle = switch (tile.biomeType()) {
                     case SurfaceTile.BIOME_EQUATORIAL_DESERT -> "-fx-background-color: rgba(180, 130, 40, 0.6); -fx-border-color: #f1c40f;";
@@ -174,6 +213,8 @@ public class PlanetDetailView {
                     case SurfaceTile.BIOME_POLAR_ICE -> "-fx-background-color: rgba(60, 140, 200, 0.6); -fx-border-color: #3498db;";
                     case SurfaceTile.BIOME_OCEANIC_SHELF -> "-fx-background-color: rgba(30, 80, 160, 0.6); -fx-border-color: #2980b9;";
                     case SurfaceTile.BIOME_MOUNTAIN_RANGE -> "-fx-background-color: rgba(100, 100, 110, 0.6); -fx-border-color: #95a5a6;";
+                    case SurfaceTile.BIOME_RADIOACTIVE_CRATER -> "-fx-background-color: rgba(120, 80, 140, 0.6); -fx-border-color: #9b59b6;";
+                    case SurfaceTile.BIOME_BARREN_ROCK -> "-fx-background-color: rgba(90, 90, 90, 0.6); -fx-border-color: #7f8c8d;";
                     default -> "-fx-background-color: rgba(40, 140, 60, 0.6); -fx-border-color: #2ecc71;";
                 };
                 tileCard.setStyle(colorStyle + " -fx-background-radius: 6; -fx-border-width: 1; -fx-border-radius: 6;");
@@ -200,11 +241,15 @@ public class PlanetDetailView {
                 });
 
                 tileCard.getChildren().addAll(tileName, depositTxt, placeBtn);
-                tileGrid.add(tileCard, c, r);
+                rowBox.getChildren().add(tileCard);
             }
+            surfaceGridContainer.getChildren().add(rowBox);
         }
 
-        section.getChildren().add(tileGrid);
+        ScrollPane tileScroll = new ScrollPane(surfaceGridContainer);
+        tileScroll.setFitToWidth(true);
+        tileScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        section.getChildren().add(tileScroll);
         return section;
     }
 
@@ -281,6 +326,53 @@ public class PlanetDetailView {
                 gridInfo.setFont(Font.font("Verdana", 11));
 
                 card.getChildren().add(gridInfo);
+                section.getChildren().add(card);
+            }
+        }
+
+        return section;
+    }
+
+    private VBox createMegastructuresSection() {
+        VBox section = new VBox(8);
+        section.setPadding(new Insets(10));
+        section.setStyle("-fx-background-color: rgba(20, 35, 60, 0.7); -fx-background-radius: 8; -fx-border-color: #f1c40f; -fx-border-width: 1; -fx-border-radius: 8;");
+
+        Text header = new Text("Orbital megastructures and grand engineering (" + megastructures.size() + ")");
+        header.setFill(Color.GOLD);
+        header.setFont(Font.font("Verdana", FontWeight.BOLD, 15));
+        section.getChildren().add(header);
+
+        if (megastructures.isEmpty()) {
+            Text empty = new Text("No orbital megastructures stationed or under construction at this celestial body.");
+            empty.setFill(Color.LIGHTGRAY);
+            section.getChildren().add(empty);
+        } else {
+            for (Megastructure mega : megastructures) {
+                VBox card = new VBox(4);
+                card.setPadding(new Insets(6));
+                card.setStyle("-fx-background-color: rgba(15, 25, 45, 0.6); -fx-background-radius: 6; " +
+                        "-fx-border-color: " + (mega.isOperational() ? "#2ecc71" : "#e67e22") + "; -fx-border-width: 1; -fx-border-radius: 6;");
+
+                HBox cardHeader = new HBox(8);
+                cardHeader.setAlignment(Pos.CENTER_LEFT);
+
+                Text mName = new Text(mega.name() + " (" + mega.type() + ")");
+                mName.setFill(Color.WHITE);
+                mName.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
+
+                Label statusBadge = new Label(mega.isOperational() ? "Operational" : "Under construction");
+                statusBadge.setStyle("-fx-background-color: " + (mega.isOperational() ? "#27ae60" : "#d35400") + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 2 6 2 6; -fx-background-radius: 4; -fx-font-size: 9;");
+
+                cardHeader.getChildren().addAll(mName, statusBadge);
+
+                Text specText = new Text(String.format("Stage: %d / %d | Energy output: %,.0f kW | Habitable capacity: %,d%s",
+                        mega.currentStage(), mega.totalStages(), mega.energyYieldKw(), mega.habitableCapacity(),
+                        mega.isOperational() ? "" : String.format(" | Turns remaining: %.0f", Math.max(0, mega.requiredStageProgress() - mega.currentStageProgress()))));
+                specText.setFill(Color.LIGHTCYAN);
+                specText.setFont(Font.font("Verdana", 10));
+
+                card.getChildren().addAll(cardHeader, specText);
                 section.getChildren().add(card);
             }
         }

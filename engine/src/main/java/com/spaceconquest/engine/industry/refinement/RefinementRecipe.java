@@ -9,8 +9,8 @@ import java.util.Map;
  * @param name                  human-readable recipe name
  * @param category              recipe category (PYROMETALLURGY, ZERO_G, ALLOYING, SYNTHETIC_FUEL, CONSUMER_GOODS)
  * @param operationalEnvironment execution constraint (UNIVERSAL, GRAVITY_LOCKED, MICROGRAVITY_NATIVE)
- * @param minGravityG           minimum gravitational force required if GRAVITY_LOCKED
- * @param maxGravityG           maximum gravitational force allowed if MICROGRAVITY_NATIVE
+ * @param minGravity            minimum gravitational acceleration required if GRAVITY_LOCKED in m/s²
+ * @param maxGravity            maximum gravitational acceleration allowed if MICROGRAVITY_NATIVE in m/s²
  * @param inputMaterialsKg      required input resources in kg
  * @param powerDrawKw           turn-based electrical power draw in kW
  * @param outputMaterialsKg     primary output products in kg
@@ -23,8 +23,8 @@ public record RefinementRecipe(
         String name,
         String category,
         String operationalEnvironment,
-        double minGravityG,
-        double maxGravityG,
+        double minGravity,
+        double maxGravity,
         Map<String, Double> inputMaterialsKg,
         double powerDrawKw,
         Map<String, Double> outputMaterialsKg,
@@ -41,5 +41,23 @@ public record RefinementRecipe(
         if (outputMaterialsKg == null) outputMaterialsKg = Map.of();
         if (byproductMaterialsKg == null) byproductMaterialsKg = Map.of();
         if (operationalEnvironment == null) operationalEnvironment = ENV_UNIVERSAL;
+    }
+
+    /**
+     * Backward-compatible alias for minGravity.
+     *
+     * @return minimum gravitational acceleration in m/s²
+     */
+    public double minGravityG() {
+        return minGravity;
+    }
+
+    /**
+     * Backward-compatible alias for maxGravity.
+     *
+     * @return maximum gravitational acceleration in m/s²
+     */
+    public double maxGravityG() {
+        return maxGravity;
     }
 }

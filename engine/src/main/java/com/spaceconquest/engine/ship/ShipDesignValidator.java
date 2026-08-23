@@ -174,11 +174,11 @@ public class ShipDesignValidator {
             errors.add("Mining ship role requires an extraction/mining array module");
         }
 
-        // 7. Thrust-to-mass Launch Barrier
+        // 7. Thrust-to-mass Launch Barrier (in SI units m/s² and Newtons)
         double gravity = Math.max(0.1, homePlanetGravity);
         double atmosphere = Math.max(0.0, homeAtmospherePressure);
         double maxLaunchMass = totalDryMass + maxCargoCapacity;
-        double minLaunchThrustRequiredN = maxLaunchMass * gravity * 9.81 * (1.0 + atmosphere);
+        double minLaunchThrustRequiredN = maxLaunchMass * gravity * (1.0 + atmosphere);
 
         boolean isLaunchCapable = totalThrust >= minLaunchThrustRequiredN;
 

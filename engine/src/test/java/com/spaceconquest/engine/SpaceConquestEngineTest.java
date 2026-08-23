@@ -114,4 +114,38 @@ public class SpaceConquestEngineTest {
             }
         }
     }
+
+    @Test
+    public void testDefaultScenarioEarthAndVulcanBelongToDifferentEmpires() {
+        SpaceConquestEngine engine = new SpaceConquestEngine();
+        GameState state = engine.getGameState();
+
+        // Locate Earth and Vulcan systems
+        SolarSystem sol = state.solarSystems().stream()
+                .filter(ss -> ss.planets().stream().anyMatch(p -> p.id().equals("earth")))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Earth system not found"));
+
+        SolarSystem vulcanSystem = state.solarSystems().stream()
+                .filter(ss -> ss.planets().stream().anyMatch(p -> p.id().equals("vulcan")))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Vulcan system not found"));
+
+        // Find controlling empires
+        Empire earthEmpire = state.empires().stream()
+                .filter(e -> e.controlledSystemIds().contains(sol.id()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Controlling empire for Earth system not found"));
+
+        Empire vulcanEmpire = state.empires().stream()
+                .filter(e -> e.controlledSystemIds().contains(vulcanSystem.id()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Controlling empire for Vulcan system not found"));
+
+        assertNotEquals(earthEmpire.id(), vulcanEmpire.id(), "Earth and Vulcan must belong to different empires in the default starting scenario");
+        assertEquals("terran_confederation", earthEmpire.id());
+        assertEquals("vulkan_forge", vulcanEmpire.id());
+        assertEquals("human", earthEmpire.raceId());
+        assertEquals("vulkan", vulcanEmpire.raceId());
+    }
 }

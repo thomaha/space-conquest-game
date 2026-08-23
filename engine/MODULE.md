@@ -39,7 +39,7 @@ This module contains the core game logic, the static data model and state manage
 - `GameClock`: Manages real-time speed scaling, pause states, simulated hour progression and turn increments.
 - `LogisticsProcessor`: Simulates automated cargo trade routes, warehouse inventory balancing and transit tariffs.
 - `SensorProcessor`: Calculates sensor detection cones, uncovers uncharted star systems, detects foreign fleets and reveals hidden anomalies.
-- `BiomeAdjacencyProcessor`: Calculates planetary surface biome bonuses, direct deposit colocation, high-voltage power couplings and industrial pollution degradation.
+- `BiomeAdjacencyProcessor`: Calculates dynamic diameter-based grid dimensions, non-rigid spherical latitude biome allocations with reduced polar row places, gas giant states, direct deposit colocation, high-voltage power couplings and industrial pollution degradation.
 - `CustomEmpireBuilder`: Validates genetic trait budgets, instantiates custom species bio-architectures and registers customized sovereign empires.
 
 ## Data model records
@@ -101,6 +101,16 @@ This module contains the core game logic, the static data model and state manage
 | `GalacticSanction` | runtime state / save | Enforced economic trade embargoes, asset freezes and military intervention mandates |
 | `GalacticCommunity` | runtime state / save | Galactic Senate legislative assembly, member registries and enacted charters |
 | `CampaignSetup` | runtime / configuration | Customizable scenario settings, victory conditions and starting technology tiers |
+
+## Physical units and standard measurement system
+All simulation mechanics, celestial data definitions and calculations standardize on the International System of Units (SI) to prevent unit conversion discrepancies across subsystems:
+- **Gravitational acceleration:** Measured in meters per second squared (m/s²). Earth standard gravity is 9.81 m/s², while species preferred gravity and celestial body surface gravity use this unit directly.
+- **Mass:** Measured in kilograms (kg). Spaceship dry mass, loaded cargo, material stockpiles and resource yields use kilograms.
+- **Force and thrust:** Measured in Newtons (N). Propulsion outputs, thruster ratings and launch force barriers use Newtons.
+- **Temperature:** Measured in Kelvin (K). Ambient celestial surface temperatures, thermal tolerances and atmospheric entry friction use Kelvin.
+- **Power and energy:** Measured in kilowatts (kW) and kilowatt-hours (kWh). Power generation, facility power draw and battery buffers use kilowatts.
+- **Distance and diameter:** Measured in kilometers (km) for celestial diameters, orbital radii and star system positions, with astronomical units (AU) or light years for interstellar distances.
+- **Pressure:** Measured in standard atmospheres (atm) or kilopascals (kPa) for planetary gas envelopes and atmospheric drag calculations.
 
 ## Conventions
 - All game component properties are read from property files in the resources folder; no hard-coded game values.

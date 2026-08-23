@@ -43,6 +43,31 @@ public class InteractiveGameplayPipelineTest {
         assertNotNull(state);
         assertTrue(state.empires().stream().anyMatch(e -> e.id().equals(playerEmpire)));
 
+        List<Empire> updatedEmpires = state.empires().stream().map(e -> {
+            if (playerEmpire.equalsIgnoreCase(e.id())) {
+                List<String> techs = new java.util.ArrayList<>(e.unlockedTechIds());
+                if (!techs.contains("stellar_megastructures")) techs.add("stellar_megastructures");
+                return new Empire(
+                        e.id(), e.name(), e.raceId(), e.societyStructure(),
+                        e.treasuryCredits(), e.corporateTaxRate(), e.controlledSystemIds(),
+                        e.ministries(), e.systemGovernorAssignments(),
+                        techs, e.activeShipDesignIds()
+                );
+            }
+            return e;
+        }).toList();
+
+        engine.applyGameState(new GameState(
+                state.turn(), state.status(), state.solarSystems(), updatedEmpires,
+                state.corporations(), state.commercialHubs(), state.shadowSyndicates(),
+                state.diplomaticRelations(), state.systemGovernors(), state.researchProjects(),
+                state.technologyExchangeRoutes(), state.shipDesigns(), state.fleets(),
+                state.geologicalDeposits(), state.powerGrids(), state.industrialFacilities(),
+                state.expansionProjects(), state.orbitalStations(), state.spaceElevators(),
+                state.constructionProjects(), state.sleeperAgents(), state.espionageOperations(),
+                state.pirateBases(), state.terraformingProjects(), state.megastructures(), state.galacticCommunity()
+        ));
+
         // 2. Step 1: Technology Research, Optimization & Reverse Engineering
         humanController.stageCommand(new StartResearchCommand(
                 playerEmpire, "fusion_reactors", false, 10

@@ -95,7 +95,7 @@ public class CustomEmpireBuilder {
                 Math.max(0.5, intel),
                 Math.max(0.5, strength),
                 society,
-                profile.optimalGravityG(),
+                profile.optimalGravity(),
                 profile.optimalTemperatureKelvin(),
                 chem,
                 atmosphere,

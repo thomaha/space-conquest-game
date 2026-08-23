@@ -28,15 +28,15 @@ class RefinementProcessorTest {
 
         Map<String, Double> mats = Map.of("iron_ore", 1000.0, "carbon_monoxide_ice", 200.0);
 
-        // Fails in microgravity (0.01g < 0.1g)
+        // Fails in microgravity (0.01 m/s² < 1.0 m/s²)
         RefinementProcessor.RefinementExecutionResult failRes = processor.processRecipeExecution(
                 pyroSmelting, mats, 5000.0, 0.01, 1
         );
         assertFalse(failRes.isSuccessful());
 
-        // Succeeds on planet (1.0g > 0.1g)
+        // Succeeds on planet (9.81 m/s² > 1.0 m/s²)
         RefinementProcessor.RefinementExecutionResult successRes = processor.processRecipeExecution(
-                pyroSmelting, mats, 5000.0, 1.0, 1
+                pyroSmelting, mats, 5000.0, 9.81, 1
         );
         assertTrue(successRes.isSuccessful());
         assertEquals(700.0, successRes.producedOutputsKg().get("refined_iron"));
@@ -53,15 +53,15 @@ class RefinementProcessorTest {
 
         Map<String, Double> mats = Map.of("platinum_ore", 1000.0);
 
-        // Fails on high gravity world (1.0g > 0.05g)
+        // Fails on high gravity world (9.81 m/s² > 0.5 m/s²)
         RefinementProcessor.RefinementExecutionResult failRes = processor.processRecipeExecution(
-                zeroGRecipe, mats, 15000.0, 1.0, 2
+                zeroGRecipe, mats, 15000.0, 9.81, 2
         );
         assertFalse(failRes.isSuccessful());
 
-        // Succeeds in microgravity (0.02g < 0.05g)
+        // Succeeds in microgravity (0.1 m/s² < 0.5 m/s²)
         RefinementProcessor.RefinementExecutionResult successRes = processor.processRecipeExecution(
-                zeroGRecipe, mats, 15000.0, 0.02, 2
+                zeroGRecipe, mats, 15000.0, 0.1, 2
         );
         assertTrue(successRes.isSuccessful());
         assertEquals(500.0, successRes.producedOutputsKg().get("refined_platinum"));
@@ -71,7 +71,7 @@ class RefinementProcessorTest {
     void testStandardOfLivingSatisfactionAndHiveMindImmunity() {
         Race human = new Race(
                 "human", "Human", "Carbon-based humanoid", 1.0, 1.0, "Individualist",
-                1.0, 293.15, "Carbon", "Oxygen", 18, 50, "Organic", "Diverse", 80
+                9.81, 293.15, "Carbon", "Oxygen", 18, 50, "Organic", "Diverse", 80
         );
         Population pop = new Population("human", Map.of(30, 100000L)); // 100k pop
 
@@ -84,7 +84,7 @@ class RefinementProcessorTest {
         // Hive mind society has 0 consumer goods demand and neutral modifiers
         Race hiveRace = new Race(
                 "hive_insect", "Chitinous Hive", "Insectoid hive mind", 0.8, 1.5, "Hive mind",
-                1.0, 298.15, "Carbon", "Oxygen", 1, 100, "Organic", "Simple", 50
+                9.81, 298.15, "Carbon", "Oxygen", 1, 100, "Organic", "Simple", 50
         );
         RefinementProcessor.StandardOfLivingResult hiveResult = processor.evaluateStandardOfLiving(pop, hiveRace, 0.0);
         assertEquals(1.0, hiveResult.satisfactionIndex());

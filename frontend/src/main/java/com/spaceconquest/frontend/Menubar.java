@@ -8,18 +8,23 @@ import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.scenario.VictoryConditionChecker;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
+import javafx.event.Event;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.util.Duration;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.almasb.fxgl.dsl.FXGL.*;
@@ -37,6 +42,7 @@ public class Menubar {
     private Label detailTitle;
     private Label detailText;
     private final Timeline clock = new Timeline();
+    private final List<VBox> overlayNodes = new ArrayList<>();
 
     private final HumanController humanController = new HumanController();
     private EmpireAIController empireAIController;
@@ -71,6 +77,7 @@ public class Menubar {
     private TacticalCombatArenaView combatArenaView;
     private EmpireCreationWizardView empireWizardView;
     private AudioSettingsView audioSettingsView;
+    private ScreenSettingsView screenSettingsView;
     private AudioPlaybackManager audioPlaybackManager;
 
     private LocalDateTime gameTime = LocalDateTime.of(2200, 1, 1, 8, 0);
@@ -95,6 +102,51 @@ public class Menubar {
     public void setPlayerEmpireId(String empireId) {
         if (empireId != null && !empireId.isEmpty()) {
             this.playerEmpireId = empireId;
+            if (empireView != null) empireView.setPlayerEmpireId(empireId);
+            if (techView != null) techView.setPlayerEmpireId(empireId);
+            if (industryView != null) industryView.setPlayerEmpireId(empireId);
+            if (shipDesignerView != null) shipDesignerView.setPlayerEmpireId(empireId);
+            if (fleetManagementView != null) fleetManagementView.setPlayerEmpireId(empireId);
+            if (colonyManagementView != null) colonyManagementView.setPlayerEmpireId(empireId);
+            if (planetDetailView != null) planetDetailView.setPlayerEmpireId(empireId);
+            if (commercialHubView != null) commercialHubView.setPlayerEmpireId(empireId);
+            if (terraformingView != null) terraformingView.setPlayerEmpireId(empireId);
+            if (megastructureView != null) megastructureView.setPlayerEmpireId(empireId);
+            if (galacticSenateView != null) galacticSenateView.setPlayerEmpireId(empireId);
+            if (galaxyCanvasView != null) galaxyCanvasView.setPlayerEmpireId(empireId);
+        }
+    }
+
+    /**
+     * Updates all child views and AI controllers with the newly active game state.
+     *
+     * @param state the latest game state from the engine
+     */
+    public void updateAllViews(GameState state) {
+        if (state == null) return;
+        if (empireAIController != null) empireAIController.onGameStateUpdate(state);
+        if (corporationAIController != null) corporationAIController.onGameStateUpdate(state);
+        if (shadowSyndicateAIController != null) shadowSyndicateAIController.onGameStateUpdate(state);
+        if (humanController != null) humanController.onGameStateUpdate(state);
+
+        if (empireView != null) empireView.updateData(state);
+        if (techView != null) techView.setResearchProjects(state.researchProjects());
+        if (industryView != null) industryView.updateData(state.industrialFacilities(), state.expansionProjects());
+        if (shipDesignerView != null) shipDesignerView.updateDesigns(state.shipDesigns());
+        if (fleetManagementView != null) fleetManagementView.updateFleets(state.fleets());
+        if (galacticSenateView != null) galacticSenateView.updateData(state.galacticCommunity());
+        if (megastructureView != null) megastructureView.updateData(state.megastructures());
+        if (terraformingView != null && mainApp != null && mainApp.getEngine() != null) {
+            terraformingView.updateData(mainApp.getEngine().getAtmospheres(), state.terraformingProjects());
+        }
+        if (planetDetailView != null) planetDetailView.updateData(state.geologicalDeposits(), state.powerGrids(), state.megastructures());
+        if (colonyManagementView != null && mainApp != null && mainApp.getEngine() != null) {
+            colonyManagementView.updateData(mainApp.getEngine().getAllPlanets(), List.of());
+        }
+        if (espionageView != null) espionageView.updateData(state.sleeperAgents(), state.espionageOperations(), state.pirateBases());
+        if (orbitalStationView != null) orbitalStationView.updateData(state.orbitalStations(), state.spaceElevators());
+        if (galaxyCanvasView != null && mainApp != null && mainApp.getSolarSystems() != null) {
+            galaxyCanvasView.updateData(mainApp.getSolarSystems(), state.fleets(), state.megastructures(), state.fogOfWarStates());
         }
     }
 
@@ -266,6 +318,8 @@ public class Menubar {
         gameMenuView = new GameMenuView(this);
         galaxyListView = new GalaxyListView(this, mainApp);
         empireView = new EmpireView(this);
+        empireView.setHumanController(humanController);
+        empireView.setPlayerEmpireId(playerEmpireId);
         corporateView = new CorporateView(this);
         diplomacyView = new DiplomacyView(this);
         commercialHubView = new CommercialHubView(this);
@@ -297,7 +351,6 @@ public class Menubar {
         galaxyCanvasView.setPlayerEmpireId(playerEmpireId);
         scenarioEditorView = new ScenarioEditorView(this, mainApp != null ? mainApp.getEngine().getAudioSynthesizer() : null);
         victoryDefeatView = new VictoryDefeatView(this);
-        tutorialView = new TutorialOnboardingView(this);
 
         com.spaceconquest.engine.audio.AudioSynthesizer audioSynth = mainApp != null && mainApp.getEngine() != null ? mainApp.getEngine().getAudioSynthesizer() : new com.spaceconquest.engine.audio.AudioSynthesizer();
         audioPlaybackManager = new AudioPlaybackManager(audioSynth);
@@ -305,10 +358,14 @@ public class Menubar {
         combatArenaView = new TacticalCombatArenaView(this, audioSynth);
         combatArenaView.setHumanController(humanController);
 
+        tutorialView = new TutorialOnboardingView(this, combatArenaView);
+        tutorialView.setHumanController(humanController);
+
         empireWizardView = new EmpireCreationWizardView(this, audioSynth);
         empireWizardView.setHumanController(humanController);
 
         audioSettingsView = new AudioSettingsView(this, audioSynth);
+        screenSettingsView = new ScreenSettingsView(this, ScreenSettingsManager.getInstance());
 
         clockLabel = new Label();
         speedLabel = new Label();
@@ -316,11 +373,13 @@ public class Menubar {
         detailTitle = new Label();
         detailText = new Label();
 
+        double scale = ScreenSettingsManager.getInstance().getUiScale();
+        root.getTransforms().setAll(new javafx.scene.transform.Scale(scale, scale, 0, 0));
         root.setPadding(new Insets(10));
         root.setAlignment(Pos.CENTER_LEFT);
         root.setStyle("-fx-background-color: rgba(12, 20, 42, 0.92); -fx-background-radius: 6;"
                 + " -fx-border-color: rgba(120, 170, 255, 0.55); -fx-border-radius: 6;");
-        root.setPrefWidth(getAppWidth() - 20);
+        root.setPrefWidth((getAppWidth() - 20) / scale);
 
         HBox navigation = new HBox(6);
         navigation.setAlignment(Pos.CENTER_LEFT);
@@ -328,21 +387,12 @@ public class Menubar {
                 empireButton(),
                 diplomacyButton(),
                 techButton(),
-                industryButton(),
                 shipyardButton(),
                 fleetsButton(),
-                corporateButton(),
                 commercialHubButton(),
-                colonyButton(),
-                planetDetailButton(),
-                stationsButton(),
                 espionageButton(),
-                refinementButton(),
-                terraformingButton(),
-                megastructureButton(),
                 senateButton(),
                 canvasButton(),
-                arenaButton(),
                 combatButton(),
                 tutorialButton(),
                 galaxyButton());
@@ -364,6 +414,7 @@ public class Menubar {
         Button gameMenu = new Button("Game menu");
         gameMenu.setStyle(buttonStyle());
         gameMenu.setPrefHeight(52);
+        gameMenu.setCursor(javafx.scene.Cursor.HAND);
         gameMenu.setOnAction(e -> toggleGameMenu());
 
         HBox timeControls = new HBox(4, timeView, slower, pause, faster, gameMenu);
@@ -376,6 +427,7 @@ public class Menubar {
         detailText.setTextFill(Color.LIGHTGRAY);
         detailText.setWrapText(true);
         Button close = smallButton("X");
+        close.setCursor(javafx.scene.Cursor.HAND);
         close.setOnAction(e -> {
             detailPanel.setVisible(false);
             closePage();
@@ -383,14 +435,18 @@ public class Menubar {
         HBox detailHeader = new HBox(detailTitle, close);
         detailHeader.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(detailTitle, Priority.ALWAYS);
+        detailPanel.getTransforms().setAll(new javafx.scene.transform.Scale(scale, scale, 0, 0));
         detailPanel.getChildren().addAll(detailHeader, detailText);
         detailPanel.setPadding(new Insets(14));
         detailPanel.setPrefWidth(300);
-        detailPanel.setTranslateX(20);
-        detailPanel.setTranslateY(95);
+        detailPanel.setTranslateX(20 * scale);
+        detailPanel.setTranslateY(95 * scale);
         detailPanel.setVisible(false);
         detailPanel.setStyle("-fx-background-color: rgba(25, 38, 75, 0.94); -fx-background-radius: 6;"
                 + " -fx-border-color: rgba(120, 170, 255, 0.7); -fx-border-radius: 6;");
+
+        setupOverlayEventInterception(root);
+        setupOverlayEventInterception(detailPanel);
 
         if (root.getParent() == null) {
             root.setTranslateX(10);
@@ -401,10 +457,11 @@ public class Menubar {
             addUINode(detailPanel);
         }
 
+        overlayNodes.clear();
         centerAndAddOverlay(techView.getRoot(), 440, 340);
         centerAndAddOverlay(gameMenuView.getRoot(), 200, 250);
         centerAndAddOverlay(galaxyListView.getRoot(), 500, 400);
-        centerAndAddOverlay(empireView.getRoot(), 375, 275);
+        centerAndAddOverlay(empireView.getRoot(), 480, 360);
         centerAndAddOverlay(corporateView.getRoot(), 375, 275);
         centerAndAddOverlay(diplomacyView.getRoot(), 375, 275);
         centerAndAddOverlay(commercialHubView.getRoot(), 375, 275);
@@ -428,17 +485,53 @@ public class Menubar {
         centerAndAddOverlay(combatArenaView.getRoot(), 490, 360);
         centerAndAddOverlay(empireWizardView.getRoot(), 480, 370);
         centerAndAddOverlay(audioSettingsView.getRoot(), 300, 240);
+        centerAndAddOverlay(screenSettingsView.getRoot(), 300, 240);
 
         updateClockLabels();
         restartClock();
     }
 
+    public static void setupOverlayEventInterception(Region node) {
+        if (node == null) return;
+        node.setPickOnBounds(true);
+        node.addEventHandler(MouseEvent.MOUSE_PRESSED, Event::consume);
+        node.addEventHandler(MouseEvent.MOUSE_RELEASED, Event::consume);
+        node.addEventHandler(MouseEvent.MOUSE_CLICKED, Event::consume);
+        node.addEventHandler(MouseEvent.MOUSE_DRAGGED, Event::consume);
+        node.addEventHandler(ScrollEvent.SCROLL, Event::consume);
+    }
+
     private void centerAndAddOverlay(VBox node, double halfW, double halfH) {
-        if (node != null && node.getParent() == null) {
-            node.setTranslateX(Math.max(10, getAppWidth() / 2.0 - halfW));
-            node.setTranslateY(Math.max(70, getAppHeight() / 2.0 - halfH));
-            addUINode(node);
+        if (node != null) {
+            setupOverlayEventInterception(node);
+            if (!overlayNodes.contains(node)) {
+                overlayNodes.add(node);
+            }
+            if (node.getParent() == null) {
+                double scale = ScreenSettingsManager.getInstance().getUiScale();
+                double targetWidth = Math.max(300, (getAppWidth() / scale) - 20);
+                double targetHeight = Math.max(200, (getAppHeight() / scale) - 80);
+                node.setPrefSize(targetWidth, targetHeight);
+                node.setMinSize(targetWidth, targetHeight);
+                node.setMaxSize(targetWidth, targetHeight);
+                node.getTransforms().setAll(new javafx.scene.transform.Scale(scale, scale, 0, 0));
+                node.setTranslateX(10 * scale);
+                node.setTranslateY(70 * scale);
+                addUINode(node);
+            }
         }
+    }
+
+    public boolean isAnyOverlayVisible() {
+        if (detailPanel != null && detailPanel.isVisible()) {
+            return true;
+        }
+        for (VBox overlay : overlayNodes) {
+            if (overlay != null && overlay.isVisible()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void hideAllPanels() {
@@ -470,6 +563,7 @@ public class Menubar {
         if (combatArenaView != null) combatArenaView.hide();
         if (empireWizardView != null) empireWizardView.hide();
         if (audioSettingsView != null) audioSettingsView.hide();
+        if (screenSettingsView != null) screenSettingsView.hide();
     }
 
     public void toggleGameMenu() {
@@ -485,7 +579,7 @@ public class Menubar {
     }
 
     private Button empireButton() {
-        Button button = new Button("Empire\ncabinet");
+        Button button = new Button("Empire\nview");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -494,6 +588,9 @@ public class Menubar {
         button.setOnAction(e -> {
             hideAllPanels();
             openPage();
+            if (mainApp != null && mainApp.getEngine() != null) {
+                empireView.updateData(mainApp.getEngine().getGameState());
+            }
             empireView.show();
         });
         return button;
@@ -597,7 +694,10 @@ public class Menubar {
         button.setOnAction(e -> {
             hideAllPanels();
             openPage();
-            corporateView.show();
+            if (mainApp != null && mainApp.getEngine() != null) {
+                empireView.updateData(mainApp.getEngine().getGameState());
+            }
+            empireView.show(EmpireView.Tab.CORPORATIONS);
         });
         return button;
     }
@@ -669,7 +769,10 @@ public class Menubar {
         button.setOnAction(e -> {
             hideAllPanels();
             openPage();
-            orbitalStationView.show();
+            if (mainApp != null && mainApp.getEngine() != null) {
+                empireView.updateData(mainApp.getEngine().getGameState());
+            }
+            empireView.show(EmpireView.Tab.STATIONS);
         });
         return button;
     }
@@ -684,6 +787,10 @@ public class Menubar {
         button.setOnAction(e -> {
             hideAllPanels();
             openPage();
+            if (mainApp != null && mainApp.getEngine() != null) {
+                GameState st = mainApp.getEngine().getGameState();
+                espionageView.updateData(st.sleeperAgents(), st.espionageOperations(), st.pirateBases());
+            }
             espionageView.show();
         });
         return button;
@@ -795,12 +902,13 @@ public class Menubar {
     }
 
     private Button tutorialButton() {
-        Button button = new Button("Command\ntutorial");
+        Button button = new Button("Tutorial");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
         button.setAlignment(Pos.CENTER);
-        button.setStyle("-fx-background-color: #00cec9; -fx-text-fill: black; -fx-font-weight: bold; -fx-background-radius: 4;");
+        button.setStyle("-fx-background-color: #00cec9; -fx-text-fill: black; -fx-font-weight: bold; -fx-background-radius: 4; -fx-cursor: hand;");
+        button.setCursor(javafx.scene.Cursor.HAND);
         button.setOnAction(e -> {
             hideAllPanels();
             openPage();
@@ -835,6 +943,10 @@ public class Menubar {
         return audioSettingsView;
     }
 
+    public ScreenSettingsView getScreenSettingsView() {
+        return screenSettingsView;
+    }
+
     public AudioPlaybackManager getAudioPlaybackManager() {
         return audioPlaybackManager;
     }
@@ -845,7 +957,8 @@ public class Menubar {
         button.setPrefHeight(52);
         button.setWrapText(true);
         button.setAlignment(Pos.CENTER);
-        button.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 4;");
+        button.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 4; -fx-cursor: hand;");
+        button.setCursor(javafx.scene.Cursor.HAND);
         button.setOnAction(e -> {
             hideAllPanels();
             openPage();
@@ -858,12 +971,13 @@ public class Menubar {
         Button button = new Button(text);
         button.setMinWidth(30);
         button.setStyle(buttonStyle());
+        button.setCursor(javafx.scene.Cursor.HAND);
         return button;
     }
 
     private String buttonStyle() {
         return "-fx-background-color: #263d69; -fx-text-fill: white; -fx-font-weight: bold;"
-                + " -fx-background-radius: 4;";
+                + " -fx-background-radius: 4; -fx-cursor: hand;";
     }
 
     private void changeSpeed(int change) {

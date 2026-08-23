@@ -5,6 +5,7 @@ import com.almasb.fxgl.app.GameSettings;
 import com.almasb.fxgl.entity.Entity;
 import com.spaceconquest.engine.DataModelLoader;
 import com.spaceconquest.engine.GalaxyGenerator;
+import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.GameStartScenario;
 import com.spaceconquest.engine.SolarSystem;
 import javafx.geometry.Point2D;
@@ -50,8 +51,13 @@ public class Main extends GameApplication {
 
     @Override
     protected void initSettings(GameSettings settings) {
-        settings.setWidth(1920);
-        settings.setHeight(1080);
+        ScreenSettings screenSettings = ScreenSettingsManager.getInstance().getSettings();
+        settings.setWidth(screenSettings.getWidth());
+        settings.setHeight(screenSettings.getHeight());
+        if (screenSettings.isFullscreen()) {
+            settings.setFullScreenAllowed(true);
+            settings.setFullScreenFromStart(true);
+        }
         settings.setTitle("Space conquest game");
         settings.setVersion("0.1");
         settings.setGameMenuEnabled(false);
@@ -67,7 +73,7 @@ public class Main extends GameApplication {
             currentSolarSystems = DataModelLoader.loadSolarSystems();
             registry.clear();
             for (SolarSystem solarSystem : currentSolarSystems) {
-                new SolarSystemRenderer(solarSystem, registry).render();
+                new SolarSystemRenderer(solarSystem, registry, engine.getMegastructures()).render();
             }
 
             // Start centered on Sol at the requested close-up zoom level.
@@ -87,9 +93,23 @@ public class Main extends GameApplication {
         registry.clear();
         getGameWorld().getEntitiesCopy().forEach(Entity::removeFromWorld);
 
-        currentSolarSystems = generator.generate(numSystems, currentScenario);
+        GameState newGameState = generator.generateGameState(numSystems, currentScenario);
+        engine.applyGameState(newGameState);
+
+        // Process any staged commands (such as CreateCustomEmpireCommand from wizard)
+        if (hud != null && hud.getMenubar() != null && hud.getMenubar().getHumanController() != null) {
+            hud.getMenubar().getHumanController().getCommandQueue().processCommands(engine);
+        }
+
+        GameState activeState = engine.getGameState();
+        currentSolarSystems = activeState.solarSystems();
+
         for (SolarSystem ss : currentSolarSystems) {
-            new SolarSystemRenderer(ss, registry).render();
+            new SolarSystemRenderer(ss, registry, activeState.megastructures()).render();
+        }
+
+        if (hud != null && hud.getMenubar() != null) {
+            hud.getMenubar().updateAllViews(activeState);
         }
 
         if (!currentSolarSystems.isEmpty()) {
@@ -119,12 +139,15 @@ public class Main extends GameApplication {
                     getGameWorld().getEntitiesCopy().forEach(Entity::removeFromWorld);
                     currentSolarSystems = save.solarSystems();
                     for (SolarSystem ss : currentSolarSystems) {
-                        new SolarSystemRenderer(ss, registry).render();
+                        new SolarSystemRenderer(ss, registry, save.megastructures()).render();
                     }
                     if (!currentSolarSystems.isEmpty()) {
                         camera.gotoEntity(currentSolarSystems.get(0).name(), 5);
                     }
                     camera.updateZoom();
+                }
+                if (hud != null && hud.getMenubar() != null) {
+                    hud.getMenubar().updateAllViews(engine.getGameState());
                 }
             }
         } catch (IOException e) {
@@ -164,7 +187,10 @@ public class Main extends GameApplication {
         // A single click on the map focuses on that point; a double-click on a
         // celestial body focuses on it (centered) at zoom level 1.
         getGameScene().getContentRoot().setOnMouseClicked(e -> {
-            if (e.getButton() != MouseButton.PRIMARY) {
+            if (e.isConsumed() || e.getButton() != MouseButton.PRIMARY) {
+                return;
+            }
+            if (hud != null && hud.getMenubar() != null && hud.getMenubar().isAnyOverlayVisible()) {
                 return;
             }
             Point2D world = getInput().getMousePositionWorld();
@@ -179,6 +205,12 @@ public class Main extends GameApplication {
         });
 
         getGameScene().getContentRoot().setOnScroll(e -> {
+            if (e.isConsumed()) {
+                return;
+            }
+            if (hud != null && hud.getMenubar() != null && hud.getMenubar().isAnyOverlayVisible()) {
+                return;
+            }
             if (e.getDeltaY() > 0) {
                 camera.zoomIn();
             } else if (e.getDeltaY() < 0) {

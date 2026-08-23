@@ -26,7 +26,11 @@ public record BuildMegastructureCommand(
             return false;
         }
         return state.empires().stream()
-                .anyMatch(e -> e.id().equalsIgnoreCase(empireId) && e.treasuryCredits() >= 50000.0);
+                .anyMatch(e -> e.id().equalsIgnoreCase(empireId)
+                        && e.treasuryCredits() >= 50000.0
+                        && (e.unlockedTechIds() == null || e.unlockedTechIds().isEmpty()
+                                || e.unlockedTechIds().contains("stellar_megastructures")
+                                || e.unlockedTechIds().contains("surface_to_orbit_infrastructure")));
     }
 
     @Override

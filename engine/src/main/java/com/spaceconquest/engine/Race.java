@@ -12,7 +12,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * @param intelligence              intelligence modifier (standard baseline 1.0)
  * @param physicalStrength          physical strength modifier (standard baseline 1.0)
  * @param societyStructure          societal structure (Individualist, Collectivist, Hive mind)
- * @param preferredGForce           optimal gravitational constant in standard Gs
+ * @param preferredGravity          optimal gravitational acceleration in SI units (m/s²)
  * @param preferredTemperature      optimal ambient environment temperature in Kelvin
  * @param chemicalComposition       primary chemical element scaffolding
  * @param breathingAtmosphere       required respiration or atmospheric gas compound
@@ -29,7 +29,9 @@ public record Race(
     double intelligence,
     double physicalStrength,
     String societyStructure,
-    double preferredGForce,
+    @JsonProperty("preferredGravity")
+    @JsonAlias({"preferredGForce", "preferredGravity"})
+    double preferredGravity,
     double preferredTemperature,
     String chemicalComposition,
     String breathingAtmosphere,
@@ -41,6 +43,14 @@ public record Race(
     @JsonAlias({"retirementAge", "naturalLifeSpan"})
     int naturalLifespan
 ) {
+    /**
+     * Backward-compatible alias for preferredGravity.
+     *
+     * @return the preferred gravitational acceleration in m/s²
+     */
+    public double preferredGForce() {
+        return preferredGravity;
+    }
     /**
      * Backward-compatible alias for naturalLifespan.
      *

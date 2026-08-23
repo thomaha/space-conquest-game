@@ -238,3 +238,7 @@ To produce an item of a given complexity, you will need a production facility of
             - Engine optimization (success - 50%): The player chooses between: Option A (effect focus): +15% travel range across the galactic map. Option B (cost focus): -20% material cost to manufacture future warp engines.
             - Volatile folding (flawed design - 30%): Warp speed increases by 20%, but the engine's complexity spikes. It has a tiny random chance to damage the ship's hull on activation.
             - Subspace tear (catastrophic setback - 10%): The research fails to increase speed. Instead, the engine radiates massive amounts of energy. The ship becomes highly visible on enemy scanners across the galaxy whenever it drops out of warp.
+
+- Stellar megastructures req: Gravitational engineering, surface-to-orbit infrastructure
+    - Dyson swarm assembly: Constructs orbital solar collector swarms around parent suns to harvest massive energy outputs.
+    - Hyperlane gateway construction: Constructs deep-space artificial conduits enabling instantaneous interstellar transit between star systems.

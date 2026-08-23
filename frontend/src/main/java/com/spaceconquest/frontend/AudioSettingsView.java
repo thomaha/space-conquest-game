@@ -49,7 +49,8 @@ public class AudioSettingsView {
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 20));
 
         Button closeButton = new Button("Close");
-        closeButton.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold;");
+        closeButton.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        closeButton.setCursor(javafx.scene.Cursor.HAND);
         closeButton.setOnAction(e -> hide());
 
         HBox header = new HBox(title);
@@ -72,6 +73,8 @@ public class AudioSettingsView {
         masterVolumeSlider.setShowTickLabels(true);
         masterVolumeSlider.setShowTickMarks(true);
         masterVolumeSlider.setMajorTickUnit(0.2);
+        masterVolumeSlider.setStyle("-fx-cursor: hand;");
+        masterVolumeSlider.setCursor(javafx.scene.Cursor.HAND);
         masterVolumeSlider.valueProperty().addListener((obs, oldV, newV) -> audioSynthesizer.setMasterVolume(newV.doubleValue()));
         grid.add(masterLabel, 0, 0);
         grid.add(masterVolumeSlider, 1, 0);
@@ -83,6 +86,8 @@ public class AudioSettingsView {
         sfxVolumeSlider.setShowTickLabels(true);
         sfxVolumeSlider.setShowTickMarks(true);
         sfxVolumeSlider.setMajorTickUnit(0.2);
+        sfxVolumeSlider.setStyle("-fx-cursor: hand;");
+        sfxVolumeSlider.setCursor(javafx.scene.Cursor.HAND);
         sfxVolumeSlider.valueProperty().addListener((obs, oldV, newV) -> audioSynthesizer.setSfxVolume(newV.doubleValue()));
         grid.add(sfxLabel, 0, 1);
         grid.add(sfxVolumeSlider, 1, 1);
@@ -94,6 +99,8 @@ public class AudioSettingsView {
         musicVolumeSlider.setShowTickLabels(true);
         musicVolumeSlider.setShowTickMarks(true);
         musicVolumeSlider.setMajorTickUnit(0.2);
+        musicVolumeSlider.setStyle("-fx-cursor: hand;");
+        musicVolumeSlider.setCursor(javafx.scene.Cursor.HAND);
         musicVolumeSlider.valueProperty().addListener((obs, oldV, newV) -> audioSynthesizer.setMusicVolume(newV.doubleValue()));
         grid.add(musicLabel, 0, 2);
         grid.add(musicVolumeSlider, 1, 2);
@@ -102,6 +109,8 @@ public class AudioSettingsView {
         Label muteLabel = new Label("Mute audio output:");
         muteLabel.setTextFill(Color.LIGHTSALMON);
         muteCheckBox = new CheckBox("Mute all synthesized sound cues");
+        muteCheckBox.setStyle("-fx-cursor: hand;");
+        muteCheckBox.setCursor(javafx.scene.Cursor.HAND);
         muteCheckBox.setTextFill(Color.WHITE);
         muteCheckBox.setSelected(audioSynthesizer.isMuted());
         muteCheckBox.selectedProperty().addListener((obs, oldV, newV) -> {
@@ -136,7 +145,8 @@ public class AudioSettingsView {
         HBox footer = new HBox(10);
         footer.setAlignment(Pos.CENTER_RIGHT);
         Button backToMenuBtn = new Button("Back to game menu");
-        backToMenuBtn.setStyle("-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-weight: bold;");
+        backToMenuBtn.setStyle("-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        backToMenuBtn.setCursor(javafx.scene.Cursor.HAND);
         backToMenuBtn.setOnAction(e -> {
             hide();
             if (menubar != null && menubar.getGameMenuView() != null) {
@@ -151,7 +161,8 @@ public class AudioSettingsView {
 
     private Button createCueButton(String text, String cueEvent) {
         Button btn = new Button(text);
-        btn.setStyle("-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;");
+        btn.setStyle("-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-cursor: hand;");
+        btn.setCursor(javafx.scene.Cursor.HAND);
         btn.setOnAction(e -> audioSynthesizer.triggerCue(cueEvent));
         return btn;
     }

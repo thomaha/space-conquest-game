@@ -106,12 +106,13 @@ public class CameraController {
         set("zoomLevel", zoomLevel);
 
         // Update system labels: counter-scaled to maintain constant screen size.
+        double uiScale = ScreenSettingsManager.getInstance().getUiScale();
         getGameWorld().getEntitiesByComponent(TypeComponent.class).stream()
                 .filter(e -> "SYSTEM_LABEL".equals(e.getComponent(TypeComponent.class).getValue()))
                 .forEach(e -> {
                     e.setVisible(true);
-                    e.setScaleX(1.0 / scale);
-                    e.setScaleY(1.0 / scale);
+                    e.setScaleX(uiScale / scale);
+                    e.setScaleY(uiScale / scale);
                 });
 
         if (focusedEntity != null) {

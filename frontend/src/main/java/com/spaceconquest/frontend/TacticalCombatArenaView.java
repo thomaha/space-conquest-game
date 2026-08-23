@@ -108,6 +108,22 @@ public class TacticalCombatArenaView {
         root.setVisible(false);
     }
 
+    public VBox getArenaContentBox() {
+        VBox arenaContent = new VBox(10);
+        HBox tacticalToolbar = createTacticalToolbar();
+        combatCanvas = new Canvas(940, 280);
+        gc = combatCanvas.getGraphicsContext2D();
+        drawEmptyArena();
+        HBox playbackControls = createPlaybackControls();
+        logContent = new VBox(4);
+        ScrollPane logScroll = new ScrollPane(logContent);
+        logScroll.setPrefHeight(180);
+        logScroll.setFitToWidth(true);
+        logScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        arenaContent.getChildren().addAll(tacticalToolbar, combatCanvas, playbackControls, logScroll);
+        return arenaContent;
+    }
+
     private HBox createTacticalToolbar() {
         HBox bar = new HBox(10);
         bar.setAlignment(Pos.CENTER_LEFT);
