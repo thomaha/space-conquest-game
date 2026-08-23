@@ -8,6 +8,7 @@ import com.spaceconquest.engine.GalaxyGenerator;
 import com.spaceconquest.engine.GameStartScenario;
 import com.spaceconquest.engine.SolarSystem;
 import javafx.geometry.Point2D;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.paint.Color;
@@ -53,6 +54,8 @@ public class Main extends GameApplication {
         settings.setHeight(1080);
         settings.setTitle("Space conquest game");
         settings.setVersion("0.1");
+        settings.setGameMenuEnabled(false);
+        settings.setMainMenuEnabled(false);
     }
 
     @Override
@@ -151,6 +154,13 @@ public class Main extends GameApplication {
 
     @Override
     protected void initInput() {
+        // Pressing Escape opens/closes the same Game Menu as the menubar button.
+        onKeyDown(KeyCode.ESCAPE, () -> {
+            if (hud != null && hud.getMenubar() != null) {
+                hud.getMenubar().toggleGameMenu();
+            }
+        });
+
         // A single click on the map focuses on that point; a double-click on a
         // celestial body focuses on it (centered) at zoom level 1.
         getGameScene().getContentRoot().setOnMouseClicked(e -> {

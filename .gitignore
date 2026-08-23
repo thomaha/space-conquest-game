@@ -2,3 +2,15 @@
 /control/target/
 /engine/target/
 /frontend/target/
+
+# Log files
+*.log
+logs/
+
+# JavaFX, FXGL and JVM temporary or system files
+system/
+*.tmp
+*.temp
+hs_err_pid*
+replay_pid*
+.attach_pid*

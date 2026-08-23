@@ -71,7 +71,7 @@ public class TechnologyView {
                 "-fx-border-radius: 10; -fx-background-radius: 10;");
         root.setPrefSize(880, 680);
 
-        Text title = new Text("Imperial Technology & Research Laboratory");
+        Text title = new Text("Imperial technology and research laboratory");
         title.setFill(Color.WHITE);
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 22));
 
@@ -143,7 +143,7 @@ public class TechnologyView {
         // 3. Foundational Tech Tree Section
         try {
             List<Technology> technologies = DataModelLoader.loadTechnologies();
-            Text techTreeHeader = new Text("Available Technologies & Practical Applications");
+            Text techTreeHeader = new Text("Available technologies and practical applications");
             techTreeHeader.setFill(Color.LIGHTBLUE);
             techTreeHeader.setFont(Font.font("Verdana", FontWeight.BOLD, 16));
             content.getChildren().add(techTreeHeader);
@@ -164,7 +164,7 @@ public class TechnologyView {
         section.setPadding(new Insets(12));
         section.setStyle("-fx-background-color: rgba(30, 45, 75, 0.7); -fx-background-radius: 8; -fx-border-color: #4a90e2; -fx-border-width: 1; -fx-border-radius: 8;");
 
-        Text sectionTitle = new Text("Active Research Projects & Progress Vectors");
+        Text sectionTitle = new Text("Active research projects and progress vectors");
         sectionTitle.setFill(Color.GOLD);
         sectionTitle.setFont(Font.font("Verdana", FontWeight.BOLD, 15));
         section.getChildren().add(sectionTitle);
@@ -186,7 +186,7 @@ public class TechnologyView {
                 name.setFill(Color.LIGHTCYAN);
                 name.setFont(Font.font("Verdana", FontWeight.BOLD, 13));
 
-                Text scientists = new Text("Assigned: " + project.assignedScientists() + " Scientists");
+                Text scientists = new Text("Assigned: " + project.assignedScientists() + " scientists");
                 scientists.setFill(Color.LIGHTGREEN);
                 scientists.setFont(Font.font("Verdana", 11));
                 header.getChildren().addAll(name, scientists);
@@ -215,14 +215,14 @@ public class TechnologyView {
         section.setPadding(new Insets(10));
         section.setStyle("-fx-background-color: rgba(25, 40, 65, 0.65); -fx-background-radius: 8; -fx-border-color: #9b59b6; -fx-border-width: 1; -fx-border-radius: 8;");
 
-        Text title = new Text("Xeno-Debris & Reverse Engineering Salvage");
+        Text title = new Text("Xeno-debris and reverse engineering salvage");
         title.setFill(Color.VIOLET);
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
 
         HBox controls = new HBox(10);
         controls.setAlignment(Pos.CENTER_LEFT);
 
-        Button deconstructBtn = new Button("Analyze Wreckage Debris (+Progress Vector)");
+        Button deconstructBtn = new Button("Analyze wreckage debris (+progress vector)");
         deconstructBtn.setStyle("-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;");
         deconstructBtn.setOnAction(e -> {
             if (humanController != null) {
@@ -262,7 +262,7 @@ public class TechnologyView {
         Spinner<Integer> scientistSpinner = new Spinner<>(1, 50, 5);
         scientistSpinner.setPrefWidth(70);
 
-        Button researchBtn = new Button("Start Research");
+        Button researchBtn = new Button("Start research");
         researchBtn.setStyle("-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;");
         researchBtn.setOnAction(e -> {
             int count = scientistSpinner.getValue();
@@ -314,7 +314,7 @@ public class TechnologyView {
         appName.setFill(Color.LIGHTGREEN);
         appName.setFont(Font.font("Verdana", FontWeight.BOLD, 13));
 
-        Button appResearchBtn = new Button("Research App");
+        Button appResearchBtn = new Button("Research app");
         appResearchBtn.setStyle("-fx-background-color: #16a085; -fx-text-fill: white; -fx-font-size: 10px; -fx-font-weight: bold;");
         appResearchBtn.setOnAction(e -> {
             if (humanController != null) {
@@ -337,7 +337,7 @@ public class TechnologyView {
         HBox optControls = new HBox(10);
         optControls.setAlignment(Pos.CENTER_LEFT);
 
-        Button pathABtn = new Button("Path A: Performance (+15% output, +20% cost)");
+        Button pathABtn = new Button("Path A: performance (+15% output, +20% cost)");
         pathABtn.setStyle("-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-size: 10px;");
         pathABtn.setOnAction(e -> {
             if (humanController != null) {
@@ -349,7 +349,7 @@ public class TechnologyView {
             }
         });
 
-        Button pathBBtn = new Button("Path B: Miniaturize (-15% cost, -1 complexity)");
+        Button pathBBtn = new Button("Path B: miniaturize (-15% cost, -1 complexity)");
         pathBBtn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-size: 10px;");
         pathBBtn.setOnAction(e -> {
             if (humanController != null) {

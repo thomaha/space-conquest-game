@@ -361,10 +361,10 @@ public class Menubar {
         faster.setTooltip(new javafx.scene.control.Tooltip("Increase game speed"));
         faster.setOnAction(e -> changeSpeed(1));
 
-        Button gameMenu = new Button("Game Menu");
+        Button gameMenu = new Button("Game menu");
         gameMenu.setStyle(buttonStyle());
         gameMenu.setPrefHeight(52);
-        gameMenu.setOnAction(e -> gameMenuView.show());
+        gameMenu.setOnAction(e -> toggleGameMenu());
 
         HBox timeControls = new HBox(4, timeView, slower, pause, faster, gameMenu);
         timeControls.setAlignment(Pos.CENTER_RIGHT);
@@ -472,8 +472,20 @@ public class Menubar {
         if (audioSettingsView != null) audioSettingsView.hide();
     }
 
+    public void toggleGameMenu() {
+        if (gameMenuView != null) {
+            if (gameMenuView.getRoot().isVisible()) {
+                gameMenuView.hide();
+            } else {
+                hideAllPanels();
+                openPage();
+                gameMenuView.show();
+            }
+        }
+    }
+
     private Button empireButton() {
-        Button button = new Button("Empire\nCabinet");
+        Button button = new Button("Empire\ncabinet");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -488,7 +500,7 @@ public class Menubar {
     }
 
     private Button diplomacyButton() {
-        Button button = new Button("Diplomacy\nPacts");
+        Button button = new Button("Diplomacy\npacts");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -503,7 +515,7 @@ public class Menubar {
     }
 
     private Button techButton() {
-        Button button = new Button("Technology\nResearch");
+        Button button = new Button("Technology\nresearch");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -521,7 +533,7 @@ public class Menubar {
     }
 
     private Button industryButton() {
-        Button button = new Button("Industries\nProduction");
+        Button button = new Button("Industries\nproduction");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -540,7 +552,7 @@ public class Menubar {
     }
 
     private Button shipyardButton() {
-        Button button = new Button("Shipyard\nDesigner");
+        Button button = new Button("Shipyard\ndesigner");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -558,7 +570,7 @@ public class Menubar {
     }
 
     private Button fleetsButton() {
-        Button button = new Button("Fleets\nNaval Hub");
+        Button button = new Button("Fleets\nnaval hub");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -576,7 +588,7 @@ public class Menubar {
     }
 
     private Button corporateButton() {
-        Button button = new Button("Corporations\nRegistry");
+        Button button = new Button("Corporations\nregistry");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -591,7 +603,7 @@ public class Menubar {
     }
 
     private Button commercialHubButton() {
-        Button button = new Button("Trade\nLogistics");
+        Button button = new Button("Trade\nlogistics");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -611,7 +623,7 @@ public class Menubar {
     }
 
     private Button colonyButton() {
-        Button button = new Button("Colonies\nHabitation");
+        Button button = new Button("Colonies\nhabitation");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -629,7 +641,7 @@ public class Menubar {
     }
 
     private Button planetDetailButton() {
-        Button button = new Button("Planet\nSurvey");
+        Button button = new Button("Planet\nsurvey");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -648,7 +660,7 @@ public class Menubar {
     }
 
     private Button stationsButton() {
-        Button button = new Button("Stations\nOrbital Hubs");
+        Button button = new Button("Stations\norbital hubs");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -663,7 +675,7 @@ public class Menubar {
     }
 
     private Button espionageButton() {
-        Button button = new Button("Espionage\nIntelligence");
+        Button button = new Button("Espionage\nintelligence");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -678,7 +690,7 @@ public class Menubar {
     }
 
     private Button refinementButton() {
-        Button button = new Button("Refinement\nAlloys");
+        Button button = new Button("Refinement\nalloys");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -693,7 +705,7 @@ public class Menubar {
     }
 
     private Button terraformingButton() {
-        Button button = new Button("Terraform\nAtmosphere");
+        Button button = new Button("Terraform\natmosphere");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -711,7 +723,7 @@ public class Menubar {
     }
 
     private Button megastructureButton() {
-        Button button = new Button("Megastructures\nDysons");
+        Button button = new Button("Megastructures\ndysons");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -747,7 +759,7 @@ public class Menubar {
     }
 
     private Button canvasButton() {
-        Button button = new Button("Tactical\nCanvas");
+        Button button = new Button("Tactical\ncanvas");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -768,7 +780,7 @@ public class Menubar {
     }
 
     private Button combatButton() {
-        Button button = new Button("Combat\nPlayback");
+        Button button = new Button("Combat\nplayback");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -783,7 +795,7 @@ public class Menubar {
     }
 
     private Button tutorialButton() {
-        Button button = new Button("Command\nTutorial");
+        Button button = new Button("Command\ntutorial");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -798,7 +810,7 @@ public class Menubar {
     }
 
     private Button galaxyButton() {
-        Button button = new Button("Galaxy\nMap View");
+        Button button = new Button("Galaxy\nmap view");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);
@@ -828,7 +840,7 @@ public class Menubar {
     }
 
     private Button arenaButton() {
-        Button button = new Button("Tactical\nArena");
+        Button button = new Button("Tactical\narena");
         button.setPrefWidth(105);
         button.setPrefHeight(52);
         button.setWrapText(true);

@@ -35,7 +35,7 @@ public class GameMenuView {
         root.setPrefSize(400, 500);
         root.setAlignment(Pos.TOP_CENTER);
 
-        Text title = new Text("Game Menu");
+        Text title = new Text("Game menu");
         title.setFill(Color.WHITE);
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 24));
 
@@ -58,13 +58,13 @@ public class GameMenuView {
         buttonsBox.setAlignment(Pos.CENTER);
         buttonsBox.setPadding(new Insets(20));
 
-        Button btnNewGame = createMenuButton("New Game");
+        Button btnNewGame = createMenuButton("New game");
         btnNewGame.setOnAction(e -> {
             hide();
             menubar.startNewGameSetup();
         });
 
-        Button btnSave = createMenuButton("Quick Save");
+        Button btnSave = createMenuButton("Quick save");
         btnSave.setOnAction(e -> {
             if (menubar.getMainApp() != null) {
                 menubar.getMainApp().quickSave();
@@ -72,7 +72,7 @@ public class GameMenuView {
             hide();
         });
 
-        Button btnCampaign = createMenuButton("Campaign & Saves");
+        Button btnCampaign = createMenuButton("Campaign and saves");
         btnCampaign.setOnAction(e -> {
             hide();
             if (menubar.getCampaignManagerView() != null) {
@@ -80,7 +80,7 @@ public class GameMenuView {
             }
         });
 
-        Button btnAudioSettings = createMenuButton("Audio Settings");
+        Button btnAudioSettings = createMenuButton("Audio settings");
         btnAudioSettings.setOnAction(e -> {
             hide();
             if (menubar.getAudioSettingsView() != null) {
@@ -88,7 +88,7 @@ public class GameMenuView {
             }
         });
 
-        Button btnExit = createMenuButton("Exit to Desktop");
+        Button btnExit = createMenuButton("Exit to desktop");
         btnExit.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 18px;");
         btnExit.setOnAction(e -> getGameController().exit());
 

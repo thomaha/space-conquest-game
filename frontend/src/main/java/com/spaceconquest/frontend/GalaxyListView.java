@@ -45,7 +45,7 @@ public class GalaxyListView {
                       "-fx-border-radius: 10; -fx-background-radius: 10;");
         root.setPrefSize(1000, 800);
 
-        Text title = new Text("Galaxy View");
+        Text title = new Text("Galaxy view");
         title.setFill(Color.WHITE);
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 24));
 
@@ -165,7 +165,7 @@ public class GalaxyListView {
 
         String resourcesStr = resourceText(p.resources());
         String atmosphere = p.atmosphere() != null ? p.atmosphere().replace("_", " ") : "none";
-        String waterInfo = p.hasLiquidWater() ? " | Liquid Water: Yes" : "";
+        String waterInfo = p.hasLiquidWater() ? " | Liquid water: Yes" : "";
         Text planetDetails = new Text(String.format("Type: %s | Atmosphere: %s%s | %s | Resources: %s",
                 p.type() != null ? p.type() : "unknown", atmosphere, waterInfo, populationText(p), resourcesStr));
         planetDetails.setFill(Color.GAINSBORO);
@@ -202,7 +202,7 @@ public class GalaxyListView {
 
         String resourcesStr = resourceText(m.resources());
         String atmosphere = m.atmosphere() != null ? m.atmosphere().replace("_", " ") : "none";
-        String waterInfo = m.hasLiquidWater() ? " | Liquid Water: Yes" : "";
+        String waterInfo = m.hasLiquidWater() ? " | Liquid water: Yes" : "";
         Text moonDetails = new Text(String.format("Type: Moon | Atmosphere: %s%s | Resources: %s", atmosphere, waterInfo, resourcesStr));
         moonDetails.setFill(Color.SILVER);
         moonDetails.setFont(Font.font("Verdana", 11));
