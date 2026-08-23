@@ -28,13 +28,15 @@ public class CrimeProcessor {
      * @param isHiveMind           whether the controlling empire is a Hive Mind (100% immune)
      * @param policeEfficiency     police suppression efficiency
      * @param governorCrimeBonus   system governor crime reduction bonus
+     * @param systemLawAndOrderLevel system economy law and order funding level index
      * @return net crime metric (0.0 or positive)
      */
     public double calculateCrimeMetric(
             CommercialHub hub,
             boolean isHiveMind,
             double policeEfficiency,
-            double governorCrimeBonus
+            double governorCrimeBonus,
+            double systemLawAndOrderLevel
     ) {
         if (isHiveMind) {
             return 0.0;
@@ -44,8 +46,20 @@ public class CrimeProcessor {
         double storedVolumeFactor = (hub.currentStoredWeightKg() / Math.max(1.0, hub.storageCapacityKg())) * 0.20;
         double rawCrime = commercialDensity + storedVolumeFactor;
 
-        double netCrime = rawCrime - policeEfficiency - governorCrimeBonus;
+        double lawFundingBonus = Math.max(0.0, (systemLawAndOrderLevel - 1.0) * 0.15);
+        double lawFundingPenalty = systemLawAndOrderLevel < 1.0 ? (1.0 - systemLawAndOrderLevel) * 0.15 : 0.0;
+
+        double netCrime = rawCrime + lawFundingPenalty - policeEfficiency - governorCrimeBonus - lawFundingBonus;
         return Math.max(0.0, netCrime);
+    }
+
+    public double calculateCrimeMetric(
+            CommercialHub hub,
+            boolean isHiveMind,
+            double policeEfficiency,
+            double governorCrimeBonus
+    ) {
+        return calculateCrimeMetric(hub, isHiveMind, policeEfficiency, governorCrimeBonus, 1.0);
     }
 
     /**
@@ -97,6 +111,24 @@ public class CrimeProcessor {
             syndicateMap.put(s.empireId(), s);
         }
 
+        Map<String, Double> systemLawMap = new HashMap<>();
+        if (state.systemEconomies() != null) {
+            for (com.spaceconquest.engine.economy.SystemEconomy se : state.systemEconomies()) {
+                systemLawMap.put(se.systemId(), se.lawAndOrderLevel());
+            }
+        }
+
+        Map<String, String> planetToSystemMap = new HashMap<>();
+        if (state.solarSystems() != null) {
+            for (com.spaceconquest.engine.SolarSystem sys : state.solarSystems()) {
+                if (sys.planets() != null) {
+                    for (com.spaceconquest.engine.Planet p : sys.planets()) {
+                        planetToSystemMap.put(p.id(), sys.id());
+                    }
+                }
+            }
+        }
+
         double totalGalaxyLeakage = 0.0;
 
         for (CommercialHub hub : state.commercialHubs()) {
@@ -118,8 +150,11 @@ public class CrimeProcessor {
                 governorBonus = Math.max(governorBonus, g.crimeReductionBonus());
             }
 
+            String sysId = planetToSystemMap.get(hub.entityId());
+            double systemLawLevel = sysId != null ? systemLawMap.getOrDefault(sysId, 1.0) : 1.0;
+
             double policeEfficiency = 0.10; // baseline police
-            double crimeMetric = calculateCrimeMetric(hub, isHiveMind, policeEfficiency, governorBonus);
+            double crimeMetric = calculateCrimeMetric(hub, isHiveMind, policeEfficiency, governorBonus, systemLawLevel);
 
             double grossValue = calculateHubGrossTransactionValue(hub);
             double leakage = calculateBlackMarketLeakage(grossValue, hub.transactionTariffRate(), crimeMetric, policeEfficiency);

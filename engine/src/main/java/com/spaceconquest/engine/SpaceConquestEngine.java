@@ -6,6 +6,8 @@ import com.spaceconquest.engine.combat.OrbitalBombardmentProcessor;
 import com.spaceconquest.engine.combat.TacticalCombatProcessor;
 import com.spaceconquest.engine.community.GalacticCommunity;
 import com.spaceconquest.engine.community.GalacticCommunityProcessor;
+import com.spaceconquest.engine.economy.SystemEconomy;
+import com.spaceconquest.engine.economy.SystemEconomyProcessor;
 import com.spaceconquest.engine.espionage.EspionageOperation;
 import com.spaceconquest.engine.espionage.EspionageProcessor;
 import com.spaceconquest.engine.espionage.PirateBase;
@@ -90,6 +92,7 @@ public class SpaceConquestEngine implements GameEngine {
     private GalacticCommunity galacticCommunity;
     private List<TradeRoute> tradeRoutes = new ArrayList<>();
     private List<FogOfWarState> fogOfWarStates = new ArrayList<>();
+    private List<SystemEconomy> systemEconomies = new ArrayList<>();
 
     private final PopulationProcessor populationProcessor = new PopulationProcessor();
     private final MarketProcessor marketProcessor = new MarketProcessor();
@@ -98,6 +101,7 @@ public class SpaceConquestEngine implements GameEngine {
     private final LogisticsProcessor logisticsProcessor = new LogisticsProcessor();
     private final SensorProcessor sensorProcessor = new SensorProcessor();
     private final CrimeProcessor crimeProcessor = new CrimeProcessor();
+    private final SystemEconomyProcessor systemEconomyProcessor = new SystemEconomyProcessor();
     private final GovernanceProcessor governanceProcessor = new GovernanceProcessor();
     private final IdeologicalAccessionManager accessionManager = new IdeologicalAccessionManager(governanceProcessor);
     private final DiplomacyProcessor diplomacyProcessor = new DiplomacyProcessor();
@@ -145,6 +149,7 @@ public class SpaceConquestEngine implements GameEngine {
                     }
                 }
             }
+            systemEconomies = initializeDefaultSystemEconomies(solarSystems, empires);
         } catch (java.io.IOException e) {
             logger.error("Failed to load data", e);
         }
@@ -194,6 +199,11 @@ public class SpaceConquestEngine implements GameEngine {
             galacticCommunity = saveGame.galacticCommunity();
             tradeRoutes = saveGame.tradeRoutes();
             fogOfWarStates = saveGame.fogOfWarStates();
+            if (saveGame.systemEconomies() != null && !saveGame.systemEconomies().isEmpty()) {
+                systemEconomies = new ArrayList<>(saveGame.systemEconomies());
+            } else {
+                systemEconomies = initializeDefaultSystemEconomies(solarSystems, empires);
+            }
         } catch (java.io.IOException e) {
             logger.error("Failed to load save data", e);
         }
@@ -527,7 +537,12 @@ public class SpaceConquestEngine implements GameEngine {
         empires = logisticsResult.updatedEmpires();
         corporations = logisticsResult.updatedCorporations();
 
-        // 5. Crime and Black Market Leakage
+        // 5. System Economies & Public Sector Budgeting
+        SystemEconomyProcessor.SystemEconomyTurnResult economyResult = systemEconomyProcessor.processSystemEconomies(getGameState());
+        systemEconomies = economyResult.updatedEconomies();
+        empires = economyResult.updatedEmpires();
+
+        // 6. Crime and Black Market Leakage
         GameState currentState = getGameState();
         CrimeProcessor.CrimeResult crimeResult = crimeProcessor.processCrime(currentState);
         empires = crimeResult.empires();
@@ -598,7 +613,8 @@ public class SpaceConquestEngine implements GameEngine {
                 megastructures,
                 galacticCommunity,
                 tradeRoutes,
-                fogOfWarStates
+                fogOfWarStates,
+                systemEconomies
         );
     }
 
@@ -652,6 +668,10 @@ public class SpaceConquestEngine implements GameEngine {
 
     public MegastructureProcessor getMegastructureProcessor() {
         return megastructureProcessor;
+    }
+
+    public SystemEconomyProcessor getSystemEconomyProcessor() {
+        return systemEconomyProcessor;
     }
 
     public GalacticCommunityProcessor getGalacticCommunityProcessor() {
@@ -751,6 +771,58 @@ public class SpaceConquestEngine implements GameEngine {
         this.galacticCommunity = state.galacticCommunity();
         this.tradeRoutes = new ArrayList<>(state.tradeRoutes());
         this.fogOfWarStates = new ArrayList<>(state.fogOfWarStates());
+        if (state.systemEconomies() != null && !state.systemEconomies().isEmpty()) {
+            this.systemEconomies = new ArrayList<>(state.systemEconomies());
+        } else {
+            this.systemEconomies = initializeDefaultSystemEconomies(this.solarSystems, this.empires);
+        }
+    }
+
+    public List<SystemEconomy> getSystemEconomies() {
+        return systemEconomies;
+    }
+
+    public void setSystemEconomies(List<SystemEconomy> systemEconomies) {
+        this.systemEconomies = systemEconomies != null ? new ArrayList<>(systemEconomies) : new ArrayList<>();
+    }
+
+    private List<SystemEconomy> initializeDefaultSystemEconomies(List<SolarSystem> systems, List<Empire> empiresList) {
+        List<SystemEconomy> list = new ArrayList<>();
+        if (systems == null) return list;
+        for (SolarSystem sys : systems) {
+            long totalPop = 0;
+            if (sys.planets() != null) {
+                for (Planet p : sys.planets()) {
+                    if (p.populations() != null) {
+                        for (Population pop : p.populations()) {
+                            totalPop += pop.totalCount();
+                        }
+                    }
+                    if (p.moons() != null) {
+                        for (Moon m : p.moons()) {
+                            if (m.populations() != null) {
+                                for (Population pop : m.populations()) {
+                                    totalPop += pop.totalCount();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (totalPop > 0) {
+                String ownerEmpireId = "terran_confederation";
+                if (empiresList != null) {
+                    for (Empire emp : empiresList) {
+                        if (emp.controlledSystemIds() != null && emp.controlledSystemIds().contains(sys.id())) {
+                            ownerEmpireId = emp.id();
+                            break;
+                        }
+                    }
+                }
+                list.add(SystemEconomy.createDefault(sys.id(), ownerEmpireId, totalPop));
+            }
+        }
+        return list;
     }
 
     public List<TradeRoute> getTradeRoutes() {

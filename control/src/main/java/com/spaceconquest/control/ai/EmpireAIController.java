@@ -7,6 +7,7 @@ import com.spaceconquest.control.command.BuildMegastructureCommand;
 import com.spaceconquest.control.command.CommandQueue;
 import com.spaceconquest.control.command.SelectOptimizationPathCommand;
 import com.spaceconquest.control.command.SetDiplomaticTierCommand;
+import com.spaceconquest.control.command.SetSystemEconomyBudgetCommand;
 import com.spaceconquest.control.command.StartResearchCommand;
 import com.spaceconquest.control.command.SubsidizeCorporationCommand;
 import com.spaceconquest.control.command.VoteResolutionCommand;
@@ -133,6 +134,17 @@ public class EmpireAIController implements Controller {
                     String targetSys = empire.controlledSystemIds().get(0);
                     commandQueue.submit(new BuildMegastructureCommand(
                             empireId, Megastructure.TYPE_DYSON_SWARM, targetSys, targetSys, "Imperial Dyson Swarm"
+                    ));
+                }
+            }
+
+            // 8. System Economy Budget Balancing
+            for (String systemId : empire.controlledSystemIds()) {
+                boolean hasEconomy = state.systemEconomies().stream()
+                        .anyMatch(se -> se.systemId().equals(systemId));
+                if (!hasEconomy) {
+                    commandQueue.submit(new SetSystemEconomyBudgetCommand(
+                            empireId, systemId, 0.20, 0.20, 0.20, 0.20, 0.20, 1000.0
                     ));
                 }
             }

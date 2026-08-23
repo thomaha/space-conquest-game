@@ -78,7 +78,8 @@ public record StartTerraformingProjectCommand(
                 state.geologicalDeposits(), state.powerGrids(), state.industrialFacilities(),
                 state.expansionProjects(), state.orbitalStations(), state.spaceElevators(),
                 state.constructionProjects(), state.sleeperAgents(), state.espionageOperations(),
-                state.pirateBases(), updatedProjects, state.megastructures(), state.galacticCommunity()
+                state.pirateBases(), updatedProjects, state.megastructures(), state.galacticCommunity(),
+                state.tradeRoutes(), state.fogOfWarStates(), state.systemEconomies()
         );
     }
 }

@@ -88,4 +88,31 @@ public class GroundCombatProcessorTest {
         assertTrue(fortifiedResult.survivingDefenders() > 0);
         assertEquals(0, fortifiedResult.survivingAttackers());
     }
+
+    @Test
+    public void testDynamicMilitiaTrainingEfficiencyScaling() {
+        // High militia training efficiency (0.90) vs low militia training efficiency (0.30)
+        double lowDefensePower = combatProcessor.calculateDefenderStrength(
+                0, // 0 regular soldiers
+                1000, // 1000 militia
+                humanRace,
+                0, 0, 0,
+                false,
+                "Individualist",
+                0.30 // low militia investment efficiency
+        );
+        assertEquals(300.0, lowDefensePower, 0.001);
+
+        double highDefensePower = combatProcessor.calculateDefenderStrength(
+                0,
+                1000,
+                humanRace,
+                0, 0, 0,
+                false,
+                "Individualist",
+                0.90 // max militia investment efficiency
+        );
+        assertEquals(900.0, highDefensePower, 0.001);
+        assertTrue(highDefensePower > lowDefensePower * 2.5);
+    }
 }

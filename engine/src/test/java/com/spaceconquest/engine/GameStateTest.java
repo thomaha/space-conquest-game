@@ -1,5 +1,6 @@
 package com.spaceconquest.engine;
 
+import com.spaceconquest.engine.economy.SystemEconomy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -95,6 +96,16 @@ public class GameStateTest {
                 0.20
         );
 
+        SystemEconomy economy = new SystemEconomy(
+                "sol",
+                "terran",
+                0.30, 0.20, 0.20, 0.15, 0.15,
+                4500.0,
+                8000.0,
+                1.5, 1.0, 1.0, 0.75, 0.75,
+                50, 30, 80, 40, 100, 150, 120, 500
+        );
+
         GameState state = new GameState(
                 5,
                 "RUNNING",
@@ -104,7 +115,27 @@ public class GameStateTest {
                 List.of(hub),
                 List.of(shadow),
                 List.of(relation),
-                List.of(governor)
+                List.of(governor),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                List.of(),
+                List.of(),
+                List.of(economy)
         );
 
         File saveFile = tempDir.resolve("test_save.scsave").toFile();
@@ -126,5 +157,10 @@ public class GameStateTest {
         assertEquals("COMMERCIAL_ALLIANCE", loaded.diplomaticRelations().getFirst().tier());
         assertEquals(1, loaded.systemGovernors().size());
         assertEquals("gov_1", loaded.systemGovernors().getFirst().id());
+        assertEquals(1, loaded.systemEconomies().size());
+        assertEquals("sol", loaded.systemEconomies().getFirst().systemId());
+        assertEquals(0.30, loaded.systemEconomies().getFirst().educationAllocation(), 0.001);
+        assertEquals(4500.0, loaded.systemEconomies().getFirst().totalBudgetCredits(), 0.001);
+        assertEquals(8000.0, loaded.systemEconomies().getFirst().accumulatedMilitiaInvestment(), 0.001);
     }
 }

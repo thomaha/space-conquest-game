@@ -92,7 +92,8 @@ public record BuildMegastructureCommand(
                 state.geologicalDeposits(), state.powerGrids(), state.industrialFacilities(),
                 state.expansionProjects(), state.orbitalStations(), state.spaceElevators(),
                 state.constructionProjects(), state.sleeperAgents(), state.espionageOperations(),
-                state.pirateBases(), state.terraformingProjects(), updatedMegastructures, state.galacticCommunity()
+                state.pirateBases(), state.terraformingProjects(), updatedMegastructures, state.galacticCommunity(),
+                state.tradeRoutes(), state.fogOfWarStates(), state.systemEconomies()
         );
     }
 }

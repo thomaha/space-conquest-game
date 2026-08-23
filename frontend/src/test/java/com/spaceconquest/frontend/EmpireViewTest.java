@@ -675,4 +675,43 @@ public class EmpireViewTest {
         tutorialView.selectTab(TutorialOnboardingView.Tab.TUTORIAL);
         assertEquals(TutorialOnboardingView.Tab.TUTORIAL, tutorialView.getCurrentTab());
     }
+
+    @Test
+    public void testEconomySubViewSwitchingAndSystemSelection() {
+        EmpireView view = new EmpireView(null);
+        view.setPlayerEmpireId("terran_confederation");
+
+        assertEquals(EmpireView.EconomySubView.IMPERIAL, view.getCurrentEconomySubView());
+
+        view.setCurrentEconomySubView(EmpireView.EconomySubView.SYSTEM);
+        assertEquals(EmpireView.EconomySubView.SYSTEM, view.getCurrentEconomySubView());
+
+        view.setSelectedEconomySystemId("sol");
+        assertEquals("sol", view.getSelectedEconomySystemId());
+
+        view.setCurrentEconomySubView(EmpireView.EconomySubView.IMPERIAL);
+        assertEquals(EmpireView.EconomySubView.IMPERIAL, view.getCurrentEconomySubView());
+    }
+
+    @Test
+    public void testSystemEconomyReportCalculation() {
+        SpaceConquestEngine engine = new SpaceConquestEngine();
+        GameState state = engine.getGameState();
+
+        EmpireView view = new EmpireView(null);
+        view.setPlayerEmpireId("terran_confederation");
+        view.updateData(state);
+
+        EmpireView.SystemEconomyReport report = view.calculateSystemEconomyReport("sol");
+        assertNotNull(report);
+        assertEquals("sol", report.systemId());
+        assertEquals("Sol", report.systemName());
+        assertTrue(report.systemPopulation() > 0, "Sol system should have populated colonies");
+        assertTrue(report.colonizedBodiesCount() >= 1, "Sol system should have at least 1 colonized world");
+        assertTrue(report.grossSystemOutput() > 0, "Gross output should be calculated");
+        assertTrue(report.colonialTaxes() > 0, "Colonial taxes should be collected");
+        assertNotNull(report.economy());
+        assertEquals(0.20, report.economy().educationAllocation(), 0.001);
+        assertEquals(0.20, report.economy().planetaryMilitiasAllocation(), 0.001);
+    }
 }

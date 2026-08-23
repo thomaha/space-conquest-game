@@ -49,6 +49,7 @@ This module handles input, autonomous decision agents and game command execution
 - `VoteResolutionCommand`: Command casting democratic votes on active Galactic Senate resolutions.
 - `CreateTradeRouteCommand`: Command establishing automated cargo logistics supply routes between commercial hubs.
 - `CancelTradeRouteCommand`: Command deactivating an automated cargo supply route.
+- `SetSystemEconomyBudgetCommand`: Command configuring public sector budget allocations and total funding for a solar system.
 - `ScanSystemCommand`: Command directing sensor arrays or explorer fleets to deep-scan an uncharted solar system.
 - `PlaceFacilityOnTileCommand`: Command constructing an industrial processing facility positioned directly on a surface biome tile.
 - `TargetSubsystemCommand`: Command setting the tactical subsystem target priority (warp drive, weapons, shields, engines) during fleet battles.

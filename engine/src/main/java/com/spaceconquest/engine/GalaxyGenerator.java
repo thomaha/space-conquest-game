@@ -215,6 +215,25 @@ public class GalaxyGenerator {
             ));
         }
 
+        List<com.spaceconquest.engine.economy.SystemEconomy> initialEconomies = new ArrayList<>();
+        for (SolarSystem sys : systems) {
+            long sysPop = 0;
+            if (sys.planets() != null) {
+                for (Planet p : sys.planets()) {
+                    if (p.populations() != null) {
+                        for (Population pop : p.populations()) {
+                            sysPop += pop.totalCount();
+                        }
+                    }
+                }
+            }
+            if (sysPop > 0) {
+                initialEconomies.add(com.spaceconquest.engine.economy.SystemEconomy.createDefault(
+                        sys.id(), "terran_confederation", sysPop
+                ));
+            }
+        }
+
         return new GameState(
                 0,
                 "RUNNING",
@@ -232,7 +251,19 @@ public class GalaxyGenerator {
                 initialDeposits,
                 initialGrids,
                 List.of(),
-                List.of()
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                List.of(),
+                List.of(),
+                initialEconomies
         );
     }
 

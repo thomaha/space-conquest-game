@@ -33,6 +33,7 @@ This module contains the core game logic, the static data model and state manage
 - `RefinementProcessor`: Executes chemical and metallurgical refinement recipes and evaluates colony living standard satisfaction.
 - `TerraformingProcessor`: Simulates planetary atmospheric composition shifts, geoengineering macro-projects and biological terraforming cycles.
 - `MegastructureProcessor`: Resolves multi-stage stellar engineering projects, Dyson spheres, star lifters and instantaneous hyperlane gateways.
+- `SystemEconomyProcessor`: Simulates turn-based public sector budgets across Education, Law and order, Health and welfare, Infrastructure and Planetary militias, calculating sector efficiency indices, dynamic profession headcounts, happiness modifiers and accumulated militia investments.
 - `GalacticCommunityProcessor`: Simulates legislative voting cycles, weighted democratic power calculations, resolution enactments and economic sanction enforcement.
 - `VictoryConditionChecker`: Evaluates scenario victory objectives across domination, economic monopoly, megastructure ascension and diplomatic federation.
 - `AudioSynthesizer`: Procedural sound generator providing audio feedback cues for UI, combat, warp transit and galactic senate sessions.
@@ -97,6 +98,7 @@ This module contains the core game logic, the static data model and state manage
 | `AtmosphericComposition` | runtime state / save | Atmospheric gas ratios, surface pressure, equilibrium temperature and biome classifications |
 | `GeoengineeringProject` | runtime state / save | Planetary terraforming projects, solar mirrors, greenhouse gas factories and biological cultures |
 | `Megastructure` | runtime state / save | Grand stellar engineering megastructures, Dyson swarms, star lifters and hyperlane gateways |
+| `SystemEconomy` | runtime state / save | Solar system public economy tracking sector allocations, budgets, efficiency indices, employee headcounts and accumulated militia investments |
 | `GalacticResolution` | runtime state / save | Pan-galactic senate resolutions, treaties, charters and voting tallies |
 | `GalacticSanction` | runtime state / save | Enforced economic trade embargoes, asset freezes and military intervention mandates |
 | `GalacticCommunity` | runtime state / save | Galactic Senate legislative assembly, member registries and enacted charters |

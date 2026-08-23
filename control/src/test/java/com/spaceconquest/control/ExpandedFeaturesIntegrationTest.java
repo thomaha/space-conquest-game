@@ -191,7 +191,7 @@ public class ExpandedFeaturesIntegrationTest {
 
         SaveGame loadedSave = saveMgr.load(savePath.toFile());
         assertNotNull(loadedSave);
-        assertEquals(8, loadedSave.version());
+        assertEquals(SaveGame.CURRENT_VERSION, loadedSave.version());
         assertEquals(1, loadedSave.tradeRoutes().size());
         assertEquals("route_01", loadedSave.tradeRoutes().get(0).id());
         assertEquals(1, loadedSave.fogOfWarStates().size());

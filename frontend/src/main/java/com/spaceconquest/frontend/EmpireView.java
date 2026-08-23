@@ -6,6 +6,7 @@ import com.spaceconquest.control.command.BuildMegastructureCommand;
 import com.spaceconquest.control.command.ColonizePlanetCommand;
 import com.spaceconquest.control.command.EnactMartialLawCommand;
 import com.spaceconquest.control.command.PlaceFacilityOnTileCommand;
+import com.spaceconquest.control.command.SetSystemEconomyBudgetCommand;
 import com.spaceconquest.control.command.StartProspectingMissionCommand;
 import com.spaceconquest.control.command.StartTerraformingProjectCommand;
 import com.spaceconquest.engine.Corporation;
@@ -15,11 +16,14 @@ import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.MinistryAssignment;
 import com.spaceconquest.engine.Moon;
 import com.spaceconquest.engine.Planet;
+import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.SystemGovernor;
 import com.spaceconquest.engine.biome.BiomeAdjacencyProcessor;
 import com.spaceconquest.engine.biome.PlanetBiomeGrid;
 import com.spaceconquest.engine.biome.SurfaceTile;
+import com.spaceconquest.engine.economy.SystemEconomy;
+import com.spaceconquest.engine.economy.SystemEconomyProcessor;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
 import com.spaceconquest.engine.industry.IndustrialFacility;
@@ -38,6 +42,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -133,6 +138,42 @@ public class EmpireView {
             double estimatedTariffPaid
     ) {}
 
+    public enum EconomySubView {
+        IMPERIAL("Imperial economy"),
+        SYSTEM("System economy");
+
+        private final String displayName;
+
+        EconomySubView(String displayName) {
+            this.displayName = displayName;
+        }
+
+        public String getDisplayName() {
+            return displayName;
+        }
+    }
+
+    public record SystemEconomyReport(
+            String systemId,
+            String systemName,
+            String empireId,
+            long systemPopulation,
+            int colonizedBodiesCount,
+            double grossSystemOutput,
+            double colonialTaxes,
+            double corporateTariffs,
+            double spaceElevatorFees,
+            double miningRoyalties,
+            double stateIndustryIncome,
+            double totalRevenues,
+            double publicSectorFunding,
+            double governorAdministration,
+            double stationMaintenance,
+            double totalExpenditures,
+            double netSystemBalance,
+            SystemEconomy economy
+    ) {}
+
     public enum FilterCategory {
         COLONIZED("Colonized"),
         UNCOLONIZED("Uncolonized"),
@@ -189,6 +230,8 @@ public class EmpireView {
     private final Menubar menubar;
 
     private Tab currentTab = Tab.ECONOMY;
+    private EconomySubView currentEconomySubView = EconomySubView.IMPERIAL;
+    private String selectedEconomySystemId = null;
     private FilterCategory currentFilter = FilterCategory.COLONIZED;
     private SortOption currentSort = SortOption.NAME_AZ;
     private PlanetaryBodyEntry selectedBody = null;
@@ -210,8 +253,10 @@ public class EmpireView {
     private final List<ConstructionDeploymentProject> constructionProjects = new ArrayList<>();
     private final List<Corporation> corporations = new ArrayList<>();
     private final List<Megastructure> megastructures = new ArrayList<>();
+    private final List<SystemEconomy> systemEconomies = new ArrayList<>();
 
     private final BiomeAdjacencyProcessor biomeProcessor = new BiomeAdjacencyProcessor();
+    private final SystemEconomyProcessor systemEconomyProcessor = new SystemEconomyProcessor();
 
     public EmpireView(Menubar menubar) {
         this.menubar = menubar;
@@ -234,6 +279,28 @@ public class EmpireView {
 
     public Tab getCurrentTab() {
         return currentTab;
+    }
+
+    public EconomySubView getCurrentEconomySubView() {
+        return currentEconomySubView;
+    }
+
+    public void setCurrentEconomySubView(EconomySubView subView) {
+        if (subView != null) {
+            this.currentEconomySubView = subView;
+        }
+    }
+
+    public String getSelectedEconomySystemId() {
+        return selectedEconomySystemId;
+    }
+
+    public void setSelectedEconomySystemId(String systemId) {
+        this.selectedEconomySystemId = systemId;
+    }
+
+    public List<SystemEconomy> getSystemEconomies() {
+        return systemEconomies;
     }
 
     public FilterCategory getCurrentFilter() {
@@ -380,7 +447,8 @@ public class EmpireView {
                 gameState.spaceElevators(),
                 gameState.constructionProjects(),
                 gameState.corporations(),
-                gameState.megastructures()
+                gameState.megastructures(),
+                gameState.systemEconomies()
         );
     }
 
@@ -395,7 +463,7 @@ public class EmpireView {
             List<FacilityExpansionProject> expansions,
             List<GeoengineeringProject> terraform
     ) {
-        updateData(systems, newEmpires, governors, research, newDeposits, grids, newFacilities, expansions, terraform, null, null, null, null, null);
+        updateData(systems, newEmpires, governors, research, newDeposits, grids, newFacilities, expansions, terraform, null, null, null, null, null, null);
     }
 
     public void updateData(
@@ -413,7 +481,7 @@ public class EmpireView {
             List<ConstructionDeploymentProject> newProjects,
             List<Corporation> newCorps
     ) {
-        updateData(systems, newEmpires, governors, research, newDeposits, grids, newFacilities, expansions, terraform, newStations, newElevators, newProjects, newCorps, null);
+        updateData(systems, newEmpires, governors, research, newDeposits, grids, newFacilities, expansions, terraform, newStations, newElevators, newProjects, newCorps, null, null);
     }
 
     public void updateData(
@@ -431,6 +499,26 @@ public class EmpireView {
             List<ConstructionDeploymentProject> newProjects,
             List<Corporation> newCorps,
             List<Megastructure> newMegastructures
+    ) {
+        updateData(systems, newEmpires, governors, research, newDeposits, grids, newFacilities, expansions, terraform, newStations, newElevators, newProjects, newCorps, newMegastructures, null);
+    }
+
+    public void updateData(
+            List<SolarSystem> systems,
+            List<Empire> newEmpires,
+            List<SystemGovernor> governors,
+            List<ResearchProject> research,
+            List<GeologicalDeposit> newDeposits,
+            List<PowerGridState> grids,
+            List<IndustrialFacility> newFacilities,
+            List<FacilityExpansionProject> expansions,
+            List<GeoengineeringProject> terraform,
+            List<OrbitalStation> newStations,
+            List<SpaceElevator> newElevators,
+            List<ConstructionDeploymentProject> newProjects,
+            List<Corporation> newCorps,
+            List<Megastructure> newMegastructures,
+            List<SystemEconomy> newEconomies
     ) {
         solarSystems.clear();
         if (systems != null) solarSystems.addAll(systems);
@@ -473,6 +561,9 @@ public class EmpireView {
 
         megastructures.clear();
         if (newMegastructures != null) megastructures.addAll(newMegastructures);
+
+        systemEconomies.clear();
+        if (newEconomies != null) systemEconomies.addAll(newEconomies);
 
         selectedBody = null;
 
@@ -543,10 +634,52 @@ public class EmpireView {
     }
 
     // ==========================================
-    // TAB 1: EMPIRE ECONOMY
+    // TAB 1: EMPIRE ECONOMY (IMPERIAL & SYSTEM)
     // ==========================================
 
     private VBox buildEconomyTabContent() {
+        VBox container = new VBox(10);
+        container.setPadding(new Insets(4));
+        VBox.setVgrow(container, Priority.ALWAYS);
+
+        // Sub-navigation view switcher bar
+        HBox subNavBar = new HBox(8);
+        subNavBar.setAlignment(Pos.CENTER_LEFT);
+        subNavBar.setPadding(new Insets(2, 6, 2, 6));
+
+        for (EconomySubView subView : EconomySubView.values()) {
+            Button btn = new Button(subView.getDisplayName());
+            btn.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
+            btn.setPrefHeight(30);
+            btn.setCursor(javafx.scene.Cursor.HAND);
+            boolean isSelected = (subView == currentEconomySubView);
+            String bg = isSelected ? "#f39c12" : "rgba(30, 45, 75, 0.8)";
+            String textFill = isSelected ? "black" : "#dfe6e9";
+            btn.setStyle(String.format(
+                    "-fx-background-color: %s; -fx-text-fill: %s; -fx-font-family: 'Verdana'; -fx-font-size: 12px; " +
+                    "-fx-font-weight: bold; -fx-border-color: #f39c12; -fx-border-width: 1; " +
+                    "-fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 4 14 4 14; -fx-cursor: hand;",
+                    bg, textFill
+            ));
+            btn.setOnAction(e -> {
+                currentEconomySubView = subView;
+                renderCurrentTab();
+            });
+            subNavBar.getChildren().add(btn);
+        }
+
+        container.getChildren().add(subNavBar);
+
+        if (currentEconomySubView == EconomySubView.IMPERIAL) {
+            container.getChildren().add(buildImperialMacroEconomyContent());
+        } else {
+            container.getChildren().add(buildSystemEconomyWorkbenchContent());
+        }
+
+        return container;
+    }
+
+    private VBox buildImperialMacroEconomyContent() {
         VBox container = new VBox(12);
         container.setPadding(new Insets(4));
         VBox.setVgrow(container, Priority.ALWAYS);
@@ -584,6 +717,113 @@ public class EmpireView {
             Text noEmpireText = new Text("No sovereign empire economy data available.");
             noEmpireText.setFill(Color.LIGHTCORAL);
             content.getChildren().add(noEmpireText);
+        }
+
+        container.getChildren().add(scrollPane);
+        return container;
+    }
+
+    private VBox buildSystemEconomyWorkbenchContent() {
+        VBox container = new VBox(10);
+        VBox.setVgrow(container, Priority.ALWAYS);
+
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        scrollPane.setPadding(new Insets(6));
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
+
+        VBox content = new VBox(12);
+        scrollPane.setContent(content);
+
+        Empire playerEmpire = getPlayerEmpire();
+        if (playerEmpire == null) {
+            Text noEmpireText = new Text("No sovereign empire data available.");
+            noEmpireText.setFill(Color.LIGHTCORAL);
+            content.getChildren().add(noEmpireText);
+            container.getChildren().add(scrollPane);
+            return container;
+        }
+
+        List<String> controlledSystemIds = playerEmpire.controlledSystemIds() != null && !playerEmpire.controlledSystemIds().isEmpty()
+                ? playerEmpire.controlledSystemIds()
+                : solarSystems.stream().map(SolarSystem::id).toList();
+
+        List<SolarSystem> availableSystems = solarSystems.stream()
+                .filter(s -> controlledSystemIds.contains(s.id()))
+                .toList();
+
+        if (availableSystems.isEmpty()) {
+            availableSystems = solarSystems;
+        }
+
+        if (selectedEconomySystemId == null || availableSystems.stream().noneMatch(s -> s.id().equals(selectedEconomySystemId))) {
+            if (!availableSystems.isEmpty()) {
+                selectedEconomySystemId = availableSystems.get(0).id();
+            }
+        }
+
+        // Star System Selector Header Bar
+        HBox systemSelectorBar = new HBox(12);
+        systemSelectorBar.setAlignment(Pos.CENTER_LEFT);
+        systemSelectorBar.setPadding(new Insets(8, 12, 8, 12));
+        systemSelectorBar.setStyle("-fx-background-color: rgba(20, 35, 65, 0.8); -fx-background-radius: 6; -fx-border-color: #3498db; -fx-border-width: 1; -fx-border-radius: 6;");
+
+        Label selectLabel = new Label("Controlled star system:");
+        selectLabel.setTextFill(Color.WHITE);
+        selectLabel.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
+
+        ComboBox<String> systemComboBox = new ComboBox<>();
+        systemComboBox.setCursor(javafx.scene.Cursor.HAND);
+        systemComboBox.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-weight: bold;");
+
+        Map<String, String> displayToIdMap = new HashMap<>();
+        String currentSelectionDisplay = null;
+        for (SolarSystem sys : availableSystems) {
+            String display = sys.name() + " (" + sys.id() + ")";
+            systemComboBox.getItems().add(display);
+            displayToIdMap.put(display, sys.id());
+            if (sys.id().equals(selectedEconomySystemId)) {
+                currentSelectionDisplay = display;
+            }
+        }
+
+        if (currentSelectionDisplay != null) {
+            systemComboBox.setValue(currentSelectionDisplay);
+        } else if (!systemComboBox.getItems().isEmpty()) {
+            systemComboBox.setValue(systemComboBox.getItems().get(0));
+            selectedEconomySystemId = displayToIdMap.get(systemComboBox.getItems().get(0));
+        }
+
+        systemComboBox.setOnAction(e -> {
+            String val = systemComboBox.getValue();
+            if (val != null && displayToIdMap.containsKey(val)) {
+                selectedEconomySystemId = displayToIdMap.get(val);
+                renderCurrentTab();
+            }
+        });
+
+        systemSelectorBar.getChildren().addAll(selectLabel, systemComboBox);
+        content.getChildren().add(systemSelectorBar);
+
+        if (selectedEconomySystemId != null) {
+            SystemEconomyReport report = calculateSystemEconomyReport(selectedEconomySystemId);
+            content.getChildren().add(createSystemEconomyOverviewCard(report));
+            content.getChildren().add(createSystemEconomyWorkbenchCard(report));
+
+            HBox breakdownRow = new HBox(12);
+            breakdownRow.setAlignment(Pos.TOP_LEFT);
+
+            VBox revenueCard = createSystemRevenuesCard(report);
+            HBox.setHgrow(revenueCard, Priority.ALWAYS);
+
+            VBox expenseCard = createSystemExpensesCard(report);
+            HBox.setHgrow(expenseCard, Priority.ALWAYS);
+
+            breakdownRow.getChildren().addAll(revenueCard, expenseCard);
+            content.getChildren().add(breakdownRow);
+
+            content.getChildren().add(createSystemCelestialBodiesLedgerCard(report));
         }
 
         container.getChildren().add(scrollPane);
@@ -1143,6 +1383,650 @@ public class EmpireView {
                 colonyLedger,
                 corporateLedger
         );
+    }
+
+    public SystemEconomyReport calculateSystemEconomyReport(String systemId) {
+        if (empires.isEmpty()) {
+            try {
+                empires.addAll(DataModelLoader.loadEmpires());
+            } catch (IOException e) {
+                logger.error("Failed to load empires fallback data", e);
+            }
+        }
+        if (corporations.isEmpty()) {
+            try {
+                corporations.addAll(DataModelLoader.loadCorporations());
+            } catch (IOException e) {
+                logger.error("Failed to load corporate registry fallback data", e);
+            }
+        }
+
+        SolarSystem system = solarSystems.stream()
+                .filter(s -> s.id().equals(systemId))
+                .findFirst()
+                .orElse(null);
+
+        String systemName = system != null ? system.name() : (systemId != null ? systemId : "Unknown");
+        Empire playerEmpire = getPlayerEmpire();
+        String empireId = playerEmpire != null ? playerEmpire.id() : playerEmpireId;
+
+        long systemPop = 0;
+        int colonizedCount = 0;
+        List<String> systemBodyIds = new ArrayList<>();
+        if (system != null && system.planets() != null) {
+            for (Planet p : system.planets()) {
+                systemBodyIds.add(p.id());
+                long pPop = 0;
+                if (p.populations() != null) {
+                    for (Population pop : p.populations()) {
+                        pPop += pop.totalCount();
+                    }
+                }
+                if (pPop > 0) {
+                    systemPop += pPop;
+                    colonizedCount++;
+                }
+                if (p.moons() != null) {
+                    for (Moon m : p.moons()) {
+                        systemBodyIds.add(m.id());
+                        long mPop = 0;
+                        if (m.populations() != null) {
+                            for (Population pop : m.populations()) {
+                                mPop += pop.totalCount();
+                            }
+                        }
+                        if (mPop > 0) {
+                            systemPop += mPop;
+                            colonizedCount++;
+                        }
+                    }
+                }
+            }
+        }
+
+        double grossOutput = systemPop * 0.005;
+        double colonialTaxes = grossOutput * 0.10;
+
+        double corporateTariffs = 0.0;
+        for (Corporation corp : getCorporationsForPlayerEmpire()) {
+            if (systemBodyIds.contains(corp.headquartersEntityId())) {
+                corporateTariffs += (corp.liquidCapitalReserves() * 0.0005) + (corp.ownedFacilityIds().size() * 60.0);
+            }
+        }
+
+        long elevatorsInSystem = spaceElevators.stream()
+                .filter(se -> systemBodyIds.contains(se.planetId()))
+                .count();
+        double elevatorFees = elevatorsInSystem * 300.0;
+
+        long depositsInSystem = deposits.stream()
+                .filter(d -> systemBodyIds.contains(d.planetId()))
+                .count();
+        double miningRoyalties = depositsInSystem * 50.0;
+
+        long stateFacilities = facilities.stream()
+                .filter(f -> systemBodyIds.contains(f.planetId()) && "PUBLIC_STATE".equalsIgnoreCase(f.ownershipType()))
+                .count();
+        double stateIndustryIncome = stateFacilities * 350.0;
+
+        double totalRevenues = colonialTaxes + corporateTariffs + elevatorFees + miningRoyalties + stateIndustryIncome;
+
+        SystemEconomy economy = systemEconomies.stream()
+                .filter(se -> se.systemId().equals(systemId))
+                .findFirst()
+                .orElse(null);
+
+        if (economy == null) {
+            economy = SystemEconomy.createDefault(systemId, empireId, systemPop);
+        }
+
+        double publicSectorFunding = economy.totalBudgetCredits();
+        double governorAdmin = systemGovernors.stream().anyMatch(g -> g.solarSystemId().equals(systemId)) ? 100.0 : 0.0;
+        long stationsInSystem = orbitalStations.stream().filter(st -> systemId.equals(st.systemId()) || systemBodyIds.contains(st.planetOrbitId())).count();
+        double stationMaint = stationsInSystem * 200.0;
+
+        double totalExpenditures = publicSectorFunding + governorAdmin + stationMaint;
+        double netBalance = totalRevenues - totalExpenditures;
+
+        return new SystemEconomyReport(
+                systemId,
+                systemName,
+                empireId,
+                systemPop,
+                colonizedCount,
+                grossOutput,
+                colonialTaxes,
+                corporateTariffs,
+                elevatorFees,
+                miningRoyalties,
+                stateIndustryIncome,
+                totalRevenues,
+                publicSectorFunding,
+                governorAdmin,
+                stationMaint,
+                totalExpenditures,
+                netBalance,
+                economy
+        );
+    }
+
+    private VBox createSystemEconomyOverviewCard(SystemEconomyReport report) {
+        VBox box = new VBox(10);
+        box.setPadding(new Insets(14));
+        box.setStyle("-fx-background-color: rgba(30, 50, 90, 0.7); -fx-background-radius: 8; " +
+                "-fx-border-color: #3498db; -fx-border-width: 1.5; -fx-border-radius: 8;");
+
+        HBox topRow = new HBox(12);
+        topRow.setAlignment(Pos.CENTER_LEFT);
+
+        Text sysName = new Text(report.systemName() + " — System economy overview");
+        sysName.setFill(Color.GOLD);
+        sysName.setFont(Font.font("Verdana", FontWeight.BOLD, 18));
+
+        Label ownerBadge = new Label("Empire: " + report.empireId());
+        ownerBadge.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: #00cec9; " +
+                "-fx-font-weight: bold; -fx-padding: 3 8 3 8; -fx-background-radius: 4; -fx-font-size: 11;");
+
+        Label popBadge = new Label(String.format("Population: %,d", report.systemPopulation()));
+        popBadge.setStyle("-fx-background-color: #34495e; -fx-text-fill: #dfe6e9; " +
+                "-fx-padding: 3 8 3 8; -fx-background-radius: 4; -fx-font-size: 11;");
+
+        Label colonyBadge = new Label(String.format("Colonized bodies: %d", report.colonizedBodiesCount()));
+        colonyBadge.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; " +
+                "-fx-font-weight: bold; -fx-padding: 3 8 3 8; -fx-background-radius: 4; -fx-font-size: 11;");
+
+        topRow.getChildren().addAll(sysName, ownerBadge, popBadge, colonyBadge);
+
+        GridPane metricsGrid = new GridPane();
+        metricsGrid.setHgap(20);
+        metricsGrid.setVgap(8);
+
+        Label grossLbl = new Label(String.format("Gross system output: %,.0f ₵/turn", report.grossSystemOutput()));
+        grossLbl.setTextFill(Color.LIGHTCYAN);
+        grossLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
+
+        Label revLbl = new Label(String.format("Total system revenues: +%,.0f ₵/turn", report.totalRevenues()));
+        revLbl.setTextFill(Color.LIGHTGREEN);
+        revLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
+
+        Label expLbl = new Label(String.format("Total system expenditures: -%,.0f ₵/turn", report.totalExpenditures()));
+        expLbl.setTextFill(Color.LIGHTCORAL);
+        expLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
+
+        boolean positiveNet = report.netSystemBalance() >= 0;
+        Label netLbl = new Label(String.format("Net system balance: %+,.0f ₵/turn", report.netSystemBalance()));
+        netLbl.setTextFill(positiveNet ? Color.LIGHTGREEN : Color.LIGHTCORAL);
+        netLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 13));
+
+        Label militiaInvestLbl = new Label(String.format("Accumulated militia investment: %,.0f ₵", report.economy().accumulatedMilitiaInvestment()));
+        militiaInvestLbl.setTextFill(Color.GOLD);
+        militiaInvestLbl.setFont(Font.font("Verdana", 11));
+
+        double militiaCombatFactor = systemEconomyProcessor.calculateMilitiaCombatEfficiency(report.economy().accumulatedMilitiaInvestment());
+        Label militiaPowerLbl = new Label(String.format("Conscripted militia combat readiness: %.0f%% power", militiaCombatFactor * 100.0));
+        militiaPowerLbl.setTextFill(Color.LIGHTYELLOW);
+        militiaPowerLbl.setFont(Font.font("Verdana", 11));
+
+        metricsGrid.add(grossLbl, 0, 0);
+        metricsGrid.add(revLbl, 1, 0);
+        metricsGrid.add(expLbl, 2, 0);
+        metricsGrid.add(netLbl, 3, 0);
+
+        metricsGrid.add(militiaInvestLbl, 0, 1);
+        metricsGrid.add(militiaPowerLbl, 1, 1);
+
+        box.getChildren().addAll(topRow, metricsGrid);
+        return box;
+    }
+
+    private VBox createSystemEconomyWorkbenchCard(SystemEconomyReport report) {
+        VBox box = new VBox(12);
+        box.setPadding(new Insets(14));
+        box.setStyle("-fx-background-color: rgba(18, 30, 55, 0.85); -fx-background-radius: 8; " +
+                "-fx-border-color: #00cec9; -fx-border-width: 1.5; -fx-border-radius: 8;");
+
+        Text header = new Text("Public sector budget allocation workbench");
+        header.setFill(Color.LIGHTCYAN);
+        header.setFont(Font.font("Verdana", FontWeight.BOLD, 16));
+
+        SystemEconomy economy = report.economy();
+        long pop = report.systemPopulation();
+        double basePopBudget = Math.max(1000.0, pop * 0.002);
+
+        // Budget Level Controls
+        HBox budgetRow = new HBox(12);
+        budgetRow.setAlignment(Pos.CENTER_LEFT);
+
+        Label budgetLbl = new Label("Total system budget (₵/turn):");
+        budgetLbl.setTextFill(Color.WHITE);
+        budgetLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
+
+        TextField budgetField = new TextField(String.format("%.0f", economy.totalBudgetCredits()));
+        budgetField.setPrefWidth(120);
+        budgetField.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: gold; -fx-font-weight: bold;");
+
+        Button rate50Btn = createRateButton("Austerity (50%)", budgetField, basePopBudget * 0.5);
+        Button rate100Btn = createRateButton("Standard (100%)", budgetField, basePopBudget * 1.0);
+        Button rate150Btn = createRateButton("High investment (150%)", budgetField, basePopBudget * 1.5);
+        Button rate200Btn = createRateButton("Maximum (200%)", budgetField, basePopBudget * 2.0);
+
+        budgetRow.getChildren().addAll(budgetLbl, budgetField, rate50Btn, rate100Btn, rate150Btn, rate200Btn);
+
+        // Sector allocation sliders
+        GridPane slidersGrid = new GridPane();
+        slidersGrid.setHgap(16);
+        slidersGrid.setVgap(10);
+
+        Slider eduSlider = createSectorSlider(economy.educationAllocation() * 100.0);
+        Slider lawSlider = createSectorSlider(economy.lawAndOrderAllocation() * 100.0);
+        Slider healthSlider = createSectorSlider(economy.healthAndWelfareAllocation() * 100.0);
+        Slider infraSlider = createSectorSlider(economy.infrastructureAllocation() * 100.0);
+        Slider militiaSlider = createSectorSlider(economy.planetaryMilitiasAllocation() * 100.0);
+
+        Label eduValLbl = createPercentLabel(eduSlider.getValue());
+        Label lawValLbl = createPercentLabel(lawSlider.getValue());
+        Label healthValLbl = createPercentLabel(healthSlider.getValue());
+        Label infraValLbl = createPercentLabel(infraSlider.getValue());
+        Label militiaValLbl = createPercentLabel(militiaSlider.getValue());
+
+        addSliderRow(slidersGrid, 0, "Education (Teachers & Science):", eduSlider, eduValLbl, Color.LIGHTSKYBLUE);
+        addSliderRow(slidersGrid, 1, "Law and order (Police & Security):", lawSlider, lawValLbl, Color.LIGHTCORAL);
+        addSliderRow(slidersGrid, 2, "Health and welfare (Medics & Morale):", healthSlider, healthValLbl, Color.LIGHTGREEN);
+        addSliderRow(slidersGrid, 3, "Infrastructure (Engineers & Output):", infraSlider, infraValLbl, Color.GOLD);
+        addSliderRow(slidersGrid, 4, "Planetary militias (Soldiers & Defense):", militiaSlider, militiaValLbl, Color.ORANGERED);
+
+        // Preset Buttons
+        HBox presetRow = new HBox(8);
+        presetRow.setAlignment(Pos.CENTER_LEFT);
+
+        Label presetLabel = new Label("Sector presets:");
+        presetLabel.setTextFill(Color.LIGHTGRAY);
+        presetLabel.setFont(Font.font("Verdana", FontWeight.BOLD, 11));
+
+        Button balPreset = createPresetButton("Balanced 20/20/20/20/20", eduSlider, lawSlider, healthSlider, infraSlider, militiaSlider, 20, 20, 20, 20, 20);
+        Button sciPreset = createPresetButton("Science & education focus", eduSlider, lawSlider, healthSlider, infraSlider, militiaSlider, 40, 15, 15, 15, 15);
+        Button lawPreset = createPresetButton("Security & defense focus", eduSlider, lawSlider, healthSlider, infraSlider, militiaSlider, 15, 35, 15, 15, 20);
+        Button infraPreset = createPresetButton("Infrastructure focus", eduSlider, lawSlider, healthSlider, infraSlider, militiaSlider, 15, 15, 15, 40, 15);
+        Button healthPreset = createPresetButton("Health & welfare focus", eduSlider, lawSlider, healthSlider, infraSlider, militiaSlider, 15, 15, 40, 15, 15);
+
+        presetRow.getChildren().addAll(presetLabel, balPreset, sciPreset, lawPreset, infraPreset, healthPreset);
+
+        // Live Indicators Box
+        VBox liveBox = new VBox(8);
+        liveBox.setPadding(new Insets(10));
+        liveBox.setStyle("-fx-background-color: rgba(12, 20, 40, 0.9); -fx-background-radius: 6; -fx-border-color: #27ae60; -fx-border-width: 1; -fx-border-radius: 6;");
+
+        Text liveTitle = new Text("Projected live societal & economic metrics");
+        liveTitle.setFill(Color.LIGHTGREEN);
+        liveTitle.setFont(Font.font("Verdana", FontWeight.BOLD, 13));
+
+        GridPane liveGrid = new GridPane();
+        liveGrid.setHgap(20);
+        liveGrid.setVgap(6);
+
+        Label liveEduLbl = new Label();
+        Label liveLawLbl = new Label();
+        Label liveHealthLbl = new Label();
+        Label liveInfraLbl = new Label();
+        Label liveMilitiaLbl = new Label();
+
+        Label liveProf1 = new Label();
+        Label liveProf2 = new Label();
+        Label liveProf3 = new Label();
+        Label liveHappiness = new Label();
+        Label liveMilitiaCombat = new Label();
+
+        liveGrid.add(liveEduLbl, 0, 0);
+        liveGrid.add(liveLawLbl, 1, 0);
+        liveGrid.add(liveHealthLbl, 2, 0);
+        liveGrid.add(liveInfraLbl, 3, 0);
+        liveGrid.add(liveMilitiaLbl, 4, 0);
+
+        liveGrid.add(liveProf1, 0, 1, 2, 1);
+        liveGrid.add(liveProf2, 2, 1, 2, 1);
+        liveGrid.add(liveProf3, 4, 1);
+
+        liveGrid.add(liveHappiness, 0, 2, 2, 1);
+        liveGrid.add(liveMilitiaCombat, 2, 2, 3, 1);
+
+        liveBox.getChildren().addAll(liveTitle, liveGrid);
+
+        // Listener updater
+        Runnable updateMetrics = () -> {
+            double eduV = eduSlider.getValue();
+            double lawV = lawSlider.getValue();
+            double healthV = healthSlider.getValue();
+            double infraV = infraSlider.getValue();
+            double militiaV = militiaSlider.getValue();
+
+            eduValLbl.setText(String.format("%.1f%%", eduV));
+            lawValLbl.setText(String.format("%.1f%%", lawV));
+            healthValLbl.setText(String.format("%.1f%%", healthV));
+            infraValLbl.setText(String.format("%.1f%%", infraV));
+            militiaValLbl.setText(String.format("%.1f%%", militiaV));
+
+            double sum = eduV + lawV + healthV + infraV + militiaV;
+            double nEdu = sum > 0 ? eduV / sum : 0.20;
+            double nLaw = sum > 0 ? lawV / sum : 0.20;
+            double nHealth = sum > 0 ? healthV / sum : 0.20;
+            double nInfra = sum > 0 ? infraV / sum : 0.20;
+            double nMilitia = sum > 0 ? militiaV / sum : 0.20;
+
+            double bCredits = basePopBudget;
+            try {
+                bCredits = Double.parseDouble(budgetField.getText().trim());
+            } catch (Exception ignored) {}
+
+            double eduIdx = systemEconomyProcessor.calculateSectorEfficiency(bCredits, nEdu, pop);
+            double lawIdx = systemEconomyProcessor.calculateSectorEfficiency(bCredits, nLaw, pop);
+            double healthIdx = systemEconomyProcessor.calculateSectorEfficiency(bCredits, nHealth, pop);
+            double infraIdx = systemEconomyProcessor.calculateSectorEfficiency(bCredits, nInfra, pop);
+            double militiaIdx = systemEconomyProcessor.calculateSectorEfficiency(bCredits, nMilitia, pop);
+
+            liveEduLbl.setText(String.format("Education: %.0f₵ (Idx: %.2f)", bCredits * nEdu, eduIdx));
+            liveEduLbl.setTextFill(eduIdx >= 1.0 ? Color.LIGHTGREEN : Color.LIGHTCORAL);
+
+            liveLawLbl.setText(String.format("Law: %.0f₵ (Idx: %.2f)", bCredits * nLaw, lawIdx));
+            liveLawLbl.setTextFill(lawIdx >= 1.0 ? Color.LIGHTGREEN : Color.LIGHTCORAL);
+
+            liveHealthLbl.setText(String.format("Health: %.0f₵ (Idx: %.2f)", bCredits * nHealth, healthIdx));
+            liveHealthLbl.setTextFill(healthIdx >= 1.0 ? Color.LIGHTGREEN : Color.LIGHTCORAL);
+
+            liveInfraLbl.setText(String.format("Infra: %.0f₵ (Idx: %.2f)", bCredits * nInfra, infraIdx));
+            liveInfraLbl.setTextFill(infraIdx >= 1.0 ? Color.LIGHTGREEN : Color.LIGHTCORAL);
+
+            liveMilitiaLbl.setText(String.format("Militia: %.0f₵ (Idx: %.2f)", bCredits * nMilitia, militiaIdx));
+            liveMilitiaLbl.setTextFill(militiaIdx >= 1.0 ? Color.LIGHTGREEN : Color.LIGHTCORAL);
+
+            long teachers = Math.max(10, (long) (pop * 0.0005 * eduIdx));
+            long scientists = Math.max(10, (long) (pop * 0.0003 * eduIdx));
+            long police = Math.max(15, (long) (pop * 0.0008 * lawIdx));
+            long medics = Math.max(10, (long) (pop * 0.0004 * healthIdx));
+            long engineers = Math.max(20, (long) (pop * 0.0010 * infraIdx));
+            long technicians = Math.max(30, (long) (pop * 0.0015 * infraIdx));
+            long soldiers = Math.max(25, (long) (pop * 0.0012 * militiaIdx));
+            long recruitable = Math.max(100, (long) (pop * 0.0050 * militiaIdx));
+
+            liveProf1.setText(String.format("Teachers: %,d | Scientists: %,d | Police: %,d", teachers, scientists, police));
+            liveProf1.setTextFill(Color.WHITE);
+
+            liveProf2.setText(String.format("Medics: %,d | Engineers: %,d | Technicians: %,d", medics, engineers, technicians));
+            liveProf2.setTextFill(Color.WHITE);
+
+            liveProf3.setText(String.format("Soldiers: %,d (Recruits: %,d)", soldiers, recruitable));
+            liveProf3.setTextFill(Color.LIGHTYELLOW);
+
+            double happyMod = ((eduIdx - 1.0) + (lawIdx - 1.0) + (healthIdx - 1.0) + (infraIdx - 1.0) + (militiaIdx - 1.0)) * 0.05;
+            liveHappiness.setText(String.format("System happiness modifier: %+,.1f%%", happyMod * 100.0));
+            liveHappiness.setTextFill(happyMod >= 0 ? Color.LIGHTGREEN : Color.LIGHTCORAL);
+
+            double projectedInvestment = (economy.accumulatedMilitiaInvestment() * 0.95) + (bCredits * nMilitia);
+            double projectedMilitiaPower = systemEconomyProcessor.calculateMilitiaCombatEfficiency(projectedInvestment);
+            liveMilitiaCombat.setText(String.format("Projected militia siege power: %.0f%% (Accumulated: %,.0f ₵)", projectedMilitiaPower * 100.0, projectedInvestment));
+            liveMilitiaCombat.setTextFill(Color.GOLD);
+        };
+
+        eduSlider.valueProperty().addListener((obs, o, n) -> updateMetrics.run());
+        lawSlider.valueProperty().addListener((obs, o, n) -> updateMetrics.run());
+        healthSlider.valueProperty().addListener((obs, o, n) -> updateMetrics.run());
+        infraSlider.valueProperty().addListener((obs, o, n) -> updateMetrics.run());
+        militiaSlider.valueProperty().addListener((obs, o, n) -> updateMetrics.run());
+        budgetField.textProperty().addListener((obs, o, n) -> updateMetrics.run());
+
+        updateMetrics.run();
+
+        // Action Row
+        HBox actionRow = new HBox(12);
+        actionRow.setAlignment(Pos.CENTER_LEFT);
+
+        Button applyBtn = new Button("Apply and save system budget");
+        applyBtn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 8 18 8 18; -fx-background-radius: 6;");
+        applyBtn.setCursor(javafx.scene.Cursor.HAND);
+
+        applyBtn.setOnAction(e -> {
+            double eduV = eduSlider.getValue();
+            double lawV = lawSlider.getValue();
+            double healthV = healthSlider.getValue();
+            double infraV = infraSlider.getValue();
+            double militiaV = militiaSlider.getValue();
+
+            double sum = eduV + lawV + healthV + infraV + militiaV;
+            double nEdu = sum > 0 ? eduV / sum : 0.20;
+            double nLaw = sum > 0 ? lawV / sum : 0.20;
+            double nHealth = sum > 0 ? healthV / sum : 0.20;
+            double nInfra = sum > 0 ? infraV / sum : 0.20;
+            double nMilitia = sum > 0 ? militiaV / sum : 0.20;
+
+            double bCredits = basePopBudget;
+            try {
+                bCredits = Double.parseDouble(budgetField.getText().trim());
+            } catch (Exception ignored) {}
+
+            SetSystemEconomyBudgetCommand cmd = new SetSystemEconomyBudgetCommand(
+                    report.empireId(),
+                    report.systemId(),
+                    nEdu, nLaw, nHealth, nInfra, nMilitia, bCredits
+            );
+
+            HumanController controller = humanController != null ? humanController
+                    : (menubar != null ? menubar.getHumanController() : null);
+
+            if (controller != null) {
+                controller.stageCommand(cmd);
+            }
+
+            // Also update local copy
+            SystemEconomy updated = new SystemEconomy(
+                    report.systemId(),
+                    report.empireId(),
+                    nEdu, nLaw, nHealth, nInfra, nMilitia,
+                    bCredits,
+                    economy.accumulatedMilitiaInvestment(),
+                    systemEconomyProcessor.calculateSectorEfficiency(bCredits, nEdu, pop),
+                    systemEconomyProcessor.calculateSectorEfficiency(bCredits, nLaw, pop),
+                    systemEconomyProcessor.calculateSectorEfficiency(bCredits, nHealth, pop),
+                    systemEconomyProcessor.calculateSectorEfficiency(bCredits, nInfra, pop),
+                    systemEconomyProcessor.calculateSectorEfficiency(bCredits, nMilitia, pop),
+                    economy.employedTeachers(),
+                    economy.employedScientists(),
+                    economy.employedPolice(),
+                    economy.employedMedics(),
+                    economy.employedEngineers(),
+                    economy.employedTechnicians(),
+                    economy.employedSoldiers(),
+                    economy.recruitableSoldiers()
+            );
+            systemEconomies.removeIf(se -> se.systemId().equals(report.systemId()));
+            systemEconomies.add(updated);
+
+            if (feedbackLabel != null) {
+                feedbackLabel.setText("System budget policy updated and staged for " + report.systemName() + ".");
+            }
+            renderCurrentTab();
+        });
+
+        actionRow.getChildren().add(applyBtn);
+
+        box.getChildren().addAll(header, budgetRow, slidersGrid, presetRow, liveBox, actionRow);
+        return box;
+    }
+
+    private Slider createSectorSlider(double initialVal) {
+        Slider slider = new Slider(0, 100, initialVal);
+        slider.setPrefWidth(260);
+        slider.setShowTickLabels(false);
+        slider.setShowTickMarks(true);
+        slider.setMajorTickUnit(25);
+        slider.setMinorTickCount(4);
+        slider.setBlockIncrement(5);
+        slider.setCursor(javafx.scene.Cursor.HAND);
+        return slider;
+    }
+
+    private Label createPercentLabel(double val) {
+        Label lbl = new Label(String.format("%.1f%%", val));
+        lbl.setTextFill(Color.GOLD);
+        lbl.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
+        lbl.setPrefWidth(55);
+        return lbl;
+    }
+
+    private void addSliderRow(GridPane grid, int row, String name, Slider slider, Label valLbl, Color labelColor) {
+        Label nameLbl = new Label(name);
+        nameLbl.setTextFill(labelColor);
+        nameLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 11));
+        nameLbl.setPrefWidth(280);
+
+        grid.add(nameLbl, 0, row);
+        grid.add(slider, 1, row);
+        grid.add(valLbl, 2, row);
+    }
+
+    private Button createRateButton(String title, TextField budgetField, double value) {
+        Button btn = new Button(title);
+        btn.setFont(Font.font("Verdana", 10));
+        btn.setCursor(javafx.scene.Cursor.HAND);
+        btn.setStyle("-fx-background-color: #34495e; -fx-text-fill: white; -fx-padding: 3 8 3 8; -fx-background-radius: 4;");
+        btn.setOnAction(e -> budgetField.setText(String.format("%.0f", value)));
+        return btn;
+    }
+
+    private Button createPresetButton(String title, Slider s1, Slider s2, Slider s3, Slider s4, Slider s5,
+                                      double v1, double v2, double v3, double v4, double v5) {
+        Button btn = new Button(title);
+        btn.setFont(Font.font("Verdana", 10));
+        btn.setCursor(javafx.scene.Cursor.HAND);
+        btn.setStyle("-fx-background-color: rgba(40, 60, 95, 0.8); -fx-text-fill: #dfe6e9; -fx-padding: 3 8 3 8; " +
+                "-fx-background-radius: 4; -fx-border-color: #3498db; -fx-border-width: 1; -fx-border-radius: 4;");
+        btn.setOnAction(e -> {
+            s1.setValue(v1);
+            s2.setValue(v2);
+            s3.setValue(v3);
+            s4.setValue(v4);
+            s5.setValue(v5);
+        });
+        return btn;
+    }
+
+    private VBox createSystemRevenuesCard(SystemEconomyReport report) {
+        VBox box = new VBox(8);
+        box.setPadding(new Insets(12));
+        box.setStyle("-fx-background-color: rgba(20, 35, 60, 0.7); -fx-background-radius: 8; -fx-border-color: #27ae60; -fx-border-width: 1; -fx-border-radius: 8;");
+
+        Text header = new Text(String.format("System revenue streams (+%,.0f ₵/turn)", report.totalRevenues()));
+        header.setFill(Color.LIGHTGREEN);
+        header.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
+        box.getChildren().add(header);
+
+        VBox itemsBox = new VBox(6);
+        itemsBox.getChildren().add(createEconomyLineItem("Colonial population taxes (10% effective rate)", String.format("+%,.0f ₵", report.colonialTaxes()), "Taxes collected across colonized bodies in this system.", Color.LIGHTGREEN));
+        itemsBox.getChildren().add(createEconomyLineItem("Local corporate tariffs", String.format("+%,.0f ₵", report.corporateTariffs()), "Tariffs on corporations headquartered in this star system.", Color.LIGHTGREEN));
+        itemsBox.getChildren().add(createEconomyLineItem("Space elevator transit fees", String.format("+%,.0f ₵", report.spaceElevatorFees()), "Surface-to-orbit cargo and passenger transit fees.", Color.LIGHTGREEN));
+        itemsBox.getChildren().add(createEconomyLineItem("Geological mining royalties", String.format("+%,.0f ₵", report.miningRoyalties()), "Mining royalties from surveyed mineral veins in this system.", Color.LIGHTGREEN));
+        itemsBox.getChildren().add(createEconomyLineItem("State industry facilities", String.format("+%,.0f ₵", report.stateIndustryIncome()), "Output profits from state manufacturing plants in this system.", Color.LIGHTGREEN));
+
+        box.getChildren().add(itemsBox);
+        return box;
+    }
+
+    private VBox createSystemExpensesCard(SystemEconomyReport report) {
+        VBox box = new VBox(8);
+        box.setPadding(new Insets(12));
+        box.setStyle("-fx-background-color: rgba(35, 20, 40, 0.7); -fx-background-radius: 8; -fx-border-color: #e74c3c; -fx-border-width: 1; -fx-border-radius: 8;");
+
+        Text header = new Text(String.format("System expenditure line items (-%,.0f ₵/turn)", report.totalExpenditures()));
+        header.setFill(Color.LIGHTCORAL);
+        header.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
+        box.getChildren().add(header);
+
+        VBox itemsBox = new VBox(6);
+        itemsBox.getChildren().add(createEconomyLineItem("Public sector funding budget", String.format("-%,.0f ₵", report.publicSectorFunding()), "Allocated budget distributed across Education, Law, Health, Infrastructure and Militias.", Color.LIGHTCORAL));
+        itemsBox.getChildren().add(createEconomyLineItem("Governor & municipal administration", String.format("-%,.0f ₵", report.governorAdministration()), "Local administrative salaries and system governance expenses.", Color.LIGHTCORAL));
+        itemsBox.getChildren().add(createEconomyLineItem("Orbital station maintenance", String.format("-%,.0f ₵", report.stationMaintenance()), "Upkeep and repairs for orbital starbases in this system.", Color.LIGHTCORAL));
+
+        box.getChildren().add(itemsBox);
+        return box;
+    }
+
+    private VBox createSystemCelestialBodiesLedgerCard(SystemEconomyReport report) {
+        VBox box = new VBox(8);
+        box.setPadding(new Insets(12));
+        box.setStyle("-fx-background-color: rgba(20, 30, 50, 0.7); -fx-background-radius: 8; -fx-border-color: #34495e; -fx-border-width: 1; -fx-border-radius: 8;");
+
+        Text header = new Text("Celestial bodies in " + report.systemName() + " system");
+        header.setFill(Color.LIGHTSKYBLUE);
+        header.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
+        box.getChildren().add(header);
+
+        SolarSystem system = solarSystems.stream()
+                .filter(s -> s.id().equals(report.systemId()))
+                .findFirst()
+                .orElse(null);
+
+        if (system == null || system.planets() == null || system.planets().isEmpty()) {
+            Text emptyText = new Text("No celestial bodies mapped in this star system.");
+            emptyText.setFill(Color.LIGHTGRAY);
+            box.getChildren().add(emptyText);
+            return box;
+        }
+
+        VBox list = new VBox(4);
+        for (Planet p : system.planets()) {
+            long pPop = 0;
+            if (p.populations() != null) {
+                for (Population pop : p.populations()) {
+                    pPop += pop.totalCount();
+                }
+            }
+            list.getChildren().add(createBodyRow(p.name(), p.type(), false, pPop));
+
+            if (p.moons() != null) {
+                for (Moon m : p.moons()) {
+                    long mPop = 0;
+                    if (m.populations() != null) {
+                        for (Population pop : m.populations()) {
+                            mPop += pop.totalCount();
+                        }
+                    }
+                    list.getChildren().add(createBodyRow(m.name() + " (Moon of " + p.name() + ")", "Moon", true, mPop));
+                }
+            }
+        }
+
+        box.getChildren().add(list);
+        return box;
+    }
+
+    private HBox createBodyRow(String name, String type, boolean isMoon, long population) {
+        HBox row = new HBox(12);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(4, 8, 4, 8));
+        row.setStyle("-fx-background-color: " + (isMoon ? "rgba(15, 25, 45, 0.5)" : "rgba(25, 40, 70, 0.6)") + "; -fx-background-radius: 4;");
+
+        Text nameText = new Text((isMoon ? "  ↳ " : "● ") + name);
+        nameText.setFill(isMoon ? Color.LIGHTCYAN : Color.WHITE);
+        nameText.setFont(Font.font("Verdana", FontWeight.BOLD, 11));
+        nameText.setWrappingWidth(240);
+
+        Label typeBadge = new Label(type != null ? type : "Terrestrial");
+        typeBadge.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: #00cec9; -fx-padding: 1 6 1 6; -fx-background-radius: 3; -fx-font-size: 9;");
+
+        Text popText = new Text(population > 0 ? String.format("Population: %,d", population) : "Uncolonized");
+        popText.setFill(population > 0 ? Color.LIGHTYELLOW : Color.GRAY);
+        popText.setFont(Font.font("Verdana", 10));
+        popText.setWrappingWidth(160);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        double gross = population * 0.005;
+        double tax = gross * 0.10;
+        Text taxText = new Text(population > 0 ? String.format("Tax yield: +%,.0f ₵/turn", tax) : "—");
+        taxText.setFill(population > 0 ? Color.LIGHTGREEN : Color.GRAY);
+        taxText.setFont(Font.font("Verdana", FontWeight.BOLD, 11));
+
+        row.getChildren().addAll(nameText, typeBadge, popText, spacer, taxText);
+        return row;
     }
 
     // ==========================================

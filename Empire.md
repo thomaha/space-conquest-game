@@ -29,10 +29,15 @@ To balance administrative overhead with deep economic simulations, governance is
 *   **Granular entity tracking:** While leadership is unified at the system scale, **materials, population cohorts, veins and industries remain completely granular and separate per space entity**. The engine continues to independently simulate individual data models for each planet, moon, asteroid mining outpost and orbital space base spinning within that system.
 *   **Localized application:** A governor's background bonuses apply across all space entities under their system jurisdiction. A governor with a mining background will accelerate raw element extraction for both a rocky planet's deep crustal veins and a nearby moon's regolith solar wind traps simultaneously. However, if that system consists mostly of agricultural terraformed worlds, a governor with a mining profile will yield zero baseline efficiency gains, forcing players to match governor backgrounds to a system's dominant industry type.
 *   **Systemic stability and crime mitigation:** The active presence of an appointed system governor acts as an infrastructure anchor across the entire local coordinate cluster. It applies a system-wide modifier that suppresses crime metrics and boosts the baseline efficiency of `police` professions stationed on any local planet or space base.
+*   **System economy:** Education, law and order, health and welfare, infrastructure and planetary militias each receive an adjustable part of the system economy.
+    *  **Education** Improves the intelligence level of people from the system, notably the younger generations. High levels have positive happiness effect, low negative. Increase the number of teachers and scientists employed.
+    *  **Law and order** Reduces crime and. High levels have positive happiness effect, low negative. Increases the number of police employed.
+    *  **Health and welfare** Improves the health and happiness of the population, reducing disease and increasing morale. High levels have positive happiness effect, low negative. Increases the number of medics employed
+    *  **Infrastructure** Improves the efficiency of all space entities in the system, including resource production, industry and science. High levels have positive happiness effect, low negative. Increases the number of engineers and technicians employed.
+    *  **Planetary militias** Provides a military force for the system, which can be used to defend against invasions and maintain stability. Also functions as a training ground for the empire. Increases the number of soldiers employed and increase the number of soldiers that can be hired by the empire.
 
 #### Ideological accession mechanics (democracy vs. autocracy)
 The method by which ministers and governors ascend to power is strictly dictated by the active `societyStructure` and political alignment configuration of the empire:
-
 *   **Democratic systems (individualist alignment)**
 *   *Mechanic:* Positions are **elected** by citizen cohorts through an automated political cycle.
 *   *Gameplay impact:*

@@ -67,7 +67,8 @@ public record ProposeResolutionCommand(
                 state.geologicalDeposits(), state.powerGrids(), state.industrialFacilities(),
                 state.expansionProjects(), state.orbitalStations(), state.spaceElevators(),
                 state.constructionProjects(), state.sleeperAgents(), state.espionageOperations(),
-                state.pirateBases(), state.terraformingProjects(), state.megastructures(), updated
+                state.pirateBases(), state.terraformingProjects(), state.megastructures(), updated,
+                state.tradeRoutes(), state.fogOfWarStates(), state.systemEconomies()
         );
     }
 }

@@ -55,7 +55,19 @@ public record SetDiplomaticTierCommand(
                 state.geologicalDeposits(),
                 state.powerGrids(),
                 state.industrialFacilities(),
-                state.expansionProjects()
+                state.expansionProjects(),
+                state.orbitalStations(),
+                state.spaceElevators(),
+                state.constructionProjects(),
+                state.sleeperAgents(),
+                state.espionageOperations(),
+                state.pirateBases(),
+                state.terraformingProjects(),
+                state.megastructures(),
+                state.galacticCommunity(),
+                state.tradeRoutes(),
+                state.fogOfWarStates(),
+                state.systemEconomies()
         );
     }
 }

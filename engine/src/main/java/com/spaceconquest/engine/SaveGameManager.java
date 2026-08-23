@@ -106,7 +106,8 @@ public class SaveGameManager {
                 gameState.megastructures(),
                 gameState.galacticCommunity(),
                 gameState.tradeRoutes(),
-                gameState.fogOfWarStates()
+                gameState.fogOfWarStates(),
+                gameState.systemEconomies()
         );
         mapper.writeValue(target, save);
     }
