@@ -5,7 +5,6 @@ import com.spaceconquest.control.command.AppointMinisterCommand;
 import com.spaceconquest.control.command.AssignGovernorCommand;
 import com.spaceconquest.control.command.BuildMegastructureCommand;
 import com.spaceconquest.control.command.CommandQueue;
-import com.spaceconquest.control.command.SelectOptimizationPathCommand;
 import com.spaceconquest.control.command.SetDiplomaticTierCommand;
 import com.spaceconquest.control.command.SetSystemEconomyBudgetCommand;
 import com.spaceconquest.control.command.StartResearchCommand;
@@ -19,7 +18,6 @@ import com.spaceconquest.engine.Technology;
 import com.spaceconquest.engine.community.GalacticResolution;
 import com.spaceconquest.engine.governance.DiplomacyProcessor;
 import com.spaceconquest.engine.megastructure.Megastructure;
-import com.spaceconquest.engine.technology.ResearchProject;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -54,7 +52,17 @@ public class EmpireAIController implements Controller {
         boolean isHiveMind = "Hive Mind".equalsIgnoreCase(empire.societyStructure())
                 || "Hive mind".equalsIgnoreCase(empire.societyStructure());
 
-        // 1. Autonomous Research Management (for both individualist and hive mind)
+        manageResearch(state, empire);
+
+        if (!isHiveMind) {
+            manageCabinetAndGovernors(empire);
+            manageCorporateSubsidies(state, empire);
+            manageDiplomacyAndSenate(state);
+            manageMegastructuresAndEconomies(state, empire);
+        }
+    }
+
+    private void manageResearch(GameState state, Empire empire) {
         boolean hasActiveResearch = state.researchProjects().stream()
                 .anyMatch(p -> p.empireId().equals(empireId) && !p.isComplete());
 
@@ -75,78 +83,73 @@ public class EmpireAIController implements Controller {
                 logger.error("Failed to load technologies for AI research selection", e);
             }
         }
+    }
 
-        if (!isHiveMind) {
-            // 2. Evaluate Cabinet Portfolios
-            if (empire.ministries().isEmpty()) {
-                commandQueue.submit(new AppointMinisterCommand(empireId, "ministry_industry_refining", "miner"));
-                commandQueue.submit(new AppointMinisterCommand(empireId, "ministry_technology_application", "scientist"));
-                commandQueue.submit(new AppointMinisterCommand(empireId, "ministry_defense_logistics", "soldier"));
+    private void manageCabinetAndGovernors(Empire empire) {
+        if (empire.ministries().isEmpty()) {
+            commandQueue.submit(new AppointMinisterCommand(empireId, "ministry_industry_refining", "miner"));
+            commandQueue.submit(new AppointMinisterCommand(empireId, "ministry_technology_application", "scientist"));
+            commandQueue.submit(new AppointMinisterCommand(empireId, "ministry_defense_logistics", "soldier"));
+        }
+
+        for (String systemId : empire.controlledSystemIds()) {
+            if (!empire.systemGovernorAssignments().containsKey(systemId)) {
+                commandQueue.submit(new AssignGovernorCommand(empireId, systemId, "bureaucrat"));
             }
+        }
+    }
 
-            // 3. Evaluate System Governors
-            for (String systemId : empire.controlledSystemIds()) {
-                if (!empire.systemGovernorAssignments().containsKey(systemId)) {
-                    commandQueue.submit(new AssignGovernorCommand(empireId, systemId, "bureaucrat"));
+    private void manageCorporateSubsidies(GameState state, Empire empire) {
+        if (empire.treasuryCredits() >= 40000.0) {
+            for (Corporation corp : state.corporations()) {
+                if (corp.empireId().equals(empireId) && corp.liquidCapitalReserves() < 5000.0) {
+                    logger.info("Empire {} subsidizing struggling corporation {}", empireId, corp.id());
+                    commandQueue.submit(new SubsidizeCorporationCommand(empireId, corp.id(), 5000.0));
+                    break;
                 }
             }
+        }
+    }
 
-            // 4. Evaluate Corporate Subsidies if state treasury is abundant
-            if (empire.treasuryCredits() >= 40000.0) {
-                for (Corporation corp : state.corporations()) {
-                    if (corp.empireId().equals(empireId) && corp.liquidCapitalReserves() < 5000.0) {
-                        logger.info("Empire {} subsidizing struggling corporation {}", empireId, corp.id());
-                        commandQueue.submit(new SubsidizeCorporationCommand(empireId, corp.id(), 5000.0));
-                        break;
-                    }
+    private void manageDiplomacyAndSenate(GameState state) {
+        for (Empire foreign : state.empires()) {
+            if (!foreign.id().equals(empireId)) {
+                String tier = new DiplomacyProcessor().getDiplomaticTier(empireId, foreign.id(), state.diplomaticRelations());
+                if (DiplomacyProcessor.NEUTRAL.equals(tier)) {
+                    commandQueue.submit(new SetDiplomaticTierCommand(empireId, foreign.id(), DiplomacyProcessor.COMMERCIAL_ALLIANCE));
                 }
             }
+        }
 
-            // 5. Interstellar Diplomacy: seek commercial alliances with other empires
-            for (Empire foreign : state.empires()) {
-                if (!foreign.id().equals(empireId)) {
-                    String tier = new DiplomacyProcessor().getDiplomaticTier(empireId, foreign.id(), state.diplomaticRelations());
-                    if (DiplomacyProcessor.NEUTRAL.equals(tier)) {
-                        commandQueue.submit(new SetDiplomaticTierCommand(empireId, foreign.id(), DiplomacyProcessor.COMMERCIAL_ALLIANCE));
-                    }
+        if (state.galacticCommunity() != null) {
+            for (GalacticResolution res : state.galacticCommunity().activeResolutions()) {
+                if (!res.votes().containsKey(empireId)) {
+                    String choice = empireId.equalsIgnoreCase(res.targetEmpireId()) ? GalacticResolution.VOTE_NAY : GalacticResolution.VOTE_AYE;
+                    commandQueue.submit(new VoteResolutionCommand(empireId, res.id(), choice));
                 }
             }
+        }
+    }
 
-            // 6. Galactic Senate Voting
-            if (state.galacticCommunity() != null) {
-                for (GalacticResolution res : state.galacticCommunity().activeResolutions()) {
-                    if (!res.votes().containsKey(empireId)) {
-                        // Support anti-piracy, free trade, mutual defense; oppose sanctions against self
-                        String choice = GalacticResolution.VOTE_AYE;
-                        if (empireId.equalsIgnoreCase(res.targetEmpireId())) {
-                            choice = GalacticResolution.VOTE_NAY;
-                        }
-                        commandQueue.submit(new VoteResolutionCommand(empireId, res.id(), choice));
-                    }
-                }
+    private void manageMegastructuresAndEconomies(GameState state, Empire empire) {
+        if (empire.treasuryCredits() >= 100000.0) {
+            boolean hasMegastructure = state.megastructures().stream()
+                    .anyMatch(m -> m.ownerEmpireId().equalsIgnoreCase(empireId));
+            if (!hasMegastructure && !empire.controlledSystemIds().isEmpty()) {
+                String targetSys = empire.controlledSystemIds().get(0);
+                commandQueue.submit(new BuildMegastructureCommand(
+                        empireId, Megastructure.TYPE_DYSON_SWARM, targetSys, targetSys, "Imperial Dyson Swarm"
+                ));
             }
+        }
 
-            // 7. Megastructure Investment
-            if (empire.treasuryCredits() >= 100000.0) {
-                boolean hasMegastructure = state.megastructures().stream()
-                        .anyMatch(m -> m.ownerEmpireId().equalsIgnoreCase(empireId));
-                if (!hasMegastructure && !empire.controlledSystemIds().isEmpty()) {
-                    String targetSys = empire.controlledSystemIds().get(0);
-                    commandQueue.submit(new BuildMegastructureCommand(
-                            empireId, Megastructure.TYPE_DYSON_SWARM, targetSys, targetSys, "Imperial Dyson Swarm"
-                    ));
-                }
-            }
-
-            // 8. System Economy Budget Balancing
-            for (String systemId : empire.controlledSystemIds()) {
-                boolean hasEconomy = state.systemEconomies().stream()
-                        .anyMatch(se -> se.systemId().equals(systemId));
-                if (!hasEconomy) {
-                    commandQueue.submit(new SetSystemEconomyBudgetCommand(
-                            empireId, systemId, 0.20, 0.20, 0.20, 0.20, 0.20, 1000.0
-                    ));
-                }
+        for (String systemId : empire.controlledSystemIds()) {
+            boolean hasEconomy = state.systemEconomies().stream()
+                    .anyMatch(se -> se.systemId().equals(systemId));
+            if (!hasEconomy) {
+                commandQueue.submit(new SetSystemEconomyBudgetCommand(
+                        empireId, systemId, 0.20, 0.20, 0.20, 0.20, 0.20, 1000.0, 0.10
+                ));
             }
         }
     }

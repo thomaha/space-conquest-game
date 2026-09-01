@@ -32,6 +32,7 @@ public class ScenarioEditorView {
     private GameStartScenario selectedScenario = GameStartScenario.PRE_SPACE_FLIGHT;
 
     private Slider starCountSlider;
+    private Slider aiEmpireCountSlider;
     private Slider nebulaSlider;
     private ComboBox<GameStartScenario> scenarioCombo;
     private Label scenarioDescriptionLabel;
@@ -53,6 +54,15 @@ public class ScenarioEditorView {
                 "-fx-border-radius: 10; -fx-background-radius: 10;");
         root.setPrefSize(820, 620);
 
+        HBox header = buildHeader();
+        GridPane grid = buildConfigurationGrid();
+        HBox actions = buildActionsFooter();
+
+        root.getChildren().addAll(header, grid, actions);
+        root.setVisible(false);
+    }
+
+    private HBox buildHeader() {
         Text title = new Text("New campaign setup — scenario and galaxy configuration");
         title.setFill(Color.WHITE);
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 19));
@@ -68,13 +78,23 @@ public class ScenarioEditorView {
         javafx.scene.layout.Region spacer = new javafx.scene.layout.Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         header.getChildren().addAll(spacer, closeButton);
+        return header;
+    }
 
+    private GridPane buildConfigurationGrid() {
         GridPane grid = new GridPane();
         grid.setHgap(15);
         grid.setVgap(12);
         grid.setPadding(new Insets(10));
 
-        // 1. Starting Era / Scenario
+        buildScenarioRow(grid);
+        buildSliderRows(grid);
+        buildComboRows(grid);
+
+        return grid;
+    }
+
+    private void buildScenarioRow(GridPane grid) {
         Label eraLabel = new Label("Starting era / scenario:");
         eraLabel.setTextFill(Color.LIGHTCYAN);
         scenarioCombo = new ComboBox<>();
@@ -112,59 +132,70 @@ public class ScenarioEditorView {
 
         grid.add(eraLabel, 0, 0);
         grid.add(new VBox(4, scenarioCombo, scenarioDescriptionLabel), 1, 0);
+    }
 
-        // 2. Star Count Slider
-        Label starLabel = new Label("Galaxy star count (5 - 50):");
+    private void buildSliderRows(GridPane grid) {
+        Label starLabel = new Label("Galaxy star count (5 - 1000):");
         starLabel.setTextFill(Color.LIGHTCYAN);
-        starCountSlider = new Slider(5, 50, currentSetup.starSystemCount());
+        starCountSlider = new Slider(5, 1000, currentSetup.starSystemCount());
         starCountSlider.setShowTickLabels(true);
         starCountSlider.setShowTickMarks(true);
-        starCountSlider.setMajorTickUnit(10);
+        starCountSlider.setMajorTickUnit(200);
         starCountSlider.setPrefWidth(380);
         grid.add(starLabel, 0, 1);
         grid.add(starCountSlider, 1, 1);
 
-        // 3. Nebula Density
+        Label aiEmpireLabel = new Label("AI empire count (0 - 10):");
+        aiEmpireLabel.setTextFill(Color.LIGHTCYAN);
+        aiEmpireCountSlider = new Slider(0, 10, currentSetup.aiEmpireCount());
+        aiEmpireCountSlider.setShowTickLabels(true);
+        aiEmpireCountSlider.setShowTickMarks(true);
+        aiEmpireCountSlider.setMajorTickUnit(1);
+        aiEmpireCountSlider.setSnapToTicks(true);
+        aiEmpireCountSlider.setPrefWidth(380);
+        grid.add(aiEmpireLabel, 0, 2);
+        grid.add(aiEmpireCountSlider, 1, 2);
+
         Label nebLabel = new Label("Nebula density (0.0 - 1.0):");
         nebLabel.setTextFill(Color.LIGHTCYAN);
         nebulaSlider = new Slider(0.0, 1.0, currentSetup.nebulaDensity());
         nebulaSlider.setShowTickLabels(true);
         nebulaSlider.setShowTickMarks(true);
         nebulaSlider.setPrefWidth(380);
-        grid.add(nebLabel, 0, 2);
-        grid.add(nebulaSlider, 1, 2);
+        grid.add(nebLabel, 0, 3);
+        grid.add(nebulaSlider, 1, 3);
+    }
 
-        // 4. AI Personality Distribution
+    private void buildComboRows(GridPane grid) {
         Label aiLabel = new Label("AI personality distribution:");
         aiLabel.setTextFill(Color.LIGHTCYAN);
         aiCombo = new ComboBox<>();
         aiCombo.getItems().addAll(CampaignSetup.AI_BALANCED, CampaignSetup.AI_AGGRESSIVE, CampaignSetup.AI_ISOLATIONIST, CampaignSetup.AI_MERCANTILE, CampaignSetup.AI_SCIENTIFIC);
         aiCombo.setValue(currentSetup.aiPersonalityDistribution());
         aiCombo.setPrefWidth(380);
-        grid.add(aiLabel, 0, 3);
-        grid.add(aiCombo, 1, 3);
+        grid.add(aiLabel, 0, 4);
+        grid.add(aiCombo, 1, 4);
 
-        // 5. Starting Tech Tier
         Label techLabel = new Label("Starting tech tier (1 - 4):");
         techLabel.setTextFill(Color.LIGHTCYAN);
         techTierCombo = new ComboBox<>();
         techTierCombo.getItems().addAll("Tier 1: Basic sub-light", "Tier 2: Fusion drives", "Tier 3: Warp and metamaterials", "Tier 4: Nanotech and megastructures");
         techTierCombo.setValue("Tier 1: Basic sub-light");
         techTierCombo.setPrefWidth(380);
-        grid.add(techLabel, 0, 4);
-        grid.add(techTierCombo, 1, 4);
+        grid.add(techLabel, 0, 5);
+        grid.add(techTierCombo, 1, 5);
 
-        // 6. Victory Condition
         Label vicLabel = new Label("Victory condition:");
         vicLabel.setTextFill(Color.LIGHTCYAN);
         victoryCombo = new ComboBox<>();
         victoryCombo.getItems().addAll(CampaignSetup.VICTORY_DOMINATION, CampaignSetup.VICTORY_ECONOMIC_MONOPOLY, CampaignSetup.VICTORY_MEGASTRUCTURE_ASCENSION, CampaignSetup.VICTORY_DIPLOMATIC_FEDERATION);
         victoryCombo.setValue(currentSetup.victoryConditionType());
         victoryCombo.setPrefWidth(380);
-        grid.add(vicLabel, 0, 5);
-        grid.add(victoryCombo, 1, 5);
+        grid.add(vicLabel, 0, 6);
+        grid.add(victoryCombo, 1, 6);
+    }
 
-        // Actions Footer
+    private HBox buildActionsFooter() {
         HBox actions = new HBox(12);
         actions.setAlignment(Pos.CENTER_RIGHT);
 
@@ -186,9 +217,7 @@ public class ScenarioEditorView {
         nextEmpireBtn.setOnAction(e -> handleProceedToEmpireWizard());
 
         actions.getChildren().addAll(backBtn, launchDefaultBtn, nextEmpireBtn);
-
-        root.getChildren().addAll(header, grid, actions);
-        root.setVisible(false);
+        return actions;
     }
 
     private void syncSetupFromControls() {
@@ -198,6 +227,7 @@ public class ScenarioEditorView {
         currentSetup = new CampaignSetup(
                 "Custom Campaign",
                 (int) starCountSlider.getValue(),
+                (int) aiEmpireCountSlider.getValue(),
                 nebulaSlider.getValue(),
                 aiCombo.getValue(),
                 techTier,
@@ -208,14 +238,11 @@ public class ScenarioEditorView {
 
     private void handleLaunchDefault() {
         syncSetupFromControls();
-        audioSynthesizer.triggerCue(AudioSynthesizer.EVENT_VICTORY_FANFARE);
-        if (menubar != null) {
-            if (menubar.getMainApp() != null) {
-                menubar.getMainApp().createNewGalaxy(currentSetup.starSystemCount(), selectedScenario);
-            }
-            menubar.setPlayerEmpireId("terran_confederation");
-        }
+        audioSynthesizer.triggerCue(AudioSynthesizer.EVENT_WARP_TRANSIT);
         hide();
+        if (menubar != null && menubar.getMainApp() != null) {
+            menubar.getMainApp().createNewGalaxy(currentSetup.starSystemCount(), currentSetup.aiEmpireCount(), selectedScenario);
+        }
     }
 
     private void handleProceedToEmpireWizard() {
@@ -225,10 +252,6 @@ public class ScenarioEditorView {
         if (menubar != null && menubar.getEmpireWizardView() != null) {
             menubar.getEmpireWizardView().show();
         }
-    }
-
-    public VBox getRoot() {
-        return root;
     }
 
     public void show() {
@@ -246,12 +269,17 @@ public class ScenarioEditorView {
         }
     }
 
+    public VBox getRoot() {
+        return root;
+    }
+
     public CampaignSetup getCurrentSetup() {
         syncSetupFromControls();
         return currentSetup;
     }
 
     public GameStartScenario getSelectedScenario() {
+        syncSetupFromControls();
         return selectedScenario;
     }
 }

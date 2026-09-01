@@ -3,6 +3,7 @@ package com.spaceconquest.control.command;
 import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.economy.SystemEconomy;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -64,7 +65,20 @@ public record SetTariffRateCommand(
                 state.geologicalDeposits(),
                 state.powerGrids(),
                 state.industrialFacilities(),
-                state.expansionProjects()
+                state.expansionProjects(),
+                state.orbitalStations(),
+                state.spaceElevators(),
+                state.constructionProjects(),
+                state.sleeperAgents(),
+                state.espionageOperations(),
+                state.pirateBases(),
+                state.terraformingProjects(),
+                state.megastructures(),
+                state.galacticCommunity(),
+                state.tradeRoutes(),
+                state.fogOfWarStates(),
+                state.systemEconomies(),
+                state.courierShips()
         );
     }
 }

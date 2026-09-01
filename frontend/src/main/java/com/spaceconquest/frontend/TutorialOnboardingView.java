@@ -1,5 +1,6 @@
 package com.spaceconquest.frontend;
 
+import com.spaceconquest.frontend.empire.Tab;
 import com.spaceconquest.control.HumanController;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;

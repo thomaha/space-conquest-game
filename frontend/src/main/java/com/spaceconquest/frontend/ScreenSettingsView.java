@@ -66,6 +66,21 @@ public class ScreenSettingsView {
                 "-fx-border-radius: 10; -fx-background-radius: 10;");
         root.setPrefSize(600, 480);
 
+        ScreenSettings initialSettings = settingsManager.getSettings();
+
+        HBox header = buildHeader();
+        GridPane grid = buildSettingsGrid(initialSettings);
+        VBox statusBox = buildStatusBox();
+        HBox actionsRow = buildActionsRow();
+        HBox footer = buildFooter();
+
+        attachListeners(initialSettings);
+
+        root.getChildren().addAll(header, grid, statusBox, actionsRow, footer);
+        root.setVisible(false);
+    }
+
+    private HBox buildHeader() {
         Text title = new Text("Screen and display settings");
         title.setFill(Color.WHITE);
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 20));
@@ -82,80 +97,67 @@ public class ScreenSettingsView {
         javafx.scene.layout.Region spacer = new javafx.scene.layout.Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         header.getChildren().addAll(spacer, closeButton);
+        return header;
+    }
 
+    private GridPane buildSettingsGrid(ScreenSettings initialSettings) {
         GridPane grid = new GridPane();
         grid.setHgap(15);
         grid.setVgap(14);
         grid.setPadding(new Insets(10));
 
-        ScreenSettings initialSettings = settingsManager.getSettings();
-
-        // 1. Preset Resolution Selector
         Label presetLabel = new Label("Preset resolution:");
         presetLabel.setTextFill(Color.LIGHTGREEN);
         resolutionComboBox = new ComboBox<>();
         resolutionComboBox.setPrefWidth(260);
-        resolutionComboBox.setStyle("-fx-cursor: hand;");
         resolutionComboBox.setCursor(javafx.scene.Cursor.HAND);
         resolutionComboBox.getItems().addAll(RESOLUTION_PRESETS.keySet());
         resolutionComboBox.getItems().add(CUSTOM_PRESET);
 
-        grid.add(presetLabel, 0, 0);
-        grid.add(resolutionComboBox, 1, 0);
-
-        // 2. Custom Width Spinner
         Label widthLabel = new Label("Screen width (px):");
         widthLabel.setTextFill(Color.LIGHTCYAN);
         widthSpinner = new Spinner<>();
         widthSpinner.setPrefWidth(260);
         widthSpinner.setEditable(true);
-        SpinnerValueFactory.IntegerSpinnerValueFactory widthFactory =
-                new SpinnerValueFactory.IntegerSpinnerValueFactory(640, 7680, initialSettings.getWidth(), 10);
-        widthSpinner.setValueFactory(widthFactory);
+        widthSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(640, 7680, initialSettings.getWidth(), 10));
 
-        grid.add(widthLabel, 0, 1);
-        grid.add(widthSpinner, 1, 1);
-
-        // 3. Custom Height Spinner
         Label heightLabel = new Label("Screen height (px):");
         heightLabel.setTextFill(Color.LIGHTCYAN);
         heightSpinner = new Spinner<>();
         heightSpinner.setPrefWidth(260);
         heightSpinner.setEditable(true);
-        SpinnerValueFactory.IntegerSpinnerValueFactory heightFactory =
-                new SpinnerValueFactory.IntegerSpinnerValueFactory(480, 4320, initialSettings.getHeight(), 10);
-        heightSpinner.setValueFactory(heightFactory);
+        heightSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(480, 4320, initialSettings.getHeight(), 10));
 
-        grid.add(heightLabel, 0, 2);
-        grid.add(heightSpinner, 1, 2);
-
-        // 4. Fullscreen Mode
         Label fullscreenLabel = new Label("Display mode:");
         fullscreenLabel.setTextFill(Color.LIGHTSALMON);
         fullscreenCheckBox = new CheckBox("Launch in fullscreen mode");
-        fullscreenCheckBox.setStyle("-fx-cursor: hand;");
         fullscreenCheckBox.setCursor(javafx.scene.Cursor.HAND);
         fullscreenCheckBox.setTextFill(Color.WHITE);
         fullscreenCheckBox.setSelected(initialSettings.isFullscreen());
 
-        grid.add(fullscreenLabel, 0, 3);
-        grid.add(fullscreenCheckBox, 1, 3);
-
-        // 5. UI Scale Indicator
         Label scaleIndicatorLabel = new Label("UI text scaling:");
         scaleIndicatorLabel.setTextFill(Color.LIGHTYELLOW);
         scaleLabel = new Label();
         scaleLabel.setTextFill(Color.LIGHTYELLOW);
         scaleLabel.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
 
+        grid.add(presetLabel, 0, 0);
+        grid.add(resolutionComboBox, 1, 0);
+        grid.add(widthLabel, 0, 1);
+        grid.add(widthSpinner, 1, 1);
+        grid.add(heightLabel, 0, 2);
+        grid.add(heightSpinner, 1, 2);
+        grid.add(fullscreenLabel, 0, 3);
+        grid.add(fullscreenCheckBox, 1, 3);
         grid.add(scaleIndicatorLabel, 0, 4);
         grid.add(scaleLabel, 1, 4);
 
-        // Synchronize Preset ComboBox with Spinners
+        return grid;
+    }
+
+    private void attachListeners(ScreenSettings initialSettings) {
         resolutionComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
-            if (internalUpdate || newVal == null) {
-                return;
-            }
+            if (internalUpdate || newVal == null) return;
             if (RESOLUTION_PRESETS.containsKey(newVal)) {
                 int[] dims = RESOLUTION_PRESETS.get(newVal);
                 internalUpdate = true;
@@ -181,8 +183,9 @@ public class ScreenSettingsView {
 
         syncPresetComboBox(initialSettings.getWidth(), initialSettings.getHeight());
         updateScaleLabel();
+    }
 
-        // Info and feedback
+    private VBox buildStatusBox() {
         VBox statusBox = new VBox(6);
         Label infoLabel = new Label("Selected screen resolution is persisted and applied on game startup.");
         infoLabel.setTextFill(Color.LIGHTGRAY);
@@ -191,8 +194,10 @@ public class ScreenSettingsView {
         feedbackLabel = new Label("");
         feedbackLabel.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
         statusBox.getChildren().addAll(infoLabel, feedbackLabel);
+        return statusBox;
+    }
 
-        // Action buttons
+    private HBox buildActionsRow() {
         HBox actionsRow = new HBox(12);
         actionsRow.setAlignment(Pos.CENTER_LEFT);
 
@@ -207,8 +212,10 @@ public class ScreenSettingsView {
         resetBtn.setOnAction(e -> resetToDefault());
 
         actionsRow.getChildren().addAll(saveBtn, resetBtn);
+        return actionsRow;
+    }
 
-        // Footer
+    private HBox buildFooter() {
         HBox footer = new HBox(10);
         footer.setAlignment(Pos.CENTER_RIGHT);
         Button backToMenuBtn = new Button("Back to game menu");
@@ -221,36 +228,29 @@ public class ScreenSettingsView {
             }
         });
         footer.getChildren().add(backToMenuBtn);
-
-        root.getChildren().addAll(header, grid, statusBox, actionsRow, footer);
-        root.setVisible(false);
+        return footer;
     }
 
     private void syncPresetComboBox(int width, int height) {
-        internalUpdate = true;
-        String matchedPreset = CUSTOM_PRESET;
         for (Map.Entry<String, int[]> entry : RESOLUTION_PRESETS.entrySet()) {
-            int[] dims = entry.getValue();
-            if (dims[0] == width && dims[1] == height) {
-                matchedPreset = entry.getKey();
-                break;
+            if (entry.getValue()[0] == width && entry.getValue()[1] == height) {
+                internalUpdate = true;
+                resolutionComboBox.setValue(entry.getKey());
+                internalUpdate = false;
+                return;
             }
         }
-        resolutionComboBox.setValue(matchedPreset);
+        internalUpdate = true;
+        resolutionComboBox.setValue(CUSTOM_PRESET);
         internalUpdate = false;
     }
 
     private void updateScaleLabel() {
-        if (scaleLabel == null || widthSpinner == null || heightSpinner == null) {
-            return;
-        }
-        int w = widthSpinner.getValue() != null ? widthSpinner.getValue() : ScreenSettings.DEFAULT_WIDTH;
-        int h = heightSpinner.getValue() != null ? heightSpinner.getValue() : ScreenSettings.DEFAULT_HEIGHT;
-        double scale = ScreenSettings.calculateUiScale(w, h);
-        if (scale <= 1.0) {
-            scaleLabel.setText("1.00x (standard readable scale)");
-        } else {
-            scaleLabel.setText(String.format("%.2fx (texts and dialogues scaled for readability)", scale));
+        if (widthSpinner != null && heightSpinner != null && scaleLabel != null) {
+            int w = widthSpinner.getValue();
+            int h = heightSpinner.getValue();
+            double scale = ScreenSettings.calculateUiScale(w, h);
+            scaleLabel.setText(String.format("%.2fx (%d%%)", scale, (int) Math.round(scale * 100)));
         }
     }
 
@@ -263,12 +263,12 @@ public class ScreenSettingsView {
         boolean saved = settingsManager.trySaveSettings(newSettings);
 
         if (saved) {
+            feedbackLabel.setText("Settings saved! Resolution " + width + "x" + height +
+                    (fullscreen ? " (Fullscreen)" : "") + " will take effect on next game launch.");
             feedbackLabel.setTextFill(Color.LIGHTGREEN);
-            feedbackLabel.setText(String.format("Saved resolution %dx%d%s (UI scale: %.2fx) successfully. Restart required.",
-                    width, height, fullscreen ? " (fullscreen)" : "", newSettings.getUiScale()));
         } else {
-            feedbackLabel.setTextFill(Color.LIGHTCORAL);
-            feedbackLabel.setText("Failed to save screen settings.");
+            feedbackLabel.setText("Failed to save settings to disk.");
+            feedbackLabel.setTextFill(Color.SALMON);
         }
     }
 
@@ -278,45 +278,27 @@ public class ScreenSettingsView {
         widthSpinner.getValueFactory().setValue(defaults.getWidth());
         heightSpinner.getValueFactory().setValue(defaults.getHeight());
         fullscreenCheckBox.setSelected(defaults.isFullscreen());
-        internalUpdate = false;
         syncPresetComboBox(defaults.getWidth(), defaults.getHeight());
-        updateScaleLabel();
-        feedbackLabel.setTextFill(Color.LIGHTSKYBLUE);
-        feedbackLabel.setText("Reset to default resolution: " + defaults.getResolutionString());
-    }
-
-    public void updateFromSettings(ScreenSettings settings) {
-        if (settings == null) {
-            return;
-        }
-        internalUpdate = true;
-        widthSpinner.getValueFactory().setValue(settings.getWidth());
-        heightSpinner.getValueFactory().setValue(settings.getHeight());
-        fullscreenCheckBox.setSelected(settings.isFullscreen());
         internalUpdate = false;
-        syncPresetComboBox(settings.getWidth(), settings.getHeight());
         updateScaleLabel();
-    }
 
-    public ScreenSettings getCurrentSelection() {
-        return new ScreenSettings(
-                widthSpinner != null ? widthSpinner.getValue() : ScreenSettings.DEFAULT_WIDTH,
-                heightSpinner != null ? heightSpinner.getValue() : ScreenSettings.DEFAULT_HEIGHT,
-                fullscreenCheckBox != null && fullscreenCheckBox.isSelected()
-        );
-    }
-
-    public VBox getRoot() {
-        return root;
+        feedbackLabel.setText("Reset to default " + defaults.getWidth() + "x" + defaults.getHeight() + ".");
+        feedbackLabel.setTextFill(Color.LIGHTBLUE);
     }
 
     public void show() {
-        updateFromSettings(settingsManager.getSettings());
+        ScreenSettings current = settingsManager.getSettings();
+        internalUpdate = true;
+        widthSpinner.getValueFactory().setValue(current.getWidth());
+        heightSpinner.getValueFactory().setValue(current.getHeight());
+        fullscreenCheckBox.setSelected(current.isFullscreen());
+        syncPresetComboBox(current.getWidth(), current.getHeight());
+        internalUpdate = false;
+        updateScaleLabel();
+
+        feedbackLabel.setText("");
         root.setVisible(true);
         root.toFront();
-        if (menubar != null) {
-            menubar.openPage();
-        }
     }
 
     public void hide() {
@@ -324,5 +306,29 @@ public class ScreenSettingsView {
         if (menubar != null) {
             menubar.closePage();
         }
+    }
+
+    public VBox getRoot() {
+        return root;
+    }
+
+    public ComboBox<String> getResolutionComboBox() {
+        return resolutionComboBox;
+    }
+
+    public Spinner<Integer> getWidthSpinner() {
+        return widthSpinner;
+    }
+
+    public Spinner<Integer> getHeightSpinner() {
+        return heightSpinner;
+    }
+
+    public CheckBox getFullscreenCheckBox() {
+        return fullscreenCheckBox;
+    }
+
+    public Label getFeedbackLabel() {
+        return feedbackLabel;
     }
 }

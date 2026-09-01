@@ -29,7 +29,7 @@ public class VictoryConditionCheckerTest {
     public void testEconomicMonopolyVictory() {
         Empire rich = new Empire("emp_rich", "Merchant Guild", "human", "Individualist", 600000.0, 0.05, List.of(), List.of(), Map.of(), List.of(), List.of());
         GameState state = new GameState(1, "RUNNING", List.of(), List.of(rich), List.of(), List.of(), List.of(), List.of(), List.of());
-        CampaignSetup setup = new CampaignSetup("Econ Campaign", 10, 0.2, CampaignSetup.AI_BALANCED, 1, CampaignSetup.VICTORY_ECONOMIC_MONOPOLY, 500);
+        CampaignSetup setup = new CampaignSetup("Econ Campaign", 10, 0, 0.2, CampaignSetup.AI_BALANCED, 1, CampaignSetup.VICTORY_ECONOMIC_MONOPOLY, 500);
 
         VictoryConditionChecker.VictoryCheckResult res = checker.evaluateVictory(state, setup, null, List.of());
 
@@ -47,7 +47,7 @@ public class VictoryConditionCheckerTest {
         );
 
         GameState state = new GameState();
-        CampaignSetup setup = new CampaignSetup("Dyson Campaign", 10, 0.2, CampaignSetup.AI_BALANCED, 1, CampaignSetup.VICTORY_MEGASTRUCTURE_ASCENSION, 1);
+        CampaignSetup setup = new CampaignSetup("Dyson Campaign", 10, 0, 0.2, CampaignSetup.AI_BALANCED, 1, CampaignSetup.VICTORY_MEGASTRUCTURE_ASCENSION, 1);
 
         VictoryConditionChecker.VictoryCheckResult res = checker.evaluateVictory(state, setup, null, List.of(completedDyson));
 
@@ -67,7 +67,7 @@ public class VictoryConditionCheckerTest {
         GalacticResolution r3 = new GalacticResolution("r3", "Charter 3", GalacticResolution.TYPE_MUTUAL_DEFENSE, "emp1", "", 0, GalacticResolution.STATUS_PASSED, Map.of());
 
         GalacticCommunity comm = new GalacticCommunity("c1", "Senate", List.of("emp1", "emp2"), List.of(), List.of(r1, r2, r3), List.of(), 10, 10);
-        CampaignSetup setup = new CampaignSetup("Fed Campaign", 10, 0.2, CampaignSetup.AI_BALANCED, 1, CampaignSetup.VICTORY_DIPLOMATIC_FEDERATION, 3);
+        CampaignSetup setup = new CampaignSetup("Fed Campaign", 10, 0, 0.2, CampaignSetup.AI_BALANCED, 1, CampaignSetup.VICTORY_DIPLOMATIC_FEDERATION, 3);
 
         VictoryConditionChecker.VictoryCheckResult res = checker.evaluateVictory(state, setup, comm, List.of());
 

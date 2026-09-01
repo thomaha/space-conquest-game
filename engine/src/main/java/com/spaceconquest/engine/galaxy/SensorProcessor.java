@@ -174,10 +174,14 @@ public class SensorProcessor {
                 }
             }
         }
+        List<String> explored = controlledSystems != null ? new ArrayList<>(controlledSystems) : new ArrayList<>();
         return new FogOfWarState(
                 empireId,
-                controlledSystems != null ? new ArrayList<>(controlledSystems) : new ArrayList<>(),
-                List.of(), List.of(), List.of(), List.of()
+                explored,
+                new ArrayList<>(),
+                new ArrayList<>(),
+                new ArrayList<>(),
+                new ArrayList<>()
         );
     }
 }

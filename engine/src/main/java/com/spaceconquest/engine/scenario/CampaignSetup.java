@@ -5,6 +5,7 @@ package com.spaceconquest.engine.scenario;
  *
  * @param campaignName              custom campaign title
  * @param starSystemCount           number of solar systems in galaxy
+ * @param aiEmpireCount             number of AI empires to generate
  * @param nebulaDensity             nebula gas field density factor (0.0 to 1.0)
  * @param aiPersonalityDistribution distribution mode (BALANCED, AGGRESSIVE, ISOLATIONIST, MERCANTILE, SCIENTIFIC)
  * @param startingTechTier          initial technology level (1 to 4)
@@ -14,6 +15,7 @@ package com.spaceconquest.engine.scenario;
 public record CampaignSetup(
         String campaignName,
         int starSystemCount,
+        int aiEmpireCount,
         double nebulaDensity,
         String aiPersonalityDistribution,
         int startingTechTier,
@@ -34,6 +36,7 @@ public record CampaignSetup(
     public CampaignSetup {
         if (campaignName == null || campaignName.isBlank()) campaignName = "Standard Galactic Campaign";
         if (starSystemCount <= 0) starSystemCount = 10;
+        if (aiEmpireCount < 0) aiEmpireCount = 0;
         if (nebulaDensity < 0.0) nebulaDensity = 0.2;
         if (aiPersonalityDistribution == null) aiPersonalityDistribution = AI_BALANCED;
         if (startingTechTier <= 0) startingTechTier = 1;
@@ -42,6 +45,6 @@ public record CampaignSetup(
     }
 
     public static CampaignSetup createDefault() {
-        return new CampaignSetup("Sol & Alpha Centauri Expansion", 12, 0.25, AI_BALANCED, 1, VICTORY_DOMINATION, 60);
+        return new CampaignSetup("Sol & Alpha Centauri Expansion", 12, 0, 0.25, AI_BALANCED, 1, VICTORY_DOMINATION, 60);
     }
 }

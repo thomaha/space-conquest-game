@@ -3,6 +3,7 @@ package com.spaceconquest.engine.market;
 import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.MarketOrder;
 
+import com.spaceconquest.engine.industry.SurfaceMassDriver;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,22 +54,37 @@ public class MarketProcessor {
     /**
      * Calculates the planetary blast-off gravity tax for exporting cargo from a celestial body.
      * Formula: Launch Cost = (Dry Mass + Stored Cargo Mass) * Gravity * (1 + Atmospheric Pressure)
+     * If an active SurfaceMassDriver is present, the tax is significantly reduced (Point 3).
      *
      * @param dryMassKg           dry structural mass of the vessel in kg
      * @param cargoMassKg         mass of loaded cargo in kg
      * @param surfaceGravity      surface gravity in standard Gs
      * @param atmosphericPressure atmospheric pressure in atmospheres
+     * @param massDrivers         list of mass drivers on the planet
      * @return launch tax in credits
      */
     public double calculateGravityLaunchTax(
             double dryMassKg,
             double cargoMassKg,
             double surfaceGravity,
-            double atmosphericPressure
+            double atmosphericPressure,
+            List<SurfaceMassDriver> massDrivers
     ) {
         double effectiveGravity = Math.max(0.0, surfaceGravity);
         double effectiveAtmosphere = Math.max(0.0, atmosphericPressure);
-        return (dryMassKg + cargoMassKg) * effectiveGravity * (1.0 + effectiveAtmosphere);
+        double baselineTax = (dryMassKg + cargoMassKg) * effectiveGravity * (1.0 + effectiveAtmosphere);
+
+        // Surface Mass Driver bypass (Point 3)
+        if (massDrivers != null) {
+            for (SurfaceMassDriver driver : massDrivers) {
+                if (driver.isActive() && driver.maxPayloadTonsPerTurn() * 1000.0 >= cargoMassKg) {
+                    // Reduces the tax by 90% if a catapult is used
+                    return baselineTax * 0.10;
+                }
+            }
+        }
+
+        return baselineTax;
     }
 
     /**

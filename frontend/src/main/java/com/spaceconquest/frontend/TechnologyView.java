@@ -7,7 +7,10 @@ import com.spaceconquest.control.command.StartResearchCommand;
 import com.spaceconquest.engine.DataModelLoader;
 import com.spaceconquest.engine.TechnicalApplication;
 import com.spaceconquest.engine.Technology;
+import com.spaceconquest.engine.Empire;
+import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.technology.ResearchProject;
+import com.spaceconquest.engine.technology.TechnologyExchangeRoute;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -44,6 +47,11 @@ public class TechnologyView {
     private HumanController humanController;
     private String playerEmpireId = "terran_confederation";
     private final List<ResearchProject> activeResearchProjects = new ArrayList<>();
+    private final List<TechnologyExchangeRoute> exchangeRoutes = new ArrayList<>();
+    private final List<SystemEconomy> systemEconomies = new ArrayList<>();
+    private Empire playerEmpire;
+    private long totalScientists = 0;
+    private long unassignedScientists = 0;
 
     public TechnologyView(Menubar menubar) {
         this.menubar = menubar;
@@ -131,16 +139,36 @@ public class TechnologyView {
         }
     }
 
+    public void updateData(List<ResearchProject> projects, List<TechnologyExchangeRoute> routes, List<SystemEconomy> economies, Empire empire) {
+        activeResearchProjects.clear();
+        if (projects != null) activeResearchProjects.addAll(projects);
+        exchangeRoutes.clear();
+        if (routes != null) exchangeRoutes.addAll(routes);
+        systemEconomies.clear();
+        if (economies != null) systemEconomies.addAll(economies);
+        this.playerEmpire = empire;
+
+        if (root != null && root.isVisible()) {
+            loadData();
+        }
+    }
+
     private void loadData() {
         content.getChildren().clear();
+
+        // 0. Summary Section (Scientists headcount)
+        content.getChildren().add(createScientistSummarySection());
 
         // 1. Active Research Section
         content.getChildren().add(createActiveResearchSection());
 
-        // 2. Reverse Engineering Salvage Section
+        // 2. Technology Exchange Accords Section
+        content.getChildren().add(createExchangeAccordsSection());
+
+        // 3. Reverse Engineering Salvage Section
         content.getChildren().add(createReverseEngineeringSection());
 
-        // 3. Foundational Tech Tree Section
+        // 4. Foundational Tech Tree Section
         try {
             List<Technology> technologies = DataModelLoader.loadTechnologies();
             Text techTreeHeader = new Text("Available technologies and practical applications");
@@ -149,7 +177,16 @@ public class TechnologyView {
             content.getChildren().add(techTreeHeader);
 
             for (Technology tech : technologies) {
-                content.getChildren().add(createTechBox(tech));
+                // Hide non-researchable technologies (simple logic for now)
+                if (playerEmpire != null && !playerEmpire.unlockedTechIds().contains(tech.id())) {
+                    boolean allReqsMet = tech.requiredTechnologies().isEmpty() ||
+                            playerEmpire.unlockedTechIds().containsAll(tech.requiredTechnologies());
+                    if (allReqsMet) {
+                        content.getChildren().add(createTechBox(tech));
+                    }
+                } else if (playerEmpire == null) {
+                    content.getChildren().add(createTechBox(tech));
+                }
             }
         } catch (IOException e) {
             logger.error("Failed to load technologies for visualization", e);
@@ -176,6 +213,8 @@ public class TechnologyView {
             section.getChildren().add(emptyText);
         } else {
             for (ResearchProject project : activeResearchProjects) {
+                if (!project.empireId().equals(playerEmpireId)) continue;
+
                 VBox projBox = new VBox(6);
                 projBox.setPadding(new Insets(8));
                 projBox.setStyle("-fx-background-color: rgba(20, 30, 50, 0.6); -fx-background-radius: 5;");
@@ -189,7 +228,12 @@ public class TechnologyView {
                 Text scientists = new Text("Assigned: " + project.assignedScientists() + " scientists");
                 scientists.setFill(Color.LIGHTGREEN);
                 scientists.setFont(Font.font("Verdana", 11));
-                header.getChildren().addAll(name, scientists);
+
+                Text speedMod = new Text(String.format("Multiplier: %.2fx", project.speedModifier()));
+                speedMod.setFill(Color.YELLOW);
+                speedMod.setFont(Font.font("Verdana", 11));
+
+                header.getChildren().addAll(name, scientists, speedMod);
 
                 ProgressBar bar = new ProgressBar(project.accumulatedPoints() / Math.max(1.0, project.requiredPoints()));
                 bar.setPrefWidth(400);
@@ -202,8 +246,80 @@ public class TechnologyView {
                 HBox barRow = new HBox(10, bar, progressText);
                 barRow.setAlignment(Pos.CENTER_LEFT);
 
-                projBox.getChildren().addAll(header, barRow);
+                Text breakthroughText = new Text("Breakthrough variance: Weighted variance roll active for this vector.");
+                breakthroughText.setFill(Color.LIGHTSKYBLUE);
+                breakthroughText.setFont(Font.font("Verdana", 9));
+
+                projBox.getChildren().addAll(header, barRow, breakthroughText);
                 section.getChildren().add(projBox);
+            }
+        }
+
+        return section;
+    }
+
+    private VBox createScientistSummarySection() {
+        VBox section = new VBox(5);
+        section.setPadding(new Insets(10));
+        section.setStyle("-fx-background-color: rgba(40, 60, 90, 0.6); -fx-background-radius: 8;");
+
+        long totalScientists = systemEconomies.stream()
+                .filter(se -> se.empireId().equals(playerEmpireId))
+                .mapToLong(SystemEconomy::employedScientists)
+                .sum();
+        int assignedScientists = activeResearchProjects.stream()
+                .filter(p -> p.empireId().equals(playerEmpireId))
+                .mapToInt(ResearchProject::assignedScientists)
+                .sum();
+        long unassigned = Math.max(0, totalScientists - assignedScientists);
+
+        this.totalScientists = totalScientists;
+        this.unassignedScientists = unassigned;
+
+        Text summaryTitle = new Text("Imperial scientific personnel allocation");
+        summaryTitle.setFill(Color.LIGHTBLUE);
+        summaryTitle.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
+
+        Text headcount = new Text(String.format("Total scientists: %d | Assigned: %d | Unassigned: %d",
+                totalScientists, assignedScientists, unassigned));
+        headcount.setFill(Color.WHITE);
+        headcount.setFont(Font.font("Verdana", 12));
+
+        section.getChildren().addAll(summaryTitle, headcount);
+        return section;
+    }
+
+    private VBox createExchangeAccordsSection() {
+        VBox section = new VBox(8);
+        section.setPadding(new Insets(10));
+        section.setStyle("-fx-background-color: rgba(35, 55, 85, 0.65); -fx-background-radius: 8; -fx-border-color: #27ae60; -fx-border-width: 1; -fx-border-radius: 8;");
+
+        Text title = new Text("Technology exchange and bilateral accords");
+        title.setFill(Color.LIGHTGREEN);
+        title.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
+        section.getChildren().add(title);
+
+        List<TechnologyExchangeRoute> myRoutes = exchangeRoutes.stream()
+                .filter(r -> r.receiverEmpireId().equals(playerEmpireId) || r.senderEmpireId().equals(playerEmpireId))
+                .toList();
+
+        if (myRoutes.isEmpty()) {
+            Text empty = new Text("No active technology exchange accords established with other empires.");
+            empty.setFill(Color.LIGHTGRAY);
+            empty.setFont(Font.font("Verdana", 11));
+            section.getChildren().add(empty);
+        } else {
+            for (TechnologyExchangeRoute route : myRoutes) {
+                String desc = route.senderEmpireId().equals(playerEmpireId) ?
+                        String.format("Sharing %s with %s (Bonus: %.0f%% training speed)",
+                                route.technologyId(), route.receiverEmpireId(), route.trainingSpeedBonus() * 100) :
+                        String.format("Receiving %s insights from %s (Pre-populated: %.0f%%)",
+                                route.technologyId(), route.senderEmpireId(), route.prePopulatedPercentage() * 100);
+
+                Text routeText = new Text("• " + desc);
+                routeText.setFill(Color.GAINSBORO);
+                routeText.setFont(Font.font("Verdana", 11));
+                section.getChildren().add(routeText);
             }
         }
 
@@ -218,6 +334,13 @@ public class TechnologyView {
         Text title = new Text("Xeno-debris and reverse engineering salvage");
         title.setFill(Color.VIOLET);
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
+        section.getChildren().add(title);
+
+        // Display progress of reverse engineering missions if any (mocked for now)
+        Text missionProgress = new Text("Active salvage missions: Analyzing derelict starship hull (Progress: 42%)");
+        missionProgress.setFill(Color.LIGHTBLUE);
+        missionProgress.setFont(Font.font("Verdana", 11));
+        section.getChildren().add(missionProgress);
 
         HBox controls = new HBox(10);
         controls.setAlignment(Pos.CENTER_LEFT);
@@ -239,7 +362,7 @@ public class TechnologyView {
         desc.setFont(Font.font("Verdana", 11));
 
         controls.getChildren().addAll(deconstructBtn, desc);
-        section.getChildren().addAll(title, controls);
+        section.getChildren().add(controls);
         return section;
     }
 
@@ -255,17 +378,37 @@ public class TechnologyView {
         techName.setFill(Color.LIGHTBLUE);
         techName.setFont(Font.font("Verdana", FontWeight.BOLD, 16));
 
+        Text techLevel = new Text("Level: 1"); // Placeholder for actual level
+        techLevel.setFill(Color.LIGHTGOLDENRODYELLOW);
+        techLevel.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
+
         Text techComplexity = new Text("(Complexity: " + tech.complexity() + ")");
         techComplexity.setFill(Color.LIGHTSKYBLUE);
         techComplexity.setFont(Font.font("Verdana", 12));
 
-        Spinner<Integer> scientistSpinner = new Spinner<>(1, 50, 5);
-        scientistSpinner.setPrefWidth(70);
+        Spinner<Integer> scientistSpinner = new Spinner<>(0, (int) totalScientists, Math.min((int) unassignedScientists, 5));
+        scientistSpinner.setPrefWidth(80);
+        scientistSpinner.setEditable(true);
 
         Button researchBtn = new Button("Start research");
         researchBtn.setStyle("-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;");
         researchBtn.setOnAction(e -> {
             int count = scientistSpinner.getValue();
+            if (count <= 0) {
+                feedbackLabel.setText("Cannot assign zero scientists.");
+                feedbackLabel.setTextFill(Color.ORANGERED);
+                return;
+            }
+
+            // Check against unassigned scientists
+            // Note: if re-assigning to current project, we'd need to account for currently assigned
+            // But this UI is for starting/restarting, let's keep it simple for now.
+            if (count > unassignedScientists) {
+                feedbackLabel.setText("Insufficient unassigned scientists available.");
+                feedbackLabel.setTextFill(Color.ORANGERED);
+                return;
+            }
+
             if (humanController != null) {
                 humanController.stageCommand(new StartResearchCommand(
                         playerEmpireId, tech.id(), false, count
@@ -275,13 +418,17 @@ public class TechnologyView {
             }
         });
 
-        titleRow.getChildren().addAll(techName, techComplexity, scientistSpinner, researchBtn);
+        titleRow.getChildren().addAll(techName, techLevel, techComplexity, scientistSpinner, researchBtn);
 
         Text techDesc = new Text(tech.description());
         techDesc.setFill(Color.WHITE);
         techDesc.setWrappingWidth(740);
 
-        techBox.getChildren().addAll(titleRow, techDesc);
+        Text bonusText = new Text("Researched bonus: +5% theoretical scientific progression efficiency.");
+        bonusText.setFill(Color.LIGHTCYAN);
+        bonusText.setFont(Font.font("Verdana", 10));
+
+        techBox.getChildren().addAll(titleRow, techDesc, bonusText);
 
         if (!tech.requiredTechnologies().isEmpty()) {
             Text reqs = new Text("Requires: " + String.join(", ", tech.requiredTechnologies()));
@@ -303,10 +450,52 @@ public class TechnologyView {
     }
 
     private VBox createAppBox(TechnicalApplication app) {
+        if (playerEmpire != null && !app.requiredTechnologies().isEmpty() &&
+                !playerEmpire.unlockedTechIds().containsAll(app.requiredTechnologies())) {
+            return new VBox();
+        }
+
         VBox appBox = new VBox(4);
         appBox.setPadding(new Insets(6));
         appBox.setStyle("-fx-background-color: rgba(30, 45, 65, 0.4); -fx-background-radius: 4;");
 
+        HBox appHeader = createAppHeader(app);
+
+        Text appDesc = new Text(app.description());
+        appDesc.setFill(Color.GAINSBORO);
+        appDesc.setFont(Font.font("Verdana", 11));
+        appDesc.setWrappingWidth(700);
+
+        VBox optBox = createOptimizationBox(app);
+
+        appBox.getChildren().addAll(appHeader, appDesc);
+
+        if (!app.requiredTechnologies().isEmpty()) {
+            Text reqs = new Text("  Requires: " + String.join(", ", app.requiredTechnologies()));
+            reqs.setFill(Color.ORANGE);
+            reqs.setFont(Font.font("Verdana", 10));
+            appBox.getChildren().add(reqs);
+        }
+
+        if (!app.affectedFactors().isEmpty()) {
+            Text factors = new Text("  Affects: " + String.join(", ", app.affectedFactors()));
+            factors.setFill(Color.LIGHTCYAN);
+            factors.setFont(Font.font("Verdana", 10));
+            appBox.getChildren().add(factors);
+        }
+
+        if (!app.requiredMaterials().isEmpty()) {
+            Text materials = new Text("  Materials: " + String.join(", ", app.requiredMaterials()));
+            materials.setFill(Color.KHAKI);
+            materials.setFont(Font.font("Verdana", 10));
+            appBox.getChildren().add(materials);
+        }
+
+        appBox.getChildren().add(optBox);
+        return appBox;
+    }
+
+    private HBox createAppHeader(TechnicalApplication app) {
         HBox appHeader = new HBox(10);
         appHeader.setAlignment(Pos.CENTER_LEFT);
 
@@ -314,26 +503,49 @@ public class TechnologyView {
         appName.setFill(Color.LIGHTGREEN);
         appName.setFont(Font.font("Verdana", FontWeight.BOLD, 13));
 
+        Text appBonus = new Text("Researched bonus: -10% resource requirement.");
+        appBonus.setFill(Color.KHAKI);
+        appBonus.setFont(Font.font("Verdana", 10));
+
+        Spinner<Integer> appScientistSpinner = new Spinner<>(0, (int) totalScientists, Math.min((int) unassignedScientists, 5));
+        appScientistSpinner.setPrefWidth(80);
+        appScientistSpinner.setEditable(true);
+
         Button appResearchBtn = new Button("Research app");
         appResearchBtn.setStyle("-fx-background-color: #16a085; -fx-text-fill: white; -fx-font-size: 10px; -fx-font-weight: bold;");
         appResearchBtn.setOnAction(e -> {
+            int count = appScientistSpinner.getValue();
+            if (count <= 0) {
+                feedbackLabel.setText("Cannot assign zero scientists.");
+                feedbackLabel.setTextFill(Color.ORANGERED);
+                return;
+            }
+
+            if (count > unassignedScientists) {
+                feedbackLabel.setText("Insufficient unassigned scientists available.");
+                feedbackLabel.setTextFill(Color.ORANGERED);
+                return;
+            }
+
             if (humanController != null) {
                 humanController.stageCommand(new StartResearchCommand(
-                        playerEmpireId, app.id(), true, 5
+                        playerEmpireId, app.id(), true, count
                 ));
-                feedbackLabel.setText("Research initiated for application: " + app.name());
+                feedbackLabel.setText("Research initiated for application: " + app.name() + " (" + count + " scientists assigned)");
                 feedbackLabel.setTextFill(Color.LIGHTGREEN);
             }
         });
 
-        appHeader.getChildren().addAll(appName, appResearchBtn);
+        appHeader.getChildren().addAll(appName, appBonus, appScientistSpinner, appResearchBtn);
+        return appHeader;
+    }
 
-        Text appDesc = new Text(app.description());
-        appDesc.setFill(Color.GAINSBORO);
-        appDesc.setFont(Font.font("Verdana", 11));
-        appDesc.setWrappingWidth(700);
+    private VBox createOptimizationBox(TechnicalApplication app) {
+        VBox optBox = new VBox(4);
+        Text optHeader = new Text("Dual-path optimization (based on breakthrough outcomes):");
+        optHeader.setFill(Color.LIGHTCORAL);
+        optHeader.setFont(Font.font("Verdana", FontWeight.BOLD, 9));
 
-        // Optimization Controls
         HBox optControls = new HBox(10);
         optControls.setAlignment(Pos.CENTER_LEFT);
 
@@ -362,32 +574,7 @@ public class TechnologyView {
         });
 
         optControls.getChildren().addAll(pathABtn, pathBBtn);
-
-        appBox.getChildren().addAll(appHeader, appDesc);
-
-        if (!app.requiredTechnologies().isEmpty()) {
-            Text reqs = new Text("  Requires: " + String.join(", ", app.requiredTechnologies()));
-            reqs.setFill(Color.ORANGE);
-            reqs.setFont(Font.font("Verdana", 10));
-            appBox.getChildren().add(reqs);
-        }
-
-        if (!app.affectedFactors().isEmpty()) {
-            Text factors = new Text("  Affects: " + String.join(", ", app.affectedFactors()));
-            factors.setFill(Color.LIGHTCYAN);
-            factors.setFont(Font.font("Verdana", 10));
-            appBox.getChildren().add(factors);
-        }
-
-        if (!app.requiredMaterials().isEmpty()) {
-            Text materials = new Text("  Materials: " + String.join(", ", app.requiredMaterials()));
-            materials.setFill(Color.KHAKI);
-            materials.setFont(Font.font("Verdana", 10));
-            appBox.getChildren().add(materials);
-        }
-
-        appBox.getChildren().add(optControls);
-
-        return appBox;
+        optBox.getChildren().addAll(optHeader, optControls);
+        return optBox;
     }
 }

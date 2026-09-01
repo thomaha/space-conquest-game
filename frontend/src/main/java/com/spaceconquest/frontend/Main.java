@@ -85,15 +85,19 @@ public class Main extends GameApplication {
     }
 
     public void createNewGalaxy(int numSystems) {
-        createNewGalaxy(numSystems, GameStartScenario.PRE_SPACE_FLIGHT);
+        createNewGalaxy(numSystems, 0, GameStartScenario.PRE_SPACE_FLIGHT);
     }
 
     public void createNewGalaxy(int numSystems, GameStartScenario scenario) {
+        createNewGalaxy(numSystems, 0, scenario);
+    }
+
+    public void createNewGalaxy(int numSystems, int numAIEmpires, GameStartScenario scenario) {
         this.currentScenario = scenario != null ? scenario : GameStartScenario.PRE_SPACE_FLIGHT;
         registry.clear();
         getGameWorld().getEntitiesCopy().forEach(Entity::removeFromWorld);
 
-        GameState newGameState = generator.generateGameState(numSystems, currentScenario);
+        GameState newGameState = generator.generateGameState(numSystems, numAIEmpires, currentScenario);
         engine.applyGameState(newGameState);
 
         // Process any staged commands (such as CreateCustomEmpireCommand from wizard)

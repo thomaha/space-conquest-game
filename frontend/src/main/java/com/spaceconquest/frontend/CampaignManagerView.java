@@ -93,8 +93,12 @@ public class CampaignManagerView {
 
     private void renderContent() {
         content.getChildren().clear();
+        content.getChildren().add(buildSetupSection());
+        content.getChildren().add(buildSaveCurrentSection());
+        content.getChildren().add(buildSavedGamesSection());
+    }
 
-        // 1. Campaign Setup Section
+    private VBox buildSetupSection() {
         VBox setupSection = new VBox(10);
         setupSection.setPadding(new Insets(12));
         setupSection.setStyle("-fx-background-color: rgba(30, 40, 75, 0.7); -fx-background-radius: 8; -fx-border-color: #6c5ce7; -fx-border-width: 1; -fx-border-radius: 8;");
@@ -103,22 +107,29 @@ public class CampaignManagerView {
         setupTitle.setFill(Color.LIGHTBLUE);
         setupTitle.setFont(Font.font("Verdana", FontWeight.BOLD, 15));
 
-        Spinner<Integer> systemsSpinner = new Spinner<>(5, 100, 20);
+        Spinner<Integer> systemsSpinner = new Spinner<>(5, 1000, 20);
         systemsSpinner.setEditable(true);
         systemsSpinner.setPrefWidth(120);
+
+        Spinner<Integer> aiEmpiresSpinner = new Spinner<>(0, 10, 0);
+        aiEmpiresSpinner.setEditable(true);
+        aiEmpiresSpinner.setPrefWidth(80);
 
         ComboBox<GameStartScenario> scenarioCombo = new ComboBox<>();
         scenarioCombo.getItems().addAll(GameStartScenario.values());
         scenarioCombo.setValue(GameStartScenario.PRE_SPACE_FLIGHT);
 
-        HBox systemsRow = new HBox(15, new Label("Solar systems:"), systemsSpinner, new Label("Scenario:"), scenarioCombo);
+        HBox systemsRow = new HBox(15,
+                new Label("Solar systems:"), systemsSpinner,
+                new Label("AI empires:"), aiEmpiresSpinner,
+                new Label("Scenario:"), scenarioCombo);
         systemsRow.setAlignment(Pos.CENTER_LEFT);
 
         Button startBtn = new Button("Quick launch new campaign");
         startBtn.setStyle("-fx-background-color: #00b894; -fx-text-fill: white; -fx-font-weight: bold;");
         startBtn.setOnAction(e -> {
             if (mainApp != null) {
-                mainApp.createNewGalaxy(systemsSpinner.getValue(), scenarioCombo.getValue());
+                mainApp.createNewGalaxy(systemsSpinner.getValue(), aiEmpiresSpinner.getValue(), scenarioCombo.getValue());
                 feedbackLabel.setText("Initialized new galaxy with " + systemsSpinner.getValue() + " solar systems!");
                 feedbackLabel.setTextFill(Color.LIGHTGREEN);
                 hide();
@@ -136,9 +147,10 @@ public class CampaignManagerView {
 
         HBox buttonRow = new HBox(12, startBtn, customizeScenarioBtn);
         setupSection.getChildren().addAll(setupTitle, systemsRow, buttonRow);
-        content.getChildren().add(setupSection);
+        return setupSection;
+    }
 
-        // 2. Save Current Active Campaign Section
+    private VBox buildSaveCurrentSection() {
         VBox saveCurrentSection = new VBox(10);
         saveCurrentSection.setPadding(new Insets(12));
         saveCurrentSection.setStyle("-fx-background-color: rgba(30, 40, 75, 0.7); -fx-background-radius: 8; -fx-border-color: #2ecc71; -fx-border-width: 1; -fx-border-radius: 8;");
@@ -179,9 +191,10 @@ public class CampaignManagerView {
         saveActions.setAlignment(Pos.CENTER_LEFT);
 
         saveCurrentSection.getChildren().addAll(saveCurrentTitle, saveActions);
-        content.getChildren().add(saveCurrentSection);
+        return saveCurrentSection;
+    }
 
-        // 3. Saved Games Section
+    private VBox buildSavedGamesSection() {
         VBox saveSection = new VBox(10);
         saveSection.setPadding(new Insets(12));
         saveSection.setStyle("-fx-background-color: rgba(30, 40, 75, 0.7); -fx-background-radius: 8; -fx-border-color: #0984e3; -fx-border-width: 1; -fx-border-radius: 8;");
@@ -201,37 +214,40 @@ public class CampaignManagerView {
         } else {
             saveSection.getChildren().add(saveTitle);
             for (File file : saveFiles) {
-                HBox fileRow = new HBox(15);
-                fileRow.setAlignment(Pos.CENTER_LEFT);
-                Text fn = new Text(file.getName() + " (" + (file.length() / 1024) + " KB)");
-                fn.setFill(Color.WHITE);
-                HBox.setHgrow(fn, Priority.ALWAYS);
-
-                Button loadBtn = new Button("Load save");
-                loadBtn.setStyle("-fx-background-color: #0984e3; -fx-text-fill: white; -fx-font-weight: bold;");
-                loadBtn.setOnAction(e -> {
-                    if (mainApp != null) {
-                        mainApp.loadGame(file.getName().replace(SaveGameManager.SAVE_EXTENSION, "").replace(".json", ""));
-                        feedbackLabel.setText("Loaded save: " + file.getName());
-                        feedbackLabel.setTextFill(Color.LIGHTGREEN);
-                        hide();
-                    }
-                });
-
-                Button deleteBtn = new Button("Delete");
-                deleteBtn.setStyle("-fx-background-color: #d63031; -fx-text-fill: white; -fx-font-size: 10px;");
-                deleteBtn.setOnAction(e -> {
-                    saveMgr.deleteSave(file.getName().replace(SaveGameManager.SAVE_EXTENSION, "").replace(".json", ""));
-                    feedbackLabel.setText("Deleted save file: " + file.getName());
-                    feedbackLabel.setTextFill(Color.ORANGE);
-                    renderContent();
-                });
-
-                fileRow.getChildren().addAll(fn, loadBtn, deleteBtn);
-                saveSection.getChildren().add(fileRow);
+                saveSection.getChildren().add(createSaveRow(file, saveMgr));
             }
         }
+        return saveSection;
+    }
 
-        content.getChildren().add(saveSection);
+    private HBox createSaveRow(File file, SaveGameManager saveMgr) {
+        HBox fileRow = new HBox(15);
+        fileRow.setAlignment(Pos.CENTER_LEFT);
+        Text fn = new Text(file.getName() + " (" + (file.length() / 1024) + " KB)");
+        fn.setFill(Color.WHITE);
+        HBox.setHgrow(fn, Priority.ALWAYS);
+
+        Button loadBtn = new Button("Load save");
+        loadBtn.setStyle("-fx-background-color: #0984e3; -fx-text-fill: white; -fx-font-weight: bold;");
+        loadBtn.setOnAction(e -> {
+            if (mainApp != null) {
+                mainApp.loadGame(file.getName().replace(SaveGameManager.SAVE_EXTENSION, "").replace(".json", ""));
+                feedbackLabel.setText("Loaded save: " + file.getName());
+                feedbackLabel.setTextFill(Color.LIGHTGREEN);
+                hide();
+            }
+        });
+
+        Button deleteBtn = new Button("Delete");
+        deleteBtn.setStyle("-fx-background-color: #d63031; -fx-text-fill: white; -fx-font-size: 10px;");
+        deleteBtn.setOnAction(e -> {
+            saveMgr.deleteSave(file.getName().replace(SaveGameManager.SAVE_EXTENSION, "").replace(".json", ""));
+            feedbackLabel.setText("Deleted save file: " + file.getName());
+            feedbackLabel.setTextFill(Color.ORANGE);
+            renderContent();
+        });
+
+        fileRow.getChildren().addAll(fn, loadBtn, deleteBtn);
+        return fileRow;
     }
 }

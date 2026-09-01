@@ -26,7 +26,8 @@ public record SystemEconomy(
         long employedEngineers,
         long employedTechnicians,
         long employedSoldiers,
-        long recruitableSoldiers
+        long recruitableSoldiers,
+        double taxRate
 ) {
     public static SystemEconomy createDefault(String systemId, String empireId, long population) {
         double defaultBudget = Math.max(1000.0, population * 0.002);
@@ -44,7 +45,8 @@ public record SystemEconomy(
                 Math.max(20, Math.round(population * 0.0010)),
                 Math.max(30, Math.round(population * 0.0015)),
                 Math.max(25, Math.round(population * 0.0012)),
-                Math.max(100, Math.round(population * 0.0050))
+                Math.max(100, Math.round(population * 0.0050)),
+                0.10
         );
     }
 }

@@ -42,26 +42,9 @@ public class LogisticsProcessor {
             );
         }
 
-        Map<String, CommercialHub> hubMap = new HashMap<>();
-        if (hubs != null) {
-            for (CommercialHub h : hubs) {
-                hubMap.put(h.id(), h);
-            }
-        }
-
-        Map<String, Empire> empireMap = new HashMap<>();
-        if (empires != null) {
-            for (Empire emp : empires) {
-                empireMap.put(emp.id(), emp);
-            }
-        }
-
-        Map<String, Corporation> corpMap = new HashMap<>();
-        if (corporations != null) {
-            for (Corporation c : corporations) {
-                corpMap.put(c.id(), c);
-            }
-        }
+        Map<String, CommercialHub> hubMap = buildHubMap(hubs);
+        Map<String, Empire> empireMap = buildEmpireMap(empires);
+        Map<String, Corporation> corpMap = buildCorpMap(corporations);
 
         List<TradeRoute> updatedRoutes = new ArrayList<>();
         double totalVolumeMoved = 0.0;
@@ -80,79 +63,10 @@ public class LogisticsProcessor {
                 continue;
             }
 
-            MarketOrder originOrder = originHub.activeOrders().get(route.materialId());
-            double sourceStock = originOrder != null ? originOrder.supplyKg() : 0.0;
-
-            MarketOrder destOrder = destHub.activeOrders().get(route.materialId());
-            double destStock = destOrder != null ? destOrder.supplyKg() : 0.0;
-
-            double availableSurplus = Math.max(0.0, sourceStock - route.minSourceInventoryThresholdKg());
-            if (availableSurplus <= 0.0) {
-                updatedRoutes.add(route);
-                continue;
-            }
-
-            int freighterCount = route.assignedFreighterIds() != null && !route.assignedFreighterIds().isEmpty()
-                    ? route.assignedFreighterIds().size() : 1;
-            double maxHaulCapacity = freighterCount * BASE_FREIGHTER_CAPACITY_KG;
-            double desiredTransfer = Math.min(route.transferAmountPerTurnKg(), maxHaulCapacity);
-
-            double roomAtDest = Math.max(0.0, route.maxDestinationCapacityKg() - destStock);
-            double actualTransfer = Math.min(availableSurplus, Math.min(desiredTransfer, roomAtDest));
-
+            double actualTransfer = calculateActualTransfer(route, originHub, destHub);
             if (actualTransfer > 0.0) {
-                // Deduct from origin hub
-                Map<String, MarketOrder> originOrders = new HashMap<>(originHub.activeOrders());
-                if (originOrder != null) {
-                    originOrders.put(route.materialId(), new MarketOrder(
-                            route.materialId(),
-                            Math.max(0.0, sourceStock - actualTransfer),
-                            originOrder.demandKg(),
-                            originOrder.pricePerKg(),
-                            originOrder.shortcomingScore()
-                    ));
-                }
-                CommercialHub updatedOrigin = new CommercialHub(
-                        originHub.id(), originHub.entityId(), originHub.transactionTariffRate(),
-                        originHub.storageCapacityKg(),
-                        Math.max(0.0, originHub.currentStoredWeightKg() - actualTransfer),
-                        originHub.logisticsRangeUnits(), originOrders
-                );
-                hubMap.put(updatedOrigin.id(), updatedOrigin);
-
-                // Add to destination hub
-                Map<String, MarketOrder> destOrders = new HashMap<>(destHub.activeOrders());
-                double newDestStock = destStock + actualTransfer;
-                double destDemand = destOrder != null ? destOrder.demandKg() : 0.0;
-                double destPrice = destOrder != null ? destOrder.pricePerKg() : 10.0;
-                double destShortcoming = destOrder != null ? destOrder.shortcomingScore() : 0.0;
-
-                destOrders.put(route.materialId(), new MarketOrder(
-                        route.materialId(), newDestStock, destDemand, destPrice, destShortcoming
-                ));
-                CommercialHub updatedDest = new CommercialHub(
-                        destHub.id(), destHub.entityId(), destHub.transactionTariffRate(),
-                        destHub.storageCapacityKg(), destHub.currentStoredWeightKg() + actualTransfer,
-                        destHub.logisticsRangeUnits(), destOrders
-                );
-                hubMap.put(updatedDest.id(), updatedDest);
-
-                // Process transit tariffs to owner empire
-                double tariffAmount = actualTransfer * TARIFF_RATE_PERCENT;
-                Empire controllingEmpire = empireMap.get(route.ownerEntityId());
-                if (controllingEmpire == null && !empireMap.isEmpty()) {
-                    controllingEmpire = empireMap.values().iterator().next();
-                }
-                if (controllingEmpire != null) {
-                    Empire updatedEmpire = new Empire(
-                            controllingEmpire.id(), controllingEmpire.name(), controllingEmpire.raceId(),
-                            controllingEmpire.societyStructure(), controllingEmpire.treasuryCredits() + tariffAmount,
-                            controllingEmpire.corporateTaxRate(), controllingEmpire.controlledSystemIds(),
-                            controllingEmpire.ministries(), controllingEmpire.systemGovernorAssignments(),
-                            controllingEmpire.unlockedTechIds(), controllingEmpire.activeShipDesignIds()
-                    );
-                    empireMap.put(updatedEmpire.id(), updatedEmpire);
-                }
+                transferStock(route, originHub, destHub, actualTransfer, hubMap);
+                applyTransitTariffs(route, actualTransfer, empireMap);
 
                 totalVolumeMoved += actualTransfer;
                 updatedRoutes.add(new TradeRoute(
@@ -174,5 +88,111 @@ public class LogisticsProcessor {
                 new ArrayList<>(corpMap.values()),
                 totalVolumeMoved
         );
+    }
+
+    private Map<String, CommercialHub> buildHubMap(List<CommercialHub> hubs) {
+        Map<String, CommercialHub> map = new HashMap<>();
+        if (hubs != null) {
+            for (CommercialHub h : hubs) {
+                if (h != null) map.put(h.id(), h);
+            }
+        }
+        return map;
+    }
+
+    private Map<String, Empire> buildEmpireMap(List<Empire> empires) {
+        Map<String, Empire> map = new HashMap<>();
+        if (empires != null) {
+            for (Empire emp : empires) {
+                if (emp != null) map.put(emp.id(), emp);
+            }
+        }
+        return map;
+    }
+
+    private Map<String, Corporation> buildCorpMap(List<Corporation> corporations) {
+        Map<String, Corporation> map = new HashMap<>();
+        if (corporations != null) {
+            for (Corporation c : corporations) {
+                if (c != null) map.put(c.id(), c);
+            }
+        }
+        return map;
+    }
+
+    private double calculateActualTransfer(TradeRoute route, CommercialHub originHub, CommercialHub destHub) {
+        MarketOrder originOrder = originHub.activeOrders().get(route.materialId());
+        double sourceStock = originOrder != null ? originOrder.supplyKg() : 0.0;
+
+        MarketOrder destOrder = destHub.activeOrders().get(route.materialId());
+        double destStock = destOrder != null ? destOrder.supplyKg() : 0.0;
+
+        double availableSurplus = Math.max(0.0, sourceStock - route.minSourceInventoryThresholdKg());
+        if (availableSurplus <= 0.0) return 0.0;
+
+        int freighterCount = route.assignedFreighterIds() != null && !route.assignedFreighterIds().isEmpty()
+                ? route.assignedFreighterIds().size() : 1;
+        double maxHaulCapacity = freighterCount * BASE_FREIGHTER_CAPACITY_KG;
+        double desiredTransfer = Math.min(route.transferAmountPerTurnKg(), maxHaulCapacity);
+        double roomAtDest = Math.max(0.0, route.maxDestinationCapacityKg() - destStock);
+
+        return Math.min(availableSurplus, Math.min(desiredTransfer, roomAtDest));
+    }
+
+    private void transferStock(TradeRoute route, CommercialHub originHub, CommercialHub destHub,
+                               double actualTransfer, Map<String, CommercialHub> hubMap) {
+        MarketOrder originOrder = originHub.activeOrders().get(route.materialId());
+        double sourceStock = originOrder != null ? originOrder.supplyKg() : 0.0;
+
+        Map<String, MarketOrder> originOrders = new HashMap<>(originHub.activeOrders());
+        if (originOrder != null) {
+            originOrders.put(route.materialId(), new MarketOrder(
+                    route.materialId(), Math.max(0.0, sourceStock - actualTransfer),
+                    originOrder.demandKg(), originOrder.pricePerKg(), originOrder.shortcomingScore()
+            ));
+        }
+        CommercialHub updatedOrigin = new CommercialHub(
+                originHub.id(), originHub.entityId(), originHub.transactionTariffRate(),
+                originHub.storageCapacityKg(),
+                Math.max(0.0, originHub.currentStoredWeightKg() - actualTransfer),
+                originHub.logisticsRangeUnits(), originOrders
+        );
+        hubMap.put(updatedOrigin.id(), updatedOrigin);
+
+        MarketOrder destOrder = destHub.activeOrders().get(route.materialId());
+        double destStock = destOrder != null ? destOrder.supplyKg() : 0.0;
+        Map<String, MarketOrder> destOrders = new HashMap<>(destHub.activeOrders());
+        double newDestStock = destStock + actualTransfer;
+        double destDemand = destOrder != null ? destOrder.demandKg() : 0.0;
+        double destPrice = destOrder != null ? destOrder.pricePerKg() : 10.0;
+        double destShortcoming = destOrder != null ? destOrder.shortcomingScore() : 0.0;
+
+        destOrders.put(route.materialId(), new MarketOrder(
+                route.materialId(), newDestStock, destDemand, destPrice, destShortcoming
+        ));
+        CommercialHub updatedDest = new CommercialHub(
+                destHub.id(), destHub.entityId(), destHub.transactionTariffRate(),
+                destHub.storageCapacityKg(), destHub.currentStoredWeightKg() + actualTransfer,
+                destHub.logisticsRangeUnits(), destOrders
+        );
+        hubMap.put(updatedDest.id(), updatedDest);
+    }
+
+    private void applyTransitTariffs(TradeRoute route, double actualTransfer, Map<String, Empire> empireMap) {
+        double tariffAmount = actualTransfer * TARIFF_RATE_PERCENT;
+        Empire controllingEmpire = empireMap.get(route.ownerEntityId());
+        if (controllingEmpire == null && !empireMap.isEmpty()) {
+            controllingEmpire = empireMap.values().iterator().next();
+        }
+        if (controllingEmpire != null) {
+            Empire updatedEmpire = new Empire(
+                    controllingEmpire.id(), controllingEmpire.name(), controllingEmpire.raceId(),
+                    controllingEmpire.societyStructure(), controllingEmpire.treasuryCredits() + tariffAmount,
+                    controllingEmpire.corporateTaxRate(), controllingEmpire.controlledSystemIds(),
+                    controllingEmpire.ministries(), controllingEmpire.systemGovernorAssignments(),
+                    controllingEmpire.unlockedTechIds(), controllingEmpire.activeShipDesignIds()
+            );
+            empireMap.put(updatedEmpire.id(), updatedEmpire);
+        }
     }
 }

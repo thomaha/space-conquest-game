@@ -16,6 +16,8 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 
+import java.util.function.DoubleConsumer;
+
 /**
  * Interactive UI panel for configuring audio volume levels, sound effects and acoustic synthesizer options.
  */
@@ -44,6 +46,16 @@ public class AudioSettingsView {
                 "-fx-border-radius: 10; -fx-background-radius: 10;");
         root.setPrefSize(600, 480);
 
+        HBox header = buildHeader();
+        GridPane grid = buildVolumeGrid();
+        VBox testBox = buildTestCueSection();
+        HBox footer = buildFooter();
+
+        root.getChildren().addAll(header, grid, testBox, footer);
+        root.setVisible(false);
+    }
+
+    private HBox buildHeader() {
         Text title = new Text("Audio and acoustic settings");
         title.setFill(Color.WHITE);
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 20));
@@ -60,56 +72,36 @@ public class AudioSettingsView {
         javafx.scene.layout.Region spacer = new javafx.scene.layout.Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         header.getChildren().addAll(spacer, closeButton);
+        return header;
+    }
 
+    private GridPane buildVolumeGrid() {
         GridPane grid = new GridPane();
         grid.setHgap(15);
         grid.setVgap(14);
         grid.setPadding(new Insets(10));
 
-        // 1. Master Volume
         Label masterLabel = new Label("Master volume:");
         masterLabel.setTextFill(Color.LIGHTGREEN);
-        masterVolumeSlider = new Slider(0.0, 1.0, audioSynthesizer.getMasterVolume());
-        masterVolumeSlider.setShowTickLabels(true);
-        masterVolumeSlider.setShowTickMarks(true);
-        masterVolumeSlider.setMajorTickUnit(0.2);
-        masterVolumeSlider.setStyle("-fx-cursor: hand;");
-        masterVolumeSlider.setCursor(javafx.scene.Cursor.HAND);
-        masterVolumeSlider.valueProperty().addListener((obs, oldV, newV) -> audioSynthesizer.setMasterVolume(newV.doubleValue()));
+        masterVolumeSlider = createVolumeSlider(audioSynthesizer.getMasterVolume(), audioSynthesizer::setMasterVolume);
         grid.add(masterLabel, 0, 0);
         grid.add(masterVolumeSlider, 1, 0);
 
-        // 2. Sound Effects (SFX) Volume
         Label sfxLabel = new Label("Sound effects (SFX):");
         sfxLabel.setTextFill(Color.LIGHTCYAN);
-        sfxVolumeSlider = new Slider(0.0, 1.0, audioSynthesizer.getSfxVolume());
-        sfxVolumeSlider.setShowTickLabels(true);
-        sfxVolumeSlider.setShowTickMarks(true);
-        sfxVolumeSlider.setMajorTickUnit(0.2);
-        sfxVolumeSlider.setStyle("-fx-cursor: hand;");
-        sfxVolumeSlider.setCursor(javafx.scene.Cursor.HAND);
-        sfxVolumeSlider.valueProperty().addListener((obs, oldV, newV) -> audioSynthesizer.setSfxVolume(newV.doubleValue()));
+        sfxVolumeSlider = createVolumeSlider(audioSynthesizer.getSfxVolume(), audioSynthesizer::setSfxVolume);
         grid.add(sfxLabel, 0, 1);
         grid.add(sfxVolumeSlider, 1, 1);
 
-        // 3. Music & Ambient Volume
         Label musicLabel = new Label("Music and ambient:");
         musicLabel.setTextFill(Color.LIGHTCYAN);
-        musicVolumeSlider = new Slider(0.0, 1.0, audioSynthesizer.getMusicVolume());
-        musicVolumeSlider.setShowTickLabels(true);
-        musicVolumeSlider.setShowTickMarks(true);
-        musicVolumeSlider.setMajorTickUnit(0.2);
-        musicVolumeSlider.setStyle("-fx-cursor: hand;");
-        musicVolumeSlider.setCursor(javafx.scene.Cursor.HAND);
-        musicVolumeSlider.valueProperty().addListener((obs, oldV, newV) -> audioSynthesizer.setMusicVolume(newV.doubleValue()));
+        musicVolumeSlider = createVolumeSlider(audioSynthesizer.getMusicVolume(), audioSynthesizer::setMusicVolume);
         grid.add(musicLabel, 0, 2);
         grid.add(musicVolumeSlider, 1, 2);
 
-        // 4. Mute Checkbox
         Label muteLabel = new Label("Mute audio output:");
         muteLabel.setTextFill(Color.LIGHTSALMON);
         muteCheckBox = new CheckBox("Mute all synthesized sound cues");
-        muteCheckBox.setStyle("-fx-cursor: hand;");
         muteCheckBox.setCursor(javafx.scene.Cursor.HAND);
         muteCheckBox.setTextFill(Color.WHITE);
         muteCheckBox.setSelected(audioSynthesizer.isMuted());
@@ -122,26 +114,42 @@ public class AudioSettingsView {
         grid.add(muteLabel, 0, 3);
         grid.add(muteCheckBox, 1, 3);
 
-        // 5. Test Audio Cues
+        return grid;
+    }
+
+    private Slider createVolumeSlider(double initialValue, DoubleConsumer onChange) {
+        Slider slider = new Slider(0.0, 1.0, initialValue);
+        slider.setShowTickLabels(true);
+        slider.setShowTickMarks(true);
+        slider.setMajorTickUnit(0.2);
+        slider.setCursor(javafx.scene.Cursor.HAND);
+        slider.valueProperty().addListener((obs, oldV, newV) -> onChange.accept(newV.doubleValue()));
+        return slider;
+    }
+
+    private VBox buildTestCueSection() {
         VBox testBox = new VBox(8);
         Label testLabel = new Label("Test synthesized cues:");
         testLabel.setTextFill(Color.LIGHTSKYBLUE);
         testLabel.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
 
-        HBox testButtonsRow1 = new HBox(10);
-        Button btnClick = createCueButton("UI click", AudioSynthesizer.EVENT_UI_CLICK);
-        Button btnLaser = createCueButton("Laser fire", AudioSynthesizer.EVENT_LASER_FIRE);
-        Button btnKinetic = createCueButton("Kinetic fire", AudioSynthesizer.EVENT_KINETIC_FIRE);
-        testButtonsRow1.getChildren().addAll(btnClick, btnLaser, btnKinetic);
+        HBox testButtonsRow1 = new HBox(10,
+                createCueButton("UI click", AudioSynthesizer.EVENT_UI_CLICK),
+                createCueButton("Laser fire", AudioSynthesizer.EVENT_LASER_FIRE),
+                createCueButton("Kinetic fire", AudioSynthesizer.EVENT_KINETIC_FIRE)
+        );
 
-        HBox testButtonsRow2 = new HBox(10);
-        Button btnWarp = createCueButton("Warp transit", AudioSynthesizer.EVENT_WARP_TRANSIT);
-        Button btnExplosion = createCueButton("Explosion", AudioSynthesizer.EVENT_EXPLOSION);
-        Button btnFanfare = createCueButton("Victory fanfare", AudioSynthesizer.EVENT_VICTORY_FANFARE);
-        testButtonsRow2.getChildren().addAll(btnWarp, btnExplosion, btnFanfare);
+        HBox testButtonsRow2 = new HBox(10,
+                createCueButton("Warp transit", AudioSynthesizer.EVENT_WARP_TRANSIT),
+                createCueButton("Explosion", AudioSynthesizer.EVENT_EXPLOSION),
+                createCueButton("Victory fanfare", AudioSynthesizer.EVENT_VICTORY_FANFARE)
+        );
 
         testBox.getChildren().addAll(testLabel, testButtonsRow1, testButtonsRow2);
+        return testBox;
+    }
 
+    private HBox buildFooter() {
         HBox footer = new HBox(10);
         footer.setAlignment(Pos.CENTER_RIGHT);
         Button backToMenuBtn = new Button("Back to game menu");
@@ -154,9 +162,7 @@ public class AudioSettingsView {
             }
         });
         footer.getChildren().add(backToMenuBtn);
-
-        root.getChildren().addAll(header, grid, testBox, footer);
-        root.setVisible(false);
+        return footer;
     }
 
     private Button createCueButton(String text, String cueEvent) {

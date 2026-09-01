@@ -49,17 +49,7 @@ public record ColonizePlanetCommand(
         Planet planet = system.planets().stream().filter(p -> p.id().equals(targetPlanetId)).findFirst().orElse(null);
         if (planet == null) return state;
 
-        Race race = null;
-        try {
-            List<Race> races = DataModelLoader.loadRaces();
-            for (Race r : races) {
-                if (r.id().equalsIgnoreCase(empire.raceId())) {
-                    race = r;
-                    break;
-                }
-            }
-        } catch (IOException ignored) {}
-
+        Race race = loadEmpireRace(empire.raceId());
         if (race == null) return state;
 
         ColonizationProcessor processor = new ColonizationProcessor();
@@ -71,59 +61,9 @@ public record ColonizePlanetCommand(
             return state;
         }
 
-        // Update planet in system
-        List<Planet> updatedPlanets = new ArrayList<>();
-        for (Planet p : system.planets()) {
-            if (p.id().equals(targetPlanetId)) {
-                updatedPlanets.add(res.colonizedPlanet());
-            } else {
-                updatedPlanets.add(p);
-            }
-        }
-
-        SolarSystem updatedSys = new SolarSystem(
-                system.id(), system.name(), system.description(),
-                system.x(), system.y(), system.z(),
-                system.sunMass(), system.sunDiameter(), system.sunColor(),
-                updatedPlanets, system.asteroidBelts()
-        );
-
-        List<SolarSystem> updatedSystems = new ArrayList<>();
-        for (SolarSystem s : state.solarSystems()) {
-            if (s.id().equals(targetSystemId)) {
-                updatedSystems.add(updatedSys);
-            } else {
-                updatedSystems.add(s);
-            }
-        }
-
-        // Update fleet
-        List<Fleet> updatedFleets = new ArrayList<>();
-        for (Fleet f : state.fleets()) {
-            if (f.id().equals(fleetId)) {
-                updatedFleets.add(res.updatedFleet());
-            } else {
-                updatedFleets.add(f);
-            }
-        }
-
-        // Update empire controlled systems
-        List<Empire> updatedEmpires = new ArrayList<>();
-        for (Empire e : state.empires()) {
-            if (e.id().equals(empireId)) {
-                List<String> sysList = new ArrayList<>(e.controlledSystemIds());
-                if (!sysList.contains(targetSystemId)) {
-                    sysList.add(targetSystemId);
-                }
-                updatedEmpires.add(new Empire(
-                        e.id(), e.name(), e.raceId(), e.societyStructure(),
-                        e.treasuryCredits(), e.corporateTaxRate(), sysList,
-                        e.ministries(), e.systemGovernorAssignments(), e.unlockedTechIds(), e.activeShipDesignIds()
-                ));
-            } else {
-                updatedEmpires.add(e);
-            }
-        }
+        List<SolarSystem> updatedSystems = updateSystemsWithColonizedPlanet(state.solarSystems(), targetSystemId, targetPlanetId, res.colonizedPlanet());
+        List<Fleet> updatedFleets = updateFleetsWithColonizer(state.fleets(), fleetId, res.updatedFleet());
+        List<Empire> updatedEmpires = updateEmpireControlledSystems(state.empires(), empireId, targetSystemId);
 
         return new GameState(
                 state.turn(),
@@ -144,5 +84,64 @@ public record ColonizePlanetCommand(
                 state.industrialFacilities(),
                 state.expansionProjects()
         );
+    }
+
+    private Race loadEmpireRace(String raceId) {
+        try {
+            List<Race> races = DataModelLoader.loadRaces();
+            for (Race r : races) {
+                if (r.id().equalsIgnoreCase(raceId)) {
+                    return r;
+                }
+            }
+        } catch (IOException ignored) {}
+        return null;
+    }
+
+    private List<SolarSystem> updateSystemsWithColonizedPlanet(List<SolarSystem> systems, String sysId, String planetId, Planet colonizedPlanet) {
+        List<SolarSystem> updatedSystems = new ArrayList<>();
+        for (SolarSystem s : systems) {
+            if (s.id().equals(sysId)) {
+                List<Planet> updatedPlanets = new ArrayList<>();
+                for (Planet p : s.planets()) {
+                    updatedPlanets.add(p.id().equals(planetId) ? colonizedPlanet : p);
+                }
+                updatedSystems.add(new SolarSystem(
+                        s.id(), s.name(), s.description(), s.x(), s.y(), s.z(),
+                        s.sunMass(), s.sunDiameter(), s.sunColor(), updatedPlanets, s.asteroidBelts()
+                ));
+            } else {
+                updatedSystems.add(s);
+            }
+        }
+        return updatedSystems;
+    }
+
+    private List<Fleet> updateFleetsWithColonizer(List<Fleet> fleets, String targetFleetId, Fleet updatedFleet) {
+        List<Fleet> updatedFleets = new ArrayList<>();
+        for (Fleet f : fleets) {
+            updatedFleets.add(f.id().equals(targetFleetId) ? updatedFleet : f);
+        }
+        return updatedFleets;
+    }
+
+    private List<Empire> updateEmpireControlledSystems(List<Empire> empires, String targetEmpireId, String newSystemId) {
+        List<Empire> updatedEmpires = new ArrayList<>();
+        for (Empire e : empires) {
+            if (e.id().equals(targetEmpireId)) {
+                List<String> sysList = new ArrayList<>(e.controlledSystemIds());
+                if (!sysList.contains(newSystemId)) {
+                    sysList.add(newSystemId);
+                }
+                updatedEmpires.add(new Empire(
+                        e.id(), e.name(), e.raceId(), e.societyStructure(),
+                        e.treasuryCredits(), e.corporateTaxRate(), sysList,
+                        e.ministries(), e.systemGovernorAssignments(), e.unlockedTechIds(), e.activeShipDesignIds()
+                ));
+            } else {
+                updatedEmpires.add(e);
+            }
+        }
+        return updatedEmpires;
     }
 }

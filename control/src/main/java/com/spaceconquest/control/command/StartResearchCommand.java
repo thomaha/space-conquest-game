@@ -26,6 +26,22 @@ public record StartResearchCommand(
         if (assignedScientists <= 0) {
             return false;
         }
+
+        // Validate that total assigned scientists does not exceed available headcount
+        long availableScientists = (state.systemEconomies() == null || state.systemEconomies().isEmpty()) ? 100 : state.systemEconomies().stream()
+                .filter(se -> se.empireId().equals(empireId))
+                .mapToLong(se -> se.employedScientists())
+                .sum();
+
+        int currentlyAssigned = (state.researchProjects() == null) ? 0 : state.researchProjects().stream()
+                .filter(p -> p.empireId().equals(empireId) && !p.targetTechOrAppId().equals(targetTechOrAppId))
+                .mapToInt(p -> p.assignedScientists())
+                .sum();
+
+        if (currentlyAssigned + assignedScientists > availableScientists) {
+            return false;
+        }
+
         return state.empires().stream().anyMatch(e -> e.id().equals(empireId));
     }
 

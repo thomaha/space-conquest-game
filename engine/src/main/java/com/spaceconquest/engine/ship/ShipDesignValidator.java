@@ -25,6 +25,19 @@ public class ShipDesignValidator {
             List<String> validationErrors
     ) {}
 
+    private record ModuleAggregation(
+            int totalSlots,
+            double dryMass,
+            double powerDraw,
+            double powerOutput,
+            double thrust,
+            double maxCargo,
+            double troopCapacity,
+            double colonizationCapacity,
+            double miningRate,
+            int maxComplexity
+    ) {}
+
     /**
      * Evaluates and builds a validated ShipDesign instance with computed physical variables.
      */
@@ -83,13 +96,63 @@ public class ShipDesignValidator {
             int maxNanotechTier
     ) {
         List<String> errors = new ArrayList<>();
+        ModuleAggregation agg = aggregateModules(modules);
 
-        int totalSlotsAllocated = 0;
-        double totalModuleDryMass = 0.0;
-        double totalPowerDraw = 0.0;
-        double totalPowerOutput = 0.0;
-        double totalThrust = 0.0;
-        double maxCargoCapacity = 0.0;
+        int maxFrameSlots = (frame != null) ? frame.totalSlots() : 100;
+        if (agg.totalSlots() > maxFrameSlots) {
+            errors.add("Total allocated module slots (" + agg.totalSlots() + ") exceeds hull frame limit (" + maxFrameSlots + ")");
+        }
+
+        double armorMass = agg.totalSlots() * Math.max(0.0, armorThicknessCm) * 150.0;
+        double frameDryMass = (frame != null) ? frame.frameMassKg() : 5000.0;
+        double totalDryMass = frameDryMass + agg.dryMass() + armorMass;
+
+        double structuralIntegrity = calculateStructuralIntegrity(frame, hullMaterial, agg.totalSlots(), totalDryMass);
+        if (structuralIntegrity < MIN_STRUCTURAL_INTEGRITY_THRESHOLD) {
+            errors.add(String.format("Calculated structural integrity (%.2f) fails minimum ceiling (%.2f)",
+                    structuralIntegrity, MIN_STRUCTURAL_INTEGRITY_THRESHOLD));
+        }
+
+        double powerBalance = agg.powerOutput() - agg.powerDraw();
+        if (powerBalance < 0.0) {
+            errors.add(String.format("Power grid deficit: output (%.1f kW) is less than total draw (%.1f kW)",
+                    agg.powerOutput(), agg.powerDraw()));
+        }
+
+        int allowedTier = Math.max(1, maxNanotechTier);
+        if (agg.maxComplexity() > allowedTier) {
+            errors.add(String.format("Equipped module complexity (%d) exceeds imperial nanotechnology tier (%d)",
+                    agg.maxComplexity(), allowedTier));
+        }
+
+        validateRoleRequirements(role, agg, errors);
+
+        double gravity = Math.max(0.1, homePlanetGravity);
+        double atmosphere = Math.max(0.0, homeAtmospherePressure);
+        double maxLaunchMass = totalDryMass + agg.maxCargo();
+        double minLaunchThrustRequiredN = maxLaunchMass * gravity * (1.0 + atmosphere);
+        boolean isLaunchCapable = agg.thrust() >= minLaunchThrustRequiredN;
+
+        return new ValidationResult(
+                errors.isEmpty(),
+                isLaunchCapable,
+                structuralIntegrity,
+                powerBalance,
+                totalDryMass,
+                agg.maxCargo(),
+                agg.thrust(),
+                minLaunchThrustRequiredN,
+                errors
+        );
+    }
+
+    private ModuleAggregation aggregateModules(List<ShipModule> modules) {
+        int totalSlots = 0;
+        double dryMass = 0.0;
+        double powerDraw = 0.0;
+        double powerOutput = 0.0;
+        double thrust = 0.0;
+        double maxCargo = 0.0;
         double troopCapacity = 0.0;
         double colonizationCapacity = 0.0;
         double miningRate = 0.0;
@@ -97,104 +160,50 @@ public class ShipDesignValidator {
 
         if (modules != null) {
             for (ShipModule mod : modules) {
-                totalSlotsAllocated += mod.slotCost();
-                totalModuleDryMass += mod.dryMassKg();
-                totalPowerDraw += mod.powerDrawKw();
-                totalPowerOutput += mod.powerOutputKw();
-                totalThrust += mod.thrustOutputN();
+                totalSlots += mod.slotCost();
+                dryMass += mod.dryMassKg();
+                powerDraw += mod.powerDrawKw();
+                powerOutput += mod.powerOutputKw();
+                thrust += mod.thrustOutputN();
                 highestModuleComplexity = Math.max(highestModuleComplexity, mod.complexityLevel());
 
                 Map<String, Double> stats = mod.operationalStats();
-                if (stats.containsKey("cargoCapacityKg")) {
-                    maxCargoCapacity += stats.get("cargoCapacityKg");
-                }
-                if (stats.containsKey("troopCapacity")) {
-                    troopCapacity += stats.get("troopCapacity");
-                }
-                if (stats.containsKey("colonizationCapacity")) {
-                    colonizationCapacity += stats.get("colonizationCapacity");
-                }
-                if (stats.containsKey("miningRateKgPerTurn")) {
-                    miningRate += stats.get("miningRateKgPerTurn");
-                }
+                if (stats.containsKey("cargoCapacityKg")) maxCargo += stats.get("cargoCapacityKg");
+                if (stats.containsKey("troopCapacity")) troopCapacity += stats.get("troopCapacity");
+                if (stats.containsKey("colonizationCapacity")) colonizationCapacity += stats.get("colonizationCapacity");
+                if (stats.containsKey("miningRateKgPerTurn")) miningRate += stats.get("miningRateKgPerTurn");
             }
         }
+        return new ModuleAggregation(
+                totalSlots, dryMass, powerDraw, powerOutput, thrust,
+                maxCargo, troopCapacity, colonizationCapacity, miningRate, highestModuleComplexity
+        );
+    }
 
-        // 1. Frame slot capacity check
-        int maxFrameSlots = (frame != null) ? frame.totalSlots() : 100;
-        if (totalSlotsAllocated > maxFrameSlots) {
-            errors.add("Total allocated module slots (" + totalSlotsAllocated + ") exceeds hull frame limit (" + maxFrameSlots + ")");
-        }
-
-        // 2. Armor dry mass calculation
-        double armorMass = totalSlotsAllocated * Math.max(0.0, armorThicknessCm) * 150.0;
-        double frameDryMass = (frame != null) ? frame.frameMassKg() : 5000.0;
-        double totalDryMass = frameDryMass + totalModuleDryMass + armorMass;
-
-        // 3. Structural Integrity Ceiling (SI_c)
+    private double calculateStructuralIntegrity(ShipHullFrame frame, Material hullMaterial, int totalSlotsAllocated, double totalDryMass) {
         double materialStrength = 50.0;
         if (hullMaterial != null && hullMaterial.strength() > 0) {
             materialStrength = hullMaterial.strength();
         } else if (frame != null && frame.baseStructuralStrength() > 0) {
             materialStrength = frame.baseStructuralStrength();
         }
-
         double dryMassMod = Math.min(0.85, totalDryMass / 1000000.0);
-        double structuralIntegrity = (materialStrength / Math.max(1, totalSlotsAllocated)) * (1.0 - dryMassMod);
-        if (structuralIntegrity < MIN_STRUCTURAL_INTEGRITY_THRESHOLD) {
-            errors.add(String.format("Calculated structural integrity (%.2f) fails minimum ceiling (%.2f)",
-                    structuralIntegrity, MIN_STRUCTURAL_INTEGRITY_THRESHOLD));
-        }
+        return (materialStrength / Math.max(1, totalSlotsAllocated)) * (1.0 - dryMassMod);
+    }
 
-        // 4. Power Grid Constraint
-        double powerBalance = totalPowerOutput - totalPowerDraw;
-        if (powerBalance < 0.0) {
-            errors.add(String.format("Power grid deficit: output (%.1f kW) is less than total draw (%.1f kW)",
-                    totalPowerOutput, totalPowerDraw));
-        }
-
-        // 5. Nanotech Complexity Cap
-        int allowedTier = Math.max(1, maxNanotechTier);
-        if (highestModuleComplexity > allowedTier) {
-            errors.add(String.format("Equipped module complexity (%d) exceeds imperial nanotechnology tier (%d)",
-                    highestModuleComplexity, allowedTier));
-        }
-
-        // 6. Role Requirements Check
-        if (ShipRole.CARGO_TRANSPORT.equalsIgnoreCase(role) && maxCargoCapacity <= 0.0) {
+    private void validateRoleRequirements(String role, ModuleAggregation agg, List<String> errors) {
+        if (ShipRole.CARGO_TRANSPORT.equalsIgnoreCase(role) && agg.maxCargo() <= 0.0) {
             errors.add("Cargo transport role requires at least one cargo vault module");
         }
-        if (ShipRole.TROOP_TRANSPORT.equalsIgnoreCase(role) && troopCapacity <= 0.0) {
+        if (ShipRole.TROOP_TRANSPORT.equalsIgnoreCase(role) && agg.troopCapacity() <= 0.0) {
             errors.add("Troop transport role requires at least one troop transport bay module");
         }
-        if (ShipRole.COLONY_SHIP.equalsIgnoreCase(role) && colonizationCapacity <= 0.0) {
+        if (ShipRole.COLONY_SHIP.equalsIgnoreCase(role) && agg.colonizationCapacity() <= 0.0) {
             errors.add("Colony ship role requires a planetary colonization module");
         }
-        if (ShipRole.MINING_SHIP.equalsIgnoreCase(role) && miningRate <= 0.0) {
+        if (ShipRole.MINING_SHIP.equalsIgnoreCase(role) && agg.miningRate() <= 0.0) {
             errors.add("Mining ship role requires an extraction/mining array module");
         }
-
-        // 7. Thrust-to-mass Launch Barrier (in SI units m/s² and Newtons)
-        double gravity = Math.max(0.1, homePlanetGravity);
-        double atmosphere = Math.max(0.0, homeAtmospherePressure);
-        double maxLaunchMass = totalDryMass + maxCargoCapacity;
-        double minLaunchThrustRequiredN = maxLaunchMass * gravity * (1.0 + atmosphere);
-
-        boolean isLaunchCapable = totalThrust >= minLaunchThrustRequiredN;
-
-        boolean isValid = errors.isEmpty();
-
-        return new ValidationResult(
-                isValid,
-                isLaunchCapable,
-                structuralIntegrity,
-                powerBalance,
-                totalDryMass,
-                maxCargoCapacity,
-                totalThrust,
-                minLaunchThrustRequiredN,
-                errors
-        );
     }
 
     /**
@@ -208,10 +217,6 @@ public class ShipDesignValidator {
 
     /**
      * Calculates the sub-light flight speed penalty and power draw multiplier inside planetary atmospheres.
-     *
-     * @param atmosphericPressure planetary gas pressure in standard atmospheres (atm)
-     * @param dragCoefficient     aerodynamic cross-section drag coefficient (0.1 to 1.5)
-     * @return speed multiplier (0.0 to 1.0)
      */
     public double calculateAtmosphericSpeedMultiplier(double atmosphericPressure, double dragCoefficient) {
         if (atmosphericPressure <= 0.0) return 1.0;
@@ -220,20 +225,23 @@ public class ShipDesignValidator {
     }
 
     /**
-     * Calculates the power grid draw penalty inside planetary gas envelopes.
+     * Resolves sensor detection range and stealth signature observability.
      */
-    public double calculateAtmosphericPowerDrawMultiplier(double atmosphericPressure) {
-        if (atmosphericPressure <= 0.0) return 1.0;
-        return 1.0 + (atmosphericPressure * 0.5);
+    public double calculateSensorObservability(double baseRadarCrossSectionM2, double stealthCoatingAbsorptivity) {
+        double absorptivity = Math.max(0.0, Math.min(0.95, stealthCoatingAbsorptivity));
+        return baseRadarCrossSectionM2 * (1.0 - absorptivity);
     }
 
     /**
-     * Evaluates atmospheric entry corridor thermal stress against hull structural material limits.
-     *
-     * @param hullMaterialId      structural material ID (e.g. refined_aluminum, steel, tungsten, silicon_carbide)
-     * @param entryVelocityKmh    descent speed along the entry corridor in km/h
-     * @param atmosphericPressure ambient surface atmospheric pressure in atm
-     * @param hasHeatShield       true if equipped with ablative deflection plating or ceramic thermal tiles
+     * Calculates additional power draw from atmospheric flight engine thrusting against fluid resistance.
+     */
+    public double calculateAtmosphericPowerDrawMultiplier(double atmosphericPressure) {
+        if (atmosphericPressure <= 0.0) return 1.0;
+        return 1.0 + (atmosphericPressure * 0.50);
+    }
+
+    /**
+     * Evaluates atmospheric entry heating and calculates hull/armor thermal stress.
      */
     public ThermalStressResult calculateAtmosphericEntryThermalStress(
             String hullMaterialId,
@@ -245,12 +253,10 @@ public class ShipDesignValidator {
             return new ThermalStressResult(300.0, 2000.0, hasHeatShield, false, 0.0);
         }
 
-        // Friction heating formula: T_entry = 300K + (v_entry^2 * pressure * 0.000005)
         double normalizedV = Math.max(1000.0, entryVelocityKmh);
         double entryTempK = 300.0 + ((normalizedV * normalizedV) * atmosphericPressure * 0.000005);
 
-        // Material melting points
-        double meltingPointK = 1600.0; // Default steel baseline
+        double meltingPointK = 1600.0;
         String mat = (hullMaterialId != null) ? hullMaterialId.toLowerCase() : "steel";
 
         if (mat.contains("aluminum")) {
@@ -268,7 +274,7 @@ public class ShipDesignValidator {
         }
 
         if (hasHeatShield) {
-            meltingPointK += 1500.0; // Heat shield absorbs thermal spike
+            meltingPointK += 1500.0;
         }
 
         boolean suffersFailure = entryTempK > meltingPointK;
@@ -283,7 +289,6 @@ public class ShipDesignValidator {
 
     /**
      * Calculates the surface blast-off gravity launch tax in credits.
-     * Formula: Launch Cost = (Total Dry Mass + Stored Cargo Mass) * Gravity * (1 + Atmospheric Pressure) * 0.001
      */
     public double calculateLaunchGravityTax(
             double totalDryMassKg,

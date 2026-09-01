@@ -30,24 +30,24 @@ public class FleetProcessorTest {
         );
 
         // Turn 1: Enters warp and moves 0.25 progress, consumes fuel
-        List<Fleet> step1 = fleetProcessor.processFleetMovements(List.of(initialFleet));
+        List<Fleet> step1 = fleetProcessor.processFleetMovements(List.of(initialFleet), null, null);
         Fleet f1 = step1.getFirst();
         assertTrue(f1.isInWarp(), "Fleet should enter warp transit");
         assertEquals(0.25, f1.transitProgress(), 0.001);
         assertEquals(45.0, f1.ships().getFirst().currentFuelKg(), 0.001);
 
         // Turn 2: Advances to 0.50
-        List<Fleet> step2 = fleetProcessor.processFleetMovements(step1);
+        List<Fleet> step2 = fleetProcessor.processFleetMovements(step1, null, null);
         Fleet f2 = step2.getFirst();
         assertEquals(0.50, f2.transitProgress(), 0.001);
 
         // Turn 3: Advances to 0.75
-        List<Fleet> step3 = fleetProcessor.processFleetMovements(step2);
+        List<Fleet> step3 = fleetProcessor.processFleetMovements(step2, null, null);
         Fleet f3 = step3.getFirst();
         assertEquals(0.75, f3.transitProgress(), 0.001);
 
         // Turn 4: Reaches 1.0 -> Arrives at alpha_centauri and exits warp
-        List<Fleet> step4 = fleetProcessor.processFleetMovements(step3);
+        List<Fleet> step4 = fleetProcessor.processFleetMovements(step3, null, null);
         Fleet f4 = step4.getFirst();
         assertFalse(f4.isInWarp(), "Fleet should exit warp upon arrival");
         assertEquals("alpha_centauri", f4.currentSystemId());
@@ -62,7 +62,7 @@ public class FleetProcessorTest {
                 "sol", "", 10.0, 20.0, 0.0, false, "PATROL", List.of()
         );
 
-        List<Fleet> updated = fleetProcessor.processFleetMovements(List.of(patrolFleet));
+        List<Fleet> updated = fleetProcessor.processFleetMovements(List.of(patrolFleet), null, null);
         Fleet f = updated.getFirst();
         assertEquals(11.0, f.coordinateX(), 0.001);
         assertEquals(21.0, f.coordinateY(), 0.001);

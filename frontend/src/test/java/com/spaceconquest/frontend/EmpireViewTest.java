@@ -1,5 +1,14 @@
 package com.spaceconquest.frontend;
 
+import com.spaceconquest.frontend.empire.EmpireView;
+import com.spaceconquest.frontend.empire.Tab;
+import com.spaceconquest.frontend.empire.FilterCategory;
+import com.spaceconquest.frontend.empire.SortOption;
+import com.spaceconquest.frontend.empire.EconomySubView;
+import com.spaceconquest.frontend.empire.EmpireEconomyReport;
+import com.spaceconquest.frontend.empire.SystemEconomyReport;
+import com.spaceconquest.frontend.empire.ColonyEconomyEntry;
+import com.spaceconquest.frontend.empire.CorporateEconomyEntry;
 import com.spaceconquest.control.HumanController;
 import com.spaceconquest.control.command.BuildFacilityCommand;
 import com.spaceconquest.control.command.ColonizePlanetCommand;
@@ -154,36 +163,36 @@ public class EmpireViewTest {
         view.updateData(List.of(sol), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
 
         // Default: Colonized
-        view.setCurrentFilter(EmpireView.FilterCategory.COLONIZED);
+        view.setCurrentFilter(FilterCategory.COLONIZED);
         List<PlanetaryBodyEntry> colonized = view.getFilteredAndSortedPlanetaryBodies();
         assertEquals(1, colonized.size());
         assertEquals("earth", colonized.get(0).id());
 
         // Uncolonized: mars, jupiter, europa
-        view.setCurrentFilter(EmpireView.FilterCategory.UNCOLONIZED);
+        view.setCurrentFilter(FilterCategory.UNCOLONIZED);
         List<PlanetaryBodyEntry> uncolonized = view.getFilteredAndSortedPlanetaryBodies();
         assertEquals(3, uncolonized.size());
 
         // Colonizable: mars, europa (jupiter is gas giant with 24.79 m/s²)
-        view.setCurrentFilter(EmpireView.FilterCategory.COLONIZABLE);
+        view.setCurrentFilter(FilterCategory.COLONIZABLE);
         List<PlanetaryBodyEntry> colonizable = view.getFilteredAndSortedPlanetaryBodies();
         assertEquals(2, colonizable.size());
         assertTrue(colonizable.stream().anyMatch(b -> b.id().equals("mars")));
         assertTrue(colonizable.stream().anyMatch(b -> b.id().equals("europa")));
 
         // All bodies: earth, mars, jupiter, europa
-        view.setCurrentFilter(EmpireView.FilterCategory.ALL_BODIES);
+        view.setCurrentFilter(FilterCategory.ALL_BODIES);
         List<PlanetaryBodyEntry> all = view.getFilteredAndSortedPlanetaryBodies();
         assertEquals(4, all.size());
 
         // Only planets: earth, mars, jupiter
-        view.setCurrentFilter(EmpireView.FilterCategory.ONLY_PLANETS);
+        view.setCurrentFilter(FilterCategory.ONLY_PLANETS);
         List<PlanetaryBodyEntry> planetsOnly = view.getFilteredAndSortedPlanetaryBodies();
         assertEquals(3, planetsOnly.size());
         assertTrue(planetsOnly.stream().noneMatch(PlanetaryBodyEntry::isMoon));
 
         // Only moons: europa
-        view.setCurrentFilter(EmpireView.FilterCategory.ONLY_MOONS);
+        view.setCurrentFilter(FilterCategory.ONLY_MOONS);
         List<PlanetaryBodyEntry> moonsOnly = view.getFilteredAndSortedPlanetaryBodies();
         assertEquals(1, moonsOnly.size());
         assertEquals("europa", moonsOnly.get(0).id());
@@ -199,40 +208,40 @@ public class EmpireViewTest {
 
         EmpireView view = new EmpireView(null);
         view.updateData(List.of(sysB, sysA), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
-        view.setCurrentFilter(EmpireView.FilterCategory.ALL_BODIES);
+        view.setCurrentFilter(FilterCategory.ALL_BODIES);
 
         // Name A-Z
-        view.setCurrentSort(EmpireView.SortOption.NAME_AZ);
+        view.setCurrentSort(SortOption.NAME_AZ);
         List<PlanetaryBodyEntry> sortByName = view.getFilteredAndSortedPlanetaryBodies();
         assertEquals("Alpha Planet", sortByName.get(0).name());
         assertEquals("Beta Planet", sortByName.get(1).name());
 
         // System name
-        view.setCurrentSort(EmpireView.SortOption.SYSTEM_NAME);
+        view.setCurrentSort(SortOption.SYSTEM_NAME);
         List<PlanetaryBodyEntry> sortBySystem = view.getFilteredAndSortedPlanetaryBodies();
         assertEquals("Alpha System", sortBySystem.get(0).systemName());
         assertEquals("Zeta System", sortBySystem.get(1).systemName());
 
         // Population Descending
-        view.setCurrentSort(EmpireView.SortOption.POPULATION_DESC);
+        view.setCurrentSort(SortOption.POPULATION_DESC);
         List<PlanetaryBodyEntry> sortByPop = view.getFilteredAndSortedPlanetaryBodies();
         assertEquals(500L, sortByPop.get(0).totalPopulation());
         assertEquals(100L, sortByPop.get(1).totalPopulation());
 
         // Size Descending
-        view.setCurrentSort(EmpireView.SortOption.SIZE_DESC);
+        view.setCurrentSort(SortOption.SIZE_DESC);
         List<PlanetaryBodyEntry> sortBySize = view.getFilteredAndSortedPlanetaryBodies();
         assertEquals(15000.0, sortBySize.get(0).diameter());
         assertEquals(5000.0, sortBySize.get(1).diameter());
 
         // Gravity Descending
-        view.setCurrentSort(EmpireView.SortOption.GRAVITY_DESC);
+        view.setCurrentSort(SortOption.GRAVITY_DESC);
         List<PlanetaryBodyEntry> sortByGrav = view.getFilteredAndSortedPlanetaryBodies();
         assertEquals(15.0, sortByGrav.get(0).gravity());
         assertEquals(5.0, sortByGrav.get(1).gravity());
 
         // Resources Descending
-        view.setCurrentSort(EmpireView.SortOption.RESOURCES_DESC);
+        view.setCurrentSort(SortOption.RESOURCES_DESC);
         List<PlanetaryBodyEntry> sortByRes = view.getFilteredAndSortedPlanetaryBodies();
         assertEquals(3, sortByRes.get(0).resourceCount());
         assertEquals(1, sortByRes.get(1).resourceCount());
@@ -269,25 +278,25 @@ public class EmpireViewTest {
     public void testTabSwitchingAndRoot() {
         EmpireView view = new EmpireView(null);
         assertNotNull(view.getRoot());
-        assertEquals(EmpireView.Tab.ECONOMY, view.getCurrentTab());
+        assertEquals(Tab.ECONOMY, view.getCurrentTab());
 
-        view.selectTab(EmpireView.Tab.CABINET);
-        assertEquals(EmpireView.Tab.CABINET, view.getCurrentTab());
+        view.selectTab(Tab.CABINET);
+        assertEquals(Tab.CABINET, view.getCurrentTab());
 
-        view.selectTab(EmpireView.Tab.PLANETS);
-        assertEquals(EmpireView.Tab.PLANETS, view.getCurrentTab());
+        view.selectTab(Tab.PLANETS);
+        assertEquals(Tab.PLANETS, view.getCurrentTab());
 
-        view.selectTab(EmpireView.Tab.STATIONS);
-        assertEquals(EmpireView.Tab.STATIONS, view.getCurrentTab());
+        view.selectTab(Tab.STATIONS);
+        assertEquals(Tab.STATIONS, view.getCurrentTab());
 
-        view.selectTab(EmpireView.Tab.CORPORATIONS);
-        assertEquals(EmpireView.Tab.CORPORATIONS, view.getCurrentTab());
+        view.selectTab(Tab.CORPORATIONS);
+        assertEquals(Tab.CORPORATIONS, view.getCurrentTab());
 
-        view.selectTab(EmpireView.Tab.MEGASTRUCTURES);
-        assertEquals(EmpireView.Tab.MEGASTRUCTURES, view.getCurrentTab());
+        view.selectTab(Tab.MEGASTRUCTURES);
+        assertEquals(Tab.MEGASTRUCTURES, view.getCurrentTab());
 
-        view.selectTab(EmpireView.Tab.ECONOMY);
-        assertEquals(EmpireView.Tab.ECONOMY, view.getCurrentTab());
+        view.selectTab(Tab.ECONOMY);
+        assertEquals(Tab.ECONOMY, view.getCurrentTab());
     }
 
     @Test
@@ -303,7 +312,7 @@ public class EmpireViewTest {
 
         // Cycle through all tabs repeatedly while root is visible
         for (int i = 0; i < 3; i++) {
-            for (EmpireView.Tab tab : EmpireView.Tab.values()) {
+            for (Tab tab : Tab.values()) {
                 assertDoesNotThrow(() -> view.selectTab(tab), "Switching to tab " + tab + " must not throw");
                 assertEquals(tab, view.getCurrentTab());
             }
@@ -424,16 +433,16 @@ public class EmpireViewTest {
         assertDoesNotThrow(() -> view.updateData(gameState));
 
         assertFalse(view.getAllPlanetaryBodies().isEmpty());
-        assertEquals(EmpireView.Tab.ECONOMY, view.getCurrentTab());
+        assertEquals(Tab.ECONOMY, view.getCurrentTab());
 
-        view.selectTab(EmpireView.Tab.CABINET);
-        assertEquals(EmpireView.Tab.CABINET, view.getCurrentTab());
+        view.selectTab(Tab.CABINET);
+        assertEquals(Tab.CABINET, view.getCurrentTab());
 
-        view.selectTab(EmpireView.Tab.STATIONS);
-        assertEquals(EmpireView.Tab.STATIONS, view.getCurrentTab());
+        view.selectTab(Tab.STATIONS);
+        assertEquals(Tab.STATIONS, view.getCurrentTab());
 
-        view.selectTab(EmpireView.Tab.CORPORATIONS);
-        assertEquals(EmpireView.Tab.CORPORATIONS, view.getCurrentTab());
+        view.selectTab(Tab.CORPORATIONS);
+        assertEquals(Tab.CORPORATIONS, view.getCurrentTab());
         assertFalse(view.getCorporationsForPlayerEmpire().isEmpty(), "Default Terran corporations should be populated");
     }
 
@@ -446,7 +455,7 @@ public class EmpireViewTest {
         view.setPlayerEmpireId("terran_confederation");
         view.updateData(gameState);
 
-        EmpireView.EmpireEconomyReport report = view.calculateEmpireEconomyReport();
+        EmpireEconomyReport report = view.calculateEmpireEconomyReport();
         assertNotNull(report);
 
         // Verify sovereign metrics
@@ -464,7 +473,7 @@ public class EmpireViewTest {
 
         // Verify colony entries (Earth should be present with population and tax collected)
         assertFalse(report.colonyEntries().isEmpty());
-        EmpireView.ColonyEconomyEntry earthEntry = report.colonyEntries().stream()
+        ColonyEconomyEntry earthEntry = report.colonyEntries().stream()
                 .filter(c -> c.bodyId().equalsIgnoreCase("earth"))
                 .findFirst()
                 .orElse(null);
@@ -480,7 +489,7 @@ public class EmpireViewTest {
 
         // Verify corporate entries
         assertFalse(report.corporateEntries().isEmpty());
-        for (EmpireView.CorporateEconomyEntry corp : report.corporateEntries()) {
+        for (CorporateEconomyEntry corp : report.corporateEntries()) {
             assertNotNull(corp.corporationName());
             assertNotNull(corp.marketOrientation());
             assertTrue(corp.liquidCapital() >= 0);
@@ -581,7 +590,7 @@ public class EmpireViewTest {
         assertTrue(colonizedBodies.getFirst().isColonized(), "Colonized filter must only return colonized worlds");
 
         // Verify all bodies filter returns all generated planets and moons
-        view.setCurrentFilter(EmpireView.FilterCategory.ALL_BODIES);
+        view.setCurrentFilter(FilterCategory.ALL_BODIES);
         List<PlanetaryBodyEntry> allBodies = view.getFilteredAndSortedPlanetaryBodies();
         assertEquals(updatedBodies.size(), allBodies.size(), "ALL_BODIES filter should list all planets and moons from the new galaxy");
     }
@@ -681,16 +690,16 @@ public class EmpireViewTest {
         EmpireView view = new EmpireView(null);
         view.setPlayerEmpireId("terran_confederation");
 
-        assertEquals(EmpireView.EconomySubView.IMPERIAL, view.getCurrentEconomySubView());
+        assertEquals(EconomySubView.IMPERIAL, view.getEconomySubView());
 
-        view.setCurrentEconomySubView(EmpireView.EconomySubView.SYSTEM);
-        assertEquals(EmpireView.EconomySubView.SYSTEM, view.getCurrentEconomySubView());
+        view.setEconomySubView(EconomySubView.SYSTEM);
+        assertEquals(EconomySubView.SYSTEM, view.getEconomySubView());
 
         view.setSelectedEconomySystemId("sol");
         assertEquals("sol", view.getSelectedEconomySystemId());
 
-        view.setCurrentEconomySubView(EmpireView.EconomySubView.IMPERIAL);
-        assertEquals(EmpireView.EconomySubView.IMPERIAL, view.getCurrentEconomySubView());
+        view.setEconomySubView(EconomySubView.IMPERIAL);
+        assertEquals(EconomySubView.IMPERIAL, view.getEconomySubView());
     }
 
     @Test
@@ -702,7 +711,7 @@ public class EmpireViewTest {
         view.setPlayerEmpireId("terran_confederation");
         view.updateData(state);
 
-        EmpireView.SystemEconomyReport report = view.calculateSystemEconomyReport("sol");
+        SystemEconomyReport report = view.calculateSystemEconomyReport("sol");
         assertNotNull(report);
         assertEquals("sol", report.systemId());
         assertEquals("Sol", report.systemName());

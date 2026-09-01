@@ -80,7 +80,8 @@ public class SystemEconomyProcessor {
                     Math.max(20, (long) (systemPopulation * 0.0010)),
                     Math.max(30, (long) (systemPopulation * 0.0015)),
                     Math.max(25, (long) (systemPopulation * 0.0012)),
-                    Math.max(100, (long) (systemPopulation * 0.0050))
+                    Math.max(100, (long) (systemPopulation * 0.0050)),
+                    current.taxRate()
             );
         }
 
@@ -102,6 +103,7 @@ public class SystemEconomyProcessor {
         long technicians = Math.max(30, Math.round(systemPopulation * 0.0015 * infraIndex));
         long soldiers = Math.max(25, Math.round(systemPopulation * 0.0012 * militiaIndex));
         long recruitable = Math.max(100, Math.round(systemPopulation * 0.0050 * militiaIndex));
+        double taxRate = current.taxRate();
 
         return new SystemEconomy(
                 current.systemId(),
@@ -125,7 +127,8 @@ public class SystemEconomyProcessor {
                 engineers,
                 technicians,
                 soldiers,
-                recruitable
+                recruitable,
+                taxRate
         );
     }
 

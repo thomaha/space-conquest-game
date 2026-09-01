@@ -18,6 +18,7 @@ import com.spaceconquest.engine.governance.DiplomacyProcessor;
 import com.spaceconquest.engine.governance.GovernanceProcessor;
 import com.spaceconquest.engine.governance.GroundCombatProcessor;
 import com.spaceconquest.engine.governance.IdeologicalAccessionManager;
+import com.spaceconquest.engine.governance.TerritoryProcessor;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
 import com.spaceconquest.engine.industry.IndustrialFacility;
@@ -92,6 +93,7 @@ public class SpaceConquestEngine implements GameEngine {
     private GalacticCommunity galacticCommunity;
     private List<TradeRoute> tradeRoutes = new ArrayList<>();
     private List<FogOfWarState> fogOfWarStates = new ArrayList<>();
+    private List<CourierShip> courierShips = new ArrayList<>();
     private List<SystemEconomy> systemEconomies = new ArrayList<>();
 
     private final PopulationProcessor populationProcessor = new PopulationProcessor();
@@ -105,6 +107,7 @@ public class SpaceConquestEngine implements GameEngine {
     private final GovernanceProcessor governanceProcessor = new GovernanceProcessor();
     private final IdeologicalAccessionManager accessionManager = new IdeologicalAccessionManager(governanceProcessor);
     private final DiplomacyProcessor diplomacyProcessor = new DiplomacyProcessor();
+    private final TerritoryProcessor territoryProcessor = new TerritoryProcessor(diplomacyProcessor);
     private final GroundCombatProcessor groundCombatProcessor = new GroundCombatProcessor();
     private final ResearchProcessor researchProcessor = new ResearchProcessor();
     private final FleetProcessor fleetProcessor = new FleetProcessor();
@@ -264,8 +267,73 @@ public class SpaceConquestEngine implements GameEngine {
         // 11. Update Galactic Senate & Interstellar Legislation
         updateGalacticCommunity();
 
-        // 12. Trigger audio turn cue
+        // 12. Update Courier Ship logistics and delivery
+        updateCouriers();
+
+        // 13. Trigger audio turn cue
         audioSynthesizer.triggerCue(AudioSynthesizer.EVENT_TURN_ADVANCE);
+    }
+
+    private void updateCouriers() {
+        if (courierShips.isEmpty()) return;
+
+        List<CourierShip> remainingCouriers = new ArrayList<>();
+        Map<String, Double> empireTreasuryDeltas = new HashMap<>();
+        Map<String, Double> corpReserveDeltas = new HashMap<>();
+
+        for (CourierShip ship : courierShips) {
+            CourierShip updated = ship.withReducedTravel();
+            if (updated.hasArrived()) {
+                // Determine if owner is an empire or a corporation
+                boolean foundOwner = false;
+                for (Empire emp : empires) {
+                    if (emp.id().equals(ship.ownerEmpireId())) {
+                        empireTreasuryDeltas.merge(emp.id(), ship.credits(), Double::sum);
+                        foundOwner = true;
+                        break;
+                    }
+                }
+                if (!foundOwner) {
+                    for (Corporation corp : corporations) {
+                        if (corp.id().equals(ship.ownerEmpireId())) {
+                            corpReserveDeltas.merge(corp.id(), ship.credits(), Double::sum);
+                            break;
+                        }
+                    }
+                }
+            } else if (!updated.isIntercepted()) {
+                remainingCouriers.add(updated);
+            }
+        }
+
+        courierShips = remainingCouriers;
+
+        // Apply deliveries to empires
+        if (!empireTreasuryDeltas.isEmpty()) {
+            empires = empires.stream().map(emp -> {
+                double delta = empireTreasuryDeltas.getOrDefault(emp.id(), 0.0);
+                if (delta == 0) return emp;
+                return new Empire(
+                        emp.id(), emp.name(), emp.raceId(), emp.societyStructure(),
+                        emp.treasuryCredits() + delta, emp.corporateTaxRate(), emp.controlledSystemIds(),
+                        emp.ministries(), emp.systemGovernorAssignments(), emp.unlockedTechIds(), emp.activeShipDesignIds()
+                );
+            }).toList();
+        }
+
+        // Apply deliveries to corporations
+        if (!corpReserveDeltas.isEmpty()) {
+            corporations = corporations.stream().map(corp -> {
+                double delta = corpReserveDeltas.getOrDefault(corp.id(), 0.0);
+                if (delta == 0) return corp;
+                return new Corporation(
+                        corp.id(), corp.name(), corp.empireId(),
+                        corp.headquartersEntityId(), corp.marketOrientation(),
+                        corp.liquidCapitalReserves() + delta, corp.ownedFacilityIds(),
+                        corp.ownedShipIds(), corp.claimedVeinIds()
+                );
+            }).toList();
+        }
     }
 
     private void updateTerraforming() {
@@ -385,6 +453,8 @@ public class SpaceConquestEngine implements GameEngine {
                 expansionProjects,
                 empires,
                 corporations,
+                systemEconomies,
+                solarSystems,
                 0.05
         );
 
@@ -392,10 +462,15 @@ public class SpaceConquestEngine implements GameEngine {
         expansionProjects = result.remainingProjects();
         empires = result.updatedEmpires();
         corporations = result.updatedCorporations();
+
+        // Point 1: Collect newly spawned couriers
+        if (result.spawnedCouriers() != null) {
+            courierShips.addAll(result.spawnedCouriers());
+        }
     }
 
     private void updateFleets() {
-        fleets = fleetProcessor.processFleetMovements(fleets);
+        fleets = fleetProcessor.processFleetMovements(fleets, orbitalStations, diplomaticRelations);
         fogOfWarStates = sensorProcessor.updateSensorCoverage(
                 empires, solarSystems, fleets, shipDesigns, orbitalStations,
                 List.of(), pirateBases, fogOfWarStates
@@ -465,7 +540,10 @@ public class SpaceConquestEngine implements GameEngine {
                 .map(empire -> governanceProcessor.updateEmpireCabinet(empire, ministryPortfolios))
                 .toList();
 
-        // 2. Democratic periodic election cycles (every 5 turns for Individualist societies)
+        // 2. Update dynamic territorial control based on range of influence (I_v)
+        empires = territoryProcessor.updateTerritorialControl(getGameState());
+
+        // 3. Democratic periodic election cycles (every 5 turns for Individualist societies)
         if (turn % 5 == 0 && !commercialHubs.isEmpty()) {
             Map<String, Double> shortages = calculateAverageShortages();
             empires = empires.stream()
@@ -507,7 +585,11 @@ public class SpaceConquestEngine implements GameEngine {
         commercialHubs = marketProcessor.updateCommercialHubs(commercialHubs);
 
         // 2. Autonomous Corporate Investments
-        corporations = corporateInvestmentProcessor.processCorporateInvestments(corporations, commercialHubs);
+        // Calculate trust penalties for investment freeze (Point 2)
+        Map<String, Double> trustPenalties = new HashMap<>();
+        // In a real scenario, these would come from recent war declarations or events
+        // For now, we initialize an empty map
+        corporations = corporateInvestmentProcessor.processCorporateInvestments(corporations, commercialHubs, trustPenalties);
 
         // 3. Corporate Fleet Logistics and Arbitrage
         Map<String, Double> gravityMap = new HashMap<>();
@@ -523,7 +605,7 @@ public class SpaceConquestEngine implements GameEngine {
             }
         }
         CorporateFleetProcessor.CorporateFleetResult fleetResult = corporateFleetProcessor.processFleetOperations(
-                corporations, commercialHubs, gravityMap, atmosphereMap
+                corporations, commercialHubs, diplomaticRelations, gravityMap, atmosphereMap
         );
         corporations = fleetResult.corporations();
         commercialHubs = fleetResult.commercialHubs();

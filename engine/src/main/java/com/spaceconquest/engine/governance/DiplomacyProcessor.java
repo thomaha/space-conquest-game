@@ -111,17 +111,31 @@ public class DiplomacyProcessor {
      * @param resourceId        material or commodity ID being traded
      * @param exporterRace      race of exporting empire
      * @param importerRace      race of importing empire
+     * @param exporterStructure society structure of exporter (Point 2 Hive Mind check)
+     * @param importerStructure society structure of importer (Point 2 Hive Mind check)
      * @param hasXenobiologyLab whether a Xenobiology Lab space station module is active
-     * @return true if trade is permitted, false if blocked by nutrient incompatibility
+     * @param activeScientists  number of active scientists in the transit corridor (Point 1 requirement)
+     * @return true if trade is permitted, false if blocked by nutrient incompatibility or ideological exclusion
      */
     public boolean isTradePermitted(
             String resourceId,
             Race exporterRace,
             Race importerRace,
-            boolean hasXenobiologyLab
+            String exporterStructure,
+            String importerStructure,
+            boolean hasXenobiologyLab,
+            long activeScientists
     ) {
         if (resourceId == null) return false;
         String r = resourceId.toLowerCase();
+
+        // Hive Mind economic exclusion (Point 2): No international trade permitted
+        boolean isHiveExporter = "Hive Mind".equalsIgnoreCase(exporterStructure) || "Hive mind".equalsIgnoreCase(exporterStructure);
+        boolean isHiveImporter = "Hive Mind".equalsIgnoreCase(importerStructure) || "Hive mind".equalsIgnoreCase(importerStructure);
+        if (isHiveExporter || isHiveImporter) {
+            // Hive minds can only trade internally (implied here since this is cross-border/inter-empire check)
+            return false;
+        }
 
         boolean isNutrient = r.contains("food") || r.contains("nutrient") || r.contains("grain")
                 || r.contains("protein") || r.contains("meat") || r.contains("organics");
@@ -135,8 +149,8 @@ public class DiplomacyProcessor {
             return false;
         }
 
-        if (hasXenobiologyLab) {
-            // Xenobiology lab converts incompatible biological nutrients safely
+        if (hasXenobiologyLab && activeScientists > 0) {
+            // Xenobiology lab converts incompatible biological nutrients safely (Point 1 requirement: Scientists)
             return true;
         }
 

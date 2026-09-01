@@ -1,5 +1,8 @@
 package com.spaceconquest.engine.ship;
 
+import com.spaceconquest.engine.DiplomaticRelation;
+import com.spaceconquest.engine.macrostructure.OrbitalStation;
+import com.spaceconquest.engine.macrostructure.StationModule;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,19 +17,27 @@ public class FleetProcessor {
     /**
      * Updates all active fleets for one turn cycle.
      */
-    public List<Fleet> processFleetMovements(List<Fleet> fleets) {
+    public List<Fleet> processFleetMovements(
+            List<Fleet> fleets,
+            List<OrbitalStation> stations,
+            List<DiplomaticRelation> relations
+    ) {
         if (fleets == null || fleets.isEmpty()) {
             return List.of();
         }
 
         List<Fleet> updatedFleets = new ArrayList<>();
         for (Fleet fleet : fleets) {
-            updatedFleets.add(processSingleFleet(fleet));
+            updatedFleets.add(processSingleFleet(fleet, stations, relations));
         }
         return updatedFleets;
     }
 
-    private Fleet processSingleFleet(Fleet fleet) {
+    private Fleet processSingleFleet(
+            Fleet fleet,
+            List<OrbitalStation> stations,
+            List<DiplomaticRelation> relations
+    ) {
         if (fleet == null) return null;
 
         boolean inWarp = fleet.isInWarp();
@@ -37,6 +48,41 @@ public class FleetProcessor {
         double posY = fleet.coordinateY();
 
         List<ShipInstance> updatedShips = new ArrayList<>(fleet.ships());
+
+        // Allied Repairs (Point 1): Repair ships if fleet is at an allied Military Hangar
+        if (!inWarp && stations != null) {
+            for (OrbitalStation station : stations) {
+                if (station.systemId().equals(currentSys)) {
+                    // Check if owner is ally
+                    boolean isAlly = fleet.ownerEntityId().equals(station.ownerEntityId());
+                    if (!isAlly && relations != null) {
+                        for (DiplomaticRelation rel : relations) {
+                            if (rel.tier().contains("ALLIANCE") || rel.tier().contains("FEDERATION")) {
+                                if ((rel.empireAId().equals(fleet.ownerEntityId()) && rel.empireBId().equals(station.ownerEntityId()))
+                                        || (rel.empireBId().equals(fleet.ownerEntityId()) && rel.empireAId().equals(station.ownerEntityId()))) {
+                                    isAlly = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (isAlly && station.hasModuleType(StationModule.TYPE_MILITARY_HANGAR)) {
+                        updatedShips = updatedShips.stream().map(ship -> {
+                            double newHull = Math.min(100.0, ship.currentHullHealth() + 5.0); // Simple 5% repair
+                            double newShield = Math.min(100.0, ship.currentShieldHealth() + 10.0);
+                            return new ShipInstance(
+                                    ship.id(), ship.designId(), ship.ownerEntityId(),
+                                    newHull, newShield,
+                                    ship.currentFuelKg(), ship.storedCargoKg(),
+                                    ship.passengerCount(), ship.passengerRaceId(), ship.transitMode()
+                            );
+                        }).toList();
+                        break;
+                    }
+                }
+            }
+        }
 
         // 1. Check if initiating interstellar warp transit
         if (!inWarp && targetSys != null && !targetSys.isEmpty() && !targetSys.equals(currentSys)) {

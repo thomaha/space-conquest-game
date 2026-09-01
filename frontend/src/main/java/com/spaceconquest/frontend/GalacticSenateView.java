@@ -125,10 +125,14 @@ public class GalacticSenateView {
             return;
         }
 
-        // 1. Propose Resolution Workbench
         content.getChildren().add(createResolutionProposalWorkbench());
+        content.getChildren().add(buildAssemblyOverview());
+        content.getChildren().add(buildActiveResolutionsSection());
+        content.getChildren().add(buildPassedResolutionsSection());
+        content.getChildren().add(buildSanctionsSection());
+    }
 
-        // 2. Assembly Overview
+    private VBox buildAssemblyOverview() {
         VBox overview = new VBox(6);
         overview.setPadding(new Insets(8));
         overview.setStyle("-fx-background-color: rgba(30, 40, 75, 0.6); -fx-background-radius: 6;");
@@ -137,9 +141,10 @@ public class GalacticSenateView {
         oText.setFill(Color.LIGHTCYAN);
         oText.setFont(Font.font("Verdana", FontWeight.BOLD, 13));
         overview.getChildren().add(oText);
-        content.getChildren().add(overview);
+        return overview;
+    }
 
-        // 3. Active Proposed Resolutions
+    private VBox buildActiveResolutionsSection() {
         VBox activeBox = new VBox(8);
         activeBox.setPadding(new Insets(10));
         activeBox.setStyle("-fx-background-color: rgba(30, 40, 75, 0.7); -fx-background-radius: 8; -fx-border-color: #3498db; -fx-border-width: 1; -fx-border-radius: 8;");
@@ -154,183 +159,161 @@ public class GalacticSenateView {
             activeBox.getChildren().add(noAct);
         } else {
             for (GalacticResolution res : community.activeResolutions()) {
-                VBox rBox = new VBox(6);
-                rBox.setPadding(new Insets(8));
-                rBox.setStyle("-fx-background-color: rgba(20, 30, 60, 0.6); -fx-background-radius: 6;");
-
-                HBox topRow = new HBox(10);
-                topRow.setAlignment(Pos.CENTER_LEFT);
-
-                Text rTitle = new Text(String.format("• %s [%s] (Proposer: %s, Turns remaining: %d)",
-                        res.title(), res.type(), res.proposerEmpireId(), res.sessionTurnsLeft()));
-                rTitle.setFill(Color.YELLOW);
-                rTitle.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
-                HBox.setHgrow(rTitle, Priority.ALWAYS);
-
-                Button ayeBtn = new Button("AYE");
-                ayeBtn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
-                ayeBtn.setOnAction(e -> {
-                    if (humanController != null) {
-                        humanController.stageCommand(new VoteResolutionCommand(
-                                res.id(), playerEmpireId, GalacticResolution.VOTE_AYE
-                        ));
-                        feedbackLabel.setText("Cast vote AYE for resolution: " + res.title());
-                        feedbackLabel.setTextFill(Color.LIGHTGREEN);
-                    }
-                });
-
-                Button nayBtn = new Button("NAY");
-                nayBtn.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
-                nayBtn.setOnAction(e -> {
-                    if (humanController != null) {
-                        humanController.stageCommand(new VoteResolutionCommand(
-                                res.id(), playerEmpireId, GalacticResolution.VOTE_NAY
-                        ));
-                        feedbackLabel.setText("Cast vote NAY for resolution: " + res.title());
-                        feedbackLabel.setTextFill(Color.SALMON);
-                    }
-                });
-
-                Button abstainBtn = new Button("ABSTAIN");
-                abstainBtn.setStyle("-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
-                abstainBtn.setOnAction(e -> {
-                    if (humanController != null) {
-                        humanController.stageCommand(new VoteResolutionCommand(
-                                res.id(), playerEmpireId, GalacticResolution.VOTE_ABSTAIN
-                        ));
-                        feedbackLabel.setText("Cast ABSTAIN for resolution: " + res.title());
-                        feedbackLabel.setTextFill(Color.LIGHTGRAY);
-                    }
-                });
-
-                topRow.getChildren().addAll(rTitle, ayeBtn, nayBtn, abstainBtn);
-
-                StringBuilder votes = new StringBuilder("Registered votes: ");
-                for (Map.Entry<String, String> v : res.votes().entrySet()) {
-                    votes.append(String.format("%s: %s  ", v.getKey(), v.getValue()));
-                }
-                Text vText = new Text(votes.toString());
-                vText.setFill(Color.LIGHTGRAY);
-                vText.setFont(Font.font("Verdana", 10));
-
-                rBox.getChildren().addAll(topRow, vText);
-                activeBox.getChildren().add(rBox);
+                activeBox.getChildren().add(buildActiveResolutionCard(res));
             }
         }
-        content.getChildren().add(activeBox);
+        return activeBox;
+    }
 
-        // 4. Enacted Interstellar Charters & Laws
-        VBox lawsBox = new VBox(8);
-        lawsBox.setPadding(new Insets(10));
-        lawsBox.setStyle("-fx-background-color: rgba(30, 40, 75, 0.7); -fx-background-radius: 8; -fx-border-color: #2ecc71; -fx-border-width: 1; -fx-border-radius: 8;");
-        Text lawsHeader = new Text("Enacted interstellar treaties and galactic law");
-        lawsHeader.setFill(Color.LIGHTGREEN);
-        lawsHeader.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
-        lawsBox.getChildren().add(lawsHeader);
+    private VBox buildActiveResolutionCard(GalacticResolution res) {
+        VBox rBox = new VBox(6);
+        rBox.setPadding(new Insets(8));
+        rBox.setStyle("-fx-background-color: rgba(20, 30, 60, 0.6); -fx-background-radius: 6;");
+
+        HBox topRow = new HBox(10);
+        topRow.setAlignment(Pos.CENTER_LEFT);
+
+        Text rTitle = new Text(String.format("• %s [%s] (Proposer: %s, Turns remaining: %d)",
+                res.title(), res.type(), res.proposerEmpireId(), res.sessionTurnsLeft()));
+        rTitle.setFill(Color.YELLOW);
+        rTitle.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
+        HBox.setHgrow(rTitle, Priority.ALWAYS);
+
+        Button ayeBtn = createVoteButton("AYE", "#27ae60", res, GalacticResolution.VOTE_AYE, Color.LIGHTGREEN);
+        Button nayBtn = createVoteButton("NAY", "#c0392b", res, GalacticResolution.VOTE_NAY, Color.SALMON);
+        Button abstainBtn = createVoteButton("ABSTAIN", "#7f8c8d", res, GalacticResolution.VOTE_ABSTAIN, Color.LIGHTGRAY);
+
+        topRow.getChildren().addAll(rTitle, ayeBtn, nayBtn, abstainBtn);
+
+        StringBuilder votes = new StringBuilder("Registered votes: ");
+        for (Map.Entry<String, String> v : res.votes().entrySet()) {
+            votes.append(String.format("%s: %s  ", v.getKey(), v.getValue()));
+        }
+        Text vText = new Text(votes.toString());
+        vText.setFill(Color.LIGHTGRAY);
+        vText.setFont(Font.font("Verdana", 10));
+
+        rBox.getChildren().addAll(topRow, vText);
+        return rBox;
+    }
+
+    private Button createVoteButton(String label, String bgColor, GalacticResolution res, String voteType, Color feedbackColor) {
+        Button btn = new Button(label);
+        btn.setStyle(String.format("-fx-background-color: %s; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;", bgColor));
+        btn.setOnAction(e -> {
+            if (humanController != null) {
+                humanController.stageCommand(new VoteResolutionCommand(res.id(), playerEmpireId, voteType));
+                feedbackLabel.setText("Cast vote " + label + " for resolution: " + res.title());
+                feedbackLabel.setTextFill(feedbackColor);
+            }
+        });
+        return btn;
+    }
+
+    private VBox buildPassedResolutionsSection() {
+        VBox passedBox = new VBox(8);
+        passedBox.setPadding(new Insets(10));
+        passedBox.setStyle("-fx-background-color: rgba(30, 40, 75, 0.7); -fx-background-radius: 8; -fx-border-color: #2ecc71; -fx-border-width: 1; -fx-border-radius: 8;");
+        Text passedHeader = new Text("Enacted galactic resolutions (active laws)");
+        passedHeader.setFill(Color.LIGHTGREEN);
+        passedHeader.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
+        passedBox.getChildren().add(passedHeader);
 
         if (community.passedResolutions().isEmpty()) {
-            Text noLaws = new Text("No permanent charters enacted yet.");
-            noLaws.setFill(Color.LIGHTGRAY);
-            lawsBox.getChildren().add(noLaws);
+            Text noPass = new Text("No galactic treaties or resolutions currently enacted into interstellar law.");
+            noPass.setFill(Color.LIGHTGRAY);
+            passedBox.getChildren().add(noPass);
         } else {
-            for (GalacticResolution law : community.passedResolutions()) {
-                Text lText = new Text(String.format("✔ %s [%s] - Status: ENFORCED", law.title(), law.type()));
-                lText.setFill(Color.LIGHTGREEN);
-                lText.setFont(Font.font("Verdana", 11));
-                lawsBox.getChildren().add(lText);
+            for (GalacticResolution pass : community.passedResolutions()) {
+                Text pText = new Text(String.format("✓ %s [%s] — Proposed by %s", pass.title(), pass.type(), pass.proposerEmpireId()));
+                pText.setFill(Color.WHITE);
+                pText.setFont(Font.font("Verdana", 11));
+                passedBox.getChildren().add(pText);
             }
         }
-        content.getChildren().add(lawsBox);
+        return passedBox;
+    }
 
-        // 5. Active Sanctions
-        VBox sanctionsBox = new VBox(8);
-        sanctionsBox.setPadding(new Insets(10));
-        sanctionsBox.setStyle("-fx-background-color: rgba(30, 40, 75, 0.7); -fx-background-radius: 8; -fx-border-color: #e74c3c; -fx-border-width: 1; -fx-border-radius: 8;");
-        Text sancHeader = new Text("Enforced pan-galactic economic and military sanctions");
-        sancHeader.setFill(Color.SALMON);
-        sancHeader.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
-        sanctionsBox.getChildren().add(sancHeader);
+    private VBox buildSanctionsSection() {
+        VBox sanctionBox = new VBox(8);
+        sanctionBox.setPadding(new Insets(10));
+        sanctionBox.setStyle("-fx-background-color: rgba(30, 40, 75, 0.7); -fx-background-radius: 8; -fx-border-color: #e74c3c; -fx-border-width: 1; -fx-border-radius: 8;");
+        Text sHeader = new Text("Active multilateral senate sanctions");
+        sHeader.setFill(Color.LIGHTPINK);
+        sHeader.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
+        sanctionBox.getChildren().add(sHeader);
 
         if (community.activeSanctions().isEmpty()) {
-            Text noSanc = new Text("No active sanctions against sovereign entities.");
+            Text noSanc = new Text("No interstellar diplomatic or commercial sanctions currently in effect.");
             noSanc.setFill(Color.LIGHTGRAY);
-            sanctionsBox.getChildren().add(noSanc);
+            sanctionBox.getChildren().add(noSanc);
         } else {
             for (GalacticSanction s : community.activeSanctions()) {
-                Text sText = new Text(String.format("⛔ [%s] Target: %s | Tariff penalty: +%.0f%% | Asset freeze: %s | Military intervention: %s (Duration: %d turns)",
-                        s.sanctionType(), s.targetEmpireId().toUpperCase(), s.tradeTariffPenaltyRate() * 100.0,
-                        s.isAssetFreezeActive() ? "YES" : "NO", s.isMilitaryInterventionAuthorized() ? "AUTHORIZED" : "NO",
-                        s.turnsRemaining()));
+                Text sText = new Text(String.format("⚠ [%s] Target: %s | Tariff Penalty: %.0f%% (Duration: %d turns)",
+                        s.sanctionType(), s.targetEmpireId(), s.tradeTariffPenaltyRate() * 100.0, s.turnsRemaining()));
                 sText.setFill(Color.SALMON);
                 sText.setFont(Font.font("Verdana", 11));
-                sanctionsBox.getChildren().add(sText);
+                sanctionBox.getChildren().add(sText);
             }
         }
-        content.getChildren().add(sanctionsBox);
+        return sanctionBox;
     }
 
     private VBox createResolutionProposalWorkbench() {
-        VBox section = new VBox(10);
-        section.setPadding(new Insets(12));
-        section.setStyle("-fx-background-color: rgba(20, 40, 70, 0.75); -fx-background-radius: 8; -fx-border-color: #9b59b6; -fx-border-width: 1; -fx-border-radius: 8;");
+        VBox workbench = new VBox(8);
+        workbench.setPadding(new Insets(10));
+        workbench.setStyle("-fx-background-color: rgba(35, 45, 80, 0.7); -fx-background-radius: 8; -fx-border-color: #9b59b6; -fx-border-width: 1; -fx-border-radius: 8;");
 
-        Text title = new Text("Introduce legislative resolution to Senate");
-        title.setFill(Color.MEDIUMPURPLE);
-        title.setFont(Font.font("Verdana", FontWeight.BOLD, 15));
+        Text title = new Text("Introduce new senate resolution");
+        title.setFill(Color.LIGHTBLUE);
+        title.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
 
-        GridPane grid = new GridPane();
-        grid.setHgap(12);
-        grid.setVgap(8);
+        GridPane form = new GridPane();
+        form.setHgap(10);
+        form.setVgap(8);
 
-        Label titleLbl = new Label("Resolution title:");
-        titleLbl.setTextFill(Color.LIGHTCYAN);
-        TextField titleField = new TextField("Pan-Galactic Mutual Defense Treaty");
+        TextField titleField = new TextField("Interstellar Commerce Standardization Act");
+        titleField.setPrefWidth(260);
 
-        Label typeLbl = new Label("Resolution type:");
-        typeLbl.setTextFill(Color.LIGHTCYAN);
         ComboBox<String> typeCombo = new ComboBox<>();
         typeCombo.getItems().addAll(
+                GalacticResolution.TYPE_FREE_TRADE,
                 GalacticResolution.TYPE_MUTUAL_DEFENSE,
                 GalacticResolution.TYPE_ANTI_PIRACY,
                 GalacticResolution.TYPE_ENVIRONMENTAL_ACCORD,
-                GalacticResolution.TYPE_FREE_TRADE,
                 GalacticResolution.TYPE_SANCTION_EMBARGO,
-                GalacticResolution.TYPE_SANCTION_FREEZE,
                 GalacticResolution.TYPE_MILITARY_INTERVENTION
         );
-        typeCombo.setValue(GalacticResolution.TYPE_MUTUAL_DEFENSE);
+        typeCombo.setValue(GalacticResolution.TYPE_FREE_TRADE);
 
-        Label targetLbl = new Label("Target empire (sanctions):");
-        targetLbl.setTextFill(Color.LIGHTCYAN);
-        ComboBox<String> targetCombo = new ComboBox<>();
-        targetCombo.getItems().addAll("none", "vulkan_forge", "silicon_collective", "zephyr_freehold", "shadow_syndicate_sol");
-        targetCombo.setValue("none");
+        TextField targetField = new TextField("");
+        targetField.setPromptText("Target Empire ID (for sanctions)");
+        targetField.setPrefWidth(200);
 
-        Button proposeBtn = new Button("Propose resolution");
+        Button proposeBtn = new Button("Introduce resolution");
         proposeBtn.setStyle("-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-weight: bold;");
         proposeBtn.setOnAction(e -> {
-            String target = "none".equalsIgnoreCase(targetCombo.getValue()) ? null : targetCombo.getValue();
             if (humanController != null) {
                 humanController.stageCommand(new ProposeResolutionCommand(
-                        playerEmpireId, titleField.getText(), typeCombo.getValue(), target
+                        playerEmpireId,
+                        titleField.getText().trim(),
+                        typeCombo.getValue(),
+                        targetField.getText().trim().isEmpty() ? null : targetField.getText().trim()
                 ));
-                feedbackLabel.setText("Introduced resolution: " + titleField.getText() + " to the Senate floor.");
+                feedbackLabel.setText("Resolution introduced to Galactic Senate: " + titleField.getText().trim());
                 feedbackLabel.setTextFill(Color.LIGHTGREEN);
             }
         });
 
-        grid.add(titleLbl, 0, 0);
-        grid.add(titleField, 1, 0);
-        grid.add(typeLbl, 2, 0);
-        grid.add(typeCombo, 3, 0);
+        form.add(new Label("Title:"), 0, 0);
+        form.add(titleField, 1, 0);
+        form.add(new Label("Type:"), 2, 0);
+        form.add(typeCombo, 3, 0);
+        form.add(new Label("Target ID:"), 0, 1);
+        form.add(targetField, 1, 1);
+        form.add(proposeBtn, 3, 1);
 
-        grid.add(targetLbl, 0, 1);
-        grid.add(targetCombo, 1, 1);
-
-        HBox actions = new HBox(12, proposeBtn);
-        actions.setAlignment(Pos.CENTER_LEFT);
-
-        section.getChildren().addAll(title, grid, actions);
-        return section;
+        workbench.getChildren().addAll(title, form);
+        return workbench;
     }
 }

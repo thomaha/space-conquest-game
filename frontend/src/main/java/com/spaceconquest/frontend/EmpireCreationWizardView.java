@@ -395,12 +395,14 @@ public class EmpireCreationWizardView {
         if (menubar != null) {
             if (menubar.getMainApp() != null) {
                 int starCount = 10;
+                int aiCount = 0;
                 com.spaceconquest.engine.GameStartScenario scenario = com.spaceconquest.engine.GameStartScenario.PRE_SPACE_FLIGHT;
                 if (menubar.getScenarioEditorView() != null) {
                     starCount = menubar.getScenarioEditorView().getCurrentSetup().starSystemCount();
+                    aiCount = menubar.getScenarioEditorView().getCurrentSetup().aiEmpireCount();
                     scenario = menubar.getScenarioEditorView().getSelectedScenario();
                 }
-                menubar.getMainApp().createNewGalaxy(starCount, scenario);
+                menubar.getMainApp().createNewGalaxy(starCount, aiCount, scenario);
             }
             menubar.setPlayerEmpireId(profile.empireId());
         }

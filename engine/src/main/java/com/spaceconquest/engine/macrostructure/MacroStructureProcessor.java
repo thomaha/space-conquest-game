@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Simulates turn-by-turn operations of orbital space stations, modular facilities,
+ * Simulates micro-simulation cycles for orbital habitats, defense stations,
  * space elevators and macro-structure construction deployment projects.
  */
 public class MacroStructureProcessor {
@@ -24,6 +24,8 @@ public class MacroStructureProcessor {
             List<SpaceElevator> newlyCompletedElevators
     ) {}
 
+    private record ModulePowerStateResult(List<StationModule> updatedModules, double activeGenKw, double activeDemandKw) {}
+
     /**
      * Executes turn update calculations for an orbital space station.
      */
@@ -33,13 +35,10 @@ public class MacroStructureProcessor {
         }
 
         List<StationModule> modules = new ArrayList<>(station.modules());
-
-        // 1. Check for active Control Module
         boolean hasControlOnline = modules.stream()
                 .anyMatch(m -> StationModule.TYPE_CONTROL.equalsIgnoreCase(m.type()) && m.isOnline());
 
         if (!hasControlOnline) {
-            // Station cannot process automated functions without an active control module
             OrbitalStation unpowered = new OrbitalStation(
                     station.id(), station.name(), station.systemId(), station.planetOrbitId(),
                     station.ownerEntityId(), station.ownershipType(), station.totalSlots(),
@@ -53,33 +52,41 @@ public class MacroStructureProcessor {
             return new StationTurnResult(unpowered, 0.0, 0.0, Map.of());
         }
 
-        // 2. Power Balance ($E_net$)
-        double totalGenKw = modules.stream()
-                .filter(StationModule::isOnline)
-                .mapToDouble(StationModule::powerOutputKw)
-                .sum();
-        double totalDemandKw = modules.stream()
-                .filter(StationModule::isOnline)
-                .mapToDouble(StationModule::powerDrawKw)
-                .sum();
-
+        double totalGenKw = modules.stream().filter(StationModule::isOnline).mapToDouble(StationModule::powerOutputKw).sum();
+        double totalDemandKw = modules.stream().filter(StationModule::isOnline).mapToDouble(StationModule::powerDrawKw).sum();
         boolean isPowerDeficit = totalGenKw < totalDemandKw;
 
+        ModulePowerStateResult powerState = resolveModulePowerStates(modules, isPowerDeficit);
+        List<StationModule> updatedModules = powerState.updatedModules();
+
+        double collectedTariffs = calculateCommerceTariffs(updatedModules, stateTariffRate);
+        double researchPoints = calculateResearchPoints(updatedModules);
+        Map<String, Double> producedMaterials = calculateProducedMaterials(updatedModules);
+        double currentShield = calculateShieldHealth(station, updatedModules);
+
+        OrbitalStation updatedStation = new OrbitalStation(
+                station.id(), station.name(), station.systemId(), station.planetOrbitId(),
+                station.ownerEntityId(), station.ownershipType(), station.totalSlots(),
+                updatedModules, station.storedCargoKg(),
+                powerState.activeGenKw(), powerState.activeDemandKw(),
+                currentShield, station.maxShieldHealth(),
+                station.currentHullHealth(), station.maxHullHealth(),
+                station.armorMaterialId(), station.armorThicknessCm(),
+                true
+        );
+
+        return new StationTurnResult(updatedStation, collectedTariffs, researchPoints, producedMaterials);
+    }
+
+    private ModulePowerStateResult resolveModulePowerStates(List<StationModule> modules, boolean isPowerDeficit) {
         List<StationModule> updatedModules = new ArrayList<>();
         double activeGenKw = 0.0;
         double activeDemandKw = 0.0;
 
         for (StationModule mod : modules) {
             boolean stayOnline = mod.isOnline();
-            if (isPowerDeficit) {
-                // Shed heavy non-essential loads (foundries, labs, commerce) during brownouts
-                if (StationModule.TYPE_METALLURGY_FOUNDRY.equalsIgnoreCase(mod.type())
-                        || StationModule.TYPE_CONSUMER_GOODS_FACTORY.equalsIgnoreCase(mod.type())
-                        || StationModule.TYPE_COMMERCE.equalsIgnoreCase(mod.type())
-                        || StationModule.TYPE_SHIPYARD_GRID.equalsIgnoreCase(mod.type())
-                        || StationModule.TYPE_CAPITAL_SLIPWAY.equalsIgnoreCase(mod.type())) {
-                    stayOnline = false;
-                }
+            if (isPowerDeficit && isNonEssentialModule(mod.type())) {
+                stayOnline = false;
             }
 
             StationModule updatedMod = new StationModule(
@@ -95,22 +102,30 @@ public class MacroStructureProcessor {
                 activeDemandKw += mod.powerDrawKw();
             }
         }
+        return new ModulePowerStateResult(updatedModules, activeGenKw, activeDemandKw);
+    }
 
-        // 3. Commerce & Tariff collection (requires both Commerce Module and Civilian Hangar)
-        boolean hasCommerce = updatedModules.stream()
-                .anyMatch(m -> StationModule.TYPE_COMMERCE.equalsIgnoreCase(m.type()) && m.isOnline());
-        boolean hasCivilianHangar = updatedModules.stream()
-                .anyMatch(m -> StationModule.TYPE_CIVILIAN_HANGAR.equalsIgnoreCase(m.type()) && m.isOnline());
+    private boolean isNonEssentialModule(String type) {
+        return StationModule.TYPE_METALLURGY_FOUNDRY.equalsIgnoreCase(type)
+                || StationModule.TYPE_CONSUMER_GOODS_FACTORY.equalsIgnoreCase(type)
+                || StationModule.TYPE_COMMERCE.equalsIgnoreCase(type)
+                || StationModule.TYPE_SHIPYARD_GRID.equalsIgnoreCase(type)
+                || StationModule.TYPE_CAPITAL_SLIPWAY.equalsIgnoreCase(type);
+    }
 
-        double collectedTariffs = 0.0;
+    private double calculateCommerceTariffs(List<StationModule> modules, double stateTariffRate) {
+        boolean hasCommerce = modules.stream().anyMatch(m -> StationModule.TYPE_COMMERCE.equalsIgnoreCase(m.type()) && m.isOnline());
+        boolean hasCivilianHangar = modules.stream().anyMatch(m -> StationModule.TYPE_CIVILIAN_HANGAR.equalsIgnoreCase(m.type()) && m.isOnline());
         if (hasCommerce && hasCivilianHangar) {
             double grossTransactionVolume = 5000.0;
-            collectedTariffs = grossTransactionVolume * Math.max(0.01, stateTariffRate);
+            return grossTransactionVolume * Math.max(0.01, stateTariffRate);
         }
+        return 0.0;
+    }
 
-        // 4. Science Research generation
+    private double calculateResearchPoints(List<StationModule> modules) {
         double researchPoints = 0.0;
-        for (StationModule mod : updatedModules) {
+        for (StationModule mod : modules) {
             if (mod.isOnline()) {
                 if (StationModule.TYPE_THEORETICAL_PHYSICS_LAB.equalsIgnoreCase(mod.type())
                         || StationModule.TYPE_MATERIAL_SCIENCE_LAB.equalsIgnoreCase(mod.type())
@@ -119,10 +134,12 @@ public class MacroStructureProcessor {
                 }
             }
         }
+        return researchPoints;
+    }
 
-        // 5. Material production yields
+    private Map<String, Double> calculateProducedMaterials(List<StationModule> modules) {
         Map<String, Double> producedMaterials = new HashMap<>();
-        for (StationModule mod : updatedModules) {
+        for (StationModule mod : modules) {
             if (mod.isOnline()) {
                 if (StationModule.TYPE_HYDROPONIC_FOOD.equalsIgnoreCase(mod.type())) {
                     producedMaterials.merge("food_matrix", 800.0, Double::sum);
@@ -134,24 +151,13 @@ public class MacroStructureProcessor {
                 }
             }
         }
+        return producedMaterials;
+    }
 
-        // 6. Shield regeneration if power is online
-        double shieldGen = updatedModules.stream()
+    private double calculateShieldHealth(OrbitalStation station, List<StationModule> modules) {
+        double shieldGen = modules.stream()
                 .anyMatch(m -> StationModule.TYPE_SHIELD_GENERATOR.equalsIgnoreCase(m.type()) && m.isOnline()) ? 100.0 : 0.0;
-        double currentShield = Math.min(station.maxShieldHealth(), station.currentShieldHealth() + shieldGen);
-
-        OrbitalStation updatedStation = new OrbitalStation(
-                station.id(), station.name(), station.systemId(), station.planetOrbitId(),
-                station.ownerEntityId(), station.ownershipType(), station.totalSlots(),
-                updatedModules, station.storedCargoKg(),
-                activeGenKw, activeDemandKw,
-                currentShield, station.maxShieldHealth(),
-                station.currentHullHealth(), station.maxHullHealth(),
-                station.armorMaterialId(), station.armorThicknessCm(),
-                true
-        );
-
-        return new StationTurnResult(updatedStation, collectedTariffs, researchPoints, producedMaterials);
+        return Math.min(station.maxShieldHealth(), station.currentShieldHealth() + shieldGen);
     }
 
     /**
@@ -183,43 +189,9 @@ public class MacroStructureProcessor {
             double nextProgress = proj.accumulatedProgressTurns() + 1.0;
             if (nextProgress >= proj.requiredProgressTurns()) {
                 if (ConstructionDeploymentProject.TYPE_ORBITAL_STATION.equalsIgnoreCase(proj.targetStructureType())) {
-                    // Spawn newly completed station with a default control module and power module
-                    StationModule controlMod = new StationModule(
-                            "mod_ctrl_" + proj.projectId(), "Command Core", StationModule.TYPE_CONTROL,
-                            6, 12000.0, 50.0, 0.0, Map.of(), "bureaucrat", 5, true
-                    );
-                    StationModule powerMod = new StationModule(
-                            "mod_pwr_" + proj.projectId(), "Fission Reactor Hub", StationModule.TYPE_POWER,
-                            10, 22000.0, 0.0, 250.0, Map.of(), "technician", 4, true
-                    );
-                    OrbitalStation newStation = new OrbitalStation(
-                            "station_" + proj.projectId(),
-                            "Orbital Station " + proj.targetCelestialId(),
-                            proj.targetSystemId(),
-                            proj.targetCelestialId(),
-                            ownerEntityId,
-                            OrbitalStation.OWNERSHIP_PUBLIC_STATE,
-                            50,
-                            List.of(controlMod, powerMod),
-                            Map.of(),
-                            250.0, 50.0,
-                            500.0, 500.0,
-                            1000.0, 1000.0,
-                            "steel", 5.0,
-                            true
-                    );
-                    newStations.add(newStation);
+                    newStations.add(createCompletedStation(proj, ownerEntityId));
                 } else if (ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR.equalsIgnoreCase(proj.targetStructureType())) {
-                    SpaceElevator elevator = new SpaceElevator(
-                            "elevator_" + proj.targetCelestialId(),
-                            proj.targetCelestialId(),
-                            ownerEntityId,
-                            100000.0,
-                            0.95,
-                            100.0,
-                            true
-                    );
-                    newElevators.add(elevator);
+                    newElevators.add(new SpaceElevator("elevator_" + proj.targetCelestialId(), proj.targetCelestialId(), ownerEntityId, 100000.0, 0.95, 100.0, true));
                 }
             } else {
                 remaining.add(new ConstructionDeploymentProject(
@@ -233,5 +205,32 @@ public class MacroStructureProcessor {
         }
 
         return new ConstructionTurnResult(remaining, newStations, newElevators);
+    }
+
+    private OrbitalStation createCompletedStation(ConstructionDeploymentProject proj, String ownerEntityId) {
+        StationModule controlMod = new StationModule(
+                "mod_ctrl_" + proj.projectId(), "Command Core", StationModule.TYPE_CONTROL,
+                6, 12000.0, 50.0, 0.0, Map.of(), "bureaucrat", 5, true
+        );
+        StationModule powerMod = new StationModule(
+                "mod_pwr_" + proj.projectId(), "Fission Reactor Hub", StationModule.TYPE_POWER,
+                10, 22000.0, 0.0, 250.0, Map.of(), "technician", 4, true
+        );
+        return new OrbitalStation(
+                "station_" + proj.projectId(),
+                "Orbital Station " + proj.targetCelestialId(),
+                proj.targetSystemId(),
+                proj.targetCelestialId(),
+                ownerEntityId,
+                OrbitalStation.OWNERSHIP_PUBLIC_STATE,
+                50,
+                List.of(controlMod, powerMod),
+                Map.of(),
+                250.0, 50.0,
+                500.0, 500.0,
+                1000.0, 1000.0,
+                "steel", 5.0,
+                true
+        );
     }
 }

@@ -145,28 +145,15 @@ public class ShipDesignerView {
         header.setFill(Color.LIGHTCYAN);
         header.setFont(Font.font("Verdana", FontWeight.BOLD, 16));
 
-        GridPane grid = new GridPane();
-        grid.setHgap(12);
-        grid.setVgap(8);
-
-        Label nameLbl = new Label("Design name:");
-        nameLbl.setTextFill(Color.LIGHTCYAN);
         TextField nameField = new TextField("Vanguard class cruiser");
-
-        Label roleLbl = new Label("Ship role:");
-        roleLbl.setTextFill(Color.LIGHTCYAN);
         ComboBox<String> roleCombo = new ComboBox<>();
         roleCombo.getItems().addAll("COMBAT_SHIP", "CARGO_TRANSPORT", "COLONY_SHIP", "EXPLORER", "MINING_SHIP", "TROOP_TRANSPORT", "CARRIER_SHIP", "CONSTRUCTION_SHIP");
         roleCombo.setValue("COMBAT_SHIP");
 
-        Label matLbl = new Label("Hull material:");
-        matLbl.setTextFill(Color.LIGHTCYAN);
         ComboBox<String> matCombo = new ComboBox<>();
         matCombo.getItems().addAll("steel", "refined_aluminum", "carbon_nanotubes", "silicon_carbide");
         matCombo.setValue("steel");
 
-        Label armorLbl = new Label("Armor material and thickness:");
-        armorLbl.setTextFill(Color.LIGHTCYAN);
         ComboBox<String> armorCombo = new ComboBox<>();
         armorCombo.getItems().addAll("steel", "inconel_alloy", "titanium_aluminide");
         armorCombo.setValue("inconel_alloy");
@@ -174,17 +161,8 @@ public class ShipDesignerView {
         Spinner<Double> armorSpinner = new Spinner<>(0.5, 10.0, 2.0, 0.5);
         armorSpinner.setPrefWidth(80);
 
-        grid.add(nameLbl, 0, 0);
-        grid.add(nameField, 1, 0);
-        grid.add(roleLbl, 2, 0);
-        grid.add(roleCombo, 3, 0);
+        GridPane grid = createWorkbenchForm(nameField, roleCombo, matCombo, armorCombo, armorSpinner);
 
-        grid.add(matLbl, 0, 1);
-        grid.add(matCombo, 1, 1);
-        grid.add(armorLbl, 2, 1);
-        grid.add(new HBox(5, armorCombo, armorSpinner), 3, 1);
-
-        // Predefined default modules for physics evaluation
         ShipHullFrame demoFrame = new ShipHullFrame("frame_medium", "Medium hull starframe", 20, matCombo.getValue(), 15000.0, 60.0);
         ShipModule reactor = new ShipModule("mod_fission_reactor", "Fission reactor tier 2", "MEDIUM", 4, 3000.0, 0.0, 500.0, 0.0, 2, Map.of(), Map.of());
         ShipModule thruster = new ShipModule("mod_ion_drive", "High-impulse ion drive", "MEDIUM", 6, 4500.0, 120.0, 0.0, 450000.0, 2, Map.of(), Map.of());
@@ -196,6 +174,41 @@ public class ShipDesignerView {
                 roleCombo.getValue(), demoFrame, sampleModules, hullMat, hullMat, armorSpinner.getValue(), 1.0, 1.0, 5
         );
 
+        VBox statsBox = createWorkbenchStatsBox(valRes);
+        Button saveBlueprintBtn = createSaveBlueprintButton(nameField, roleCombo, matCombo, armorCombo, armorSpinner, valRes);
+
+        section.getChildren().addAll(header, grid, statsBox, saveBlueprintBtn);
+        return section;
+    }
+
+    private GridPane createWorkbenchForm(TextField nameField, ComboBox<String> roleCombo,
+                                        ComboBox<String> matCombo, ComboBox<String> armorCombo,
+                                        Spinner<Double> armorSpinner) {
+        GridPane grid = new GridPane();
+        grid.setHgap(12);
+        grid.setVgap(8);
+
+        Label nameLbl = new Label("Design name:");
+        nameLbl.setTextFill(Color.LIGHTCYAN);
+        Label roleLbl = new Label("Ship role:");
+        roleLbl.setTextFill(Color.LIGHTCYAN);
+        Label matLbl = new Label("Hull material:");
+        matLbl.setTextFill(Color.LIGHTCYAN);
+        Label armorLbl = new Label("Armor material and thickness:");
+        armorLbl.setTextFill(Color.LIGHTCYAN);
+
+        grid.add(nameLbl, 0, 0);
+        grid.add(nameField, 1, 0);
+        grid.add(roleLbl, 2, 0);
+        grid.add(roleCombo, 3, 0);
+        grid.add(matLbl, 0, 1);
+        grid.add(matCombo, 1, 1);
+        grid.add(armorLbl, 2, 1);
+        grid.add(new HBox(5, armorCombo, armorSpinner), 3, 1);
+        return grid;
+    }
+
+    private VBox createWorkbenchStatsBox(ShipDesignValidator.ValidationResult valRes) {
         VBox statsBox = new VBox(6);
         statsBox.setPadding(new Insets(8));
         statsBox.setStyle("-fx-background-color: rgba(10, 20, 40, 0.6); -fx-background-radius: 6;");
@@ -214,28 +227,23 @@ public class ShipDesignerView {
         thrustLabel.setFill(valRes.isLaunchCapable() ? Color.LIGHTGREEN : Color.ORANGE);
 
         statsBox.getChildren().addAll(integrityLabel, powerLabel, thrustLabel);
+        return statsBox;
+    }
 
+    private Button createSaveBlueprintButton(TextField nameField, ComboBox<String> roleCombo,
+                                            ComboBox<String> matCombo, ComboBox<String> armorCombo,
+                                            Spinner<Double> armorSpinner, ShipDesignValidator.ValidationResult valRes) {
         Button saveBlueprintBtn = new Button("Register blueprint design");
         saveBlueprintBtn.setStyle("-fx-background-color: #00cec9; -fx-text-fill: black; -fx-font-weight: bold;");
         saveBlueprintBtn.setOnAction(e -> {
             String id = "design_" + UUID.randomUUID().toString().substring(0, 8);
             ShipDesign newDesign = new ShipDesign(
-                    id,
-                    nameField.getText(),
-                    playerEmpireId,
-                    roleCombo.getValue(),
-                    matCombo.getValue(),
+                    id, nameField.getText(), playerEmpireId, roleCombo.getValue(), matCombo.getValue(),
                     List.of("mod_fission_reactor", "mod_ion_drive", "mod_cargo_vault"),
-                    armorCombo.getValue(),
-                    armorSpinner.getValue(),
-                    valRes.totalDryMassKg(),
-                    30000.0,
-                    valRes.powerBalanceKw(),
-                    valRes.structuralIntegrity(),
-                    valRes.minLaunchThrustRequiredN(),
-                    valRes.totalThrustN(),
-                    valRes.isLaunchCapable(),
-                    false
+                    armorCombo.getValue(), armorSpinner.getValue(),
+                    valRes.totalDryMassKg(), 30000.0, valRes.powerBalanceKw(),
+                    valRes.structuralIntegrity(), valRes.minLaunchThrustRequiredN(),
+                    valRes.totalThrustN(), valRes.isLaunchCapable(), false
             );
 
             if (humanController != null) {
@@ -244,9 +252,7 @@ public class ShipDesignerView {
                 feedbackLabel.setTextFill(Color.LIGHTGREEN);
             }
         });
-
-        section.getChildren().addAll(header, grid, statsBox, saveBlueprintBtn);
-        return section;
+        return saveBlueprintBtn;
     }
 
     private VBox createRegisteredBlueprintsSection() {

@@ -1,0 +1,679 @@
+package com.spaceconquest.frontend.empire;
+
+import com.spaceconquest.frontend.Menubar;
+import com.spaceconquest.frontend.PlanetaryBodyEntry;
+
+import com.spaceconquest.control.HumanController;
+import com.spaceconquest.engine.Corporation;
+import com.spaceconquest.engine.DataModelLoader;
+import com.spaceconquest.engine.Empire;
+import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.Moon;
+import com.spaceconquest.engine.Planet;
+import com.spaceconquest.engine.SolarSystem;
+import com.spaceconquest.engine.SystemGovernor;
+import com.spaceconquest.engine.economy.SystemEconomy;
+import com.spaceconquest.engine.industry.FacilityExpansionProject;
+import com.spaceconquest.engine.industry.GeologicalDeposit;
+import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.industry.PowerGridState;
+import com.spaceconquest.engine.macrostructure.ConstructionDeploymentProject;
+import com.spaceconquest.engine.macrostructure.OrbitalStation;
+import com.spaceconquest.engine.macrostructure.SpaceElevator;
+import com.spaceconquest.engine.megastructure.Megastructure;
+import com.spaceconquest.engine.technology.ResearchProject;
+import com.spaceconquest.engine.terraforming.GeoengineeringProject;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Interactive imperial administration and planetary management hub.
+ * Features a modular tabbed interface supporting the Imperial Cabinet overview,
+ * planetary bodies exploration across all star systems, multi-attribute filtering/sorting
+ * and technology-gated contextual operations.
+ */
+public class EmpireView {
+    private static final Logger logger = LogManager.getLogger(EmpireView.class);
+
+    private VBox root;
+    private HBox tabHeaderBar;
+    private final Map<Tab, Button> tabButtons = new HashMap<>();
+    private VBox tabContentContainer;
+    private Label feedbackLabel;
+    private final Menubar menubar;
+
+    private Tab currentTab = Tab.ECONOMY;
+    private EconomySubView currentEconomySubView = EconomySubView.IMPERIAL;
+    private String selectedEconomySystemId = null;
+    private FilterCategory currentFilter = FilterCategory.COLONIZED;
+    private SortOption currentSort = SortOption.NAME_AZ;
+    private PlanetaryBodyEntry selectedBody = null;
+
+    private HumanController humanController;
+    private String playerEmpireId = "terran_confederation";
+
+    private final List<SolarSystem> solarSystems = new ArrayList<>();
+    private final List<Empire> empires = new ArrayList<>();
+    private final List<SystemGovernor> systemGovernors = new ArrayList<>();
+    private final List<GeologicalDeposit> deposits = new ArrayList<>();
+    private final List<IndustrialFacility> facilities = new ArrayList<>();
+    private final List<OrbitalStation> orbitalStations = new ArrayList<>();
+    private final List<SpaceElevator> spaceElevators = new ArrayList<>();
+    private final List<Corporation> corporations = new ArrayList<>();
+    private final List<ResearchProject> researchProjects = new ArrayList<>();
+    private final List<Megastructure> megastructures = new ArrayList<>();
+    private final List<SystemEconomy> systemEconomies = new ArrayList<>();
+    private final List<PowerGridState> powerGrids = new ArrayList<>();
+    private final List<FacilityExpansionProject> expansionProjects = new ArrayList<>();
+    private final List<GeoengineeringProject> terraformingProjects = new ArrayList<>();
+    private final List<ConstructionDeploymentProject> constructionProjects = new ArrayList<>();
+
+    private final EconomyTab economyTab = new EconomyTab(this);
+    private final CabinetTab cabinetTab = new CabinetTab(this);
+    private final PlanetsTab planetsTab = new PlanetsTab(this);
+    private final StationsTab stationsTab = new StationsTab(this);
+    private final CorporationsTab corporationsTab = new CorporationsTab(this);
+    private final MegastructuresTab megastructuresTab = new MegastructuresTab(this);
+
+    public EmpireView(Menubar menubar) {
+        this.menubar = menubar;
+        build();
+    }
+
+    public List<SystemGovernor> getSystemGovernors() { return systemGovernors; }
+    public List<GeologicalDeposit> getDeposits() { return deposits; }
+    public List<IndustrialFacility> getFacilities() { return facilities; }
+    public List<OrbitalStation> getOrbitalStations() { return orbitalStations; }
+    public List<SpaceElevator> getSpaceElevators() { return spaceElevators; }
+    public List<Corporation> getCorporations() { return corporations; }
+    public List<ResearchProject> getResearchProjects() { return researchProjects; }
+    public List<Megastructure> getMegastructures() { return megastructures; }
+    public List<SolarSystem> getSystems() { return solarSystems; }
+    public List<Empire> getEmpires() { return empires; }
+    public List<PowerGridState> getPowerGrids() { return powerGrids; }
+    public List<FacilityExpansionProject> getExpansionProjects() { return expansionProjects; }
+    public List<GeoengineeringProject> getTerraformingProjects() { return terraformingProjects; }
+    public List<ConstructionDeploymentProject> getConstructionProjects() { return constructionProjects; }
+    public List<SystemEconomy> getSystemEconomies() { return systemEconomies; }
+    public List<SystemEconomy> getSystemEconomiesList() { return systemEconomies; }
+
+    public String getPlayerEmpireId() { return playerEmpireId; }
+    public Menubar getMenubar() { return menubar; }
+    public HumanController getHumanController() { return humanController; }
+
+    public void setHumanController(HumanController controller) {
+        this.humanController = controller;
+    }
+
+    public void setPlayerEmpireId(String empireId) {
+        if (empireId != null && !empireId.isEmpty()) {
+            this.playerEmpireId = empireId;
+        }
+    }
+
+    public Tab getCurrentTab() { return currentTab; }
+    public EconomySubView getEconomySubView() { return currentEconomySubView; }
+    public void setEconomySubView(EconomySubView subView) { this.currentEconomySubView = subView; }
+    public String getSelectedEconomySystemId() { return selectedEconomySystemId; }
+    public void setSelectedEconomySystemId(String systemId) { this.selectedEconomySystemId = systemId; }
+    public FilterCategory getCurrentFilter() { return currentFilter; }
+    public void setCurrentFilter(FilterCategory filter) {
+        if (filter != null) this.currentFilter = filter;
+    }
+    public SortOption getCurrentSort() { return currentSort; }
+    public void setCurrentSort(SortOption sort) {
+        if (sort != null) this.currentSort = sort;
+    }
+    public PlanetaryBodyEntry getSelectedBody() { return selectedBody; }
+    public void setSelectedBody(PlanetaryBodyEntry entry) { this.selectedBody = entry; }
+
+    public VBox createBodyCard(PlanetaryBodyEntry entry) {
+        VBox card = new VBox(8);
+        card.setPadding(new Insets(12));
+        card.setStyle("-fx-background-color: rgba(30, 50, 90, 0.7); -fx-background-radius: 8; -fx-border-color: #3498db; -fx-border-width: 1; -fx-border-radius: 8;");
+        Text name = new Text(entry.name() + " (" + (entry.isMoon() ? "Moon" : entry.getBodyType()) + ")");
+        name.setFill(Color.GOLD);
+        name.setFont(Font.font("Verdana", FontWeight.BOLD, 16));
+        Text details = new Text("System: " + entry.systemName() + " | Population: " + String.format("%,d", entry.totalPopulation()));
+        details.setFill(Color.WHITE);
+        card.getChildren().addAll(name, details);
+        return card;
+    }
+
+    public VBox createPopulationDemographicsSection(PlanetaryBodyEntry body) {
+        VBox box = new VBox(8);
+        box.setPadding(new Insets(10));
+        box.setStyle("-fx-background-color: rgba(20, 35, 65, 0.6); -fx-background-radius: 6;");
+        Text title = new Text("Population & demographics");
+        title.setFill(Color.AQUA);
+        box.getChildren().add(title);
+        return box;
+    }
+
+    public VBox createIndustryTableSection(PlanetaryBodyEntry body) {
+        VBox box = new VBox(8);
+        box.setPadding(new Insets(10));
+        box.setStyle("-fx-background-color: rgba(20, 35, 65, 0.6); -fx-background-radius: 6;");
+        Text title = new Text("Industrial operations & facilities");
+        title.setFill(Color.AQUA);
+        box.getChildren().add(title);
+        return box;
+    }
+
+    public VBox createSurfaceBiomeSection(PlanetaryBodyEntry body) {
+        VBox box = new VBox(8);
+        box.setPadding(new Insets(10));
+        box.setStyle("-fx-background-color: rgba(20, 35, 65, 0.6); -fx-background-radius: 6;");
+        Text title = new Text("Surface biome & environmental telemetry");
+        title.setFill(Color.AQUA);
+        box.getChildren().add(title);
+        return box;
+    }
+
+    public VBox createPowerAndDepositsSection(PlanetaryBodyEntry body) {
+        VBox box = new VBox(8);
+        box.setPadding(new Insets(10));
+        box.setStyle("-fx-background-color: rgba(20, 35, 65, 0.6); -fx-background-radius: 6;");
+        Text title = new Text("Power grid & geological resources");
+        title.setFill(Color.AQUA);
+        box.getChildren().add(title);
+        return box;
+    }
+
+    public VBox createTechnologyGatedOperationsSection(PlanetaryBodyEntry body) {
+        VBox box = new VBox(8);
+        box.setPadding(new Insets(10));
+        box.setStyle("-fx-background-color: rgba(45, 55, 80, 0.7); -fx-background-radius: 8;");
+        Text title = new Text("Technology-gated contextual operations");
+        title.setFill(Color.GOLD);
+        box.getChildren().add(title);
+        return box;
+    }
+
+    private void build() {
+        root = new VBox(12);
+        root.setPadding(new Insets(16));
+        root.setStyle("-fx-background-color: rgba(10, 18, 38, 0.97); " +
+                "-fx-border-color: #78aaff; -fx-border-width: 2; " +
+                "-fx-border-radius: 10; -fx-background-radius: 10;");
+        root.setPrefSize(960, 720);
+
+        HBox topBar = new HBox(12);
+        topBar.setAlignment(Pos.CENTER_LEFT);
+
+        Text title = new Text("Empire management");
+        title.setFill(Color.WHITE);
+        title.setFont(Font.font("Verdana", FontWeight.BOLD, 20));
+
+        tabHeaderBar = new HBox(8);
+        tabHeaderBar.setAlignment(Pos.CENTER_LEFT);
+
+        for (Tab tab : Tab.values()) {
+            Button tabBtn = new Button(tab.getDisplayName());
+            tabBtn.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
+            tabBtn.setPrefHeight(32);
+            tabBtn.setCursor(javafx.scene.Cursor.HAND);
+            tabBtn.setOnAction(e -> selectTab(tab));
+            tabButtons.put(tab, tabBtn);
+            tabHeaderBar.getChildren().add(tabBtn);
+        }
+
+        updateTabButtonStyles();
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Button closeButton = new Button("Close");
+        closeButton.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 4; -fx-cursor: hand;");
+        closeButton.setCursor(javafx.scene.Cursor.HAND);
+        closeButton.setOnAction(e -> hide());
+
+        topBar.getChildren().addAll(title, tabHeaderBar, spacer, closeButton);
+
+        feedbackLabel = new Label("Ready | Manage imperial administration and celestial planetary assets.");
+        feedbackLabel.setTextFill(Color.LIGHTCYAN);
+        feedbackLabel.setFont(Font.font("Verdana", 11));
+
+        tabContentContainer = new VBox(10);
+        VBox.setVgrow(tabContentContainer, Priority.ALWAYS);
+
+        root.getChildren().addAll(topBar, feedbackLabel, tabContentContainer);
+        root.setVisible(false);
+
+        renderCurrentTab();
+    }
+
+    public VBox getRoot() {
+        return root;
+    }
+
+    public void selectTab(Tab tab) {
+        if (tab == null) return;
+        this.currentTab = tab;
+        updateTabButtonStyles();
+        renderCurrentTab();
+    }
+
+    private void updateTabButtonStyles() {
+        for (Map.Entry<Tab, Button> entry : tabButtons.entrySet()) {
+            Button btn = entry.getValue();
+            boolean isSelected = (entry.getKey() == currentTab);
+            String bg = isSelected ? "#2980b9" : "rgba(25, 45, 80, 0.7)";
+            String border = isSelected ? "#78aaff" : "rgba(120, 170, 255, 0.4)";
+            String textFill = isSelected ? "white" : "#b0c4de";
+            double borderWidth = isSelected ? 1.5 : 1.0;
+
+            String baseStyle = String.format(
+                    "-fx-background-color: %s; -fx-text-fill: %s; -fx-font-family: 'Verdana'; -fx-font-size: 12px; " +
+                    "-fx-font-weight: bold; -fx-border-color: %s; -fx-border-width: %.1f; " +
+                    "-fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 6 14 6 14; -fx-cursor: hand;",
+                    bg, textFill, border, borderWidth
+            );
+            btn.setStyle(baseStyle);
+            btn.setCursor(javafx.scene.Cursor.HAND);
+
+            btn.setOnMouseEntered(e -> {
+                if (entry.getKey() != currentTab) {
+                    btn.setStyle(
+                            "-fx-background-color: rgba(45, 75, 120, 0.9); -fx-text-fill: white; -fx-font-family: 'Verdana'; " +
+                            "-fx-font-size: 12px; -fx-font-weight: bold; -fx-border-color: #78aaff; -fx-border-width: 1.0; " +
+                            "-fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 6 14 6 14; -fx-cursor: hand;"
+                    );
+                }
+            });
+            btn.setOnMouseExited(e -> {
+                if (entry.getKey() != currentTab) {
+                    btn.setStyle(baseStyle);
+                }
+            });
+        }
+    }
+
+    public void updateData(GameState gameState) {
+        if (gameState == null) return;
+        updateData(
+                gameState.solarSystems(),
+                gameState.empires(),
+                gameState.systemGovernors(),
+                gameState.researchProjects(),
+                gameState.geologicalDeposits(),
+                gameState.powerGrids(),
+                gameState.industrialFacilities(),
+                gameState.expansionProjects(),
+                gameState.terraformingProjects(),
+                gameState.orbitalStations(),
+                gameState.spaceElevators(),
+                gameState.constructionProjects(),
+                gameState.corporations(),
+                gameState.megastructures(),
+                gameState.systemEconomies()
+        );
+    }
+
+    public void updateData(
+            List<SolarSystem> systems,
+            List<Empire> newEmpires,
+            List<SystemGovernor> governors,
+            List<ResearchProject> research,
+            List<GeologicalDeposit> newDeposits,
+            List<PowerGridState> grids,
+            List<IndustrialFacility> newFacilities,
+            List<FacilityExpansionProject> expansions,
+            List<GeoengineeringProject> terraform
+    ) {
+        updateData(systems, newEmpires, governors, research, newDeposits, grids, newFacilities, expansions, terraform, null, null, null, null, null, null);
+    }
+
+    public void updateData(
+            List<SolarSystem> systems,
+            List<Empire> newEmpires,
+            List<SystemGovernor> governors,
+            List<ResearchProject> research,
+            List<GeologicalDeposit> newDeposits,
+            List<PowerGridState> grids,
+            List<IndustrialFacility> newFacilities,
+            List<FacilityExpansionProject> expansions,
+            List<GeoengineeringProject> terraform,
+            List<OrbitalStation> newStations,
+            List<SpaceElevator> newElevators,
+            List<ConstructionDeploymentProject> newProjects,
+            List<Corporation> newCorps
+    ) {
+        updateData(systems, newEmpires, governors, research, newDeposits, grids, newFacilities, expansions, terraform, newStations, newElevators, newProjects, newCorps, null, null);
+    }
+
+    public void updateData(
+            List<SolarSystem> systems,
+            List<Empire> newEmpires,
+            List<SystemGovernor> governors,
+            List<ResearchProject> research,
+            List<GeologicalDeposit> newDeposits,
+            List<PowerGridState> grids,
+            List<IndustrialFacility> newFacilities,
+            List<FacilityExpansionProject> expansions,
+            List<GeoengineeringProject> terraform,
+            List<OrbitalStation> newStations,
+            List<SpaceElevator> newElevators,
+            List<ConstructionDeploymentProject> newProjects,
+            List<Corporation> newCorps,
+            List<Megastructure> newMegastructures
+    ) {
+        updateData(systems, newEmpires, governors, research, newDeposits, grids, newFacilities, expansions, terraform, newStations, newElevators, newProjects, newCorps, newMegastructures, null);
+    }
+
+    public void updateData(
+            List<SolarSystem> systems,
+            List<Empire> newEmpires,
+            List<SystemGovernor> governors,
+            List<ResearchProject> research,
+            List<GeologicalDeposit> newDeposits,
+            List<PowerGridState> grids,
+            List<IndustrialFacility> newFacilities,
+            List<FacilityExpansionProject> expansions,
+            List<GeoengineeringProject> terraform,
+            List<OrbitalStation> newStations,
+            List<SpaceElevator> newElevators,
+            List<ConstructionDeploymentProject> newProjects,
+            List<Corporation> newCorps,
+            List<Megastructure> newMegastructures,
+            List<SystemEconomy> newEconomies
+    ) {
+        solarSystems.clear();
+        if (systems != null) solarSystems.addAll(systems);
+
+        empires.clear();
+        if (newEmpires != null) empires.addAll(newEmpires);
+
+        systemGovernors.clear();
+        if (governors != null) systemGovernors.addAll(governors);
+
+        researchProjects.clear();
+        if (research != null) researchProjects.addAll(research);
+
+        deposits.clear();
+        if (newDeposits != null) deposits.addAll(newDeposits);
+
+        powerGrids.clear();
+        if (grids != null) powerGrids.addAll(grids);
+
+        facilities.clear();
+        if (newFacilities != null) facilities.addAll(newFacilities);
+
+        expansionProjects.clear();
+        if (expansions != null) expansionProjects.addAll(expansions);
+
+        terraformingProjects.clear();
+        if (terraform != null) terraformingProjects.addAll(terraform);
+
+        orbitalStations.clear();
+        if (newStations != null) orbitalStations.addAll(newStations);
+
+        spaceElevators.clear();
+        if (newElevators != null) spaceElevators.addAll(newElevators);
+
+        constructionProjects.clear();
+        if (newProjects != null) constructionProjects.addAll(newProjects);
+
+        corporations.clear();
+        if (newCorps != null) corporations.addAll(newCorps);
+
+        megastructures.clear();
+        if (newMegastructures != null) megastructures.addAll(newMegastructures);
+
+        systemEconomies.clear();
+        if (newEconomies != null) systemEconomies.addAll(newEconomies);
+
+        selectedBody = null;
+
+        if (root != null && root.isVisible()) {
+            renderCurrentTab();
+        }
+    }
+
+    public void show() {
+        show(currentTab);
+    }
+
+    public void show(Tab tab) {
+        if (tab != null) {
+            this.currentTab = tab;
+            updateTabButtonStyles();
+        }
+        ensureDataLoaded();
+        renderCurrentTab();
+        if (root != null) {
+            root.setVisible(true);
+            root.toFront();
+        }
+    }
+
+    public void hide() {
+        if (root != null) {
+            root.setVisible(false);
+        }
+        if (menubar != null) {
+            menubar.closePage();
+        }
+    }
+
+    private void ensureDataLoaded() {
+        if (menubar != null && menubar.getMainApp() != null && menubar.getMainApp().getEngine() != null) {
+            updateData(menubar.getMainApp().getEngine().getGameState());
+            return;
+        }
+        if (empires.isEmpty()) {
+            try {
+                empires.addAll(DataModelLoader.loadEmpires());
+            } catch (IOException e) {
+                logger.error("Failed to load empires fallback data", e);
+            }
+        }
+        if (corporations.isEmpty()) {
+            try {
+                corporations.addAll(DataModelLoader.loadCorporations());
+            } catch (IOException e) {
+                logger.error("Failed to load corporate registry fallback data", e);
+            }
+        }
+    }
+
+    public void renderCurrentTab() {
+        if (tabContentContainer == null) return;
+        tabContentContainer.getChildren().clear();
+
+        switch (currentTab) {
+            case ECONOMY -> tabContentContainer.getChildren().add(economyTab.buildEconomyTabContent());
+            case CABINET -> tabContentContainer.getChildren().add(cabinetTab.buildCabinetTabContent());
+            case PLANETS -> tabContentContainer.getChildren().add(planetsTab.buildPlanetsTabContent());
+            case STATIONS -> tabContentContainer.getChildren().add(stationsTab.buildStationsTabContent());
+            case CORPORATIONS -> tabContentContainer.getChildren().add(corporationsTab.buildCorporationsTabContent());
+            case MEGASTRUCTURES -> tabContentContainer.getChildren().add(megastructuresTab.buildMegastructuresTabContent());
+        }
+    }
+
+    public Empire getPlayerEmpire() {
+        return empires.stream()
+                .filter(e -> e.id().equalsIgnoreCase(playerEmpireId))
+                .findFirst()
+                .orElse(empires.isEmpty() ? null : empires.get(0));
+    }
+
+    public List<OrbitalStation> getOrbitalStationsForPlayerEmpire() {
+        return orbitalStations.stream()
+                .filter(s -> s.ownerEntityId().equalsIgnoreCase(playerEmpireId))
+                .toList();
+    }
+
+    public List<SpaceElevator> getSpaceElevatorsForPlayerEmpire() {
+        return spaceElevators.stream()
+                .filter(e -> e.ownerEntityId().equalsIgnoreCase(playerEmpireId))
+                .toList();
+    }
+
+    public List<Corporation> getCorporationsForPlayerEmpire() {
+        if (corporations.isEmpty()) {
+            try {
+                corporations.addAll(DataModelLoader.loadCorporations());
+            } catch (IOException e) {
+                logger.error("Failed to load corporate registry", e);
+            }
+        }
+        return corporations.stream()
+                .filter(c -> c.empireId().equalsIgnoreCase(playerEmpireId))
+                .toList();
+    }
+
+    public List<Megastructure> getMegastructuresForPlayerEmpire() {
+        return megastructures.stream()
+                .filter(m -> m.ownerEmpireId().equalsIgnoreCase(playerEmpireId))
+                .toList();
+    }
+
+    public List<PlanetaryBodyEntry> getAllPlanetaryBodies() {
+        List<PlanetaryBodyEntry> list = new ArrayList<>();
+        Empire playerEmpire = getPlayerEmpire();
+        List<String> controlledSystemIds = playerEmpire != null ? playerEmpire.controlledSystemIds() : List.of();
+
+        for (SolarSystem system : solarSystems) {
+            boolean isSystemControlled = controlledSystemIds.isEmpty() || controlledSystemIds.contains(system.id());
+            if (system.planets() == null) continue;
+
+            for (Planet p : system.planets()) {
+                boolean playerHasAssets = false;
+                if (facilities != null) {
+                    playerHasAssets = facilities.stream()
+                            .anyMatch(f -> f.planetId().equals(p.id()) && f.ownerEntityId().equalsIgnoreCase(playerEmpireId));
+                }
+                if (!playerHasAssets && orbitalStations != null) {
+                    playerHasAssets = orbitalStations.stream()
+                            .anyMatch(s -> s.planetOrbitId() != null && s.planetOrbitId().equals(p.id()) && s.ownerEntityId().equalsIgnoreCase(playerEmpireId));
+                }
+
+                if (isSystemControlled || playerHasAssets) {
+                    PlanetaryBodyEntry planetEntry = PlanetaryBodyEntry.fromPlanet(p, system);
+                    if (planetEntry != null) {
+                        list.add(planetEntry);
+                    }
+                    if (p.moons() != null) {
+                        for (Moon m : p.moons()) {
+                            PlanetaryBodyEntry moonEntry = PlanetaryBodyEntry.fromMoon(m, p, system);
+                            if (moonEntry != null) {
+                                list.add(moonEntry);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return list;
+    }
+
+    public List<PlanetaryBodyEntry> getFilteredAndSortedPlanetaryBodies() {
+        List<PlanetaryBodyEntry> all = getAllPlanetaryBodies();
+
+        List<PlanetaryBodyEntry> filtered = all.stream().filter(entry -> switch (currentFilter) {
+            case COLONIZED -> entry.isColonized();
+            case UNCOLONIZED -> !entry.isColonized();
+            case COLONIZABLE -> entry.isColonizable();
+            case ALL_BODIES -> true;
+            case ONLY_PLANETS -> !entry.isMoon();
+            case ONLY_MOONS -> entry.isMoon();
+        }).toList();
+
+        List<PlanetaryBodyEntry> sorted = new ArrayList<>(filtered);
+        Comparator<PlanetaryBodyEntry> comparator = switch (currentSort) {
+            case NAME_AZ -> Comparator.comparing(PlanetaryBodyEntry::name, String.CASE_INSENSITIVE_ORDER);
+            case SYSTEM_NAME -> Comparator.comparing(PlanetaryBodyEntry::systemName, String.CASE_INSENSITIVE_ORDER)
+                    .thenComparing(PlanetaryBodyEntry::name, String.CASE_INSENSITIVE_ORDER);
+            case POPULATION_DESC -> Comparator.comparingLong(PlanetaryBodyEntry::totalPopulation).reversed()
+                    .thenComparing(PlanetaryBodyEntry::name, String.CASE_INSENSITIVE_ORDER);
+            case SIZE_DESC -> Comparator.comparingDouble(PlanetaryBodyEntry::diameter).reversed()
+                    .thenComparing(PlanetaryBodyEntry::name, String.CASE_INSENSITIVE_ORDER);
+            case GRAVITY_DESC -> Comparator.comparingDouble(PlanetaryBodyEntry::gravity).reversed()
+                    .thenComparing(PlanetaryBodyEntry::name, String.CASE_INSENSITIVE_ORDER);
+            case RESOURCES_DESC -> Comparator.comparingInt(PlanetaryBodyEntry::resourceCount).reversed()
+                    .thenComparing(PlanetaryBodyEntry::name, String.CASE_INSENSITIVE_ORDER);
+        };
+
+        sorted.sort(comparator);
+        return sorted;
+    }
+
+    public boolean isTechnologyUnlocked(String techId) {
+        if (techId == null || techId.isEmpty()) return true;
+
+        Empire playerEmpire = empires.stream()
+                .filter(e -> e.id().equalsIgnoreCase(playerEmpireId))
+                .findFirst()
+                .orElse(null);
+
+        if (playerEmpire != null && playerEmpire.unlockedTechIds() != null && !playerEmpire.unlockedTechIds().isEmpty()) {
+            if (playerEmpire.unlockedTechIds().contains(techId)) {
+                return true;
+            }
+        }
+
+        for (ResearchProject rp : researchProjects) {
+            if (rp.empireId().equalsIgnoreCase(playerEmpireId) &&
+                    rp.targetTechOrAppId().equalsIgnoreCase(techId) &&
+                    rp.isComplete()) {
+                return true;
+            }
+        }
+
+        if (playerEmpire == null || playerEmpire.unlockedTechIds().isEmpty()) {
+            Set<String> defaultStarters = Set.of("electricity", "industrial_production", "rocketry", "geological_prospecting");
+            return defaultStarters.contains(techId);
+        }
+
+        return false;
+    }
+
+    public EmpireEconomyReport calculateEmpireEconomyReport() {
+        return EmpireEconomyCalculator.calculateEmpireEconomyReport(this);
+    }
+
+    public SystemEconomyReport calculateSystemEconomyReport(String systemId) {
+        return EmpireEconomyCalculator.calculateSystemEconomyReport(this, systemId);
+    }
+
+    public void setFeedback(String message, boolean success) {
+        if (feedbackLabel != null) {
+            feedbackLabel.setText(message);
+            feedbackLabel.setTextFill(success ? Color.LIGHTGREEN : Color.LIGHTCORAL);
+        }
+    }
+
+    public static String formatTitle(String id) {
+        if (id == null || id.isEmpty()) return "";
+        String[] parts = id.split("_");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < parts.length; i++) {
+            if (parts[i].isEmpty()) continue;
+            if (i > 0) sb.append(" ");
+            sb.append(Character.toUpperCase(parts[i].charAt(0)))
+                    .append(parts[i].substring(1).toLowerCase());
+        }
+        return sb.toString();
+    }
+}

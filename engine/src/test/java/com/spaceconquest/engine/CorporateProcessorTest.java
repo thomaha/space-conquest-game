@@ -125,6 +125,7 @@ public class CorporateProcessorTest {
         CorporateFleetProcessor.CorporateFleetResult result = fleetProcessor.processFleetOperations(
                 List.of(transportCorp),
                 List.of(srcHub, destHub),
+                List.of(),
                 gravityMap,
                 atmosphereMap
         );
@@ -183,6 +184,7 @@ public class CorporateProcessorTest {
         CorporateFleetProcessor.CorporateFleetResult result = fleetProcessor.processFleetOperations(
                 List.of(transportCorp),
                 List.of(hyperGravHub, destHub),
+                List.of(),
                 gravityMap,
                 atmosphereMap
         );
@@ -208,6 +210,7 @@ public class CorporateProcessorTest {
 
         CorporateFleetProcessor.CorporateFleetResult result = fleetProcessor.processFleetOperations(
                 List.of(miningCorp),
+                List.of(),
                 List.of(),
                 Map.of(),
                 Map.of()

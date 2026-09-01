@@ -5,12 +5,11 @@ import com.spaceconquest.engine.industry.GeologicalDeposit;
 import com.spaceconquest.engine.industry.IndustrialFacility;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Calculates planetary biome bonuses, tile adjacency synergies and pollution penalties.
+ * Procedural surface biome mapper, spherical adjacency graph builder and facility synergy resolver.
  */
 public class BiomeAdjacencyProcessor {
 
@@ -44,9 +43,6 @@ public class BiomeAdjacencyProcessor {
         }
     }
 
-    /**
-     * Calculates grid rows and columns based on celestial body diameter and type.
-     */
     public GridDimensions calculateGridDimensions(double diameter, String bodyType) {
         if (bodyType != null && (bodyType.toUpperCase().contains("GAS") || bodyType.toUpperCase().contains("ICE_GIANT"))) {
             return new GridDimensions(0, 0, List.of());
@@ -55,22 +51,17 @@ public class BiomeAdjacencyProcessor {
             return new GridDimensions(5, 16, List.of(2, 10, 16, 10, 2));
         }
         if (diameter < 1000.0) {
-            // Tiny asteroids and moons (< 1,000 km, e.g. Deimos, Phobos): 2 rows (2, 4 -> 6 sectors)
             return new GridDimensions(2, 4, List.of(2, 4));
         }
         if (diameter < 4000.0) {
-            // Small moons and dwarf planets (1,000 - 4,000 km, e.g. Moon/Luna, Ceres, Io, Europa): 3 rows (2, 8, 2 -> 12 sectors)
             return new GridDimensions(3, 8, List.of(2, 8, 2));
         }
         if (diameter < 9000.0) {
-            // Medium terrestrial bodies (4,000 - 9,000 km, e.g. Mars, Mercury, Titan, Ganymede): 4 rows (2, 10, 10, 2 -> 24 sectors)
             return new GridDimensions(4, 10, List.of(2, 10, 10, 2));
         }
         if (diameter <= 16000.0) {
-            // Standard terrestrial planets (9,000 - 16,000 km, e.g. Earth, Venus): 5 rows (2, 10, 16, 10, 2 -> 40 sectors)
             return new GridDimensions(5, 16, List.of(2, 10, 16, 10, 2));
         }
-        // Massive terrestrial worlds / super-earths (> 16,000 km): 6 rows (2, 10, 18, 18, 10, 2 -> 60 sectors)
         return new GridDimensions(6, 18, List.of(2, 10, 18, 18, 10, 2));
     }
 
@@ -99,18 +90,9 @@ public class BiomeAdjacencyProcessor {
         List<SurfaceTile> tiles = new ArrayList<>(totalCells);
         boolean hasWater = planet.hasLiquidWater();
         String atmosphere = planet.atmosphere() != null ? planet.atmosphere().trim() : "";
-        boolean isAirless = atmosphere.isEmpty() || atmosphere.equalsIgnoreCase("None")
-                || atmosphere.equalsIgnoreCase("Vacuum") || pType.contains("BARREN")
-                || pType.contains("AIRLESS") || pType.contains("CRATER");
+        boolean isAirless = isAirlessBody(atmosphere, pType);
 
-        List<String> planetDepositIds = new ArrayList<>();
-        if (deposits != null) {
-            for (GeologicalDeposit d : deposits) {
-                if (planet.id().equals(d.planetId())) {
-                    planetDepositIds.add(d.id());
-                }
-            }
-        }
+        List<String> planetDepositIds = extractDepositIds(planet.id(), deposits);
 
         int depositCursor = 0;
         int tileIndex = 0;
@@ -119,111 +101,128 @@ public class BiomeAdjacencyProcessor {
             int colsInRow = rowCols.get(r);
             for (int c = 0; c < colsInRow; c++) {
                 int index = tileIndex++;
-                String biome;
-                boolean isWater = false;
-                boolean isLocked = false;
-
-                if (pType.contains("VOLCANIC")) {
-                    biome = (index % 2 == 0) ? SurfaceTile.BIOME_VOLCANIC_RIDGE : SurfaceTile.BIOME_RADIOACTIVE_CRATER;
-                } else if (pType.contains("ICE") || pType.contains("FROZEN")) {
-                    biome = (index % 5 == 0) ? SurfaceTile.BIOME_MOUNTAIN_RANGE : SurfaceTile.BIOME_POLAR_ICE;
-                } else if (pType.contains("DESERT") || pType.contains("ARID")) {
-                    if (r == 0 || r == rows - 1) {
-                        biome = (c % 2 == 0) ? SurfaceTile.BIOME_BARREN_ROCK : SurfaceTile.BIOME_MOUNTAIN_RANGE;
-                    } else {
-                        biome = (index % 4 == 0) ? SurfaceTile.BIOME_BARREN_ROCK : SurfaceTile.BIOME_EQUATORIAL_DESERT;
-                    }
-                } else if (isAirless) {
-                    if (index % 4 == 0) {
-                        biome = SurfaceTile.BIOME_RADIOACTIVE_CRATER;
-                    } else if (index % 4 == 1) {
-                        biome = SurfaceTile.BIOME_VOLCANIC_RIDGE;
-                    } else if (index % 4 == 2) {
-                        biome = SurfaceTile.BIOME_MOUNTAIN_RANGE;
-                    } else {
-                        biome = SurfaceTile.BIOME_BARREN_ROCK;
-                    }
-                } else {
-                    // Terrestrial / Oceanic / Earth-like worlds with realistic spherical latitude biome mapping:
-                    // Earth has ~5% permanent polar ice, ~5% desert, ~70% water / oceanic shelf, ~20% other land
-                    if (r == 0) {
-                        // North Pole: 1 polar ice tile (5% of planet), 1 oceanic / barren tile
-                        if (c == 0) {
-                            biome = SurfaceTile.BIOME_POLAR_ICE;
-                        } else if (hasWater) {
-                            biome = SurfaceTile.BIOME_OCEANIC_SHELF;
-                            isWater = true;
-                        } else {
-                            biome = SurfaceTile.BIOME_BARREN_ROCK;
-                        }
-                    } else if (r == rows - 1) {
-                        // South Pole: 1 polar ice tile (5% of planet), 1 oceanic / barren tile
-                        if (c == 0) {
-                            biome = SurfaceTile.BIOME_POLAR_ICE;
-                        } else if (hasWater) {
-                            biome = SurfaceTile.BIOME_OCEANIC_SHELF;
-                            isWater = true;
-                        } else {
-                            biome = SurfaceTile.BIOME_BARREN_ROCK;
-                        }
-                    } else {
-                        // Intermediate rows (Temperate and Equatorial bands):
-                        int midRow = rows / 2;
-                        boolean isEquator = (r == midRow);
-                        if (isEquator && (c == 5 || c == 10 || (colsInRow <= 4 && c == 0))) {
-                            // Equatorial desert: exactly ~5% of Earth (2 tiles in 16-column equator band)
-                            biome = SurfaceTile.BIOME_EQUATORIAL_DESERT;
-                        } else if (hasWater) {
-                            // Distribute water according to planet's water level (~70% for Earth)
-                            // Northern hemisphere (row 1: 30% land), Equator (row 2: ~19% land + 12% desert), Southern hemisphere (row 3: 20% land)
-                            boolean isLandCol;
-                            if (r == 1) {
-                                isLandCol = (c == 1 || c == 4 || c == 7);
-                            } else if (r == 2) {
-                                isLandCol = (c == 1 || c == 8 || c == 13);
-                            } else {
-                                isLandCol = (c == 2 || c == 6);
-                            }
-
-                            if (isLandCol && c != 5 && c != 10) {
-                                if (index % 5 == 0) {
-                                    biome = SurfaceTile.BIOME_MOUNTAIN_RANGE;
-                                } else if (index % 7 == 0) {
-                                    biome = SurfaceTile.BIOME_VOLCANIC_RIDGE;
-                                } else {
-                                    biome = SurfaceTile.BIOME_TEMPERATE_PLAINS;
-                                }
-                            } else {
-                                biome = SurfaceTile.BIOME_OCEANIC_SHELF;
-                                isWater = true;
-                            }
-                        } else {
-                            // Dry terrestrial world without liquid water
-                            if (index % 3 == 0) {
-                                biome = SurfaceTile.BIOME_MOUNTAIN_RANGE;
-                            } else if (index % 5 == 0) {
-                                biome = SurfaceTile.BIOME_EQUATORIAL_DESERT;
-                            } else if (index % 7 == 0) {
-                                biome = SurfaceTile.BIOME_VOLCANIC_RIDGE;
-                            } else {
-                                biome = SurfaceTile.BIOME_TEMPERATE_PLAINS;
-                            }
-                        }
-                    }
-                }
+                BiomeResolution res = resolveBiome(pType, isAirless, hasWater, r, c, rows, colsInRow, index);
 
                 String assignedDepositId = null;
-                if (!isLocked && depositCursor < planetDepositIds.size()) {
+                if (!res.isLocked() && depositCursor < planetDepositIds.size()) {
                     if (index % 3 == 1 || index == 5 || index >= totalCells - (planetDepositIds.size() - depositCursor)) {
                         assignedDepositId = planetDepositIds.get(depositCursor++);
                     }
                 }
 
-                tiles.add(new SurfaceTile(index, r, c, biome, assignedDepositId, null, isWater, isLocked));
+                tiles.add(new SurfaceTile(index, r, c, res.biome(), assignedDepositId, null, res.isWater(), res.isLocked()));
             }
         }
 
         return new PlanetBiomeGrid(planet.id(), rows, maxCols, tiles, rowCols);
+    }
+
+    private boolean isAirlessBody(String atmosphere, String pType) {
+        return atmosphere.isEmpty() || atmosphere.equalsIgnoreCase("None")
+                || atmosphere.equalsIgnoreCase("Vacuum") || pType.contains("BARREN")
+                || pType.contains("AIRLESS") || pType.contains("CRATER");
+    }
+
+    private List<String> extractDepositIds(String planetId, List<GeologicalDeposit> deposits) {
+        List<String> planetDepositIds = new ArrayList<>();
+        if (deposits != null) {
+            for (GeologicalDeposit d : deposits) {
+                if (planetId.equals(d.planetId())) {
+                    planetDepositIds.add(d.id());
+                }
+            }
+        }
+        return planetDepositIds;
+    }
+
+    private record BiomeResolution(String biome, boolean isWater, boolean isLocked) {}
+
+    private BiomeResolution resolveBiome(String pType, boolean isAirless, boolean hasWater,
+                                         int r, int c, int rows, int colsInRow, int index) {
+        if (pType.contains("VOLCANIC")) {
+            String b = (index % 2 == 0) ? SurfaceTile.BIOME_VOLCANIC_RIDGE : SurfaceTile.BIOME_RADIOACTIVE_CRATER;
+            return new BiomeResolution(b, false, false);
+        }
+        if (pType.contains("ICE") || pType.contains("FROZEN")) {
+            String b = (index % 5 == 0) ? SurfaceTile.BIOME_MOUNTAIN_RANGE : SurfaceTile.BIOME_POLAR_ICE;
+            return new BiomeResolution(b, false, false);
+        }
+        if (pType.contains("DESERT") || pType.contains("ARID")) {
+            if (r == 0 || r == rows - 1) {
+                String b = (c % 2 == 0) ? SurfaceTile.BIOME_BARREN_ROCK : SurfaceTile.BIOME_MOUNTAIN_RANGE;
+                return new BiomeResolution(b, false, false);
+            }
+            String b = (index % 4 == 0) ? SurfaceTile.BIOME_BARREN_ROCK : SurfaceTile.BIOME_EQUATORIAL_DESERT;
+            return new BiomeResolution(b, false, false);
+        }
+        if (isAirless) {
+            String b = switch (index % 4) {
+                case 0 -> SurfaceTile.BIOME_RADIOACTIVE_CRATER;
+                case 1 -> SurfaceTile.BIOME_VOLCANIC_RIDGE;
+                case 2 -> SurfaceTile.BIOME_MOUNTAIN_RANGE;
+                default -> SurfaceTile.BIOME_BARREN_ROCK;
+            };
+            return new BiomeResolution(b, false, false);
+        }
+
+        return resolveTerrestrialBiome(hasWater, r, c, rows, colsInRow, index);
+    }
+
+    private BiomeResolution resolveTerrestrialBiome(boolean hasWater, int r, int c, int rows, int colsInRow, int index) {
+        if (r == 0 || r == rows - 1) {
+            if (c == 0) {
+                return new BiomeResolution(SurfaceTile.BIOME_POLAR_ICE, false, false);
+            } else if (hasWater) {
+                return new BiomeResolution(SurfaceTile.BIOME_OCEANIC_SHELF, true, false);
+            } else {
+                return new BiomeResolution(SurfaceTile.BIOME_BARREN_ROCK, false, false);
+            }
+        }
+
+        int midRow = rows / 2;
+        boolean isEquator = (r == midRow);
+        if (isEquator && (c == 5 || c == 10 || (colsInRow <= 4 && c == 0))) {
+            return new BiomeResolution(SurfaceTile.BIOME_EQUATORIAL_DESERT, false, false);
+        }
+        if (hasWater) {
+            return resolveWaterWorldTile(r, c, index);
+        }
+        return resolveDryTerrestrialTile(index);
+    }
+
+    private BiomeResolution resolveWaterWorldTile(int r, int c, int index) {
+        boolean isLandCol = switch (r) {
+            case 1 -> (c == 1 || c == 4 || c == 7);
+            case 2 -> (c == 1 || c == 8 || c == 13);
+            default -> (c == 2 || c == 6);
+        };
+
+        if (isLandCol && c != 5 && c != 10) {
+            String biome;
+            if (index % 5 == 0) {
+                biome = SurfaceTile.BIOME_MOUNTAIN_RANGE;
+            } else if (index % 7 == 0) {
+                biome = SurfaceTile.BIOME_VOLCANIC_RIDGE;
+            } else {
+                biome = SurfaceTile.BIOME_TEMPERATE_PLAINS;
+            }
+            return new BiomeResolution(biome, false, false);
+        }
+        return new BiomeResolution(SurfaceTile.BIOME_OCEANIC_SHELF, true, false);
+    }
+
+    private BiomeResolution resolveDryTerrestrialTile(int index) {
+        String biome;
+        if (index % 3 == 0) {
+            biome = SurfaceTile.BIOME_MOUNTAIN_RANGE;
+        } else if (index % 5 == 0) {
+            biome = SurfaceTile.BIOME_EQUATORIAL_DESERT;
+        } else if (index % 7 == 0) {
+            biome = SurfaceTile.BIOME_VOLCANIC_RIDGE;
+        } else {
+            biome = SurfaceTile.BIOME_TEMPERATE_PLAINS;
+        }
+        return new BiomeResolution(biome, false, false);
     }
 
     /**
@@ -282,18 +281,18 @@ public class BiomeAdjacencyProcessor {
             }
         }
 
-        // 2. Deposit on Current Tile
+        // 2. Deposit on Same Tile
         if (tile.hasDeposit() && isHeavyIndustry) {
             throughputMult *= 1.20;
-            synergies.add("Direct Vein Colocation (+20% Mining & Refining Throughput)");
+            synergies.add("Direct Vein Colocation (+20% Extraction Throughput)");
         }
 
-        // 3. Adjacency Bonuses & Penalties from Orthogonal Neighbors
+        // 3. Adjacency Bonuses
         List<SurfaceTile> neighbors = grid.getOrthogonalNeighbors(tileIndex);
         for (SurfaceTile neighbor : neighbors) {
             if (neighbor.hasDeposit() && isHeavyIndustry) {
-                throughputMult *= 1.10;
-                synergies.add("Adjacent Mineral Deposit Logistics (+10% Throughput)");
+                throughputMult *= 1.05;
+                synergies.add("Adjacent Mineral Vein Logistics (+5% Extraction Efficiency)");
             }
 
             if (neighbor.isOccupied() && allFacilitiesOnPlanet != null) {
@@ -303,13 +302,10 @@ public class BiomeAdjacencyProcessor {
                     boolean nIsPower = nApp.contains("power") || nApp.contains("solar") || nApp.contains("fusion") || nApp.contains("geothermal");
                     boolean nIsHeavy = nApp.contains("foundry") || nApp.contains("metallurgy") || nApp.contains("refin") || nApp.contains("mine");
 
-                    // Adjacency to Power Plant
                     if (nIsPower && isHeavyIndustry) {
                         throughputMult *= 1.15;
                         synergies.add("Adjacent High-Voltage Grid Coupling (+15% Heavy Industry Efficiency)");
                     }
-
-                    // Pollution Degradation on Agriculture
                     if (nIsHeavy && isAgri) {
                         pollutionPenalty += 0.25;
                         synergies.add("Heavy Industrial Runoff Degradation (-25% Agricultural Yield)");
@@ -319,6 +315,7 @@ public class BiomeAdjacencyProcessor {
         }
 
         double finalThroughput = Math.max(0.10, throughputMult * (1.0 - pollutionPenalty));
+
         return new BiomeSynergyResult(finalThroughput, powerGenMult, pollutionPenalty, synergies);
     }
 }

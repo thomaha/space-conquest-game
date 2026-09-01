@@ -114,6 +114,44 @@ public class GalaxyGeneratorTest {
     }
 
     @Test
+    public void testGenerateAIEmpires() {
+        int numSystems = 20;
+        int numAI = 3;
+        GameState state = generator.generateGameState(numSystems, numAI, GameStartScenario.PRE_SPACE_FLIGHT);
+        
+        assertNotNull(state);
+        assertEquals(numSystems, state.solarSystems().size());
+        // 1 player empire + 3 AI empires = 4 total
+        assertEquals(4, state.empires().size());
+        
+        assertTrue(state.empires().stream().anyMatch(e -> e.id().equals("terran_confederation")));
+        assertTrue(state.empires().stream().anyMatch(e -> e.id().equals("ai_empire_1")));
+        assertTrue(state.empires().stream().anyMatch(e -> e.id().equals("ai_empire_2")));
+        assertTrue(state.empires().stream().anyMatch(e -> e.id().equals("ai_empire_3")));
+        
+        // Each AI empire should have corporations and hubs
+        for (int i = 1; i <= numAI; i++) {
+            String aiId = "ai_empire_" + i;
+            assertTrue(state.corporations().stream().anyMatch(c -> c.empireId().equals(aiId)));
+            
+            String aiHomeSystemId = state.empires().stream()
+                    .filter(e -> e.id().equals(aiId))
+                    .findFirst().orElseThrow()
+                    .controlledSystemIds().get(0);
+            
+            SolarSystem sys = state.solarSystems().stream()
+                    .filter(s -> s.id().equals(aiHomeSystemId))
+                    .findFirst().orElseThrow();
+            
+            String homePlanetId = sys.planets().stream()
+                    .filter(p -> !p.populations().isEmpty())
+                    .findFirst().orElseThrow().id();
+            
+            assertTrue(state.commercialHubs().stream().anyMatch(h -> h.entityId().equals(homePlanetId)));
+        }
+    }
+
+    @Test
     public void testEngineScenarioInitialization() {
         SpaceConquestEngine engine = new SpaceConquestEngine(GameStartScenario.ADVANCED_ROCKETRY);
         engine.start();

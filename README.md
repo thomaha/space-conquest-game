@@ -3,9 +3,9 @@ This will be a space conquest game with similarities to Stellaris and Master of 
 The game will have resources, technology, races, spaceships and combat both in space and on the ground.
 
 ## Project structure
-- `engine`: Core game logic and state.
-- `control`: Input handling and player/AI logic.
-- `frontend`: Main entry point and user interface.
+- `engine`: core game logic and state.
+- `control`: input handling and player/AI logic.
+- `frontend`: main entry point and user interface. All assignments made must be backed by actual data in the game world. Example: you cannot assign more scientists to perform research than available in the empire.
 
 ## Technical stack
 The game will be built using Java. Starting with java26 but will upgrade when new versions are stable.
@@ -15,15 +15,15 @@ Framework will be Spring Boot. A UI-framework is not yet decided but will not be
 Every component in the game like race, technologies, technological applications, materials, professions, raw materials should fetch all properties from property files stored in the resources folder.  
 
 ### Time. Draft section.
-- The game time will run for many years. The lowest game speed is 1 minute per real second, with steps at 1 hour, 6 hours, 12 hours, 1 day, 5 days, 10 days per second. 
-- It is possible to pause the game.
-- Some mechanics will be checked continuously and others less frequently. Points that are mentioned as per turn will be checked daily.
+- the game time will run for many years. The lowest game speed is 1 minute per real second, with steps at 1 hour, 6 hours, 12 hours, 1 day, 5 days, 10 days per second. 
+- it is possible to pause the game.
+- some mechanics will be checked continuously and others less frequently. Points that are mentioned as per turn will be checked daily.
 
 ### Game start
 Player can decide to start the game with: 
-- Pre space flight (only home planet and basic rocketry technology)
-- Advanced rocketry (colonized the most friendly planets in starting solar system, some space bases and several offworld mining bases)
-- Basic warp technology (extensive expansion in starting system and some bases in the closest neighboring systems)
+- pre space flight (only home planet and basic rocketry technology)
+- advanced rocketry (colonized the most friendly planets in starting solar system, some space bases and several offworld mining bases)
+- basic warp technology (extensive expansion in starting system and some bases in the closest neighboring systems)
 
 ### Galaxy
 The galaxy will consist of multiple systems. Systems with stars are solar systems. Most systems are solar systems. 
@@ -161,11 +161,8 @@ This document codifies the biological, chemical and sociological foundations of 
 - Retirement lifespan percentage: Percentage value applied against the race's natural lifespan to calculate chronological retirement age.
 
 ### Population
-Planets and space stations will have a population of one or more races. Population is segregated by rase and age. For races eligible to reproduce, 
-only the part of the population in the fertile age span will do so. Hive societies will only reproduce if they contain a queen of fertile age. 
-The population will be influenced by the nutrient type and spread requirement of the available food stored in the planet or space station. 
-Ships containing population modules that do not have stasis chambers will behave the same way.
-A group of people can be trained for a profession. They will have a training level for it that will decide how efficient they are at the task.
+Planets and space stations will have a population of one or more races. Population is segregated by race and age. For races eligible to reproduce, only the part of the population in the fertile age span will do so. Hive societies will only reproduce if they contain a queen of fertile age. The population will be influenced by the nutrient type and spread requirement of the available food stored in the planet or space station. Ships containing population modules that do not have stasis chambers will behave the same way.
+A group of people can be trained for a profession. They will have a training level for it that will decide how efficient they are at the task. All people of eligible age to be part of the workforce either have a profession, are unemployed or disabled.
 
 ### Empires
 Each empire will have its own economy and technology tree. It can contain a population of multiple races. 
@@ -370,6 +367,24 @@ The power grid represents the operational lifeblood of every spaceship, space st
 
 [Power, propulsion energy and fuel logistics](Power.md)
 
+### Megastructures and stellar engineering
+Advanced technological civilizations can construct macro-scale engineering projects that encompass entire stars or planetary systems. These structures are built in multiple stages and provide massive energy or material yields.
+*   **Dyson swarms and spheres:** Built around stars to capture astronomical levels of energy. Operational output is measured in kilowatts (kW).
+*   **Star lifters:** Massive magnetic arrays that extract raw elements directly from a star's photosphere.
+*   **Ringworlds and orbital habitats:** Artificial habitable zones providing massive population capacity.
+*   **Hyperlane gateways:** Megastructures that enable instantaneous warp transit between connected solar systems, bypassing standard FTL travel times.
+
+### Procedural audio synthesis
+The game engine features a dedicated audio synthesis worker that generates real-time audio feedback for galactic events.
+*   **Event-driven cues:** Specific sounds are triggered for turn advancement, terraforming completion and galactic senate sessions.
+*   **Atmospheric audio feedback:** Sound profiles shift based on the environment, providing auditory cues for warp transit and tactical combat engagements.
+
+### Physics standards and simulation fidelity
+To ensure consistency across all sub-systems, the engine standardizes all calculations on the International System of Units (SI).
+*   **Standardized units:** Mass is tracked in kilograms (kg), thrust in Newtons (N), temperature in Kelvin (K) and energy in kilowatts (kW).
+*   **Environmental barriers:** Atmospheric density affects laser weapon effectiveness due to photon scattering. Planetary blast-off costs are calculated as a strict force-to-mass ratio against local gravity.
+*   **Nanotechnology complexity:** The production of advanced energy weapons and high-tier electronics is capped by the empire's current nanotechnology research level.
+
 ## How to read
 Each module contains a `MODULE.md` file with specific details about its purpose and components to help AI agents navigate the codebase.
 
@@ -382,6 +397,10 @@ Each module contains a `MODULE.md` file with specific details about its purpose 
 - Static data model loaded from JSON property files: solar systems, races, materials, technologies with
   applications, star properties (Hertzsprung-Russell) and professions.
 - Procedural galaxy generation with realistic star mass distribution and colors.
+- Physics-standardized simulation engine using SI units (kg, N, K, kW).
+- Megastructure assembly and yields (Dyson spheres, star lifters, hyperlane gateways).
+- Dynamic political elections influenced by material shortages and professional backgrounds.
+- Procedural audio synthesis worker for event-driven feedback.
 - Galaxy map with zoom (buttons and mouse wheel), goto search, entity focus panels and tooltips.
 - Menubar with empire, diplomacy, technology, fleet, galaxy view and game menu pages; opening a page pauses
   the game and closing it resumes at the previous speed.

@@ -65,16 +65,16 @@ public class DiplomacyProcessorTest {
     @Test
     public void testNutrientCompatibilityTradeBarrier() {
         // 1. Inorganic freight (titanium / silicon) is always compatible
-        assertTrue(diplomacyProcessor.isTradePermitted("titanium", humanRace, siliconRace, false));
-        assertTrue(diplomacyProcessor.isTradePermitted("refined_silicon", humanRace, siliconRace, false));
+        assertTrue(diplomacyProcessor.isTradePermitted("titanium", humanRace, siliconRace, "", "", false, 0));
+        assertTrue(diplomacyProcessor.isTradePermitted("refined_silicon", humanRace, siliconRace, "", "", false, 0));
 
         // 2. Organic food between humans (both Organic) is compatible
-        assertTrue(diplomacyProcessor.isTradePermitted("organic_food", humanRace, humanRace, false));
+        assertTrue(diplomacyProcessor.isTradePermitted("organic_food", humanRace, humanRace, "", "", false, 0));
 
         // 3. Organic food exported to Silicon Core (Rock nutrient) without Xenobiology Lab is blocked
-        assertFalse(diplomacyProcessor.isTradePermitted("organic_food", humanRace, siliconRace, false));
+        assertFalse(diplomacyProcessor.isTradePermitted("organic_food", humanRace, siliconRace, "", "", false, 0));
 
         // 4. With Xenobiology Lab active, nutrient trade is permitted
-        assertTrue(diplomacyProcessor.isTradePermitted("organic_food", humanRace, siliconRace, true));
+        assertTrue(diplomacyProcessor.isTradePermitted("organic_food", humanRace, siliconRace, "", "", true, 10));
     }
 }

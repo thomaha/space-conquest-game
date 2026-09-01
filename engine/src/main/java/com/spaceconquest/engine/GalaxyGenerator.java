@@ -80,35 +80,104 @@ public class GalaxyGenerator {
     }
 
     public GameState generateGameState(int numSystems, GameStartScenario scenario) {
+        return generateGameState(numSystems, 0, scenario);
+    }
+
+    public GameState generateGameState(int numSystems, int numAIEmpires, GameStartScenario scenario) {
         GameStartScenario activeScenario = scenario != null ? scenario : GameStartScenario.PRE_SPACE_FLIGHT;
-        List<SolarSystem> systems = generate(numSystems, activeScenario);
-        SolarSystem homeSystem = systems.get(0);
-        Race primaryRace = races.stream().filter(r -> r.id().equals("human")).findFirst().orElse(races.get(0));
+        List<SolarSystem> rawSystems = generate(numSystems, activeScenario);
+        
+        List<Empire> allEmpires = new ArrayList<>();
+        List<Corporation> allCorporations = new ArrayList<>();
+        List<CommercialHub> allHubs = new ArrayList<>();
+        List<com.spaceconquest.engine.industry.GeologicalDeposit> allDeposits = new ArrayList<>();
+        List<com.spaceconquest.engine.industry.PowerGridState> allGrids = new ArrayList<>();
+        List<com.spaceconquest.engine.economy.SystemEconomy> allEconomies = new ArrayList<>();
 
-        List<String> controlledSystemIds = new ArrayList<>();
-        controlledSystemIds.add(homeSystem.id());
+        // 1. Setup Player Empire
+        Race humanRace = races.stream().filter(r -> r.id().equals("human")).findFirst().orElse(races.get(0));
+        SolarSystem playerHome = prepareHomeSystem(rawSystems.get(0), humanRace, activeScenario);
+        
+        // Replace raw home with configured home in systems list
+        List<SolarSystem> systems = new ArrayList<>(rawSystems);
+        systems.set(0, playerHome);
 
-        if (activeScenario == GameStartScenario.BASIC_WARP) {
-            List<SolarSystem> closest = findClosestNeighbors(homeSystem, systems, 2);
-            for (SolarSystem neighbor : closest) {
-                controlledSystemIds.add(neighbor.id());
+        Empire playerEmpire = createEmpireForGenerator(
+                "terran_confederation", "Terran Confederation", humanRace, playerHome, systems, activeScenario, true
+        );
+        allEmpires.add(playerEmpire);
+        setupEmpireAssets(playerEmpire, playerHome, systems, activeScenario, allCorporations, allHubs, allDeposits, allGrids);
+
+        // 2. Setup AI Empires
+        int maxAI = Math.min(numAIEmpires, systems.size() - 1);
+        List<Race> aiRaces = races.stream().filter(r -> !r.id().equals("human")).toList();
+        if (aiRaces.isEmpty()) aiRaces = races;
+
+        for (int i = 0; i < maxAI; i++) {
+            SolarSystem rawAIHome = systems.get(i + 1);
+            Race aiRace = aiRaces.get(i % aiRaces.size());
+            
+            SolarSystem aiHome = prepareHomeSystem(rawAIHome, aiRace, activeScenario);
+            systems.set(i + 1, aiHome);
+
+            String id = "ai_empire_" + (i + 1);
+            String name = aiRace.name() + " Collective " + (i + 1);
+            
+            Empire aiEmpire = createEmpireForGenerator(id, name, aiRace, aiHome, systems, activeScenario, false);
+            allEmpires.add(aiEmpire);
+            setupEmpireAssets(aiEmpire, aiHome, systems, activeScenario, allCorporations, allHubs, allDeposits, allGrids);
+        }
+
+        // 3. Setup Economies for all controlled systems
+        for (Empire emp : allEmpires) {
+            for (String sysId : emp.controlledSystemIds()) {
+                SolarSystem sys = systems.stream().filter(s -> s.id().equals(sysId)).findFirst().orElse(null);
+                if (sys == null) continue;
+                
+                long sysPop = 0;
+                for (Planet p : sys.planets()) {
+                    for (Population pop : p.populations()) {
+                        sysPop += pop.totalCount();
+                    }
+                }
+                if (sysPop > 0) {
+                    allEconomies.add(com.spaceconquest.engine.economy.SystemEconomy.createDefault(
+                            sys.id(), emp.id(), sysPop
+                    ));
+                }
             }
         }
 
-        double treasury = switch (activeScenario) {
+        return new GameState(
+                0, "RUNNING", systems, allEmpires, allCorporations, allHubs,
+                List.of(), List.of(), List.of(),
+                new ArrayList<>(), new ArrayList<>(), // research and exchange routes
+                List.of(), List.of(), allDeposits, allGrids,
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(), List.of(), null,
+                List.of(), List.of(), allEconomies
+        );
+    }
+
+    private Empire createEmpireForGenerator(String id, String name, Race race, SolarSystem home, List<SolarSystem> allSystems, GameStartScenario scenario, boolean isPlayer) {
+        List<String> controlledIds = new ArrayList<>();
+        controlledIds.add(home.id());
+
+        if (scenario == GameStartScenario.BASIC_WARP) {
+            List<SolarSystem> closest = findClosestNeighbors(home, allSystems, 2);
+            for (SolarSystem neighbor : closest) {
+                controlledIds.add(neighbor.id());
+            }
+        }
+
+        double treasury = switch (scenario) {
             case PRE_SPACE_FLIGHT -> 50000.0;
             case ADVANCED_ROCKETRY -> 80000.0;
             case BASIC_WARP -> 150000.0;
         };
 
-        Empire terranConfederation = new Empire(
-                "terran_confederation",
-                "Terran Confederation",
-                primaryRace.id(),
-                "Individualist",
-                treasury,
-                0.15,
-                controlledSystemIds,
+        return new Empire(
+                id, name, race.id(), race.societyStructure(), treasury, 0.15, controlledIds,
                 List.of(
                         new MinistryAssignment("ministry_industry_refining", "industrial_worker", 1.25),
                         new MinistryAssignment("ministry_agricultural_biosphere", "farmer", 1.25),
@@ -116,12 +185,17 @@ public class GalaxyGenerator {
                         new MinistryAssignment("ministry_defense_logistics", "soldier", 1.25),
                         new MinistryAssignment("ministry_finance_commerce", "bureaucrat", 1.10)
                 ),
-                Map.of(homeSystem.id(), "gov_sol_human"),
-                activeScenario.startingTechnologies(),
-                activeScenario.startingShipDesigns()
+                Map.of(home.id(), "gov_" + home.id() + "_" + id),
+                scenario.startingTechnologies(),
+                scenario.startingShipDesigns()
         );
+    }
 
-        List<CommercialHub> hubs = new ArrayList<>();
+    private void setupEmpireAssets(Empire empire, SolarSystem homeSystem, List<SolarSystem> allSystems, GameStartScenario scenario, 
+                                   List<Corporation> corps, List<CommercialHub> hubs, 
+                                   List<com.spaceconquest.engine.industry.GeologicalDeposit> deposits, 
+                                   List<com.spaceconquest.engine.industry.PowerGridState> grids) {
+        
         Planet homePlanet = homeSystem.planets().stream()
                 .filter(p -> !p.populations().isEmpty())
                 .findFirst()
@@ -129,9 +203,40 @@ public class GalaxyGenerator {
 
         if (homePlanet != null) {
             hubs.add(new CommercialHub("hub_" + homePlanet.id(), homePlanet.id(), 0.05, 500000.0, 50000.0, 15.0, Map.of()));
+            
+            deposits.add(new com.spaceconquest.engine.industry.GeologicalDeposit(
+                    "dep_" + homePlanet.id() + "_iron", homePlanet.id(), "refined_iron", 
+                    1_000_000.0, 1_000_000.0, 1.2, true, empire.id()
+            ));
+
+            grids.add(new com.spaceconquest.engine.industry.PowerGridState(
+                    homePlanet.id(), 5000.0, 2500.0, 2500.0, 10000.0, 5000.0, false
+            ));
+
+            List<String> transportShips = switch (scenario) {
+                case PRE_SPACE_FLIGHT -> List.of();
+                case ADVANCED_ROCKETRY -> List.of("cargo_freighter_01");
+                case BASIC_WARP -> List.of("cargo_freighter_01", "cargo_freighter_02", "cargo_freighter_03");
+            };
+            List<String> miningShips = switch (scenario) {
+                case PRE_SPACE_FLIGHT -> List.of();
+                case ADVANCED_ROCKETRY -> List.of("mine_ship_alpha_1");
+                case BASIC_WARP -> List.of("mine_ship_alpha_1", "mine_ship_alpha_2");
+            };
+
+            corps.add(new Corporation(
+                    "corp_" + empire.id() + "_transport", empire.name() + " Transport", empire.id(),
+                    homePlanet.id(), "TRANSPORT", scenario == GameStartScenario.BASIC_WARP ? 60000.0 : 20000.0,
+                    List.of("cargo_terminal_" + homePlanet.id()), transportShips, List.of()
+            ));
+            corps.add(new Corporation(
+                    "corp_" + empire.id() + "_extraction", empire.name() + " Extraction", empire.id(),
+                    homePlanet.id(), "EXTRACTION", scenario == GameStartScenario.BASIC_WARP ? 50000.0 : 15000.0,
+                    List.of(), miningShips, List.of()
+            ));
         }
 
-        if (activeScenario == GameStartScenario.ADVANCED_ROCKETRY || activeScenario == GameStartScenario.BASIC_WARP) {
+        if (scenario == GameStartScenario.ADVANCED_ROCKETRY || scenario == GameStartScenario.BASIC_WARP) {
             for (Planet p : homeSystem.planets()) {
                 if (homePlanet != null && !p.id().equals(homePlanet.id()) && !p.populations().isEmpty()) {
                     hubs.add(new CommercialHub("hub_" + p.id(), p.id(), 0.05, 200000.0, 20000.0, 10.0, Map.of()));
@@ -139,9 +244,9 @@ public class GalaxyGenerator {
             }
         }
 
-        if (activeScenario == GameStartScenario.BASIC_WARP) {
-            for (SolarSystem sys : systems) {
-                if (!sys.id().equals(homeSystem.id()) && controlledSystemIds.contains(sys.id())) {
+        if (scenario == GameStartScenario.BASIC_WARP) {
+            for (SolarSystem sys : allSystems) {
+                if (!sys.id().equals(homeSystem.id()) && empire.controlledSystemIds().contains(sys.id())) {
                     for (Planet p : sys.planets()) {
                         if (!p.populations().isEmpty()) {
                             hubs.add(new CommercialHub("hub_" + p.id(), p.id(), 0.05, 100000.0, 10000.0, 25.0, Map.of()));
@@ -151,120 +256,6 @@ public class GalaxyGenerator {
                 }
             }
         }
-
-        List<Corporation> corporations = new ArrayList<>();
-        if (homePlanet != null) {
-            List<String> transportShips = switch (activeScenario) {
-                case PRE_SPACE_FLIGHT -> List.of();
-                case ADVANCED_ROCKETRY -> List.of("cargo_freighter_01");
-                case BASIC_WARP -> List.of("cargo_freighter_01", "cargo_freighter_02", "cargo_freighter_03");
-            };
-            List<String> miningShips = switch (activeScenario) {
-                case PRE_SPACE_FLIGHT -> List.of();
-                case ADVANCED_ROCKETRY -> List.of("mine_ship_alpha_1");
-                case BASIC_WARP -> List.of("mine_ship_alpha_1", "mine_ship_alpha_2");
-            };
-
-            corporations.add(new Corporation(
-                    "corp_terran_transport",
-                    "Terran Interplanetary Transport",
-                    "terran_confederation",
-                    homePlanet.id(),
-                    "TRANSPORT",
-                    activeScenario == GameStartScenario.BASIC_WARP ? 60000.0 : (activeScenario == GameStartScenario.ADVANCED_ROCKETRY ? 35000.0 : 20000.0),
-                    List.of("cargo_terminal_" + homePlanet.id()),
-                    transportShips,
-                    List.of()
-            ));
-            corporations.add(new Corporation(
-                    "corp_sol_extraction",
-                    "Asteroid Mining Syndicate",
-                    "terran_confederation",
-                    homePlanet.id(),
-                    "EXTRACTION",
-                    activeScenario == GameStartScenario.BASIC_WARP ? 50000.0 : (activeScenario == GameStartScenario.ADVANCED_ROCKETRY ? 25000.0 : 15000.0),
-                    List.of(),
-                    miningShips,
-                    List.of()
-            ));
-        }
-
-        List<com.spaceconquest.engine.industry.GeologicalDeposit> initialDeposits = new ArrayList<>();
-        List<com.spaceconquest.engine.industry.PowerGridState> initialGrids = new ArrayList<>();
-
-        if (homePlanet != null) {
-            initialDeposits.add(new com.spaceconquest.engine.industry.GeologicalDeposit(
-                    "dep_" + homePlanet.id() + "_iron",
-                    homePlanet.id(),
-                    "refined_iron",
-                    1_000_000.0,
-                    1_000_000.0,
-                    1.2,
-                    true,
-                    "terran_confederation"
-            ));
-
-            initialGrids.add(new com.spaceconquest.engine.industry.PowerGridState(
-                    homePlanet.id(),
-                    5000.0,
-                    2500.0,
-                    2500.0,
-                    10000.0,
-                    5000.0,
-                    false
-            ));
-        }
-
-        List<com.spaceconquest.engine.economy.SystemEconomy> initialEconomies = new ArrayList<>();
-        for (SolarSystem sys : systems) {
-            long sysPop = 0;
-            if (sys.planets() != null) {
-                for (Planet p : sys.planets()) {
-                    if (p.populations() != null) {
-                        for (Population pop : p.populations()) {
-                            sysPop += pop.totalCount();
-                        }
-                    }
-                }
-            }
-            if (sysPop > 0) {
-                initialEconomies.add(com.spaceconquest.engine.economy.SystemEconomy.createDefault(
-                        sys.id(), "terran_confederation", sysPop
-                ));
-            }
-        }
-
-        return new GameState(
-                0,
-                "RUNNING",
-                systems,
-                List.of(terranConfederation),
-                corporations,
-                hubs,
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                initialDeposits,
-                initialGrids,
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                null,
-                List.of(),
-                List.of(),
-                initialEconomies
-        );
     }
 
     private SolarSystem generateSolarSystem(String name, int index) {
@@ -358,10 +349,10 @@ public class GalaxyGenerator {
         );
     }
 
-    private Planet generatePlanet(String name, double distance, double hzInner, double hzOuter) {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        String type = PLANET_TYPES.get(random.nextInt(PLANET_TYPES.size()));
-        
+    private record PlanetDimensions(double diameter, double mass) {}
+    private record PlanetAtmosphereInfo(String atmosphere, String description, boolean hasLiquidWater, double waterLevel) {}
+
+    private PlanetDimensions calculatePlanetDimensions(String type, ThreadLocalRandom random) {
         double diameter;
         double mass;
         if (type.equals("gas_giant") || type.equals("ice_giant")) {
@@ -370,107 +361,118 @@ public class GalaxyGenerator {
         } else if (type.equals("dwarf_planet") || type.equals("protoplanet") || type.equals("barren")) {
             diameter = random.nextDouble(2000, 6000); 
             mass = random.nextDouble(1.0e23, 1.0e24); 
-        } else { // terrestrial types
+        } else {
             diameter = random.nextDouble(5000, 20000); 
             mass = random.nextDouble(3.0e24, 1.5e25); 
         }
+        return new PlanetDimensions(diameter, mass);
+    }
+
+    private PlanetAtmosphereInfo determineAtmosphereAndDescription(String type, boolean hasLiquidWater, double initialWaterLevel, ThreadLocalRandom random) {
+        String description = "A " + type.replace("_", " ") + " planet.";
+        String atmosphere = "none";
+        boolean liquidWater = hasLiquidWater;
+        double waterLevel = initialWaterLevel;
+
+        switch (type) {
+            case "ocean" -> {
+                description += " It is covered in vast oceans.";
+                atmosphere = "nitrogen_oxygen";
+            }
+            case "desert" -> {
+                description += " It is a dry, sandy world.";
+                atmosphere = "thin_nitrogen_co2";
+            }
+            case "lava" -> {
+                description += " Its surface is molten rock.";
+                atmosphere = "trace_silicate";
+            }
+            case "ice" -> {
+                description += " It is covered in thick layers of ice.";
+                atmosphere = "thin_nitrogen";
+            }
+            case "barren" -> {
+                description += " It is a desolate, airless world of rock and metal.";
+                atmosphere = "none";
+            }
+            case "toxic" -> {
+                description += " It is shrouded in a thick, noxious atmosphere and crushing heat.";
+                atmosphere = "dense_co2";
+                liquidWater = false;
+            }
+            case "terrestrial" -> atmosphere = random.nextDouble() < 0.5 ? "nitrogen_oxygen" : "nitrogen_argon";
+            case "gas_giant", "ice_giant" -> {
+                atmosphere = type.equals("gas_giant") ? "hydrogen_helium" : "hydrogen_helium_methane";
+                liquidWater = false;
+            }
+            case "dwarf_planet", "protoplanet" -> {
+                atmosphere = random.nextDouble() < 0.1 ? "trace_nitrogen" : "none";
+                liquidWater = false;
+            }
+        }
+        return new PlanetAtmosphereInfo(atmosphere, description, liquidWater, waterLevel);
+    }
+
+    private Planet generatePlanet(String name, double distance, double hzInner, double hzOuter) {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        String type = PLANET_TYPES.get(random.nextInt(PLANET_TYPES.size()));
+        
+        PlanetDimensions dims = calculatePlanetDimensions(type, random);
+        double diameter = dims.diameter();
+        double mass = dims.mass();
 
         double gravity = (6.674e-11 * mass) / Math.pow(diameter * 500, 2);
         double inclination = random.nextDouble(-5, 5);
 
-        // Preliminary resource logic
         List<String> resources = new ArrayList<>();
         if (type.equals("barren") || type.equals("lava") || type.equals("desert")) {
             if (random.nextDouble() < 0.6) resources.add("iron_ore");
         }
         resources.addAll(pickRandomResources(random.nextInt(1, 4)));
         
-        // Liquid water criteria: In HZ, enough mass to hold atmosphere, and not too toxic
         boolean inHabitableZone = distance >= hzInner && distance <= hzOuter;
-        boolean enoughMass = mass >= 1.0e24; // Mars is ~0.6e24, Earth is ~6e24
+        boolean enoughMass = mass >= 1.0e24;
         boolean hasLiquidWater = inHabitableZone && enoughMass;
         double waterLevel = 0.0;
 
-        // Force type/atmosphere adjustment for HZ planets
         if (hasLiquidWater) {
             if (random.nextDouble() < 0.7) {
                 type = random.nextBoolean() ? "terrestrial" : "ocean";
             }
             waterLevel = type.equals("ocean") ? random.nextDouble(0.8, 1.0) : random.nextDouble(0.2, 0.8);
         } else if (distance < hzInner && (type.equals("terrestrial") || type.equals("ocean") || type.equals("ice"))) {
-            type = "lava"; // Too hot
+            type = "lava";
         } else if (distance > hzOuter && (type.equals("terrestrial") || type.equals("ocean") || type.equals("lava"))) {
-            type = "ice"; // Too cold
-            if (type.equals("ice")) waterLevel = random.nextDouble(0.0, 0.2); // Ice worlds might have some frozen water
+            type = "ice";
+            if (type.equals("ice")) waterLevel = random.nextDouble(0.0, 0.2);
         }
 
-        int numMoons = random.nextInt(0, 4);
-        if (type.equals("gas_giant") || type.equals("ice_giant")) numMoons = random.nextInt(2, 12);
-        
+        int numMoons = (type.equals("gas_giant") || type.equals("ice_giant")) ? random.nextInt(2, 12) : random.nextInt(0, 4);
         List<Moon> moons = new ArrayList<>();
         for (int i = 0; i < numMoons; i++) {
             moons.add(generateMoon(name + " " + (char)('a' + i), diameter * random.nextDouble(2, 10), hzInner, hzOuter));
         }
 
         List<Population> populations = new ArrayList<>();
-        // Only certain types can be naturally inhabited
-        List<String> habitableTypes = List.of("terrestrial", "desert", "ocean");
-        if (habitableTypes.contains(type) && random.nextDouble() < 0.2 && hasLiquidWater) {
+        if (List.of("terrestrial", "desert", "ocean").contains(type) && random.nextDouble() < 0.2 && hasLiquidWater) {
             populations.add(generatePopulation());
         }
 
-        String description = "A " + type.replace("_", " ") + " planet.";
-        String atmosphere = "none";
-        if (type.equals("ocean")) {
-            description += " It is covered in vast oceans.";
-            atmosphere = "nitrogen_oxygen";
-        }
-        if (type.equals("desert")) {
-            description += " It is a dry, sandy world.";
-            atmosphere = "thin_nitrogen_co2";
-        }
-        if (type.equals("lava")) {
-            description += " Its surface is molten rock.";
-            atmosphere = "trace_silicate";
-        }
-        if (type.equals("ice")) {
-            description += " It is covered in thick layers of ice.";
-            atmosphere = "thin_nitrogen";
-        }
-        if (type.equals("barren")) {
-            description += " It is a desolate, airless world of rock and metal.";
-            atmosphere = "none";
-        }
-        if (type.equals("toxic")) {
-            description += " It is shrouded in a thick, noxious atmosphere and crushing heat.";
-            atmosphere = "dense_co2";
-            hasLiquidWater = false; // Even if in HZ, toxic is too hot/crushing
-        }
-        if (type.equals("terrestrial")) {
-            atmosphere = random.nextDouble() < 0.5 ? "nitrogen_oxygen" : "nitrogen_argon";
-        }
-        if (type.equals("gas_giant") || type.equals("ice_giant")) {
-            atmosphere = type.equals("gas_giant") ? "hydrogen_helium" : "hydrogen_helium_methane";
-            hasLiquidWater = false; // No surface for liquid water
-        }
-        if (type.equals("dwarf_planet") || type.equals("protoplanet")) {
-            atmosphere = random.nextDouble() < 0.1 ? "trace_nitrogen" : "none";
-            hasLiquidWater = false; // Too small
-        }
+        PlanetAtmosphereInfo atmoInfo = determineAtmosphereAndDescription(type, hasLiquidWater, waterLevel, random);
 
         return new Planet(
             name.toLowerCase().replace(" ", "_"),
             name,
-            description,
+            atmoInfo.description(),
             mass,
             gravity,
             distance,
             inclination,
             diameter,
             type,
-            atmosphere,
-            hasLiquidWater,
-            waterLevel,
+            atmoInfo.atmosphere(),
+            atmoInfo.hasLiquidWater(),
+            atmoInfo.waterLevel(),
             resources,
             moons,
             populations
@@ -544,7 +546,7 @@ public class GalaxyGenerator {
 
         Race primaryRace = races.stream().filter(r -> r.id().equals("human")).findFirst().orElse(races.get(0));
         SolarSystem rawHome = systems.get(0);
-        SolarSystem configuredHome = configureHomeSystem(rawHome, primaryRace, scenario);
+        SolarSystem configuredHome = prepareHomeSystem(rawHome, primaryRace, scenario);
 
         List<SolarSystem> result = new ArrayList<>();
         result.add(configuredHome);
@@ -573,104 +575,109 @@ public class GalaxyGenerator {
         return result;
     }
 
-    private SolarSystem configureHomeSystem(SolarSystem home, Race primaryRace, GameStartScenario scenario) {
+    private SolarSystem prepareHomeSystem(SolarSystem home, Race primaryRace, GameStartScenario scenario) {
         List<Planet> planets = new ArrayList<>(home.planets());
-        if (planets.isEmpty()) {
-            planets.add(generateHomePlanet(home.name() + " Prime", primaryRace));
-        }
-
-        int homePlanetIndex = -1;
-        for (int i = 0; i < planets.size(); i++) {
-            Planet p = planets.get(i);
-            if (p.hasLiquidWater() && (p.type().equals("terrestrial") || p.type().equals("ocean"))) {
-                homePlanetIndex = i;
-                break;
-            }
-        }
-
-        if (homePlanetIndex == -1) {
-            Planet first = planets.get(0);
-            planets.set(0, new Planet(
-                    first.id(),
-                    first.name(),
-                    "The cradle world of civilization.",
-                    5.97e24,
-                    9.81,
-                    first.distance(),
-                    first.inclination(),
-                    12742.0,
-                    "terrestrial",
-                    "nitrogen_oxygen",
-                    true,
-                    0.71,
-                    first.resources(),
-                    first.moons(),
-                    List.of(generateColonyPopulation(primaryRace, 7_800_000_000L))
-            ));
-            homePlanetIndex = 0;
-        }
+        int homePlanetIndex = ensureHomePlanetIndex(planets, home.name(), primaryRace);
 
         List<Planet> configuredPlanets = new ArrayList<>();
         for (int i = 0; i < planets.size(); i++) {
             Planet p = planets.get(i);
-            if (i == homePlanetIndex) {
-                configuredPlanets.add(new Planet(
-                        p.id(), p.name(), p.description(), p.mass(), p.gravity(), p.distance(),
-                        p.inclination(), p.diameter(), p.type(), p.atmosphere(), p.hasLiquidWater(),
-                        p.waterLevel(), p.resources(), p.moons(),
-                        List.of(generateColonyPopulation(primaryRace, 7_800_000_000L))
-                ));
-            } else {
-                switch (scenario) {
-                    case PRE_SPACE_FLIGHT -> {
-                        List<Moon> unpopulatedMoons = p.moons().stream()
-                                .map(m -> new Moon(m.id(), m.name(), m.description(), m.mass(), m.gravity(), m.distance(), m.diameter(), m.atmosphere(), m.hasLiquidWater(), m.waterLevel(), m.resources(), List.of()))
-                                .toList();
-                        configuredPlanets.add(new Planet(
-                                p.id(), p.name(), p.description(), p.mass(), p.gravity(), p.distance(),
-                                p.inclination(), p.diameter(), p.type(), p.atmosphere(), p.hasLiquidWater(),
-                                p.waterLevel(), p.resources(), unpopulatedMoons, List.of()
-                        ));
-                    }
-                    case ADVANCED_ROCKETRY -> {
-                        boolean isFriendly = List.of("terrestrial", "desert", "ocean", "ice", "barren").contains(p.type()) && !p.atmosphere().equals("dense_co2");
-                        List<Population> planetPops = (isFriendly && configuredPlanets.size() <= 2)
-                                ? List.of(generateColonyPopulation(primaryRace, 1_500_000L))
-                                : List.of();
+            boolean isHome = (i == homePlanetIndex);
+            configuredPlanets.add(configurePlanetForScenario(p, isHome, primaryRace, scenario, configuredPlanets.size()));
+        }
 
-                        List<Moon> moons = p.moons().stream()
-                                .map(m -> (!m.resources().isEmpty() && m.diameter() > 1000)
-                                        ? new Moon(m.id(), m.name(), m.description(), m.mass(), m.gravity(), m.distance(), m.diameter(), m.atmosphere(), m.hasLiquidWater(), m.waterLevel(), m.resources(), List.of(generateColonyPopulation(primaryRace, 50_000L)))
-                                        : new Moon(m.id(), m.name(), m.description(), m.mass(), m.gravity(), m.distance(), m.diameter(), m.atmosphere(), m.hasLiquidWater(), m.waterLevel(), m.resources(), List.of()))
-                                .toList();
+        List<AsteroidBelt> configuredBelts = configureAsteroidBeltsForScenario(home.asteroidBelts(), primaryRace, scenario);
 
-                        configuredPlanets.add(new Planet(
-                                p.id(), p.name(), p.description(), p.mass(), p.gravity(), p.distance(),
-                                p.inclination(), p.diameter(), p.type(), p.atmosphere(), p.hasLiquidWater(),
-                                p.waterLevel(), p.resources(), moons, planetPops
-                        ));
-                    }
-                    case BASIC_WARP -> {
-                        boolean habitable = !p.type().equals("lava") && !p.type().equals("gas_giant") && !p.type().equals("ice_giant");
-                        List<Population> planetPops = habitable
-                                ? List.of(generateColonyPopulation(primaryRace, 15_000_000L))
-                                : List.of();
+        return new SolarSystem(
+                home.id(), home.name(), home.description(), home.x(), home.y(), home.z(),
+                home.sunMass(), home.sunDiameter(), home.sunColor(), configuredPlanets, configuredBelts
+        );
+    }
 
-                        List<Moon> moons = p.moons().stream()
-                                .map(m -> new Moon(m.id(), m.name(), m.description(), m.mass(), m.gravity(), m.distance(), m.diameter(), m.atmosphere(), m.hasLiquidWater(), m.waterLevel(), m.resources(), List.of(generateColonyPopulation(primaryRace, 200_000L))))
-                                .toList();
+    private int ensureHomePlanetIndex(List<Planet> planets, String homeName, Race primaryRace) {
+        if (planets.isEmpty()) {
+            planets.add(generateHomePlanet(homeName + " Prime", primaryRace));
+            return 0;
+        }
 
-                        configuredPlanets.add(new Planet(
-                                p.id(), p.name(), p.description(), p.mass(), p.gravity(), p.distance(),
-                                p.inclination(), p.diameter(), p.type(), p.atmosphere(), p.hasLiquidWater(),
-                                p.waterLevel(), p.resources(), moons, planetPops
-                        ));
-                    }
-                }
+        for (int i = 0; i < planets.size(); i++) {
+            Planet p = planets.get(i);
+            if (p.hasLiquidWater() && (p.type().equals("terrestrial") || p.type().equals("ocean"))) {
+                return i;
             }
         }
 
-        List<AsteroidBelt> configuredBelts = home.asteroidBelts().stream()
+        Planet first = planets.get(0);
+        planets.set(0, new Planet(
+                first.id(), first.name(), "The cradle world of civilization.",
+                5.97e24, 9.81, first.distance(), first.inclination(), 12742.0,
+                "terrestrial", "nitrogen_oxygen", true, 0.71,
+                first.resources(), first.moons(),
+                List.of(generateColonyPopulation(primaryRace, 7_800_000_000L))
+        ));
+        return 0;
+    }
+
+    private Planet configurePlanetForScenario(Planet p, boolean isHomePlanet, Race primaryRace, GameStartScenario scenario, int configuredPlanetCount) {
+        if (isHomePlanet) {
+            return new Planet(
+                    p.id(), p.name(), p.description(), p.mass(), p.gravity(), p.distance(),
+                    p.inclination(), p.diameter(), p.type(), p.atmosphere(), p.hasLiquidWater(),
+                    p.waterLevel(), p.resources(), p.moons(),
+                    List.of(generateColonyPopulation(primaryRace, 7_800_000_000L))
+            );
+        }
+
+        return switch (scenario) {
+            case PRE_SPACE_FLIGHT -> {
+                List<Moon> unpopulatedMoons = p.moons().stream()
+                        .map(m -> new Moon(m.id(), m.name(), m.description(), m.mass(), m.gravity(), m.distance(), m.diameter(), m.atmosphere(), m.hasLiquidWater(), m.waterLevel(), m.resources(), List.of()))
+                        .toList();
+                yield new Planet(
+                        p.id(), p.name(), p.description(), p.mass(), p.gravity(), p.distance(),
+                        p.inclination(), p.diameter(), p.type(), p.atmosphere(), p.hasLiquidWater(),
+                        p.waterLevel(), p.resources(), unpopulatedMoons, List.of()
+                );
+            }
+            case ADVANCED_ROCKETRY -> {
+                boolean isFriendly = List.of("terrestrial", "desert", "ocean", "ice", "barren").contains(p.type()) && !p.atmosphere().equals("dense_co2");
+                List<Population> planetPops = (isFriendly && configuredPlanetCount <= 2)
+                        ? List.of(generateColonyPopulation(primaryRace, 1_500_000L))
+                        : List.of();
+
+                List<Moon> moons = p.moons().stream()
+                        .map(m -> (!m.resources().isEmpty() && m.diameter() > 1000)
+                                ? new Moon(m.id(), m.name(), m.description(), m.mass(), m.gravity(), m.distance(), m.diameter(), m.atmosphere(), m.hasLiquidWater(), m.waterLevel(), m.resources(), List.of(generateColonyPopulation(primaryRace, 50_000L)))
+                                : new Moon(m.id(), m.name(), m.description(), m.mass(), m.gravity(), m.distance(), m.diameter(), m.atmosphere(), m.hasLiquidWater(), m.waterLevel(), m.resources(), List.of()))
+                        .toList();
+
+                yield new Planet(
+                        p.id(), p.name(), p.description(), p.mass(), p.gravity(), p.distance(),
+                        p.inclination(), p.diameter(), p.type(), p.atmosphere(), p.hasLiquidWater(),
+                        p.waterLevel(), p.resources(), moons, planetPops
+                );
+            }
+            case BASIC_WARP -> {
+                boolean habitable = !p.type().equals("lava") && !p.type().equals("gas_giant") && !p.type().equals("ice_giant");
+                List<Population> planetPops = habitable
+                        ? List.of(generateColonyPopulation(primaryRace, 15_000_000L))
+                        : List.of();
+
+                List<Moon> moons = p.moons().stream()
+                        .map(m -> new Moon(m.id(), m.name(), m.description(), m.mass(), m.gravity(), m.distance(), m.diameter(), m.atmosphere(), m.hasLiquidWater(), m.waterLevel(), m.resources(), List.of(generateColonyPopulation(primaryRace, 200_000L))))
+                        .toList();
+
+                yield new Planet(
+                        p.id(), p.name(), p.description(), p.mass(), p.gravity(), p.distance(),
+                        p.inclination(), p.diameter(), p.type(), p.atmosphere(), p.hasLiquidWater(),
+                        p.waterLevel(), p.resources(), moons, planetPops
+                );
+            }
+        };
+    }
+
+    private List<AsteroidBelt> configureAsteroidBeltsForScenario(List<AsteroidBelt> belts, Race primaryRace, GameStartScenario scenario) {
+        return belts.stream()
                 .map(ab -> {
                     if (scenario == GameStartScenario.PRE_SPACE_FLIGHT) {
                         return new AsteroidBelt(ab.id(), ab.name(), ab.description(), ab.resources(), List.of());
@@ -681,11 +688,6 @@ public class GalaxyGenerator {
                     }
                 })
                 .toList();
-
-        return new SolarSystem(
-                home.id(), home.name(), home.description(), home.x(), home.y(), home.z(),
-                home.sunMass(), home.sunDiameter(), home.sunColor(), configuredPlanets, configuredBelts
-        );
     }
 
     private SolarSystem configureNeighborSystem(SolarSystem system, Race primaryRace) {

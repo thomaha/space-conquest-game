@@ -101,21 +101,21 @@ This module contains the core game logic, the static data model and state manage
 | `SystemEconomy` | runtime state / save | Solar system public economy tracking sector allocations, budgets, efficiency indices, employee headcounts and accumulated militia investments |
 | `GalacticResolution` | runtime state / save | Pan-galactic senate resolutions, treaties, charters and voting tallies |
 | `GalacticSanction` | runtime state / save | Enforced economic trade embargoes, asset freezes and military intervention mandates |
-| `GalacticCommunity` | runtime state / save | Galactic Senate legislative assembly, member registries and enacted charters |
+| `GalacticCommunity` | runtime state / save | Galactic senate legislative assembly, member registries and enacted charters |
 | `CampaignSetup` | runtime / configuration | Customizable scenario settings, victory conditions and starting technology tiers |
 
 ## Physical units and standard measurement system
 All simulation mechanics, celestial data definitions and calculations standardize on the International System of Units (SI) to prevent unit conversion discrepancies across subsystems:
-- **Gravitational acceleration:** Measured in meters per second squared (m/s²). Earth standard gravity is 9.81 m/s², while species preferred gravity and celestial body surface gravity use this unit directly.
-- **Mass:** Measured in kilograms (kg). Spaceship dry mass, loaded cargo, material stockpiles and resource yields use kilograms.
-- **Force and thrust:** Measured in Newtons (N). Propulsion outputs, thruster ratings and launch force barriers use Newtons.
-- **Temperature:** Measured in Kelvin (K). Ambient celestial surface temperatures, thermal tolerances and atmospheric entry friction use Kelvin.
-- **Power and energy:** Measured in kilowatts (kW) and kilowatt-hours (kWh). Power generation, facility power draw and battery buffers use kilowatts.
-- **Distance and diameter:** Measured in kilometers (km) for celestial diameters, orbital radii and star system positions, with astronomical units (AU) or light years for interstellar distances.
-- **Pressure:** Measured in standard atmospheres (atm) or kilopascals (kPa) for planetary gas envelopes and atmospheric drag calculations.
+- **gravitational acceleration:** Measured in meters per second squared (m/s²). Earth standard gravity is 9.81 m/s², while species preferred gravity and celestial body surface gravity use this unit directly.
+- **mass:** Measured in kilograms (kg). Spaceship dry mass, loaded cargo, material stockpiles and resource yields use kilograms.
+- **force and thrust:** Measured in Newtons (N). Propulsion outputs, thruster ratings and launch force barriers use Newtons.
+- **temperature:** Measured in Kelvin (K). Ambient celestial surface temperatures, thermal tolerances and atmospheric entry friction use Kelvin.
+- **power and energy:** Measured in kilowatts (kW) and kilowatt-hours (kWh). Power generation, facility power draw and battery buffers use kilowatts.
+- **distance and diameter:** Measured in kilometers (km) for celestial diameters, orbital radii and star system positions, with astronomical units (AU) or light years for interstellar distances.
+- **pressure:** Measured in standard atmospheres (atm) or kilopascals (kPa) for planetary gas envelopes and atmospheric drag calculations.
 
 ## Conventions
-- All game component properties are read from property files in the resources folder; no hard-coded game values.
-- Data model classes are immutable Java records mapped by Jackson.
+- all game component properties are read from property files in the resources folder; no hard-coded game values.
+- data model classes are immutable Java records mapped by Jackson.
 - `DataModelLoader` caches loaded lists; call `DataModelLoader.clearCache()` to force a reload.
-- Unknown JSON properties are ignored, so data files can be extended before the records are updated.
+- unknown JSON properties are ignored, so data files can be extended before the records are updated.

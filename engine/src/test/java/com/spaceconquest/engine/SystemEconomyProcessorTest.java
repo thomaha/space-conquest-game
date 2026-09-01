@@ -80,7 +80,7 @@ public class SystemEconomyProcessorTest {
                 10000.0, // standard budget
                 6000.0,  // initial militia investment
                 1.0, 1.0, 1.0, 1.0, 1.0,
-                2500, 1500, 4000, 2000, 5000, 7500, 6000, 25000
+                2500, 1500, 4000, 2000, 5000, 7500, 6000, 25000, 0.10
         );
 
         SystemEconomy updated = processor.processSystemEconomy(initial, pop, false);
@@ -108,7 +108,7 @@ public class SystemEconomyProcessorTest {
                 0.20, 0.20, 0.20, 0.20, 0.20,
                 3000.0, 5000.0,
                 1.5, 1.5, 1.5, 1.5, 1.5,
-                100, 100, 100, 100, 100, 100, 100, 500
+                100, 100, 100, 100, 100, 100, 100, 500, 0.10
         );
         assertEquals(0.125, processor.calculateHappinessModifier(elevated), 0.001);
 
@@ -118,7 +118,7 @@ public class SystemEconomyProcessorTest {
                 0.20, 0.20, 0.20, 0.20, 0.20,
                 1000.0, 5000.0,
                 0.5, 0.5, 0.5, 0.5, 0.5,
-                100, 100, 100, 100, 100, 100, 100, 500
+                100, 100, 100, 100, 100, 100, 100, 500, 0.10
         );
         assertEquals(-0.125, processor.calculateHappinessModifier(austerity), 0.001);
     }
@@ -130,7 +130,7 @@ public class SystemEconomyProcessorTest {
                 0.50, 0.10, 0.10, 0.10, 0.20,
                 10000.0, 5000.0,
                 1.5, 0.5, 0.5, 0.5, 1.0,
-                100, 100, 100, 100, 100, 100, 100, 500
+                100, 100, 100, 100, 100, 100, 100, 500, 0.0
         );
 
         SystemEconomy result = processor.processSystemEconomy(hiveEco, 2_000_000L, true);

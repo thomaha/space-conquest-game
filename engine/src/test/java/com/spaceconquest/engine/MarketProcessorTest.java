@@ -41,16 +41,16 @@ public class MarketProcessorTest {
     @Test
     public void testPlanetaryGravityLaunchTax() {
         // Zero G and vacuum (Moon/Orbital Station)
-        double zeroGLift = marketProcessor.calculateGravityLaunchTax(5000.0, 1000.0, 0.0, 0.0);
+        double zeroGLift = marketProcessor.calculateGravityLaunchTax(5000.0, 1000.0, 0.0, 0.0, null);
         assertEquals(0.0, zeroGLift);
 
         // Terrestrial Earth launch (gravity: 1.0 G, atmosphere: 1.0 atm)
-        double earthLaunch = marketProcessor.calculateGravityLaunchTax(5000.0, 1000.0, 1.0, 1.0);
+        double earthLaunch = marketProcessor.calculateGravityLaunchTax(5000.0, 1000.0, 1.0, 1.0, null);
         assertEquals((5000.0 + 1000.0) * 1.0 * (1.0 + 1.0), earthLaunch);
         assertEquals(12000.0, earthLaunch);
 
         // Hyper-gravity world (gravity: 2.5 G, atmosphere: 3.0 atm)
-        double hyperGravityLaunch = marketProcessor.calculateGravityLaunchTax(5000.0, 1000.0, 2.5, 3.0);
+        double hyperGravityLaunch = marketProcessor.calculateGravityLaunchTax(5000.0, 1000.0, 2.5, 3.0, null);
         assertEquals((6000.0) * 2.5 * 4.0, hyperGravityLaunch);
         assertEquals(60000.0, hyperGravityLaunch);
     }

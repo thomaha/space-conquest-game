@@ -45,12 +45,7 @@ public class GalacticCommunityProcessor {
             return new CommunityTurnResult(null, List.of(), List.of(), Map.of());
         }
 
-        Map<String, Double> weights = new HashMap<>();
-        for (Empire emp : empires) {
-            double gdp = empireGdpMap != null ? empireGdpMap.getOrDefault(emp.id(), 10000.0) : 10000.0;
-            double fleet = fleetPowerMap != null ? fleetPowerMap.getOrDefault(emp.id(), 500.0) : 500.0;
-            weights.put(emp.id(), calculateVotingWeight(emp, gdp, fleet));
-        }
+        Map<String, Double> weights = buildVotingWeights(empires, empireGdpMap, fleetPowerMap);
 
         List<GalacticResolution> remainingActive = new ArrayList<>();
         List<GalacticResolution> passedList = new ArrayList<>(community.passedResolutions());
@@ -58,82 +53,8 @@ public class GalacticCommunityProcessor {
         List<GalacticSanction> activeSanctions = new ArrayList<>(community.activeSanctions());
         List<GalacticSanction> newlyEnacted = new ArrayList<>();
 
-        // 1. Process active resolutions
-        for (GalacticResolution res : community.activeResolutions()) {
-            int turnsLeft = res.sessionTurnsLeft() - 1;
-            if (turnsLeft <= 0) {
-                // Tally votes
-                double ayeWeight = 0.0;
-                double nayWeight = 0.0;
-
-                for (String memberId : community.memberEmpireIds()) {
-                    String vote = res.votes().getOrDefault(memberId, GalacticResolution.VOTE_ABSTAIN);
-                    double w = weights.getOrDefault(memberId, 100.0);
-                    if (GalacticResolution.VOTE_AYE.equalsIgnoreCase(vote)) {
-                        ayeWeight += w;
-                    } else if (GalacticResolution.VOTE_NAY.equalsIgnoreCase(vote)) {
-                        nayWeight += w;
-                    }
-                }
-
-                if (ayeWeight > nayWeight) {
-                    GalacticResolution passedRes = new GalacticResolution(
-                            res.id(), res.title(), res.type(), res.proposerEmpireId(),
-                            res.targetEmpireId(), 0, GalacticResolution.STATUS_PASSED, res.votes()
-                    );
-                    passedList.add(passedRes);
-                    newlyPassed.add(passedRes);
-
-                    // Check if resolution spawns a sanction
-                    if (GalacticResolution.TYPE_SANCTION_EMBARGO.equalsIgnoreCase(res.type())) {
-                        GalacticSanction sanction = new GalacticSanction(
-                                "sanction_embargo_" + res.targetEmpireId() + "_" + currentTurn,
-                                res.targetEmpireId(), GalacticSanction.TYPE_TRADE_EMBARGO,
-                                res.id(), 0.50, false, false, 20
-                        );
-                        activeSanctions.add(sanction);
-                        newlyEnacted.add(sanction);
-                    } else if (GalacticResolution.TYPE_SANCTION_FREEZE.equalsIgnoreCase(res.type())) {
-                        GalacticSanction sanction = new GalacticSanction(
-                                "sanction_freeze_" + res.targetEmpireId() + "_" + currentTurn,
-                                res.targetEmpireId(), GalacticSanction.TYPE_ASSET_FREEZE,
-                                res.id(), 0.25, true, false, 15
-                        );
-                        activeSanctions.add(sanction);
-                        newlyEnacted.add(sanction);
-                    } else if (GalacticResolution.TYPE_MILITARY_INTERVENTION.equalsIgnoreCase(res.type())) {
-                        GalacticSanction sanction = new GalacticSanction(
-                                "sanction_intervention_" + res.targetEmpireId() + "_" + currentTurn,
-                                res.targetEmpireId(), GalacticSanction.TYPE_MILITARY_INTERVENTION,
-                                res.id(), 0.0, false, true, 30
-                        );
-                        activeSanctions.add(sanction);
-                        newlyEnacted.add(sanction);
-                    }
-                }
-            } else {
-                remainingActive.add(new GalacticResolution(
-                        res.id(), res.title(), res.type(), res.proposerEmpireId(),
-                        res.targetEmpireId(), turnsLeft, res.status(), res.votes()
-                ));
-            }
-        }
-
-        // 2. Decrement and filter sanctions
-        List<GalacticSanction> remainingSanctions = new ArrayList<>();
-        for (GalacticSanction s : activeSanctions) {
-            if (s.turnsRemaining() > 1) {
-                remainingSanctions.add(new GalacticSanction(
-                        s.id(), s.targetEmpireId(), s.sanctionType(),
-                        s.resolutionId(), s.tradeTariffPenaltyRate(),
-                        s.isAssetFreezeActive(), s.isMilitaryInterventionAuthorized(),
-                        s.turnsRemaining() - 1
-                ));
-            } else if (s.turnsRemaining() < 0) {
-                // Permanent until repealed
-                remainingSanctions.add(s);
-            }
-        }
+        processActiveResolutions(community, weights, currentTurn, remainingActive, passedList, newlyPassed, activeSanctions, newlyEnacted);
+        List<GalacticSanction> remainingSanctions = updateActiveSanctions(activeSanctions);
 
         long nextSession = community.nextSenateSessionTurn();
         if (currentTurn >= nextSession) {
@@ -147,5 +68,108 @@ public class GalacticCommunityProcessor {
         );
 
         return new CommunityTurnResult(updatedCommunity, newlyPassed, newlyEnacted, weights);
+    }
+
+    private Map<String, Double> buildVotingWeights(List<Empire> empires, Map<String, Double> gdpMap, Map<String, Double> fleetMap) {
+        Map<String, Double> weights = new HashMap<>();
+        if (empires != null) {
+            for (Empire emp : empires) {
+                double gdp = gdpMap != null ? gdpMap.getOrDefault(emp.id(), 10000.0) : 10000.0;
+                double fleet = fleetMap != null ? fleetMap.getOrDefault(emp.id(), 500.0) : 500.0;
+                weights.put(emp.id(), calculateVotingWeight(emp, gdp, fleet));
+            }
+        }
+        return weights;
+    }
+
+    private void processActiveResolutions(
+            GalacticCommunity community,
+            Map<String, Double> weights,
+            long currentTurn,
+            List<GalacticResolution> remainingActive,
+            List<GalacticResolution> passedList,
+            List<GalacticResolution> newlyPassed,
+            List<GalacticSanction> activeSanctions,
+            List<GalacticSanction> newlyEnacted
+    ) {
+        for (GalacticResolution res : community.activeResolutions()) {
+            int turnsLeft = res.sessionTurnsLeft() - 1;
+            if (turnsLeft <= 0) {
+                if (isResolutionPassed(res, community, weights)) {
+                    GalacticResolution passedRes = new GalacticResolution(
+                            res.id(), res.title(), res.type(), res.proposerEmpireId(),
+                            res.targetEmpireId(), 0, GalacticResolution.STATUS_PASSED, res.votes()
+                    );
+                    passedList.add(passedRes);
+                    newlyPassed.add(passedRes);
+
+                    GalacticSanction sanction = createSanctionForResolution(res, currentTurn);
+                    if (sanction != null) {
+                        activeSanctions.add(sanction);
+                        newlyEnacted.add(sanction);
+                    }
+                }
+            } else {
+                remainingActive.add(new GalacticResolution(
+                        res.id(), res.title(), res.type(), res.proposerEmpireId(),
+                        res.targetEmpireId(), turnsLeft, res.status(), res.votes()
+                ));
+            }
+        }
+    }
+
+    private boolean isResolutionPassed(GalacticResolution res, GalacticCommunity community, Map<String, Double> weights) {
+        double ayeWeight = 0.0;
+        double nayWeight = 0.0;
+        for (String memberId : community.memberEmpireIds()) {
+            String vote = res.votes().getOrDefault(memberId, GalacticResolution.VOTE_ABSTAIN);
+            double w = weights.getOrDefault(memberId, 100.0);
+            if (GalacticResolution.VOTE_AYE.equalsIgnoreCase(vote)) {
+                ayeWeight += w;
+            } else if (GalacticResolution.VOTE_NAY.equalsIgnoreCase(vote)) {
+                nayWeight += w;
+            }
+        }
+        return ayeWeight > nayWeight;
+    }
+
+    private GalacticSanction createSanctionForResolution(GalacticResolution res, long currentTurn) {
+        if (GalacticResolution.TYPE_SANCTION_EMBARGO.equalsIgnoreCase(res.type())) {
+            return new GalacticSanction(
+                    "sanction_embargo_" + res.targetEmpireId() + "_" + currentTurn,
+                    res.targetEmpireId(), GalacticSanction.TYPE_TRADE_EMBARGO,
+                    res.id(), 0.50, false, false, 20
+            );
+        } else if (GalacticResolution.TYPE_SANCTION_FREEZE.equalsIgnoreCase(res.type())) {
+            return new GalacticSanction(
+                    "sanction_freeze_" + res.targetEmpireId() + "_" + currentTurn,
+                    res.targetEmpireId(), GalacticSanction.TYPE_ASSET_FREEZE,
+                    res.id(), 0.25, true, false, 15
+            );
+        } else if (GalacticResolution.TYPE_MILITARY_INTERVENTION.equalsIgnoreCase(res.type())) {
+            return new GalacticSanction(
+                    "sanction_intervention_" + res.targetEmpireId() + "_" + currentTurn,
+                    res.targetEmpireId(), GalacticSanction.TYPE_MILITARY_INTERVENTION,
+                    res.id(), 0.0, false, true, 30
+            );
+        }
+        return null;
+    }
+
+    private List<GalacticSanction> updateActiveSanctions(List<GalacticSanction> activeSanctions) {
+        List<GalacticSanction> remaining = new ArrayList<>();
+        for (GalacticSanction s : activeSanctions) {
+            if (s.turnsRemaining() > 1) {
+                remaining.add(new GalacticSanction(
+                        s.id(), s.targetEmpireId(), s.sanctionType(),
+                        s.resolutionId(), s.tradeTariffPenaltyRate(),
+                        s.isAssetFreezeActive(), s.isMilitaryInterventionAuthorized(),
+                        s.turnsRemaining() - 1
+                ));
+            } else if (s.turnsRemaining() < 0) {
+                remaining.add(s);
+            }
+        }
+        return remaining;
     }
 }

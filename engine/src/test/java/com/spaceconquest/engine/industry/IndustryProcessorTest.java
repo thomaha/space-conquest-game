@@ -40,7 +40,7 @@ public class IndustryProcessorTest {
         );
 
         IndustryProcessor.IndustryTurnResult res = industryProcessor.processIndustrialProduction(
-                List.of(normalFacility, expandingFacility), List.of(), List.of(empire), List.of(), 0.05
+                List.of(normalFacility, expandingFacility), List.of(), List.of(empire), List.of(), List.of(), List.of(), 0.05
         );
 
         // normal: 10 * 10 * 1.0 = 100 kg
@@ -76,7 +76,7 @@ public class IndustryProcessorTest {
         // For publicStateFac: 190 credits goes to state treasury
         // For corporateFac: 190 netProfit -> 5% state tariff = 9.5 credits to state treasury, 180.5 credits to corporation
         IndustryProcessor.IndustryTurnResult res = industryProcessor.processIndustrialProduction(
-                List.of(publicStateFac, corporateFac), List.of(), List.of(terran), List.of(corp), 0.05
+                List.of(publicStateFac, corporateFac), List.of(), List.of(terran), List.of(corp), List.of(), List.of(), 0.05
         );
 
         Empire updatedEmpire = res.updatedEmpires().getFirst();
@@ -101,7 +101,7 @@ public class IndustryProcessorTest {
 
         // Step 1: Advance by 100 hrs -> reaches 200 required hrs -> Completes upgrade!
         IndustryProcessor.IndustryTurnResult res = industryProcessor.processIndustrialProduction(
-                List.of(expandingFac), List.of(proj), List.of(), List.of(), 0.05
+                List.of(expandingFac), List.of(proj), List.of(), List.of(), List.of(), List.of(), 0.05
         );
 
         assertTrue(res.remainingProjects().isEmpty(), "Project should be completed and removed");

@@ -122,8 +122,8 @@ Rather than tracking retirement as a rigid chronological cutoff, the economy loo
 
 Chronological Retirement Age = Natural Lifespan * Retirement Lifespan Percentage
 Such as:
-- Human soldier: 85 * 0.55 = 46.75 years old (rapid burnout due to heavy physical wear)
-- Human scientist: 85 * 0.85 = 72.25 years old (extended mental contributions)
+- Human humanoid: 85 * 0.55 = 46.75 years old (rapid burnout due to heavy physical wear)
+- Humanoid scientist: 85 * 0.85 = 72.25 years old (extended mental contributions)
 - Silicon core miner: 800 * 0.65 = 520 years old (immense industrial lifecycle retention)
  
 When empires research advanced applications within Gene Technology (such as Gene Sequencing or Gene Therapy), the global naturalLifespan value for carbon species is increased. This dynamically pushes the Chronological Retirement Age higher behind the scenes, allowing players to retain high-experience professionals on manufacturing lines for decades longer before they transition into pure welfare consumers.

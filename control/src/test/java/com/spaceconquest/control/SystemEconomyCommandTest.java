@@ -41,32 +41,32 @@ public class SystemEconomyCommandTest {
                 1, "RUNNING", List.of(sol), List.of(empire), List.of(), List.of(), List.of(), List.of(), List.of(),
                 List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null,
-                List.of(), List.of(), List.of(economy)
+                List.of(), List.of(), List.of(economy), List.of()
         );
     }
 
     @Test
     public void testCommandValidation() {
         SetSystemEconomyBudgetCommand valid = new SetSystemEconomyBudgetCommand(
-                "terran_confederation", "sol", 0.40, 0.15, 0.15, 0.15, 0.15, 5000.0
+                "terran_confederation", "sol", 0.40, 0.15, 0.15, 0.15, 0.15, 5000.0, 0.12
         );
         assertTrue(valid.validate(baseState));
 
         // Unknown empire
         SetSystemEconomyBudgetCommand invalidEmpire = new SetSystemEconomyBudgetCommand(
-                "unknown_empire", "sol", 0.20, 0.20, 0.20, 0.20, 0.20, 2000.0
+                "unknown_empire", "sol", 0.20, 0.20, 0.20, 0.20, 0.20, 2000.0, 0.10
         );
         assertFalse(invalidEmpire.validate(baseState));
 
         // Negative budget
         SetSystemEconomyBudgetCommand negativeBudget = new SetSystemEconomyBudgetCommand(
-                "terran_confederation", "sol", 0.20, 0.20, 0.20, 0.20, 0.20, -500.0
+                "terran_confederation", "sol", 0.20, 0.20, 0.20, 0.20, 0.20, -500.0, 0.10
         );
         assertFalse(negativeBudget.validate(baseState));
 
         // System not owned by empire
         SetSystemEconomyBudgetCommand unownedSystem = new SetSystemEconomyBudgetCommand(
-                "terran_confederation", "alpha_centauri", 0.20, 0.20, 0.20, 0.20, 0.20, 2000.0
+                "terran_confederation", "alpha_centauri", 0.20, 0.20, 0.20, 0.20, 0.20, 2000.0, 0.10
         );
         assertFalse(unownedSystem.validate(baseState));
     }
@@ -75,7 +75,7 @@ public class SystemEconomyCommandTest {
     public void testCommandApplyUpdatesAllocationsAndIndices() {
         // Education and Science focus: 40% Edu, 15% Law, 15% Health, 15% Infra, 15% Militia
         SetSystemEconomyBudgetCommand cmd = new SetSystemEconomyBudgetCommand(
-                "terran_confederation", "sol", 40.0, 15.0, 15.0, 15.0, 15.0, 4000.0
+                "terran_confederation", "sol", 40.0, 15.0, 15.0, 15.0, 15.0, 4000.0, 0.25
         );
 
         GameState updatedState = cmd.apply(baseState);
@@ -93,6 +93,7 @@ public class SystemEconomyCommandTest {
         assertEquals(0.15, updatedEconomy.infrastructureAllocation(), 0.001);
         assertEquals(0.15, updatedEconomy.planetaryMilitiasAllocation(), 0.001);
         assertEquals(4000.0, updatedEconomy.totalBudgetCredits(), 0.001);
+        assertEquals(0.25, updatedEconomy.taxRate(), 0.001);
 
         // Indices: Pop = 2,000,000. Budget = 4000. Edu = 4000 * 0.40 = 1600. Per capita = 1600 / 2,000,000 = 0.0008. Baseline = 0.0004 -> index = 2.0
         assertEquals(2.0, updatedEconomy.educationLevel(), 0.001);

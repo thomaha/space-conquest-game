@@ -4,6 +4,7 @@ import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.Corporation;
 import com.spaceconquest.engine.MarketOrder;
 
+import com.spaceconquest.engine.DiplomaticRelation;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +35,7 @@ public class CorporateFleetProcessor {
     public CorporateFleetResult processFleetOperations(
             List<Corporation> corporations,
             List<CommercialHub> hubs,
+            List<DiplomaticRelation> relations,
             Map<String, Double> gravityMap,
             Map<String, Double> atmosphereMap
     ) {
@@ -50,9 +52,27 @@ public class CorporateFleetProcessor {
             hubMap.put(hub.id(), hub);
         }
 
+        // Shared Logistics Range (Point 1): Calculate federation ranges
+        Map<String, Double> empireFedRange = new HashMap<>();
+        if (relations != null) {
+            for (DiplomaticRelation rel : relations) {
+                if ("INTEGRATED_FEDERATION".equalsIgnoreCase(rel.tier())) {
+                    double maxRange = 0.0;
+                    for (CommercialHub hub : hubs) {
+                        if (hub.entityId().equals(rel.empireAId()) || hub.entityId().equals(rel.empireBId())) {
+                             maxRange = Math.max(maxRange, hub.logisticsRangeUnits());
+                        }
+                    }
+                    empireFedRange.merge(rel.empireAId(), maxRange, Double::max);
+                    empireFedRange.merge(rel.empireBId(), maxRange, Double::max);
+                }
+            }
+        }
+
         for (Corporation corp : corporations) {
             if ("TRANSPORT".equalsIgnoreCase(corp.marketOrientation())) {
-                Corporation updated = processTransportArbitrage(corp, hubMap, gravityMap, atmosphereMap);
+                double rangeBonus = empireFedRange.getOrDefault(corp.empireId(), 0.0);
+                Corporation updated = processTransportArbitrage(corp, hubMap, gravityMap, atmosphereMap, rangeBonus);
                 updatedCorps.add(updated);
             } else if ("EXTRACTION".equalsIgnoreCase(corp.marketOrientation())) {
                 Corporation updated = processMiningFleet(corp);
@@ -69,7 +89,8 @@ public class CorporateFleetProcessor {
             Corporation corp,
             Map<String, CommercialHub> hubMap,
             Map<String, Double> gravityMap,
-            Map<String, Double> atmosphereMap
+            Map<String, Double> atmosphereMap,
+            double rangeBonus
     ) {
         long transportCount = corp.ownedShipIds().stream()
                 .filter(s -> s.toLowerCase().contains("transport") || s.toLowerCase().contains("freighter") || s.toLowerCase().contains("cargo"))
@@ -84,7 +105,7 @@ public class CorporateFleetProcessor {
         double shipDryMass = 5000.0; // kg
 
         for (int i = 0; i < transportCount; i++) {
-            TradeOpportunity bestOpp = findBestTradeOpportunity(hubMap, gravityMap, atmosphereMap, shipDryMass, cargoCapacityPerShip);
+            TradeOpportunity bestOpp = findBestTradeOpportunity(hubMap, gravityMap, atmosphereMap, shipDryMass, cargoCapacityPerShip, rangeBonus);
             if (bestOpp != null && bestOpp.netProfit() > 0) {
                 totalNetProfit += bestOpp.netProfit();
                 // Apply inventory update
@@ -135,16 +156,22 @@ public class CorporateFleetProcessor {
             Map<String, Double> gravityMap,
             Map<String, Double> atmosphereMap,
             double shipDryMass,
-            double cargoMass
+            double cargoMass,
+            double rangeBonus
     ) {
         TradeOpportunity best = null;
         List<CommercialHub> hubs = new ArrayList<>(hubMap.values());
 
         for (int i = 0; i < hubs.size(); i++) {
             CommercialHub srcHub = hubs.get(i);
+            
+            // Shared Logistics Range (Point 1): Use federation range bonus if applicable
+            double effectiveRange = Math.max(srcHub.logisticsRangeUnits(), rangeBonus);
+            if (effectiveRange <= 0.0) continue;
+
             double srcGravity = gravityMap != null ? gravityMap.getOrDefault(srcHub.entityId(), 0.0) : 0.0;
             double srcAtmosphere = atmosphereMap != null ? atmosphereMap.getOrDefault(srcHub.entityId(), 0.0) : 0.0;
-            double launchTax = marketProcessor.calculateGravityLaunchTax(shipDryMass, cargoMass, srcGravity, srcAtmosphere);
+            double launchTax = marketProcessor.calculateGravityLaunchTax(shipDryMass, cargoMass, srcGravity, srcAtmosphere, null);
 
             for (int j = 0; j < hubs.size(); j++) {
                 if (i == j) continue;

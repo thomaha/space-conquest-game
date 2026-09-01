@@ -23,8 +23,11 @@ public record SetSystemEconomyBudgetCommand(
         double healthAndWelfareAllocation,
         double infrastructureAllocation,
         double planetaryMilitiasAllocation,
-        double totalBudgetCredits
+        double totalBudgetCredits,
+        double taxRate
 ) implements GameCommand {
+
+    private record NormalizedBudget(double edu, double law, double health, double infra, double militia) {}
 
     @Override
     public boolean validate(GameState state) {
@@ -49,85 +52,14 @@ public record SetSystemEconomyBudgetCommand(
     public GameState apply(GameState state) {
         if (!validate(state)) return state;
 
-        double edu = Math.max(0.0, educationAllocation);
-        double law = Math.max(0.0, lawAndOrderAllocation);
-        double health = Math.max(0.0, healthAndWelfareAllocation);
-        double infra = Math.max(0.0, infrastructureAllocation);
-        double militia = Math.max(0.0, planetaryMilitiasAllocation);
+        NormalizedBudget budget = normalizeBudgetAllocations();
+        long systemPop = findSystemPopulation(state.solarSystems(), systemId);
 
-        double sum = edu + law + health + infra + militia;
-        if (sum > 0.0) {
-            edu /= sum;
-            law /= sum;
-            health /= sum;
-            infra /= sum;
-            militia /= sum;
-        } else {
-            edu = 0.20;
-            law = 0.20;
-            health = 0.20;
-            infra = 0.20;
-            militia = 0.20;
-        }
+        SystemEconomy existing = state.systemEconomies().stream()
+                .filter(se -> se.systemId().equals(systemId))
+                .findFirst().orElse(null);
 
-        long systemPop = 0;
-        for (SolarSystem sys : state.solarSystems()) {
-            if (sys.id().equals(systemId)) {
-                if (sys.planets() != null) {
-                    for (Planet p : sys.planets()) {
-                        if (p.populations() != null) {
-                            for (Population pop : p.populations()) {
-                                systemPop += pop.totalCount();
-                            }
-                        }
-                        if (p.moons() != null) {
-                            for (Moon m : p.moons()) {
-                                if (m.populations() != null) {
-                                    for (Population pop : m.populations()) {
-                                        systemPop += pop.totalCount();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                break;
-            }
-        }
-
-        SystemEconomy existing = null;
-        for (SystemEconomy se : state.systemEconomies()) {
-            if (se.systemId().equals(systemId)) {
-                existing = se;
-                break;
-            }
-        }
-
-        double accumulatedInvestment = existing != null ? existing.accumulatedMilitiaInvestment() : 5000.0;
-        SystemEconomy newEconomy = new SystemEconomy(
-                systemId,
-                empireId,
-                edu,
-                law,
-                health,
-                infra,
-                militia,
-                totalBudgetCredits,
-                accumulatedInvestment,
-                existing != null ? existing.educationLevel() : 1.0,
-                existing != null ? existing.lawAndOrderLevel() : 1.0,
-                existing != null ? existing.healthAndWelfareLevel() : 1.0,
-                existing != null ? existing.infrastructureLevel() : 1.0,
-                existing != null ? existing.planetaryMilitiaLevel() : 1.0,
-                existing != null ? existing.employedTeachers() : Math.max(10, Math.round(systemPop * 0.0005)),
-                existing != null ? existing.employedScientists() : Math.max(10, Math.round(systemPop * 0.0003)),
-                existing != null ? existing.employedPolice() : Math.max(15, Math.round(systemPop * 0.0008)),
-                existing != null ? existing.employedMedics() : Math.max(10, Math.round(systemPop * 0.0004)),
-                existing != null ? existing.employedEngineers() : Math.max(20, Math.round(systemPop * 0.0010)),
-                existing != null ? existing.employedTechnicians() : Math.max(30, Math.round(systemPop * 0.0015)),
-                existing != null ? existing.employedSoldiers() : Math.max(25, Math.round(systemPop * 0.0012)),
-                existing != null ? existing.recruitableSoldiers() : Math.max(100, Math.round(systemPop * 0.0050))
-        );
+        SystemEconomy newEconomy = buildNewSystemEconomy(existing, budget, systemPop);
 
         SystemEconomyProcessor processor = new SystemEconomyProcessor();
         SystemEconomy updatedEconomy = processor.processSystemEconomy(newEconomy, systemPop, false);
@@ -165,7 +97,84 @@ public record SetSystemEconomyBudgetCommand(
                 state.galacticCommunity(),
                 state.tradeRoutes(),
                 state.fogOfWarStates(),
-                updatedList
+                updatedList,
+                state.courierShips()
+        );
+    }
+
+    private NormalizedBudget normalizeBudgetAllocations() {
+        double edu = Math.max(0.0, educationAllocation);
+        double law = Math.max(0.0, lawAndOrderAllocation);
+        double health = Math.max(0.0, healthAndWelfareAllocation);
+        double infra = Math.max(0.0, infrastructureAllocation);
+        double militia = Math.max(0.0, planetaryMilitiasAllocation);
+
+        double sum = edu + law + health + infra + militia;
+        if (sum > 0.0) {
+            return new NormalizedBudget(edu / sum, law / sum, health / sum, infra / sum, militia / sum);
+        }
+        return new NormalizedBudget(0.20, 0.20, 0.20, 0.20, 0.20);
+    }
+
+    private long findSystemPopulation(List<SolarSystem> solarSystems, String targetSysId) {
+        if (solarSystems == null) return 0L;
+        for (SolarSystem sys : solarSystems) {
+            if (sys.id().equals(targetSysId)) {
+                return calculateTotalSystemPopulation(sys);
+            }
+        }
+        return 0L;
+    }
+
+    private long calculateTotalSystemPopulation(SolarSystem sys) {
+        long systemPop = 0;
+        if (sys.planets() != null) {
+            for (Planet p : sys.planets()) {
+                if (p.populations() != null) {
+                    for (Population pop : p.populations()) {
+                        systemPop += pop.totalCount();
+                    }
+                }
+                if (p.moons() != null) {
+                    for (Moon m : p.moons()) {
+                        if (m.populations() != null) {
+                            for (Population pop : m.populations()) {
+                                systemPop += pop.totalCount();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return systemPop;
+    }
+
+    private SystemEconomy buildNewSystemEconomy(SystemEconomy existing, NormalizedBudget b, long systemPop) {
+        double accumulatedInvestment = existing != null ? existing.accumulatedMilitiaInvestment() : 5000.0;
+        return new SystemEconomy(
+                systemId,
+                empireId,
+                b.edu(),
+                b.law(),
+                b.health(),
+                b.infra(),
+                b.militia(),
+                totalBudgetCredits,
+                accumulatedInvestment,
+                existing != null ? existing.educationLevel() : 1.0,
+                existing != null ? existing.lawAndOrderLevel() : 1.0,
+                existing != null ? existing.healthAndWelfareLevel() : 1.0,
+                existing != null ? existing.infrastructureLevel() : 1.0,
+                existing != null ? existing.planetaryMilitiaLevel() : 1.0,
+                existing != null ? existing.employedTeachers() : Math.max(10, Math.round(systemPop * 0.0005)),
+                existing != null ? existing.employedScientists() : Math.max(10, Math.round(systemPop * 0.0003)),
+                existing != null ? existing.employedPolice() : Math.max(15, Math.round(systemPop * 0.0008)),
+                existing != null ? existing.employedMedics() : Math.max(10, Math.round(systemPop * 0.0004)),
+                existing != null ? existing.employedEngineers() : Math.max(20, Math.round(systemPop * 0.0010)),
+                existing != null ? existing.employedTechnicians() : Math.max(30, Math.round(systemPop * 0.0015)),
+                existing != null ? existing.employedSoldiers() : Math.max(25, Math.round(systemPop * 0.0012)),
+                existing != null ? existing.recruitableSoldiers() : Math.max(100, Math.round(systemPop * 0.0050)),
+                taxRate
         );
     }
 }

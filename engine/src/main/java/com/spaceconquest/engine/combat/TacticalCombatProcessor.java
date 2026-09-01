@@ -162,130 +162,163 @@ public class TacticalCombatProcessor {
 
         int round = 1;
         while (!attackers.isEmpty() && !defenders.isEmpty() && round <= 10) {
-            List<CombatActionReport> roundActions = new ArrayList<>();
-            List<String> eventLogs = new ArrayList<>();
-            List<VisualProjectile> activeProjectiles = new ArrayList<>();
-
-            // 1. Calculate Stance & Range Multipliers
-            double attStanceMult = getStanceFirepowerModifier(attackerFleet.fleetStance());
-            double defStanceMult = getStanceFirepowerModifier(defenderFleet.fleetStance());
-
-            double attFirepower = calculateFleetFirepower(attackers, designs, round) * attStanceMult;
-            double defFirepower = calculateFleetFirepower(defenders, designs, round) * defStanceMult;
-
-            // 2. Carrier Strike Wing Firepower & Interception
-            double attWingPower = attWings.stream().mapToDouble(CarrierWing::getTotalFirepower).sum();
-            double defWingPower = defWings.stream().mapToDouble(CarrierWing::getTotalFirepower).sum();
-
-            if (attWingPower > 0.0) {
-                roundActions.add(new CombatActionReport("STRIKE_WING", "Attacker strike wings deployed torpedo runs", attWingPower, defenderFleet.id()));
-                eventLogs.add(String.format("Attacker strike wings launched torpedo salvos dealing %.1f damage", attWingPower));
-                activeProjectiles.add(new VisualProjectile("TORPEDO", 200, 250, 600, 250, "#00ffff", true));
-                attFirepower += attWingPower;
-            }
-            if (defWingPower > 0.0) {
-                roundActions.add(new CombatActionReport("STRIKE_WING", "Defender strike wings deployed interceptor screens", defWingPower, attackerFleet.id()));
-                eventLogs.add(String.format("Defender strike wings deployed interceptor screens dealing %.1f damage", defWingPower));
-                activeProjectiles.add(new VisualProjectile("FLAK", 600, 250, 200, 250, "#2ecc71", true));
-                defFirepower += defWingPower;
-            }
-
-            // 3. Planetary Defense Battery Orbital Fire
-            if (planetaryBattery != null && planetaryBattery.isOperational()) {
-                double batteryDamage = planetaryBattery.damagePerRound();
-                roundActions.add(new CombatActionReport("SURFACE_BATTERY", "Surface battery fired heavy kinetic salvos into orbit", batteryDamage, attackerFleet.id()));
-                eventLogs.add(String.format("Ground defense battery fired planetary kinetic salvos (%.1f damage)", batteryDamage));
-                activeProjectiles.add(new VisualProjectile("MASS_DRIVER", 400, 500, 200, 200, "#e67e22", true));
-                defFirepower += batteryDamage;
-            }
-
-            // Projectile trajectories for ship fire
-            if (attFirepower > 0.0) {
-                String wType = round == 1 ? "LASER" : (round <= 3 ? "MASS_DRIVER" : "TORPEDO");
-                String color = round == 1 ? "#e74c3c" : (round <= 3 ? "#f1c40f" : "#9b59b6");
-                activeProjectiles.add(new VisualProjectile(wType, 150, 200 + (round * 20), 650, 200 + (round * 20), color, true));
-                eventLogs.add(String.format("Attacker fleet fired %s salvos (%.1f firepower, targeting %s)", wType, attFirepower, targetedSubsystem));
-            }
-            if (defFirepower > 0.0) {
-                String wType = round == 1 ? "LASER" : (round <= 3 ? "MASS_DRIVER" : "TORPEDO");
-                String color = round == 1 ? "#3498db" : (round <= 3 ? "#f39c12" : "#1abc9c");
-                activeProjectiles.add(new VisualProjectile(wType, 650, 220 + (round * 20), 150, 220 + (round * 20), color, true));
-                eventLogs.add(String.format("Defender fleet returned %s fire (%.1f firepower)", wType, defFirepower));
-            }
-
-            int prevAttackerCount = attackers.size();
-            int prevDefenderCount = defenders.size();
-
-            // 4. Record Ship Visual States before & after damage
-            List<ShipVisualState> attVisualStates = buildVisualStates(attackers, designs, true, TARGET_SUBSYSTEM_ALL);
-            List<ShipVisualState> defVisualStates = buildVisualStates(defenders, designs, false, targetedSubsystem);
-
-            // 5. Apply damage to opposing sides
-            defenders = applyDamageToFleet(defenders, attFirepower, designs, targetedSubsystem);
-            attackers = applyDamageToFleet(attackers, defFirepower, designs, TARGET_SUBSYSTEM_ALL);
-
-            // 6. Strike wing attrition
-            int attFightersLost = 0;
-            int defFightersLost = 0;
-            if (!attWings.isEmpty() && defFirepower > 50.0) {
-                attFightersLost = Math.min(2, attWings.get(0).activeCraftCount());
-            }
-            if (!defWings.isEmpty() && attFirepower > 50.0) {
-                defFightersLost = Math.min(2, defWings.get(0).activeCraftCount());
-            }
-
-            int attackersLost = prevAttackerCount - attackers.size();
-            int defendersLost = prevDefenderCount - defenders.size();
-
-            if (attackersLost > 0) {
-                eventLogs.add(String.format("%d attacker vessel(s) suffered critical hull destruction", attackersLost));
-            }
-            if (defendersLost > 0) {
-                eventLogs.add(String.format("%d defender vessel(s) suffered critical hull destruction", defendersLost));
-            }
-
-            reports.add(new CombatRoundReport(
-                    round,
-                    attFirepower,
-                    defFirepower,
-                    attackersLost,
-                    defendersLost,
-                    attFightersLost,
-                    defFightersLost,
-                    roundActions
-            ));
-
-            visualRounds.add(new CombatVisualRound(round, attVisualStates, defVisualStates, activeProjectiles, eventLogs));
-
+            RoundExecutionResult res = executeCombatRound(
+                    round, attackers, defenders, attackerFleet, defenderFleet, designs,
+                    attWings, defWings, planetaryBattery, targetedSubsystem
+            );
+            attackers = res.updatedAttackers();
+            defenders = res.updatedDefenders();
+            reports.add(res.report());
+            visualRounds.add(res.visualRound());
             round++;
         }
 
-        String winner;
-        if (defenders.isEmpty() && !attackers.isEmpty()) {
-            winner = attackerFleet.ownerEntityId();
-        } else if (attackers.isEmpty() && !defenders.isEmpty()) {
-            winner = defenderFleet.ownerEntityId();
-        } else {
-            winner = "DRAW";
-        }
+        String winner = determineWinner(attackers, defenders, attackerFleet, defenderFleet);
 
-        Fleet updatedAttacker = new Fleet(
-                attackerFleet.id(), attackerFleet.name(), attackerFleet.ownerEntityId(),
-                attackerFleet.currentSystemId(), attackerFleet.targetSystemId(),
-                attackerFleet.coordinateX(), attackerFleet.coordinateY(),
-                attackerFleet.transitProgress(), attackerFleet.isInWarp(),
-                attackerFleet.fleetStance(), attackers
-        );
-
-        Fleet updatedDefender = new Fleet(
-                defenderFleet.id(), defenderFleet.name(), defenderFleet.ownerEntityId(),
-                defenderFleet.currentSystemId(), defenderFleet.targetSystemId(),
-                defenderFleet.coordinateX(), defenderFleet.coordinateY(),
-                defenderFleet.transitProgress(), defenderFleet.isInWarp(),
-                defenderFleet.fleetStance(), defenders
-        );
+        Fleet updatedAttacker = createUpdatedFleet(attackerFleet, attackers);
+        Fleet updatedDefender = createUpdatedFleet(defenderFleet, defenders);
 
         return new CombatEngagementResult(winner, updatedAttacker, updatedDefender, reports, attWings, defWings, visualRounds);
+    }
+
+    private record RoundExecutionResult(
+            List<ShipInstance> updatedAttackers,
+            List<ShipInstance> updatedDefenders,
+            CombatRoundReport report,
+            CombatVisualRound visualRound
+    ) {}
+
+    private RoundExecutionResult executeCombatRound(
+            int round,
+            List<ShipInstance> attackers,
+            List<ShipInstance> defenders,
+            Fleet attackerFleet,
+            Fleet defenderFleet,
+            List<ShipDesign> designs,
+            List<CarrierWing> attWings,
+            List<CarrierWing> defWings,
+            PlanetaryDefenseBattery planetaryBattery,
+            String targetedSubsystem
+    ) {
+        List<CombatActionReport> roundActions = new ArrayList<>();
+        List<String> eventLogs = new ArrayList<>();
+        List<VisualProjectile> activeProjectiles = new ArrayList<>();
+
+        double attStanceMult = getStanceFirepowerModifier(attackerFleet.fleetStance());
+        double defStanceMult = getStanceFirepowerModifier(defenderFleet.fleetStance());
+
+        double attFirepower = calculateFleetFirepower(attackers, designs, round) * attStanceMult;
+        double defFirepower = calculateFleetFirepower(defenders, designs, round) * defStanceMult;
+
+        attFirepower = processAttackerWings(attWings, defenderFleet, roundActions, eventLogs, activeProjectiles, attFirepower);
+        defFirepower = processDefenderWings(defWings, attackerFleet, roundActions, eventLogs, activeProjectiles, defFirepower);
+        defFirepower = processPlanetaryBattery(planetaryBattery, attackerFleet, roundActions, eventLogs, activeProjectiles, defFirepower);
+
+        addShipProjectiles(round, attFirepower, defFirepower, targetedSubsystem, activeProjectiles, eventLogs);
+
+        int prevAttCount = attackers.size();
+        int prevDefCount = defenders.size();
+
+        List<ShipVisualState> attVisualStates = buildVisualStates(attackers, designs, true, TARGET_SUBSYSTEM_ALL);
+        List<ShipVisualState> defVisualStates = buildVisualStates(defenders, designs, false, targetedSubsystem);
+
+        List<ShipInstance> updatedDefenders = applyDamageToFleet(defenders, attFirepower, designs, targetedSubsystem);
+        List<ShipInstance> updatedAttackers = applyDamageToFleet(attackers, defFirepower, designs, TARGET_SUBSYSTEM_ALL);
+
+        int attFightersLost = (!attWings.isEmpty() && defFirepower > 50.0) ? Math.min(2, attWings.get(0).activeCraftCount()) : 0;
+        int defFightersLost = (!defWings.isEmpty() && attFirepower > 50.0) ? Math.min(2, defWings.get(0).activeCraftCount()) : 0;
+
+        int attackersLost = prevAttCount - updatedAttackers.size();
+        int defendersLost = prevDefCount - updatedDefenders.size();
+
+        if (attackersLost > 0) {
+            eventLogs.add(String.format("%d attacker vessel(s) suffered critical hull destruction", attackersLost));
+        }
+        if (defendersLost > 0) {
+            eventLogs.add(String.format("%d defender vessel(s) suffered critical hull destruction", defendersLost));
+        }
+
+        CombatRoundReport report = new CombatRoundReport(
+                round, attFirepower, defFirepower,
+                attackersLost, defendersLost, attFightersLost, defFightersLost, roundActions
+        );
+        CombatVisualRound visualRound = new CombatVisualRound(round, attVisualStates, defVisualStates, activeProjectiles, eventLogs);
+
+        return new RoundExecutionResult(updatedAttackers, updatedDefenders, report, visualRound);
+    }
+
+    private double processAttackerWings(List<CarrierWing> attWings, Fleet defenderFleet,
+                                       List<CombatActionReport> roundActions, List<String> eventLogs,
+                                       List<VisualProjectile> activeProjectiles, double currentPower) {
+        double power = attWings.stream().mapToDouble(CarrierWing::getTotalFirepower).sum();
+        if (power > 0.0) {
+            roundActions.add(new CombatActionReport("STRIKE_WING", "Attacker strike wings deployed torpedo runs", power, defenderFleet.id()));
+            eventLogs.add(String.format("Attacker strike wings launched torpedo salvos dealing %.1f damage", power));
+            activeProjectiles.add(new VisualProjectile("TORPEDO", 200, 250, 600, 250, "#00ffff", true));
+            return currentPower + power;
+        }
+        return currentPower;
+    }
+
+    private double processDefenderWings(List<CarrierWing> defWings, Fleet attackerFleet,
+                                       List<CombatActionReport> roundActions, List<String> eventLogs,
+                                       List<VisualProjectile> activeProjectiles, double currentPower) {
+        double power = defWings.stream().mapToDouble(CarrierWing::getTotalFirepower).sum();
+        if (power > 0.0) {
+            roundActions.add(new CombatActionReport("STRIKE_WING", "Defender strike wings deployed interceptor screens", power, attackerFleet.id()));
+            eventLogs.add(String.format("Defender strike wings deployed interceptor screens dealing %.1f damage", power));
+            activeProjectiles.add(new VisualProjectile("FLAK", 600, 250, 200, 250, "#2ecc71", true));
+            return currentPower + power;
+        }
+        return currentPower;
+    }
+
+    private double processPlanetaryBattery(PlanetaryDefenseBattery planetaryBattery, Fleet attackerFleet,
+                                          List<CombatActionReport> roundActions, List<String> eventLogs,
+                                          List<VisualProjectile> activeProjectiles, double currentPower) {
+        if (planetaryBattery != null && planetaryBattery.isOperational()) {
+            double batteryDamage = planetaryBattery.damagePerRound();
+            roundActions.add(new CombatActionReport("SURFACE_BATTERY", "Surface battery fired heavy kinetic salvos into orbit", batteryDamage, attackerFleet.id()));
+            eventLogs.add(String.format("Ground defense battery fired planetary kinetic salvos (%.1f damage)", batteryDamage));
+            activeProjectiles.add(new VisualProjectile("MASS_DRIVER", 400, 500, 200, 200, "#e67e22", true));
+            return currentPower + batteryDamage;
+        }
+        return currentPower;
+    }
+
+    private void addShipProjectiles(int round, double attFirepower, double defFirepower, String targetedSubsystem,
+                                    List<VisualProjectile> activeProjectiles, List<String> eventLogs) {
+        if (attFirepower > 0.0) {
+            String wType = round == 1 ? "LASER" : (round <= 3 ? "MASS_DRIVER" : "TORPEDO");
+            String color = round == 1 ? "#e74c3c" : (round <= 3 ? "#f1c40f" : "#9b59b6");
+            activeProjectiles.add(new VisualProjectile(wType, 150, 200 + (round * 20), 650, 200 + (round * 20), color, true));
+            eventLogs.add(String.format("Attacker fleet fired %s salvos (%.1f firepower, targeting %s)", wType, attFirepower, targetedSubsystem));
+        }
+        if (defFirepower > 0.0) {
+            String wType = round == 1 ? "LASER" : (round <= 3 ? "MASS_DRIVER" : "TORPEDO");
+            String color = round == 1 ? "#3498db" : (round <= 3 ? "#f39c12" : "#1abc9c");
+            activeProjectiles.add(new VisualProjectile(wType, 650, 220 + (round * 20), 150, 220 + (round * 20), color, true));
+            eventLogs.add(String.format("Defender fleet returned %s fire (%.1f firepower)", wType, defFirepower));
+        }
+    }
+
+    private String determineWinner(List<ShipInstance> attackers, List<ShipInstance> defenders, Fleet attackerFleet, Fleet defenderFleet) {
+        if (defenders.isEmpty() && !attackers.isEmpty()) {
+            return attackerFleet.ownerEntityId();
+        } else if (attackers.isEmpty() && !defenders.isEmpty()) {
+            return defenderFleet.ownerEntityId();
+        }
+        return "DRAW";
+    }
+
+    private Fleet createUpdatedFleet(Fleet original, List<ShipInstance> survivingShips) {
+        return new Fleet(
+                original.id(), original.name(), original.ownerEntityId(),
+                original.currentSystemId(), original.targetSystemId(),
+                original.coordinateX(), original.coordinateY(),
+                original.transitProgress(), original.isInWarp(),
+                original.fleetStance(), survivingShips
+        );
     }
 
     private List<ShipVisualState> buildVisualStates(List<ShipInstance> ships, List<ShipDesign> designs, boolean isAttacker, String targetedSubsystem) {

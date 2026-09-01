@@ -24,11 +24,16 @@ public class CorporateInvestmentProcessor {
     /**
      * Evaluates and applies autonomous corporate investments across all active corporations.
      *
-     * @param corporations list of corporations
-     * @param hubs         list of active commercial hubs
+     * @param corporations    list of corporations
+     * @param hubs            list of active commercial hubs
+     * @param trustPenaltyMap mapping of empire ID to corporate trust penalty (Point 2)
      * @return updated list of corporations after investments
      */
-    public List<Corporation> processCorporateInvestments(List<Corporation> corporations, List<CommercialHub> hubs) {
+    public List<Corporation> processCorporateInvestments(
+            List<Corporation> corporations,
+            List<CommercialHub> hubs,
+            java.util.Map<String, Double> trustPenaltyMap
+    ) {
         if (corporations == null) {
             return List.of();
         }
@@ -37,7 +42,14 @@ public class CorporateInvestmentProcessor {
         }
 
         return corporations.stream()
-                .map(corp -> evaluateAndInvest(corp, hubs))
+                .map(corp -> {
+                    // Investment Freeze (Point 2): If trust penalty is severe (e.g. < -20), freeze investments
+                    double trustPenalty = trustPenaltyMap != null ? trustPenaltyMap.getOrDefault(corp.empireId(), 0.0) : 0.0;
+                    if (trustPenalty < -20.0) {
+                        return corp; // Freeze all investments
+                    }
+                    return evaluateAndInvest(corp, hubs);
+                })
                 .toList();
     }
 

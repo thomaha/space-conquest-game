@@ -169,7 +169,7 @@ public class ExpandedFeaturesIntegrationTest {
                 List.of(expDesign), List.of(expFleet), List.of(), List.of(),
                 List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 List.of(), List.of(rogueBase), List.of(), List.of(), null,
-                List.of(route), List.of()
+                List.of(route), List.of(new FogOfWarState("terran_confederation", List.of("sol"), List.of("earth"), List.of(), List.of(), List.of()))
         );
 
         engine.applyGameState(state);
