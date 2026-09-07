@@ -40,7 +40,6 @@ public class PlanetsTab {
         filterCombo.setValue(parent.getCurrentFilter());
         filterCombo.setOnAction(e -> {
             parent.setCurrentFilter(filterCombo.getValue());
-            parent.renderCurrentTab();
         });
         filterBox.getChildren().addAll(filterLbl, filterCombo);
 
@@ -53,7 +52,6 @@ public class PlanetsTab {
         sortCombo.setValue(parent.getCurrentSort());
         sortCombo.setOnAction(e -> {
             parent.setCurrentSort(sortCombo.getValue());
-            parent.renderCurrentTab();
         });
         sortBox.getChildren().addAll(sortLbl, sortCombo);
 
@@ -66,6 +64,7 @@ public class PlanetsTab {
 
         VBox listContent = new VBox(4);
         List<PlanetaryBodyEntry> bodies = parent.getFilteredAndSortedPlanetaryBodies();
+
         for (PlanetaryBodyEntry body : bodies) {
             listContent.getChildren().add(createBodyListEntry(body));
         }
@@ -75,6 +74,11 @@ public class PlanetsTab {
         VBox mainView = new VBox(12);
         HBox.setHgrow(mainView, Priority.ALWAYS);
         mainView.setPadding(new Insets(10));
+
+        // Auto-select first item if none selected and list not empty
+        if (parent.getSelectedBody() == null && !bodies.isEmpty()) {
+            parent.setSelectedBody(bodies.get(0), false);
+        }
 
         if (parent.getSelectedBody() != null) {
             mainView.getChildren().add(createPlanetaryBodyDetailView(parent.getSelectedBody()));
@@ -118,7 +122,6 @@ public class PlanetsTab {
         btn.setGraphic(content);
         btn.setOnAction(e -> {
             parent.setSelectedBody(entry);
-            parent.renderCurrentTab();
         });
         return btn;
     }
@@ -145,13 +148,15 @@ public class PlanetsTab {
 
         mainGrid.add(parent.createPopulationDemographicsSection(body), 0, 0);
         mainGrid.add(parent.createIndustryTableSection(body), 1, 0);
-        mainGrid.add(parent.createSurfaceBiomeSection(body), 0, 1);
-        mainGrid.add(parent.createPowerAndDepositsSection(body), 1, 1);
+        mainGrid.add(parent.createSurfaceBiomeSection(body), 0, 1, 2, 1);
+        mainGrid.add(parent.createPowerAndDepositsSection(body), 0, 2);
+        mainGrid.add(parent.createTechnologyGatedOperationsSection(body), 1, 2);
         
         content.getChildren().add(mainGrid);
-        content.getChildren().add(parent.createTechnologyGatedOperationsSection(body));
 
-        scroll.setContent(content);
+        VBox container = new VBox(content);
+        container.setPadding(new Insets(10));
+        scroll.setContent(container);
         return scroll;
     }
 }

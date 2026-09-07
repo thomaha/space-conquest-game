@@ -1,4 +1,7 @@
 # Engine module
+## Engine Module Rules
+- All assignments (e.g., scientists, fleets, resource allocations) must be strictly validated against live model data here.
+- Keep data models decoupled from visual frameworks. No `javafx.*` or `com.almasb.fxgl.*` imports allowed in this package.
 
 This module contains the core game logic, the static data model and state management for the Space Conquest Game.
 

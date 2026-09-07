@@ -40,7 +40,7 @@ public class SystemEconomyWorkbenchCard {
         title.setFill(Color.AQUA);
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 15));
 
-        Text desc = new Text("Configure colonial fiscal policy, adjust public sector allocations across five municipal priorities, and enact local colonial tax tariffs.");
+        Text desc = new Text("Configure colonial fiscal policy, adjust public sector allocations across five municipal priorities and enact local colonial tax tariffs.");
         desc.setFill(Color.LIGHTCYAN);
         desc.setFont(Font.font("Verdana", 11));
 

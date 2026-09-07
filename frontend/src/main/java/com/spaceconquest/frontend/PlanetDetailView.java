@@ -4,8 +4,9 @@ import com.spaceconquest.control.HumanController;
 import com.spaceconquest.control.command.BuildFacilityCommand;
 import com.spaceconquest.control.command.PlaceFacilityOnTileCommand;
 import com.spaceconquest.control.command.StartProspectingMissionCommand;
+import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.Planet;
-import com.spaceconquest.engine.biome.BiomeAdjacencyProcessor;
+import com.spaceconquest.frontend.components.SurfaceBiomeGridView;
 import com.spaceconquest.engine.biome.PlanetBiomeGrid;
 import com.spaceconquest.engine.biome.SurfaceTile;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
@@ -13,14 +14,8 @@ import com.spaceconquest.engine.industry.PowerGridState;
 import com.spaceconquest.engine.megastructure.Megastructure;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
+import javafx.scene.control.*;
+import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -40,6 +35,7 @@ public class PlanetDetailView {
     private final Menubar menubar;
     private HumanController humanController;
     private String playerEmpireId = "terran_confederation";
+    private PlanetaryBodyEntry selectedBody;
     private final List<GeologicalDeposit> deposits = new ArrayList<>();
     private final List<PowerGridState> powerGrids = new ArrayList<>();
     private final List<Megastructure> megastructures = new ArrayList<>();
@@ -56,6 +52,15 @@ public class PlanetDetailView {
     public void setPlayerEmpireId(String empireId) {
         if (empireId != null && !empireId.isEmpty()) {
             this.playerEmpireId = empireId;
+        }
+    }
+
+    public void setSelectedBody(PlanetaryBodyEntry body) {
+        if (body != null && (this.selectedBody == null || !this.selectedBody.id().equals(body.id()))) {
+            this.selectedBody = body;
+            if (root != null && root.isVisible()) {
+                renderContent();
+            }
         }
     }
 
@@ -107,9 +112,15 @@ public class PlanetDetailView {
     }
 
     public void show() {
-        renderContent();
-        root.setVisible(true);
-        root.toFront();
+        if (menubar != null && menubar.getMainApp() != null && menubar.getMainApp().getEngine() != null) {
+            updateData(menubar.getMainApp().getEngine().getGameState());
+        } else if (!root.isVisible()) {
+            renderContent();
+        }
+        if (root != null) {
+            root.setVisible(true);
+            root.toFront();
+        }
     }
 
     public void hide() {
@@ -117,6 +128,11 @@ public class PlanetDetailView {
         if (menubar != null) {
             menubar.closePage();
         }
+    }
+
+    public void updateData(GameState state) {
+        if (state == null) return;
+        updateData(state.geologicalDeposits(), state.powerGrids(), state.megastructures());
     }
 
     public void updateData(List<GeologicalDeposit> newDeposits, List<PowerGridState> newGrids) {
@@ -133,124 +149,60 @@ public class PlanetDetailView {
         megastructures.clear();
         if (newMegastructures != null) megastructures.addAll(newMegastructures);
 
-        if (root.isVisible()) {
-            renderContent();
-        }
+        renderContent();
     }
 
     private void renderContent() {
         content.getChildren().clear();
 
-        // 1. Planetary Quick Action Workbench
-        content.getChildren().add(createActionWorkbench());
+        // Use a GridPane to organize sections and avoid vertical stacking duplication/clutter
+        GridPane mainGrid = new GridPane();
+        mainGrid.setHgap(16);
+        mainGrid.setVgap(16);
+        ColumnConstraints col1 = new ColumnConstraints();
+        col1.setPercentWidth(50);
+        ColumnConstraints col2 = new ColumnConstraints();
+        col2.setPercentWidth(50);
+        mainGrid.getColumnConstraints().addAll(col1, col2);
 
-        // 2. Interactive Surface Biome Grid
-        content.getChildren().add(createSurfaceBiomeGridSection());
+        // 1. Planetary Quick Action Workbench
+        mainGrid.add(createActionWorkbench(), 0, 0, 2, 1);
+
+        // 2. Interactive Surface Biome Grid - Span both columns as requested
+        VBox surfaceSection = createSurfaceBiomeGridSection();
+        surfaceSection.setPrefHeight(450); // Larger height for detail view
+        mainGrid.add(surfaceSection, 0, 1, 2, 1);
 
         // 3. Power Grids Section
-        content.getChildren().add(createPowerGridsSection());
+        mainGrid.add(createPowerGridsSection(), 0, 2);
 
         // 4. Megastructures Section
-        content.getChildren().add(createMegastructuresSection());
+        mainGrid.add(createMegastructuresSection(), 1, 2);
 
         // 5. Geological Mineral Veins Section
-        content.getChildren().add(createGeologicalDepositsSection());
+        mainGrid.add(createGeologicalDepositsSection(), 0, 3, 2, 1);
+
+        content.getChildren().add(mainGrid);
     }
 
     private VBox createSurfaceBiomeGridSection() {
-        VBox section = new VBox(8);
-        section.setPadding(new Insets(10));
-        section.setStyle("-fx-background-color: rgba(20, 35, 60, 0.7); -fx-background-radius: 8; -fx-border-color: #3498db; -fx-border-width: 1; -fx-border-radius: 8;");
-
-        Text header = new Text("Planetary surface biome grid and facility adjacency matrix");
-        header.setFill(Color.AQUA);
-        header.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
-        section.getChildren().add(header);
-
-        BiomeAdjacencyProcessor proc = new BiomeAdjacencyProcessor();
-        Planet demoPlanet = new Planet("earth", "Earth", "Terrestrial world", 5.97e24, 1.0, 1.0, 0, 12742, "TERRESTRIAL", "Oxygen-Nitrogen", true, 0.71, List.of(), List.of(), List.of());
-        PlanetBiomeGrid grid = proc.generateDefaultGrid(demoPlanet, deposits);
-
-        if (grid.totalTiles() == 0) {
-            VBox gasCard = new VBox(6);
-            gasCard.setPadding(new Insets(12));
-            gasCard.setStyle("-fx-background-color: rgba(30, 45, 75, 0.6); -fx-background-radius: 6;");
-
-            Label gasTitle = new Label("Gas giant celestial body");
-            gasTitle.setTextFill(Color.GOLD);
-            gasTitle.setFont(Font.font("Verdana", FontWeight.BOLD, 11));
-
-            Label gasDesc = new Label("Gas giant celestial body — Gaseous atmosphere with no solid surface crust for ground facilities. Surface tile development unavailable.");
-            gasDesc.setTextFill(Color.LIGHTGRAY);
-            gasDesc.setFont(Font.font("Verdana", 10));
-            gasDesc.setWrapText(true);
-
-            gasCard.getChildren().addAll(gasTitle, gasDesc);
-            section.getChildren().add(gasCard);
-            return section;
+        if (selectedBody == null) {
+            VBox placeholder = new VBox(new Label("No planetary body selected for surface scan."));
+            placeholder.setPadding(new Insets(10));
+            return placeholder;
         }
 
-        VBox surfaceGridContainer = new VBox(6);
-        surfaceGridContainer.setAlignment(Pos.CENTER);
-        surfaceGridContainer.setPadding(new Insets(4));
-
-        for (int r = 0; r < grid.rows(); r++) {
-            HBox rowBox = new HBox(6);
-            rowBox.setAlignment(Pos.CENTER);
-            int colsInRow = grid.columnsInRow(r);
-
-            for (int c = 0; c < colsInRow; c++) {
-                SurfaceTile tile = grid.getTile(r, c);
-                if (tile == null) continue;
-
-                VBox tileCard = new VBox(4);
-                tileCard.setPadding(new Insets(6));
-                tileCard.setPrefSize(120, 58);
-
-                String colorStyle = switch (tile.biomeType()) {
-                    case SurfaceTile.BIOME_EQUATORIAL_DESERT -> "-fx-background-color: rgba(180, 130, 40, 0.6); -fx-border-color: #f1c40f;";
-                    case SurfaceTile.BIOME_VOLCANIC_RIDGE -> "-fx-background-color: rgba(180, 50, 30, 0.6); -fx-border-color: #e74c3c;";
-                    case SurfaceTile.BIOME_POLAR_ICE -> "-fx-background-color: rgba(60, 140, 200, 0.6); -fx-border-color: #3498db;";
-                    case SurfaceTile.BIOME_OCEANIC_SHELF -> "-fx-background-color: rgba(30, 80, 160, 0.6); -fx-border-color: #2980b9;";
-                    case SurfaceTile.BIOME_MOUNTAIN_RANGE -> "-fx-background-color: rgba(100, 100, 110, 0.6); -fx-border-color: #95a5a6;";
-                    case SurfaceTile.BIOME_RADIOACTIVE_CRATER -> "-fx-background-color: rgba(120, 80, 140, 0.6); -fx-border-color: #9b59b6;";
-                    case SurfaceTile.BIOME_BARREN_ROCK -> "-fx-background-color: rgba(90, 90, 90, 0.6); -fx-border-color: #7f8c8d;";
-                    default -> "-fx-background-color: rgba(40, 140, 60, 0.6); -fx-border-color: #2ecc71;";
-                };
-                tileCard.setStyle(colorStyle + " -fx-background-radius: 6; -fx-border-width: 1; -fx-border-radius: 6;");
-
-                Text tileName = new Text(String.format("Tile #%d [%s]", tile.tileIndex(), tile.biomeType().replace('_', ' ')));
-                tileName.setFill(Color.WHITE);
-                tileName.setFont(Font.font("Verdana", FontWeight.BOLD, 10));
-
-                Text depositTxt = new Text(tile.hasDeposit() ? "Mineral vein colocated" : "No deposit");
-                depositTxt.setFill(tile.hasDeposit() ? Color.GOLD : Color.LIGHTGRAY);
-                depositTxt.setFont(Font.font("Verdana", 9));
-
-                Button placeBtn = new Button("Build on tile");
-                placeBtn.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-size: 9px;");
-                final int tIdx = tile.tileIndex();
-                placeBtn.setOnAction(e -> {
-                    if (humanController != null) {
-                        humanController.stageCommand(new PlaceFacilityOnTileCommand(
-                                demoPlanet.id(), tIdx, "solar_power_array", playerEmpireId, "PUBLIC_STATE", 50, "technician"
-                        ));
-                        feedbackLabel.setText("Commissioned facility on surface tile #" + tIdx + " (" + tile.biomeType() + ")");
-                        feedbackLabel.setTextFill(Color.LIGHTGREEN);
-                    }
-                });
-
-                tileCard.getChildren().addAll(tileName, depositTxt, placeBtn);
-                rowBox.getChildren().add(tileCard);
+        SurfaceBiomeGridView gridView = new SurfaceBiomeGridView(selectedBody, humanController, playerEmpireId, (id, tileIdx) -> {
+            if (humanController != null) {
+                humanController.stageCommand(new PlaceFacilityOnTileCommand(
+                        id, tileIdx, "solar_power_array", playerEmpireId, "PUBLIC_STATE", 50, "technician"
+                ));
+                feedbackLabel.setText("Commissioned facility on surface tile #" + tileIdx + " (" + selectedBody.name() + ")");
+                feedbackLabel.setTextFill(Color.LIGHTGREEN);
             }
-            surfaceGridContainer.getChildren().add(rowBox);
-        }
+        });
 
-        ScrollPane tileScroll = new ScrollPane(surfaceGridContainer);
-        tileScroll.setFitToWidth(true);
-        tileScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
-        section.getChildren().add(tileScroll);
-        return section;
+        return gridView;
     }
 
     private VBox createActionWorkbench() {

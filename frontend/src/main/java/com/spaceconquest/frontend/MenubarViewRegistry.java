@@ -200,7 +200,7 @@ public class MenubarViewRegistry {
         if (terraformingView != null && mainApp != null && mainApp.getEngine() != null) {
             terraformingView.updateData(mainApp.getEngine().getAtmospheres(), state.terraformingProjects());
         }
-        if (planetDetailView != null) planetDetailView.updateData(state.geologicalDeposits(), state.powerGrids(), state.megastructures());
+        if (planetDetailView != null) planetDetailView.updateData(state);
         if (colonyManagementView != null && mainApp != null && mainApp.getEngine() != null) {
             colonyManagementView.updateData(mainApp.getEngine().getAllPlanets(), List.of());
         }

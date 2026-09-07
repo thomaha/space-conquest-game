@@ -2,8 +2,10 @@ package com.spaceconquest.frontend.empire;
 
 import com.spaceconquest.frontend.Menubar;
 import com.spaceconquest.frontend.PlanetaryBodyEntry;
+import com.spaceconquest.frontend.components.SurfaceBiomeGridView;
 
 import com.spaceconquest.control.HumanController;
+import com.spaceconquest.control.command.PlaceFacilityOnTileCommand;
 import com.spaceconquest.engine.Corporation;
 import com.spaceconquest.engine.DataModelLoader;
 import com.spaceconquest.engine.Empire;
@@ -135,17 +137,47 @@ public class EmpireView {
     public EconomySubView getEconomySubView() { return currentEconomySubView; }
     public void setEconomySubView(EconomySubView subView) { this.currentEconomySubView = subView; }
     public String getSelectedEconomySystemId() { return selectedEconomySystemId; }
-    public void setSelectedEconomySystemId(String systemId) { this.selectedEconomySystemId = systemId; }
+    public void setSelectedEconomySystemId(String systemId) {
+        setSelectedEconomySystemId(systemId, true);
+    }
+
+    public void setSelectedEconomySystemId(String systemId, boolean shouldRender) {
+        if (systemId != null && (this.selectedEconomySystemId == null || !this.selectedEconomySystemId.equals(systemId))) {
+            this.selectedEconomySystemId = systemId;
+            if (shouldRender) {
+                renderCurrentTab();
+            }
+        }
+    }
     public FilterCategory getCurrentFilter() { return currentFilter; }
     public void setCurrentFilter(FilterCategory filter) {
-        if (filter != null) this.currentFilter = filter;
+        if (filter != null && this.currentFilter != filter) {
+            this.currentFilter = filter;
+            this.selectedBody = null;
+            renderCurrentTab();
+        }
     }
     public SortOption getCurrentSort() { return currentSort; }
     public void setCurrentSort(SortOption sort) {
-        if (sort != null) this.currentSort = sort;
+        if (sort != null && this.currentSort != sort) {
+            this.currentSort = sort;
+            this.selectedBody = null;
+            renderCurrentTab();
+        }
     }
     public PlanetaryBodyEntry getSelectedBody() { return selectedBody; }
-    public void setSelectedBody(PlanetaryBodyEntry entry) { this.selectedBody = entry; }
+    public void setSelectedBody(PlanetaryBodyEntry entry) {
+        setSelectedBody(entry, true);
+    }
+
+    public void setSelectedBody(PlanetaryBodyEntry entry, boolean shouldRender) {
+        if (entry != null && (this.selectedBody == null || !this.selectedBody.id().equals(entry.id()))) {
+            this.selectedBody = entry;
+            if (shouldRender) {
+                renderCurrentTab();
+            }
+        }
+    }
 
     public VBox createBodyCard(PlanetaryBodyEntry entry) {
         VBox card = new VBox(8);
@@ -166,7 +198,17 @@ public class EmpireView {
         box.setStyle("-fx-background-color: rgba(20, 35, 65, 0.6); -fx-background-radius: 6;");
         Text title = new Text("Population & demographics");
         title.setFill(Color.AQUA);
+        title.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
         box.getChildren().add(title);
+
+        if (body.isColonized()) {
+            box.getChildren().add(createDetailRow("Total population:", String.format("%,d", body.totalPopulation())));
+        } else {
+            Label empty = new Label("No colonial presence detected.");
+            empty.setTextFill(Color.LIGHTGRAY);
+            empty.setFont(Font.font("Verdana", 11));
+            box.getChildren().add(empty);
+        }
         return box;
     }
 
@@ -176,7 +218,17 @@ public class EmpireView {
         box.setStyle("-fx-background-color: rgba(20, 35, 65, 0.6); -fx-background-radius: 6;");
         Text title = new Text("Industrial operations & facilities");
         title.setFill(Color.AQUA);
+        title.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
         box.getChildren().add(title);
+
+        if (body.isColonized()) {
+            box.getChildren().add(createDetailRow("Status:", "Colonized"));
+        } else {
+            Label empty = new Label("No industrial facilities active.");
+            empty.setTextFill(Color.LIGHTGRAY);
+            empty.setFont(Font.font("Verdana", 11));
+            box.getChildren().add(empty);
+        }
         return box;
     }
 
@@ -186,7 +238,26 @@ public class EmpireView {
         box.setStyle("-fx-background-color: rgba(20, 35, 65, 0.6); -fx-background-radius: 6;");
         Text title = new Text("Surface biome & environmental telemetry");
         title.setFill(Color.AQUA);
+        title.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
         box.getChildren().add(title);
+
+        box.getChildren().add(createDetailRow("Body type:", body.getBodyType()));
+        box.getChildren().add(createDetailRow("Surface gravity:", String.format("%.2f m/s²", body.gravity())));
+        box.getChildren().add(createDetailRow("Diameter:", String.format("%,.0f km", body.diameter())));
+        box.getChildren().add(createDetailRow("Atmosphere:", body.getAtmosphere()));
+        box.getChildren().add(createDetailRow("Liquid water:", body.hasLiquidWater() ? "Present" : "None"));
+
+        SurfaceBiomeGridView biomeGrid = new SurfaceBiomeGridView(body, humanController, playerEmpireId, (id, tileIdx) -> {
+            if (humanController != null) {
+                humanController.stageCommand(new PlaceFacilityOnTileCommand(
+                        id, tileIdx, "solar_power_array", playerEmpireId, "PUBLIC_STATE", 50, "technician"
+                ));
+                setFeedback("Commissioned facility on surface tile #" + tileIdx + " of " + body.name(), true);
+            }
+        });
+        biomeGrid.setPrefHeight(400); // Increase height for better visibility in the main view
+        box.getChildren().add(biomeGrid);
+
         return box;
     }
 
@@ -196,7 +267,14 @@ public class EmpireView {
         box.setStyle("-fx-background-color: rgba(20, 35, 65, 0.6); -fx-background-radius: 6;");
         Text title = new Text("Power grid & geological resources");
         title.setFill(Color.AQUA);
+        title.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
         box.getChildren().add(title);
+
+        box.getChildren().add(createDetailRow("Geological deposits:", String.valueOf(body.resourceCount())));
+        if (!body.getResources().isEmpty()) {
+            box.getChildren().add(createDetailRow("Detected resources:", String.join(", ", body.getResources())));
+        }
+        
         return box;
     }
 
@@ -206,8 +284,30 @@ public class EmpireView {
         box.setStyle("-fx-background-color: rgba(45, 55, 80, 0.7); -fx-background-radius: 8;");
         Text title = new Text("Technology-gated contextual operations");
         title.setFill(Color.GOLD);
+        title.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
         box.getChildren().add(title);
+
+        Label info = new Label("Administrative and engineering actions available based on colonial status and technology.");
+        info.setTextFill(Color.LIGHTGRAY);
+        info.setFont(Font.font("Verdana", 10));
+        box.getChildren().add(info);
+        
         return box;
+    }
+
+    private HBox createDetailRow(String label, String value) {
+        HBox row = new HBox(10);
+        Label lbl = new Label(label);
+        lbl.setTextFill(Color.LIGHTBLUE);
+        lbl.setFont(Font.font("Verdana", 11));
+        lbl.setPrefWidth(140);
+
+        Label val = new Label(value);
+        val.setTextFill(Color.WHITE);
+        val.setFont(Font.font("Verdana", FontWeight.BOLD, 11));
+
+        row.getChildren().addAll(lbl, val);
+        return row;
     }
 
     private void build() {
@@ -259,8 +359,6 @@ public class EmpireView {
 
         root.getChildren().addAll(topBar, feedbackLabel, tabContentContainer);
         root.setVisible(false);
-
-        renderCurrentTab();
     }
 
     public VBox getRoot() {
@@ -443,7 +541,14 @@ public class EmpireView {
         systemEconomies.clear();
         if (newEconomies != null) systemEconomies.addAll(newEconomies);
 
-        selectedBody = null;
+        // Keep selection if it's still valid
+        if (selectedBody != null) {
+            String currentId = selectedBody.id();
+            this.selectedBody = getAllPlanetaryBodies().stream()
+                    .filter(b -> b.id().equals(currentId))
+                    .findFirst()
+                    .orElse(null);
+        }
 
         if (root != null && root.isVisible()) {
             renderCurrentTab();
@@ -460,7 +565,6 @@ public class EmpireView {
             updateTabButtonStyles();
         }
         ensureDataLoaded();
-        renderCurrentTab();
         if (root != null) {
             root.setVisible(true);
             root.toFront();
@@ -502,12 +606,30 @@ public class EmpireView {
         tabContentContainer.getChildren().clear();
 
         switch (currentTab) {
-            case ECONOMY -> tabContentContainer.getChildren().add(economyTab.buildEconomyTabContent());
-            case CABINET -> tabContentContainer.getChildren().add(cabinetTab.buildCabinetTabContent());
-            case PLANETS -> tabContentContainer.getChildren().add(planetsTab.buildPlanetsTabContent());
-            case STATIONS -> tabContentContainer.getChildren().add(stationsTab.buildStationsTabContent());
-            case CORPORATIONS -> tabContentContainer.getChildren().add(corporationsTab.buildCorporationsTabContent());
-            case MEGASTRUCTURES -> tabContentContainer.getChildren().add(megastructuresTab.buildMegastructuresTabContent());
+            case ECONOMY -> {
+                VBox content = economyTab.buildEconomyTabContent();
+                if (content != null) tabContentContainer.getChildren().add(content);
+            }
+            case CABINET -> {
+                VBox content = cabinetTab.buildCabinetTabContent();
+                if (content != null) tabContentContainer.getChildren().add(content);
+            }
+            case PLANETS -> {
+                HBox content = planetsTab.buildPlanetsTabContent();
+                if (content != null) tabContentContainer.getChildren().add(content);
+            }
+            case STATIONS -> {
+                VBox content = stationsTab.buildStationsTabContent();
+                if (content != null) tabContentContainer.getChildren().add(content);
+            }
+            case CORPORATIONS -> {
+                VBox content = corporationsTab.buildCorporationsTabContent();
+                if (content != null) tabContentContainer.getChildren().add(content);
+            }
+            case MEGASTRUCTURES -> {
+                VBox content = megastructuresTab.buildMegastructuresTabContent();
+                if (content != null) tabContentContainer.getChildren().add(content);
+            }
         }
     }
 
@@ -570,13 +692,13 @@ public class EmpireView {
                 }
 
                 if (isSystemControlled || playerHasAssets) {
-                    PlanetaryBodyEntry planetEntry = PlanetaryBodyEntry.fromPlanet(p, system);
+                    PlanetaryBodyEntry planetEntry = PlanetaryBodyEntry.fromPlanet(p, system, deposits);
                     if (planetEntry != null) {
                         list.add(planetEntry);
                     }
                     if (p.moons() != null) {
                         for (Moon m : p.moons()) {
-                            PlanetaryBodyEntry moonEntry = PlanetaryBodyEntry.fromMoon(m, p, system);
+                            PlanetaryBodyEntry moonEntry = PlanetaryBodyEntry.fromMoon(m, p, system, deposits);
                             if (moonEntry != null) {
                                 list.add(moonEntry);
                             }

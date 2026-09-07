@@ -4,6 +4,9 @@ import com.spaceconquest.engine.Moon;
 import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.SolarSystem;
+import com.spaceconquest.engine.biome.BiomeAdjacencyProcessor;
+import com.spaceconquest.engine.biome.PlanetBiomeGrid;
+import com.spaceconquest.engine.industry.GeologicalDeposit;
 
 import java.util.List;
 
@@ -26,9 +29,10 @@ public record PlanetaryBodyEntry(
         boolean isColonizable,
         double gravity,
         double diameter,
-        int resourceCount
+        int resourceCount,
+        PlanetBiomeGrid biomeGrid
 ) {
-    public static PlanetaryBodyEntry fromPlanet(Planet p, SolarSystem system) {
+    public static PlanetaryBodyEntry fromPlanet(Planet p, SolarSystem system, List<GeologicalDeposit> allDeposits) {
         if (p == null) return null;
         long pop = calculatePopulation(p.populations());
         boolean colonized = pop > 0;
@@ -36,6 +40,9 @@ public record PlanetaryBodyEntry(
         // Colonizable: uncolonized, solid surface (not gas/ice giant), gravity within survivable range (0.5 m/s² - 30.0 m/s²)
         boolean isGas = p.type() != null && (p.type().equalsIgnoreCase("GAS_GIANT") || p.type().equalsIgnoreCase("ICE_GIANT"));
         boolean colonizable = !colonized && !isGas && p.gravity() >= 0.5 && p.gravity() <= 30.0;
+
+        BiomeAdjacencyProcessor proc = new BiomeAdjacencyProcessor();
+        PlanetBiomeGrid grid = proc.generateDefaultGrid(p, allDeposits != null ? allDeposits : List.of());
 
         return new PlanetaryBodyEntry(
                 p.id(),
@@ -51,16 +58,27 @@ public record PlanetaryBodyEntry(
                 colonizable,
                 p.gravity(),
                 p.diameter(),
-                resCount
+                resCount,
+                grid
         );
     }
 
-    public static PlanetaryBodyEntry fromMoon(Moon m, Planet parentPlanet, SolarSystem system) {
+    public static PlanetaryBodyEntry fromMoon(Moon m, Planet parentPlanet, SolarSystem system, List<GeologicalDeposit> allDeposits) {
         if (m == null) return null;
         long pop = calculatePopulation(m.populations());
         boolean colonized = pop > 0;
         int resCount = m.resources() != null ? m.resources().size() : 0;
         boolean colonizable = !colonized && m.gravity() >= 0.5 && m.gravity() <= 30.0;
+
+        BiomeAdjacencyProcessor proc = new BiomeAdjacencyProcessor();
+        // Moons use the same grid generation logic but need to be treated as a generic terrestrial/barren body
+        // We create a temporary Planet representation for the processor to consume
+        Planet dummyPlanet = new Planet(
+                m.id(), m.name(), m.description(), m.mass(), m.gravity(), m.distance(),
+                0.0, m.diameter(), "MOON", m.atmosphere(), m.hasLiquidWater(),
+                m.waterLevel(), m.resources(), List.of(), m.populations()
+        );
+        PlanetBiomeGrid grid = proc.generateDefaultGrid(dummyPlanet, allDeposits != null ? allDeposits : List.of());
 
         return new PlanetaryBodyEntry(
                 m.id(),
@@ -76,7 +94,8 @@ public record PlanetaryBodyEntry(
                 colonizable,
                 m.gravity(),
                 m.diameter(),
-                resCount
+                resCount,
+                grid
         );
     }
 

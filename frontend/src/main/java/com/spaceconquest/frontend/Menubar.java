@@ -237,9 +237,6 @@ public class Menubar {
     }
 
     private void showEmpireView() {
-        if (mainApp != null && mainApp.getEngine() != null) {
-            getEmpireView().updateData(mainApp.getEngine().getGameState());
-        }
         getEmpireView().show();
     }
 

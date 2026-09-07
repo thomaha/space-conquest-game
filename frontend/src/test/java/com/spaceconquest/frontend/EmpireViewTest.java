@@ -65,7 +65,7 @@ public class EmpireViewTest {
                 List.of(colonizedPlanet), List.of()
         );
 
-        PlanetaryBodyEntry entry = PlanetaryBodyEntry.fromPlanet(colonizedPlanet, sol);
+        PlanetaryBodyEntry entry = PlanetaryBodyEntry.fromPlanet(colonizedPlanet, sol, List.of());
         assertNotNull(entry);
         assertEquals("earth", entry.id());
         assertEquals("Earth", entry.name());
@@ -104,7 +104,7 @@ public class EmpireViewTest {
                 List.of(earth), List.of()
         );
 
-        PlanetaryBodyEntry entry = PlanetaryBodyEntry.fromMoon(luna, earth, sol);
+        PlanetaryBodyEntry entry = PlanetaryBodyEntry.fromMoon(luna, earth, sol, List.of());
         assertNotNull(entry);
         assertEquals("luna", entry.id());
         assertEquals("Luna", entry.name());
@@ -528,9 +528,9 @@ public class EmpireViewTest {
         EmpireView view = new EmpireView(null);
         view.updateData(List.of(sol), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
 
-        PlanetaryBodyEntry jupiterEntry = PlanetaryBodyEntry.fromPlanet(jupiter, sol);
-        PlanetaryBodyEntry earthEntry = PlanetaryBodyEntry.fromPlanet(earth, sol);
-        PlanetaryBodyEntry deimosEntry = PlanetaryBodyEntry.fromMoon(deimos, earth, sol);
+        PlanetaryBodyEntry jupiterEntry = PlanetaryBodyEntry.fromPlanet(jupiter, sol, List.of());
+        PlanetaryBodyEntry earthEntry = PlanetaryBodyEntry.fromPlanet(earth, sol, List.of());
+        PlanetaryBodyEntry deimosEntry = PlanetaryBodyEntry.fromMoon(deimos, earth, sol, List.of());
 
         view.setSelectedBody(jupiterEntry);
         assertEquals("jupiter", view.getSelectedBody().id());

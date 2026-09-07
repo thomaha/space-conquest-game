@@ -162,7 +162,7 @@ public class EconomyTab {
             return selectedSysId;
         } else {
             String defaultSysId = availableSystems.get(0).id();
-            parent.setSelectedEconomySystemId(defaultSysId);
+            parent.setSelectedEconomySystemId(defaultSysId, false);
             return defaultSysId;
         }
     }
@@ -223,6 +223,17 @@ public class EconomyTab {
         breakdownColumns.getChildren().addAll(revCard, expCard);
         content.getChildren().add(breakdownColumns);
 
-        content.getChildren().add(EconomyCards.createSystemCelestialBodiesLedgerCard(sysReport, parent));
+        VBox breakdownContainer = new VBox(12, breakdownColumns);
+        VBox ledgerContainer = new VBox(EconomyCards.createSystemCelestialBodiesLedgerCard(sysReport, parent));
+
+        VBox workbenchCard = SystemEconomyWorkbenchCard.createCard(
+                sysReport, overviewContainer, breakdownContainer,
+                ledgerContainer,
+                () -> parent.renderCurrentTab(),
+                parent
+        );
+        content.getChildren().add(workbenchCard);
+
+        content.getChildren().add(ledgerContainer);
     }
 }

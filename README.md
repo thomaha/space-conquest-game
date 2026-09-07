@@ -1,5 +1,5 @@
 # Space conquest game
-This will be a space conquest game with similarities to Stellaris and Master of Orion. 
+This will be a space conquest game with similarities to Stellaris, Master of Orion and Distant worlds 2. 
 The game will have resources, technology, races, spaceships and combat both in space and on the ground.
 
 ## Project structure

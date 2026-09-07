@@ -1,4 +1,7 @@
 # Frontend module
+## Frontend Module Rules
+- This package is purely responsible for rendering the UI.
+- All structural player assignments must be backed by actual game data. You are forbidden from allowing a player to assign more resources (e.g., scientists) than are actively available in the empire data model.
 
 This module serves as the entry point and user interface for the Space Conquest Game, powered by the FXGL game engine.
 All data presented must be tied to the actual data in the game world. Such that the number of total scientists shown in the Technology view must reflect the number of actual scientists available in the empire and the data in the economy view must reflect the actual production and consumption of resources in the empire.
@@ -166,3 +169,6 @@ Make a property file based on the Hertzsprung–Russell diagram to specify the r
 - When generating a new random galaxy or loading a campaign save, the new game state is applied to the central simulation engine.
 - Staged player commands from empire creation are processed and updated galaxy solar systems and celestial bodies are rendered on the map.
 - Menubar propagates live game state updates across all dialogue views, resetting stale celestial selections and refreshing empire overview, planets, orbital stations and corporate registries.
+
+### Screen components
+- When using a filtered list to select an item and having an information display linked to it, the first item in the list is automatically selected and displayed.
