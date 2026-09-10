@@ -9,6 +9,7 @@ import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.SystemGovernor;
+import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
 import com.spaceconquest.engine.industry.IndustrialFacility;
@@ -20,7 +21,9 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class EmpireEconomyCalculator {
     private static final Logger logger = LogManager.getLogger(EmpireEconomyCalculator.class);
@@ -87,15 +90,37 @@ public class EmpireEconomyCalculator {
 
     private static double calculateColonyLedger(EmpireView view, List<PlanetaryBodyEntry> colonies, List<ColonyEconomyEntry> ledger) {
         double totalTax = 0.0;
+        Map<String, PlanetaryBalanceSheet> sheetMap = new HashMap<>();
+        if (view != null && view.getPlanetaryBalanceSheets() != null) {
+            for (PlanetaryBalanceSheet sheet : view.getPlanetaryBalanceSheets()) {
+                sheetMap.put(sheet.planetId().toLowerCase(), sheet);
+            }
+        }
+
         for (PlanetaryBodyEntry colony : colonies) {
             long pop = colony.totalPopulation();
-            double grossOutput = pop * 0.005;
-            double taxCollected = grossOutput * 0.10;
-            SystemEconomy systemEconomy = view.getSystemEconomies().stream().filter(se -> se.systemId().equals(colony.systemId())).findFirst().orElse(null);
-            double systemBudget = systemEconomy != null ? systemEconomy.totalBudgetCredits() : (pop * 0.002);
-            long systemPop = colonies.stream().filter(c -> c.systemId().equals(colony.systemId())).mapToLong(PlanetaryBodyEntry::totalPopulation).sum();
-            double localGov = (systemBudget * (systemPop > 0 ? (double) pop / systemPop : 1.0)) + 200.0;
-            ledger.add(new ColonyEconomyEntry(colony.id(), colony.name(), colony.systemName(), colony.isMoon(), pop, grossOutput, taxCollected, localGov, taxCollected - localGov));
+            PlanetaryBalanceSheet sheet = sheetMap.get(colony.id().toLowerCase());
+            double grossOutput;
+            double taxCollected;
+            double localGov;
+            double net;
+
+            if (sheet != null) {
+                grossOutput = sheet.grossPlanetaryProduct();
+                taxCollected = sheet.totalRevenueCredits();
+                localGov = sheet.totalExpenditureCredits();
+                net = sheet.netBalanceCredits();
+            } else {
+                grossOutput = pop * 0.005;
+                taxCollected = grossOutput * 0.10;
+                SystemEconomy systemEconomy = view.getSystemEconomies().stream().filter(se -> se.systemId().equals(colony.systemId())).findFirst().orElse(null);
+                double systemBudget = systemEconomy != null ? systemEconomy.totalBudgetCredits() : (pop * 0.002);
+                long systemPop = colonies.stream().filter(c -> c.systemId().equals(colony.systemId())).mapToLong(PlanetaryBodyEntry::totalPopulation).sum();
+                localGov = (systemBudget * (systemPop > 0 ? (double) pop / systemPop : 1.0)) + 200.0;
+                net = taxCollected - localGov;
+            }
+
+            ledger.add(new ColonyEconomyEntry(colony.id(), colony.name(), colony.systemName(), colony.isMoon(), pop, grossOutput, taxCollected, localGov, net));
             totalTax += taxCollected;
         }
         return totalTax;
@@ -183,6 +208,23 @@ public class EmpireEconomyCalculator {
 
         double currentTaxRate = economy.taxRate();
         double colonialTaxes = grossOutput * currentTaxRate;
+
+        if (view.getPlanetaryBalanceSheets() != null && !view.getPlanetaryBalanceSheets().isEmpty()) {
+            double aggGross = 0.0;
+            double aggTaxes = 0.0;
+            boolean foundAny = false;
+            for (PlanetaryBalanceSheet sheet : view.getPlanetaryBalanceSheets()) {
+                if (systemBodyIds.contains(sheet.planetId()) || systemId.equalsIgnoreCase(sheet.systemId())) {
+                    aggGross += sheet.grossPlanetaryProduct();
+                    aggTaxes += sheet.totalRevenueCredits();
+                    foundAny = true;
+                }
+            }
+            if (foundAny) {
+                grossOutput = aggGross;
+                colonialTaxes = aggTaxes;
+            }
+        }
 
         double corporateTariffs = 0.0;
         double playerCorpTaxRate = playerEmpire != null ? playerEmpire.corporateTaxRate() : 0.15;

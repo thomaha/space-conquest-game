@@ -148,7 +148,7 @@ public class GalaxyGenerator {
             }
         }
 
-        return new GameState(
+        GameState initial = new GameState(
                 0, "RUNNING", systems, allEmpires, allCorporations, allHubs,
                 List.of(), List.of(), List.of(),
                 new ArrayList<>(), new ArrayList<>(), // research and exchange routes
@@ -157,6 +157,9 @@ public class GalaxyGenerator {
                 List.of(), List.of(), List.of(), List.of(), null,
                 List.of(), List.of(), allEconomies
         );
+        com.spaceconquest.engine.economy.PlanetaryMunicipalProcessor municipalProcessor =
+                new com.spaceconquest.engine.economy.PlanetaryMunicipalProcessor();
+        return initial.withPlanetaryBalanceSheets(municipalProcessor.processMunicipalFinances(initial).balanceSheets());
     }
 
     private Empire createEmpireForGenerator(String id, String name, Race race, SolarSystem home, List<SolarSystem> allSystems, GameStartScenario scenario, boolean isPlayer) {

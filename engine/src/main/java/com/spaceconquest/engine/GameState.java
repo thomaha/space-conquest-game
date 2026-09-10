@@ -1,6 +1,7 @@
 package com.spaceconquest.engine;
 
 import com.spaceconquest.engine.community.GalacticCommunity;
+import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.espionage.EspionageOperation;
 import com.spaceconquest.engine.espionage.PirateBase;
@@ -56,7 +57,8 @@ public record GameState(
         List<TradeRoute> tradeRoutes,
         List<FogOfWarState> fogOfWarStates,
         List<SystemEconomy> systemEconomies,
-        List<CourierShip> courierShips
+        List<CourierShip> courierShips,
+        List<PlanetaryBalanceSheet> planetaryBalanceSheets
 ) {
     public GameState {
         if (solarSystems == null) solarSystems = List.of();
@@ -86,14 +88,15 @@ public record GameState(
         if (fogOfWarStates == null) fogOfWarStates = List.of();
         if (systemEconomies == null) systemEconomies = List.of();
         if (courierShips == null) courierShips = List.of();
+        if (planetaryBalanceSheets == null) planetaryBalanceSheets = List.of();
     }
 
     public GameState() {
-        this(0, "INITIALIZING", List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of(), List.of());
+        this(0, "INITIALIZING", List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
     public GameState(long turn, String status, List<SolarSystem> solarSystems) {
-        this(turn, status, solarSystems, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of(), List.of());
+        this(turn, status, solarSystems, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
     public GameState(
@@ -110,7 +113,7 @@ public record GameState(
             List<TechnologyExchangeRoute> technologyExchangeRoutes
     ) {
         this(turn, status, solarSystems, empires, corporations, commercialHubs, shadowSyndicates,
-                diplomaticRelations, systemGovernors, researchProjects, technologyExchangeRoutes, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of(), List.of());
+                diplomaticRelations, systemGovernors, researchProjects, technologyExchangeRoutes, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
     public GameState(
@@ -125,7 +128,7 @@ public record GameState(
             List<SystemGovernor> systemGovernors
     ) {
         this(turn, status, solarSystems, empires, corporations, commercialHubs, shadowSyndicates,
-                diplomaticRelations, systemGovernors, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of(), List.of());
+                diplomaticRelations, systemGovernors, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
     public GameState(
@@ -145,7 +148,7 @@ public record GameState(
     ) {
         this(turn, status, solarSystems, empires, corporations, commercialHubs, shadowSyndicates,
                 diplomaticRelations, systemGovernors, researchProjects, technologyExchangeRoutes,
-                shipDesigns, fleets, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of(), List.of());
+                shipDesigns, fleets, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
     public GameState(
@@ -170,7 +173,7 @@ public record GameState(
         this(turn, status, solarSystems, empires, corporations, commercialHubs, shadowSyndicates,
                 diplomaticRelations, systemGovernors, researchProjects, technologyExchangeRoutes,
                 shipDesigns, fleets, geologicalDeposits, powerGrids, industrialFacilities, expansionProjects,
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of(), List.of());
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
     public GameState(
@@ -202,7 +205,7 @@ public record GameState(
                 diplomaticRelations, systemGovernors, researchProjects, technologyExchangeRoutes,
                 shipDesigns, fleets, geologicalDeposits, powerGrids, industrialFacilities, expansionProjects,
                 orbitalStations, spaceElevators, constructionProjects, sleeperAgents, espionageOperations, pirateBases,
-                List.of(), List.of(), null, List.of(), List.of(), List.of(), List.of());
+                List.of(), List.of(), null, List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
     public GameState(
@@ -237,7 +240,7 @@ public record GameState(
                 diplomaticRelations, systemGovernors, researchProjects, technologyExchangeRoutes,
                 shipDesigns, fleets, geologicalDeposits, powerGrids, industrialFacilities, expansionProjects,
                 orbitalStations, spaceElevators, constructionProjects, sleeperAgents, espionageOperations, pirateBases,
-                terraformingProjects, megastructures, galacticCommunity, List.of(), List.of(), List.of(), List.of());
+                terraformingProjects, megastructures, galacticCommunity, List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
     public GameState(
@@ -274,7 +277,7 @@ public record GameState(
                 diplomaticRelations, systemGovernors, researchProjects, technologyExchangeRoutes,
                 shipDesigns, fleets, geologicalDeposits, powerGrids, industrialFacilities, expansionProjects,
                 orbitalStations, spaceElevators, constructionProjects, sleeperAgents, espionageOperations, pirateBases,
-                terraformingProjects, megastructures, galacticCommunity, tradeRoutes, fogOfWarStates, List.of(), List.of());
+                terraformingProjects, megastructures, galacticCommunity, tradeRoutes, fogOfWarStates, List.of(), List.of(), List.of());
     }
 
     public GameState(
@@ -312,7 +315,46 @@ public record GameState(
                 diplomaticRelations, systemGovernors, researchProjects, technologyExchangeRoutes,
                 shipDesigns, fleets, geologicalDeposits, powerGrids, industrialFacilities, expansionProjects,
                 orbitalStations, spaceElevators, constructionProjects, sleeperAgents, espionageOperations, pirateBases,
-                terraformingProjects, megastructures, galacticCommunity, tradeRoutes, fogOfWarStates, systemEconomies, List.of());
+                terraformingProjects, megastructures, galacticCommunity, tradeRoutes, fogOfWarStates, systemEconomies, List.of(), List.of());
+    }
+
+    public GameState(
+            long turn,
+            String status,
+            List<SolarSystem> solarSystems,
+            List<Empire> empires,
+            List<Corporation> corporations,
+            List<CommercialHub> commercialHubs,
+            List<ShadowSyndicate> shadowSyndicates,
+            List<DiplomaticRelation> diplomaticRelations,
+            List<SystemGovernor> systemGovernors,
+            List<ResearchProject> researchProjects,
+            List<TechnologyExchangeRoute> technologyExchangeRoutes,
+            List<ShipDesign> shipDesigns,
+            List<Fleet> fleets,
+            List<GeologicalDeposit> geologicalDeposits,
+            List<PowerGridState> powerGrids,
+            List<IndustrialFacility> industrialFacilities,
+            List<FacilityExpansionProject> expansionProjects,
+            List<OrbitalStation> orbitalStations,
+            List<SpaceElevator> spaceElevators,
+            List<ConstructionDeploymentProject> constructionProjects,
+            List<SleeperAgent> sleeperAgents,
+            List<EspionageOperation> espionageOperations,
+            List<PirateBase> pirateBases,
+            List<GeoengineeringProject> terraformingProjects,
+            List<Megastructure> megastructures,
+            GalacticCommunity galacticCommunity,
+            List<TradeRoute> tradeRoutes,
+            List<FogOfWarState> fogOfWarStates,
+            List<SystemEconomy> systemEconomies,
+            List<CourierShip> courierShips
+    ) {
+        this(turn, status, solarSystems, empires, corporations, commercialHubs, shadowSyndicates,
+                diplomaticRelations, systemGovernors, researchProjects, technologyExchangeRoutes,
+                shipDesigns, fleets, geologicalDeposits, powerGrids, industrialFacilities, expansionProjects,
+                orbitalStations, spaceElevators, constructionProjects, sleeperAgents, espionageOperations, pirateBases,
+                terraformingProjects, megastructures, galacticCommunity, tradeRoutes, fogOfWarStates, systemEconomies, courierShips, List.of());
     }
 
     public GameState withEmpires(List<Empire> newEmpires) {
@@ -323,7 +365,7 @@ public record GameState(
                 powerGrids, industrialFacilities, expansionProjects, orbitalStations,
                 spaceElevators, constructionProjects, sleeperAgents, espionageOperations,
                 pirateBases, terraformingProjects, megastructures, galacticCommunity,
-                tradeRoutes, fogOfWarStates, systemEconomies, courierShips
+                tradeRoutes, fogOfWarStates, systemEconomies, courierShips, planetaryBalanceSheets
         );
     }
 
@@ -335,7 +377,7 @@ public record GameState(
                 powerGrids, industrialFacilities, expansionProjects, orbitalStations,
                 spaceElevators, constructionProjects, sleeperAgents, espionageOperations,
                 pirateBases, terraformingProjects, megastructures, galacticCommunity,
-                tradeRoutes, fogOfWarStates, systemEconomies, courierShips
+                tradeRoutes, fogOfWarStates, systemEconomies, courierShips, planetaryBalanceSheets
         );
     }
 
@@ -347,7 +389,7 @@ public record GameState(
                 powerGrids, industrialFacilities, expansionProjects, orbitalStations,
                 spaceElevators, constructionProjects, sleeperAgents, espionageOperations,
                 pirateBases, terraformingProjects, megastructures, galacticCommunity,
-                tradeRoutes, fogOfWarStates, systemEconomies, courierShips
+                tradeRoutes, fogOfWarStates, systemEconomies, courierShips, planetaryBalanceSheets
         );
     }
 
@@ -359,7 +401,7 @@ public record GameState(
                 powerGrids, industrialFacilities, expansionProjects, orbitalStations,
                 spaceElevators, constructionProjects, sleeperAgents, espionageOperations,
                 pirateBases, terraformingProjects, megastructures, galacticCommunity,
-                tradeRoutes, fogOfWarStates, systemEconomies, courierShips
+                tradeRoutes, fogOfWarStates, systemEconomies, courierShips, planetaryBalanceSheets
         );
     }
 
@@ -371,7 +413,7 @@ public record GameState(
                 powerGrids, industrialFacilities, expansionProjects, orbitalStations,
                 spaceElevators, constructionProjects, sleeperAgents, espionageOperations,
                 pirateBases, terraformingProjects, megastructures, galacticCommunity,
-                tradeRoutes, fogOfWarStates, systemEconomies, courierShips
+                tradeRoutes, fogOfWarStates, systemEconomies, courierShips, planetaryBalanceSheets
         );
     }
 
@@ -383,7 +425,7 @@ public record GameState(
                 powerGrids, industrialFacilities, expansionProjects, orbitalStations,
                 spaceElevators, constructionProjects, sleeperAgents, espionageOperations,
                 pirateBases, terraformingProjects, megastructures, galacticCommunity,
-                tradeRoutes, fogOfWarStates, systemEconomies, courierShips
+                tradeRoutes, fogOfWarStates, systemEconomies, courierShips, planetaryBalanceSheets
         );
     }
 
@@ -395,7 +437,7 @@ public record GameState(
                 powerGrids, industrialFacilities, expansionProjects, orbitalStations,
                 spaceElevators, constructionProjects, sleeperAgents, espionageOperations,
                 pirateBases, newProjects, megastructures, galacticCommunity,
-                tradeRoutes, fogOfWarStates, systemEconomies, courierShips
+                tradeRoutes, fogOfWarStates, systemEconomies, courierShips, planetaryBalanceSheets
         );
     }
 
@@ -407,7 +449,7 @@ public record GameState(
                 powerGrids, industrialFacilities, expansionProjects, orbitalStations,
                 spaceElevators, constructionProjects, sleeperAgents, espionageOperations,
                 pirateBases, terraformingProjects, newMegastructures, galacticCommunity,
-                tradeRoutes, fogOfWarStates, systemEconomies, courierShips
+                tradeRoutes, fogOfWarStates, systemEconomies, courierShips, planetaryBalanceSheets
         );
     }
 
@@ -419,7 +461,7 @@ public record GameState(
                 powerGrids, industrialFacilities, expansionProjects, orbitalStations,
                 spaceElevators, constructionProjects, sleeperAgents, espionageOperations,
                 pirateBases, terraformingProjects, megastructures, newCommunity,
-                tradeRoutes, fogOfWarStates, systemEconomies, courierShips
+                tradeRoutes, fogOfWarStates, systemEconomies, courierShips, planetaryBalanceSheets
         );
     }
 
@@ -431,7 +473,7 @@ public record GameState(
                 powerGrids, industrialFacilities, expansionProjects, orbitalStations,
                 spaceElevators, constructionProjects, sleeperAgents, espionageOperations,
                 pirateBases, terraformingProjects, megastructures, galacticCommunity,
-                newRoutes, fogOfWarStates, systemEconomies, courierShips
+                newRoutes, fogOfWarStates, systemEconomies, courierShips, planetaryBalanceSheets
         );
     }
 
@@ -443,7 +485,7 @@ public record GameState(
                 powerGrids, industrialFacilities, expansionProjects, orbitalStations,
                 spaceElevators, constructionProjects, sleeperAgents, espionageOperations,
                 pirateBases, terraformingProjects, megastructures, galacticCommunity,
-                tradeRoutes, newFow, systemEconomies, courierShips
+                tradeRoutes, newFow, systemEconomies, courierShips, planetaryBalanceSheets
         );
     }
 
@@ -455,7 +497,7 @@ public record GameState(
                 powerGrids, industrialFacilities, expansionProjects, orbitalStations,
                 spaceElevators, constructionProjects, sleeperAgents, espionageOperations,
                 pirateBases, terraformingProjects, megastructures, galacticCommunity,
-                tradeRoutes, fogOfWarStates, newEconomies, courierShips
+                tradeRoutes, fogOfWarStates, newEconomies, courierShips, planetaryBalanceSheets
         );
     }
 
@@ -467,7 +509,19 @@ public record GameState(
                 powerGrids, industrialFacilities, expansionProjects, orbitalStations,
                 spaceElevators, constructionProjects, sleeperAgents, espionageOperations,
                 pirateBases, terraformingProjects, megastructures, galacticCommunity,
-                tradeRoutes, fogOfWarStates, systemEconomies, newCouriers
+                tradeRoutes, fogOfWarStates, systemEconomies, newCouriers, planetaryBalanceSheets
+        );
+    }
+
+    public GameState withPlanetaryBalanceSheets(List<PlanetaryBalanceSheet> newSheets) {
+        return new GameState(
+                turn, status, solarSystems, empires, corporations, commercialHubs,
+                shadowSyndicates, diplomaticRelations, systemGovernors, researchProjects,
+                technologyExchangeRoutes, shipDesigns, fleets, geologicalDeposits,
+                powerGrids, industrialFacilities, expansionProjects, orbitalStations,
+                spaceElevators, constructionProjects, sleeperAgents, espionageOperations,
+                pirateBases, terraformingProjects, megastructures, galacticCommunity,
+                tradeRoutes, fogOfWarStates, systemEconomies, courierShips, newSheets
         );
     }
 }

@@ -46,6 +46,7 @@ This module contains the core game logic, the static data model and state manage
 - `BiomeAdjacencyProcessor`: Calculates dynamic diameter-based grid dimensions, non-rigid spherical latitude biome allocations with reduced polar row places, gas giant states, direct deposit colocation, high-voltage power couplings and industrial pollution degradation.
 - `CustomEmpireBuilder`: Validates genetic trait budgets, instantiates custom species bio-architectures and registers customized sovereign empires.
 - `CohortFragmentationProcessor`: Simulates single-education cohort fragmentation across colonies, multi-profession facility staffing bottlenecks, administrative bureaucrat allocations and upward social mobility retraining.
+- `PlanetaryMunicipalProcessor`: Simulates authoritative turn-based municipal finances across colonized celestial bodies, computing localized personal income taxes, corporate production tariffs, docking fees, workforce salaries, facility maintenance, public welfare pensions, uncollected local reserves, central subsidies and currency courier dispatches.
 
 ## Data model records
 | Record | Resource file | Description |
@@ -109,6 +110,7 @@ This module contains the core game logic, the static data model and state manage
 | `CampaignSetup` | runtime / configuration | Customizable scenario settings, victory conditions and starting technology tiers |
 | `OrbitalLiftProfile` | runtime calculation | Surface-to-orbit launch cost breakdown including propellant, delta-v, spaceport and turnaround wear fees |
 | `CitizenCohort`, `ColonyDemographics` | runtime state / save | Single-education citizen cohort fragments, continuous weighted capacity units and colony demographic compositions |
+| `PlanetaryBalanceSheet` | runtime state / save | Localized municipal accounting record tracking gross planetary product, public revenues, operational costs, uncollected liquid reserves and central subsidies |
 
 ## Physical units and standard measurement system
 All simulation mechanics, celestial data definitions and calculations standardize on the International System of Units (SI) to prevent unit conversion discrepancies across subsystems:

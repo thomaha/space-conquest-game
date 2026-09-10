@@ -6,6 +6,8 @@ import com.spaceconquest.engine.combat.OrbitalBombardmentProcessor;
 import com.spaceconquest.engine.combat.TacticalCombatProcessor;
 import com.spaceconquest.engine.community.GalacticCommunity;
 import com.spaceconquest.engine.community.GalacticCommunityProcessor;
+import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
+import com.spaceconquest.engine.economy.PlanetaryMunicipalProcessor;
 import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.economy.SystemEconomyProcessor;
 import com.spaceconquest.engine.espionage.EspionageOperation;
@@ -95,6 +97,7 @@ public class SpaceConquestEngine implements GameEngine {
     private List<FogOfWarState> fogOfWarStates = new ArrayList<>();
     private List<CourierShip> courierShips = new ArrayList<>();
     private List<SystemEconomy> systemEconomies = new ArrayList<>();
+    private List<PlanetaryBalanceSheet> planetaryBalanceSheets = new ArrayList<>();
 
     private final PopulationProcessor populationProcessor = new PopulationProcessor();
     private final MarketProcessor marketProcessor = new MarketProcessor();
@@ -104,6 +107,7 @@ public class SpaceConquestEngine implements GameEngine {
     private final SensorProcessor sensorProcessor = new SensorProcessor();
     private final CrimeProcessor crimeProcessor = new CrimeProcessor();
     private final SystemEconomyProcessor systemEconomyProcessor = new SystemEconomyProcessor();
+    private final PlanetaryMunicipalProcessor planetaryMunicipalProcessor = new PlanetaryMunicipalProcessor();
     private final GovernanceProcessor governanceProcessor = new GovernanceProcessor();
     private final IdeologicalAccessionManager accessionManager = new IdeologicalAccessionManager(governanceProcessor);
     private final DiplomacyProcessor diplomacyProcessor = new DiplomacyProcessor();
@@ -153,6 +157,7 @@ public class SpaceConquestEngine implements GameEngine {
                 }
             }
             systemEconomies = initializeDefaultSystemEconomies(solarSystems, empires);
+            planetaryBalanceSheets = planetaryMunicipalProcessor.processMunicipalFinances(getGameState()).balanceSheets();
         } catch (java.io.IOException e) {
             logger.error("Failed to load data", e);
         }
@@ -624,7 +629,15 @@ public class SpaceConquestEngine implements GameEngine {
         systemEconomies = economyResult.updatedEconomies();
         empires = economyResult.updatedEmpires();
 
-        // 6. Crime and Black Market Leakage
+        // 6. Municipal Finances and Local Balance Sheets
+        PlanetaryMunicipalProcessor.MunicipalTurnResult municipalResult = planetaryMunicipalProcessor.processMunicipalFinances(getGameState());
+        planetaryBalanceSheets = municipalResult.balanceSheets();
+        if (municipalResult.dispatchedCouriers() != null && !municipalResult.dispatchedCouriers().isEmpty()) {
+            courierShips.addAll(municipalResult.dispatchedCouriers());
+        }
+        empires = municipalResult.updatedEmpires();
+
+        // 7. Crime and Black Market Leakage
         GameState currentState = getGameState();
         CrimeProcessor.CrimeResult crimeResult = crimeProcessor.processCrime(currentState);
         empires = crimeResult.empires();
@@ -696,7 +709,9 @@ public class SpaceConquestEngine implements GameEngine {
                 galacticCommunity,
                 tradeRoutes,
                 fogOfWarStates,
-                systemEconomies
+                systemEconomies,
+                courierShips,
+                planetaryBalanceSheets
         );
     }
 
@@ -858,6 +873,19 @@ public class SpaceConquestEngine implements GameEngine {
         } else {
             this.systemEconomies = initializeDefaultSystemEconomies(this.solarSystems, this.empires);
         }
+        if (state.planetaryBalanceSheets() != null) {
+            this.planetaryBalanceSheets = new ArrayList<>(state.planetaryBalanceSheets());
+        } else {
+            this.planetaryBalanceSheets = new ArrayList<>();
+        }
+    }
+
+    public List<PlanetaryBalanceSheet> getPlanetaryBalanceSheets() {
+        return planetaryBalanceSheets;
+    }
+
+    public void setPlanetaryBalanceSheets(List<PlanetaryBalanceSheet> planetaryBalanceSheets) {
+        this.planetaryBalanceSheets = planetaryBalanceSheets != null ? new ArrayList<>(planetaryBalanceSheets) : new ArrayList<>();
     }
 
     public List<SystemEconomy> getSystemEconomies() {
