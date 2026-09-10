@@ -172,3 +172,18 @@ Make a property file based on the Hertzsprung–Russell diagram to specify the r
 
 ### Screen components
 - When using a filtered list to select an item and having an information display linked to it, the first item in the list is automatically selected and displayed.
+
+## Architecture and performance decisions
+### Framework choice
+- The project utilizes FXGL (built on JavaFX) to leverage its superior UI capabilities for complex strategy management screens.
+- Development priority is given to UI productivity and layout flexibility over the raw sprite-rendering performance of lower-level frameworks like libGDX.
+
+### Tiered rendering strategy
+- To support high entity counts (e.g., thousands of moving ships) while maintaining 60 FPS, a tiered approach is mandatory:
+  - **Galaxy and system navigation:** Use direct `GraphicsContext` drawing on a `Canvas` to render massed icons, dots and hyperlanes. This bypasses JavaFX Scene Graph overhead for non-interactive or high-density elements.
+  - **Tactical and focused views:** Utilize full FXGL `Entity` objects only for elements within the immediate player viewport or tactical combat arena where rich animations, particle effects and individual interactivity are required.
+- Optimization of the JavaFX rendering pipeline must focus on minimizing Scene Graph node counts by preferring canvas drawing for background starfields, orbital paths and massed fleet indicators.
+
+### Threading and synchronization
+- All simulation logic and pathfinding must remain in the `engine` package, decoupled from the JavaFX application thread.
+- The UI must only ingest immutable `GameState` snapshots during the coordinated simulation tick to ensure thread safety and predictable performance.

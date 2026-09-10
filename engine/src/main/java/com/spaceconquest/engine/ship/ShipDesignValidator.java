@@ -1,6 +1,8 @@
 package com.spaceconquest.engine.ship;
 
 import com.spaceconquest.engine.Material;
+import com.spaceconquest.engine.market.MarketProcessor;
+import com.spaceconquest.engine.market.OrbitalLiftProfile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -289,7 +291,11 @@ public class ShipDesignValidator {
 
     /**
      * Calculates the surface blast-off gravity launch tax in credits.
+     *
+     * @deprecated Replaced by {@link #calculateOrbitalLiftCost(double, double, double, double)}
+     * which models realistic physics-based propellant consumption, atmospheric drag, and port fees.
      */
+    @Deprecated
     public double calculateLaunchGravityTax(
             double totalDryMassKg,
             double cargoMassKg,
@@ -301,5 +307,19 @@ public class ShipDesignValidator {
         double pressure = Math.max(0.0, atmosphericPressure);
 
         return totalMass * gravity * (1.0 + pressure) * 0.001;
+    }
+
+    /**
+     * Calculates the surface-to-orbit orbital lift cost profile based on astrodynamics and propellant expenditure.
+     */
+    public OrbitalLiftProfile calculateOrbitalLiftCost(
+            double totalDryMassKg,
+            double cargoMassKg,
+            double planetaryGravity,
+            double atmosphericPressure
+    ) {
+        return new MarketProcessor().calculateOrbitalLiftCost(
+                totalDryMassKg, cargoMassKg, planetaryGravity, atmosphericPressure
+        );
     }
 }

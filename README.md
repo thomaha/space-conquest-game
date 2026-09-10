@@ -115,7 +115,7 @@ For a material to be transported to space, the transportation cost must be paid.
 
 ### Industrial production mechanics
 
-The industrial engine processes raw planetary or asteroid assets into refined elements, advanced composites, or completed spaceframes. Rather than existing as abstract text toggles, industries operate as physical data entities executing closed-loop material transformations bounded by environmental constraints, energy draw and workforce skills.
+The industrial engine processes raw planetary or asteroid assets into refined elements, advanced composites or completed spaceframes. Rather than existing as abstract text toggles, industries operate as physical data entities executing closed-loop material transformations bounded by environmental constraints, energy draw and workforce skills.
 
 [Industry production mechanics](Industries.md)
 
@@ -180,44 +180,7 @@ Money can be transferred according to the technology level of the empire.
 The economic engine balances planetary logistics, workforce compensation and interstellar trade networks through a unified credit system.
 The economic engine of the galaxy is split into two primary layers of capital flow: the public state budget and the private citizen market. The degree of separation between these sectors dictates how an empire grows, builds and taxes its workforce.
 
-#### Universal credits
-- All financial transactions use universal credits, representing the liquid fiat wealth or asset-backed reserves of an empire.
-- Credits can be spent globally to subsidize planetary deficits, fund technology research or pay for ship module manufacturing.
-
-#### Public economy
-The public economy represents the liquid credit reserves controlled directly by the empire's central government.
-*   **State revenue:** Liquid credits are generated primarily by taxing the private sector. This includes planetary income taxes levied on working citizen cohorts, corporate production tariffs on refined materials and commercial docking fees collected inside orbital commerce modules.
-*   **State expenditures:** The treasury is used to pay for macro-infrastructure projects. This includes funding technological research applications, paying the base upkeep costs of space stations and colonies, compensating state employees (`soldiers`, `scientists`, `bureaucrats`) and covering the credit-per-kilogram gravity launch tax for state-owned spacecraft.
-*   **Planetary subsidies:** If a frontier colony's localized public maintenance exceeds its tax collection, the state treasury can pump credits directly into the world to prevent structural decay, assuming a secure logistics network is active.
-
-#### Private economy
-The private economy represents the organic wealth generated, stored and spent by individual citizens and commercial entities within non-hive societies.
-*   **Citizen income:** Population groups in eligible age brackets receive credit salaries from their active professions. High-complexity jobs (`engineers`, `medics`, `scientists`) yield significantly higher private wages than low-complexity labor (`miners`, `farmers`).
-*   **Private purchasing:** Citizens spend their private wealth on daily survival and luxury needs. They purchase compatible food varieties from local markets, buy residential housing space in habitation modules and pay for medical treatments.
-*   **Demographic impact:** A thriving private economy directly drives population growth rates and maximizes colony happiness. If an empire sets public tax rates too high, it strips liquidity from the private market. This forces citizens to eat basic mono-crop hydroponic sludge instead of a diverse nutrient diet, causing happiness to plummet and triggering civil unrest or workforce efficiency penalties.
-*   **Pensions and retirement:** When a citizen crosses their profession's `retirementLifespanPercentage`, they stop receiving a salary. Instead, they consume private savings or rely on a state-mandated public welfare subsidy to purchase food, remaining on the colony's balance sheet as pure consumers.
-
-#### Private companies
-In individualist societies, private wealth does not remain stagnant in citizen wallets; it dynamically aggregates into autonomous corporate entities.
-*   **Wealth aggregation:** Private companies accumulate capital by operating local supply chains, managing consumer real estate in habitation modules, running private medical clinics or selling compatible food stocks. The profits generated from these civilian transactions are consolidated into corporate investment pools.
-*   **Market-driven investment:** Private companies continuously scan the colony, star system and greater empire for high-value logistics bottlenecks and resource shortages. They prioritize investing their aggregated wealth directly where there is a market shortcoming.
-*   **Shortcoming resolution:** Example: If a colony lacks enough `refined_silicon` to support local high-complexity electronics manufacturing, private companies will automatically pool capital to construct new ore refining zones or fund `miner` workforce training. If a colony is starving due to a lack of nutrient diversity, private enterprises will independently build food production modules or establish private cargo trade lanes to import missing organic components.
-*   **State interaction:** While these corporations operate autonomously to generate more private wealth, their assets exist within the physical jurisdiction of the empire. The state can indirectly manipulate corporate investment behavior by adjusting corporate tax rates, issuing public subsidies for specific sectors or blockading certain raw material markets entirely.
-
-#### The hive mind exception
-Hive mind societies completely bypass the division between public and private sectors. Because every individual organism is a non-sentient extension of the central consciousness or the fertile queens, private ownership, currency, private companies and commerce do not exist.
-*   **Zero-market mechanics:** Hive minds do not collect taxes, do not pay workforce salaries and do not track citizen happiness. There are no private commerce modules, retail markets or corporate investments.
-*   **The total command economy:** 100% of generated resource extraction and industrial manufacturing flows directly into a unified state grid. The collective population consumes food and energy directly from state storage modules as a baseline maintenance cost, similar to computing processors or robotic drones.
-*   **The demographic trade-off:** While hive minds completely escape the economic friction of tax optimization, pensions, private monopolies and worker riots, they suffer from a rigid workforce structure. They cannot utilize private market incentives or autonomous corporate investments to naturally solve supply chain shortages or accelerate training speeds for high-complexity professions, relying entirely on slow, linear queen reproduction and central research structures to evolve.
-
-#### Planetary balance sheets and restrictions
-Each colony or space station operates an autonomous localized budget containing strict operational parameters:
-*   **Revenue calculation:** Localized revenue is derived from population income taxes, corporate production tariffs and commercial docking fees inside commerce modules. Hive mind worlds generate 0 baseline revenue and operate strictly on material upkeep values.
-*   **Expenditures calculation:** Localized expenditures are calculated as the sum of professional workforce salaries, infrastructure module upkeep and retired citizen welfare costs.
-*   **Subsidies and network links:** If a planet’s expenditures exceed its localized revenue, the central treasury can allocate credits to bridge the deficit. However, this transfer is strictly bounded by the empire's technology level.
-*   **Currency latency and transfer limits:** Financial capital is subject to localized physics limits. Credits generated on remote planets must be physically or digitally routed back to the central imperial treasury. Early-game transfer speed is locked to physical transport speeds, requiring courier spacecraft to haul physical currency caches between star systems. Advanced research in quantum computing and communications unlocks instant, secure sub-space electronic banking grids, reducing financial latency and transfer friction to zero.
-*   **Interstellar commerce and the gravity factor:** Trade agreements between sovereign empires allow the automated exchange of credits, raw materials or fully assembled spaceships. Any material trade routed from a planet's surface must automatically deduct the required gravity transportation fee (credits per kilogram) from the seller's profit margins, unless bypassed by structural applications like a space elevator.
-*   **Nutrient conversion restrictions:** Races with incompatible nutrient requirements cannot trade food assets effectively unless an intermediate xenobiologist processing facility converts the organic matter or crystalline minerals into a globally viable synthetic format.
+[Economy](Economy.md)
 
 ### Private corporations
 
@@ -269,7 +232,7 @@ When a private corporation takes delivery of a vessel tagged with the **Mine Shi
 #### Cargo transport operations
 Corporate-owned **Cargo Transports** function as the primary physical vehicles for market arbitrage across the galaxy.
 *   **Shortcoming resolution:** These ships are completely controlled by the corporation’s local trade algorithms. If a colony has a massive deficit in `refined_silicon`, corporate cargo haulers will independently purchase the material from a surplus hub, load the vaults and fly to the shorted colony to liquidate the stock for a massive private profit.
-*   **The systemic launch tax burden:** Corporate captains are fully bound by the game's physics loops. When a corporate cargo transport blasts off from a heavy terrestrial world, the transport must spend enough fule to lift itself and the cargo into orbit. Based on fule price, this could be calculated as a credit-per-kilogram launch gravity tax to the planetary hub owner. This fee is automatically deducted from the corporation's gross trading margins, forcing the corporate AI to naturally favor low-G moons or zero-G orbital space stations for high-volume freight transfers.
+*   **Orbital lift logistics costs:** Corporate captains are fully bound by the game's physics loops. When a corporate cargo transport blasts off from a heavy terrestrial world, the transport must spend propellant to overcome gravity losses and atmospheric drag into orbit. This orbital lift cost is derived from the Tsiolkovsky rocket equation, local fuel prices, municipal spaceport handling fees and vehicle maintenance wear. This cost is automatically deducted from the corporation's gross trading margins, forcing the corporate AI to naturally favor low-G moons, surface mass drivers, space elevators or zero-G orbital space stations for high-volume freight transfers.
 
 #### State jurisdiction and maritime laws
 Even though these fleets are privately owned and operated, they must respect the physical and diplomatic laws of the empire within whose range of influence they travel.
@@ -298,7 +261,7 @@ The commerce hub provides the physical marketplace where private citizen cohorts
 Beyond civilian retail, the commerce hubs handles high-volume business-to-business (B2B) trade between competing private corporations and the state.
 *   **Shortcoming liquidation:** Corporations use the hub's commodity exchange to sell materials they have in surplus and buy items matching their local *Shortcoming Score*. For example, an electronics corporation will place bulk buy orders for `refined_silicon` and `silver` within the hub's digital ledger.
 *   **Docking and freight fees:** Independent cargo freighters operated by transport corporations must pay a baseline docking fee in credits to utilize the hub's cargo transfer systems. This fee scales with the total weight (kilograms) of the materials being offloaded.
-*   **The gravity tax deduction:** If a commerce hub is located on a planetary surface, any corporate transaction involving the export of heavy resources (like `iron_ore` or `lead`) automatically calculates the planetary G-force penalty. The credit cost to blast that mass into space is displayed on the hub's exchange board and is deducted from the transaction's net profitability.
+*   **Orbital lift cost deduction:** If a commerce hub is located on a planetary surface, any corporate transaction involving the export of heavy resources (like `iron_ore` or `lead`) automatically calculates the required orbital lift cost. The credit cost to lift that mass into orbit is displayed on the hub's exchange board and is deducted from the transaction's net profitability, unless mitigated by surface mass drivers or space elevators.
 
 #### Systemic dependencies and failure states
 To remain operational, the commerce hub relies on the active presence of other professions and modules within the local colony network:
@@ -404,3 +367,4 @@ Each module contains a `MODULE.md` file with specific details about its purpose 
 - Galaxy map with zoom (buttons and mouse wheel), goto search, entity focus panels and tooltips.
 - Menubar with empire, diplomacy, technology, fleet, galaxy view and game menu pages; opening a page pauses
   the game and closing it resumes at the previous speed.
+Societies: The Pure Automation GameWhen the private sector is toggled off, the entire architecture changes from a financial simulation to a pure network routing game (resembling titles like Factorio or Anno).Bypassing the Finance Module: The engine completely skips citizen wallet allocations, tax collections, corporate accounting loops and local P&L sheets. Everything uses raw material balances.The Logistics Nightmare: Because there is no private corporate AI automatically seeking out market shortcomings, the player must manually design every trade lane and allocate every single ship_crew number. If your capital world runs out of food because you forgot to build cargo haulers, the hive organisms do not look for alternatives—they simply starve and shut down productivity linearly.

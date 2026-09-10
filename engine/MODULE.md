@@ -12,7 +12,7 @@ This module contains the core game logic, the static data model and state manage
 - `DataModelLoader`: Loads and caches all static data from the JSON property files in `src/main/resources`.
 - `GalaxyGenerator`: Procedurally generates galaxies (solar systems, planets, moons, resources, populations).
 - `PopulationProcessor`: Handles population growth per race and age group.
-- `MarketProcessor`: Computes spot prices, shortcoming scores, state tariffs and gravity launch taxes across commercial hubs.
+- `MarketProcessor`: Computes spot prices, shortcoming scores, state tariffs and orbital lift costs across commercial hubs.
 - `CorporateInvestmentProcessor`: Directs autonomous corporate capital allocations into facilities, training and ships based on market shortcomings.
 - `CorporateFleetProcessor`: Executes autonomous corporate cargo trade arbitrage and asteroid mining operations.
 - `CrimeProcessor`: Simulates localized crime metrics, police suppression, black market leakage and autonomous pirate fleet construction.
@@ -45,6 +45,7 @@ This module contains the core game logic, the static data model and state manage
 - `SensorProcessor`: Calculates sensor detection cones, uncovers uncharted star systems, detects foreign fleets and reveals hidden anomalies.
 - `BiomeAdjacencyProcessor`: Calculates dynamic diameter-based grid dimensions, non-rigid spherical latitude biome allocations with reduced polar row places, gas giant states, direct deposit colocation, high-voltage power couplings and industrial pollution degradation.
 - `CustomEmpireBuilder`: Validates genetic trait budgets, instantiates custom species bio-architectures and registers customized sovereign empires.
+- `CohortFragmentationProcessor`: Simulates single-education cohort fragmentation across colonies, multi-profession facility staffing bottlenecks, administrative bureaucrat allocations and upward social mobility retraining.
 
 ## Data model records
 | Record | Resource file | Description |
@@ -106,6 +107,8 @@ This module contains the core game logic, the static data model and state manage
 | `GalacticSanction` | runtime state / save | Enforced economic trade embargoes, asset freezes and military intervention mandates |
 | `GalacticCommunity` | runtime state / save | Galactic senate legislative assembly, member registries and enacted charters |
 | `CampaignSetup` | runtime / configuration | Customizable scenario settings, victory conditions and starting technology tiers |
+| `OrbitalLiftProfile` | runtime calculation | Surface-to-orbit launch cost breakdown including propellant, delta-v, spaceport and turnaround wear fees |
+| `CitizenCohort`, `ColonyDemographics` | runtime state / save | Single-education citizen cohort fragments, continuous weighted capacity units and colony demographic compositions |
 
 ## Physical units and standard measurement system
 All simulation mechanics, celestial data definitions and calculations standardize on the International System of Units (SI) to prevent unit conversion discrepancies across subsystems:

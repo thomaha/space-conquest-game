@@ -1,5 +1,6 @@
 package com.spaceconquest.engine;
 
+import com.spaceconquest.engine.macrostructure.SpaceElevator;
 import com.spaceconquest.engine.market.CorporateFleetProcessor;
 import com.spaceconquest.engine.market.CorporateInvestmentProcessor;
 import com.spaceconquest.engine.market.MarketProcessor;
@@ -218,5 +219,76 @@ public class CorporateProcessorTest {
 
         Corporation updatedCorp = result.corporations().getFirst();
         assertEquals(8000.0 + (2 * 500.0), updatedCorp.liquidCapitalReserves(), 0.001);
+    }
+
+    @Test
+    public void testSpaceElevatorEnablesOtherwiseUnprofitableTrade() {
+        // Source world with 1.5 G and 2.0 atm where trade margin is ~2,000 credits
+        // With unassisted lift cost > 10,000 credits, trade would be rejected.
+        // With an operational space elevator, lift cost drops to ~500 credits, enabling arbitrage.
+        MarketOrder surplusOrder = new MarketOrder("refined_aluminum", 3000.0, 100.0, 20.0, 0.0);
+        CommercialHub earthHub = new CommercialHub(
+                "hub_earth",
+                "earth",
+                0.05,
+                50000.0,
+                3000.0,
+                15.0,
+                Map.of("refined_aluminum", surplusOrder)
+        );
+
+        MarketOrder deficitOrder = new MarketOrder("refined_aluminum", 100.0, 1500.0, 25.0, 0.50);
+        CommercialHub orbitalHub = new CommercialHub(
+                "hub_station",
+                "station_alpha",
+                0.02,
+                50000.0,
+                100.0,
+                15.0,
+                Map.of("refined_aluminum", deficitOrder)
+        );
+
+        Corporation transportCorp = new Corporation(
+                "corp_transport",
+                "Elevator Freight Inc",
+                "terran",
+                "earth",
+                "TRANSPORT",
+                10000.0,
+                List.of(),
+                List.of("cargo_transport_01"),
+                List.of()
+        );
+
+        Map<String, Double> gravityMap = Map.of("earth", 1.5, "station_alpha", 0.0);
+        Map<String, Double> atmosphereMap = Map.of("earth", 2.0, "station_alpha", 0.0);
+
+        // Without elevator: rejected
+        CorporateFleetProcessor.CorporateFleetResult rejectedResult = fleetProcessor.processFleetOperations(
+                List.of(transportCorp),
+                List.of(earthHub, orbitalHub),
+                List.of(),
+                gravityMap,
+                atmosphereMap,
+                null,
+                null
+        );
+        assertEquals(10000.0, rejectedResult.corporations().getFirst().liquidCapitalReserves(), 0.001);
+
+        // With operational space elevator on Earth: approved and profitable
+        SpaceElevator elevator = new SpaceElevator(
+                "se_earth_01", "earth", "terran", 50000.0, 0.95, 100.0, true
+        );
+        CorporateFleetProcessor.CorporateFleetResult enabledResult = fleetProcessor.processFleetOperations(
+                List.of(transportCorp),
+                List.of(earthHub, orbitalHub),
+                List.of(),
+                gravityMap,
+                atmosphereMap,
+                null,
+                List.of(elevator)
+        );
+        assertTrue(enabledResult.corporations().getFirst().liquidCapitalReserves() > 10000.0,
+                "Space elevator should enable profitable trade arbitrage by slashing orbital lift costs");
     }
 }

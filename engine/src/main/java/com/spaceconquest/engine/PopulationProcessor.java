@@ -1,5 +1,7 @@
 package com.spaceconquest.engine;
 
+import com.spaceconquest.engine.demographics.CitizenCohort;
+import com.spaceconquest.engine.demographics.ColonyDemographics;
 import com.spaceconquest.engine.habitation.BiochemicalConsumptionResult;
 import com.spaceconquest.engine.habitation.DemographicWorkforceResult;
 import com.spaceconquest.engine.habitation.PassengerLogisticsResult;
@@ -121,6 +123,26 @@ public class PopulationProcessor {
     }
 
     /**
+     * Evaluates biochemical consumption for an entire colony demographic composition of cohort fragments.
+     */
+    public BiochemicalConsumptionResult calculateBiochemicalConsumption(
+            ColonyDemographics demographics,
+            Race race,
+            Map<String, Double> localInventory,
+            boolean hasDiverseFood
+    ) {
+        if (demographics == null || race == null) {
+            return new BiochemicalConsumptionResult("", Map.of(), false, "", 0.0, 0.0, 1.0);
+        }
+        Map<Integer, Long> ageGroups = new HashMap<>();
+        for (CitizenCohort cohort : demographics.cohorts()) {
+            ageGroups.put(cohort.ageBracket(), ageGroups.getOrDefault(cohort.ageBracket(), 0L) + cohort.headcount());
+        }
+        Population pop = new Population(race.id(), ageGroups);
+        return calculateBiochemicalConsumption(pop, race, localInventory, hasDiverseFood);
+    }
+
+    /**
      * Calculates active workers, retired cohorts and welfare costs for a profession and species.
      */
     public DemographicWorkforceResult calculateWorkforceAndRetirement(
@@ -166,6 +188,53 @@ public class PopulationProcessor {
 
         return new DemographicWorkforceResult(
                 race.id(), profId, activeWorkers, retiredCitizens, retirementAge, naturalLifespan, welfareCost
+        );
+    }
+
+    /**
+     * Calculates active workers, retired cohorts and welfare costs across all single-education cohort fragments in a colony.
+     */
+    public DemographicWorkforceResult calculateWorkforceAndRetirement(
+            ColonyDemographics demographics,
+            Race race,
+            Map<String, Profession> professionsCatalog,
+            List<String> unlockedTechIds
+    ) {
+        if (demographics == null || race == null) {
+            return new DemographicWorkforceResult("", "all", 0L, 0L, 0, 0, 0.0);
+        }
+
+        int naturalLifespan = calculateEffectiveNaturalLifespan(race, unlockedTechIds);
+        boolean isHiveMind = "Hive Mind".equalsIgnoreCase(race.societyStructure())
+                || "Hive mind".equalsIgnoreCase(race.societyStructure());
+        boolean isSynthetic = "synthetic_machine".equalsIgnoreCase(race.id()) || naturalLifespan >= 9000;
+
+        if (isHiveMind || isSynthetic) {
+            long total = demographics.totalHeadcount();
+            return new DemographicWorkforceResult(race.id(), "all", total, 0L, naturalLifespan, naturalLifespan, 0.0);
+        }
+
+        long totalActive = 0L;
+        long totalRetired = 0L;
+
+        for (CitizenCohort cohort : demographics.cohorts()) {
+            Profession prof = professionsCatalog != null ? professionsCatalog.get(cohort.professionId().toLowerCase()) : null;
+            int retAge = prof != null
+                    ? prof.calculateRetirementAge(naturalLifespan)
+                    : (int) (naturalLifespan * 0.75);
+
+            if (cohort.ageBracket() < retAge) {
+                totalActive += cohort.headcount();
+            } else {
+                totalRetired += cohort.headcount();
+            }
+        }
+
+        double welfareCost = (totalRetired / 1000.0) * 25.0;
+        int defaultRetAge = (int) (naturalLifespan * 0.75);
+
+        return new DemographicWorkforceResult(
+                race.id(), "all", totalActive, totalRetired, defaultRetAge, naturalLifespan, welfareCost
         );
     }
 

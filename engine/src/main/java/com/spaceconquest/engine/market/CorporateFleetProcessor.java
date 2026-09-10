@@ -2,9 +2,10 @@ package com.spaceconquest.engine.market;
 
 import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.Corporation;
-import com.spaceconquest.engine.MarketOrder;
-
 import com.spaceconquest.engine.DiplomaticRelation;
+import com.spaceconquest.engine.MarketOrder;
+import com.spaceconquest.engine.industry.SurfaceMassDriver;
+import com.spaceconquest.engine.macrostructure.SpaceElevator;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +40,21 @@ public class CorporateFleetProcessor {
             Map<String, Double> gravityMap,
             Map<String, Double> atmosphereMap
     ) {
+        return processFleetOperations(corporations, hubs, relations, gravityMap, atmosphereMap, null, null);
+    }
+
+    /**
+     * Executes autonomous fleet operations for all corporations with infrastructure-assisted launch support.
+     */
+    public CorporateFleetResult processFleetOperations(
+            List<Corporation> corporations,
+            List<CommercialHub> hubs,
+            List<DiplomaticRelation> relations,
+            Map<String, Double> gravityMap,
+            Map<String, Double> atmosphereMap,
+            List<SurfaceMassDriver> massDrivers,
+            List<SpaceElevator> spaceElevators
+    ) {
         if (corporations == null) {
             return new CorporateFleetResult(List.of(), hubs != null ? hubs : List.of());
         }
@@ -72,7 +88,7 @@ public class CorporateFleetProcessor {
         for (Corporation corp : corporations) {
             if ("TRANSPORT".equalsIgnoreCase(corp.marketOrientation())) {
                 double rangeBonus = empireFedRange.getOrDefault(corp.empireId(), 0.0);
-                Corporation updated = processTransportArbitrage(corp, hubMap, gravityMap, atmosphereMap, rangeBonus);
+                Corporation updated = processTransportArbitrage(corp, hubMap, gravityMap, atmosphereMap, rangeBonus, massDrivers, spaceElevators);
                 updatedCorps.add(updated);
             } else if ("EXTRACTION".equalsIgnoreCase(corp.marketOrientation())) {
                 Corporation updated = processMiningFleet(corp);
@@ -90,7 +106,9 @@ public class CorporateFleetProcessor {
             Map<String, CommercialHub> hubMap,
             Map<String, Double> gravityMap,
             Map<String, Double> atmosphereMap,
-            double rangeBonus
+            double rangeBonus,
+            List<SurfaceMassDriver> massDrivers,
+            List<SpaceElevator> spaceElevators
     ) {
         long transportCount = corp.ownedShipIds().stream()
                 .filter(s -> s.toLowerCase().contains("transport") || s.toLowerCase().contains("freighter") || s.toLowerCase().contains("cargo"))
@@ -105,7 +123,9 @@ public class CorporateFleetProcessor {
         double shipDryMass = 5000.0; // kg
 
         for (int i = 0; i < transportCount; i++) {
-            TradeOpportunity bestOpp = findBestTradeOpportunity(hubMap, gravityMap, atmosphereMap, shipDryMass, cargoCapacityPerShip, rangeBonus);
+            TradeOpportunity bestOpp = findBestTradeOpportunity(
+                    hubMap, gravityMap, atmosphereMap, shipDryMass, cargoCapacityPerShip, rangeBonus, massDrivers, spaceElevators
+            );
             if (bestOpp != null && bestOpp.netProfit() > 0) {
                 totalNetProfit += bestOpp.netProfit();
                 // Apply inventory update
@@ -159,6 +179,19 @@ public class CorporateFleetProcessor {
             double cargoMass,
             double rangeBonus
     ) {
+        return findBestTradeOpportunity(hubMap, gravityMap, atmosphereMap, shipDryMass, cargoMass, rangeBonus, null, null);
+    }
+
+    public TradeOpportunity findBestTradeOpportunity(
+            Map<String, CommercialHub> hubMap,
+            Map<String, Double> gravityMap,
+            Map<String, Double> atmosphereMap,
+            double shipDryMass,
+            double cargoMass,
+            double rangeBonus,
+            List<SurfaceMassDriver> massDrivers,
+            List<SpaceElevator> spaceElevators
+    ) {
         TradeOpportunity best = null;
         List<CommercialHub> hubs = new ArrayList<>(hubMap.values());
 
@@ -171,7 +204,18 @@ public class CorporateFleetProcessor {
 
             double srcGravity = gravityMap != null ? gravityMap.getOrDefault(srcHub.entityId(), 0.0) : 0.0;
             double srcAtmosphere = atmosphereMap != null ? atmosphereMap.getOrDefault(srcHub.entityId(), 0.0) : 0.0;
-            double launchTax = marketProcessor.calculateGravityLaunchTax(shipDryMass, cargoMass, srcGravity, srcAtmosphere, null);
+
+            List<SurfaceMassDriver> srcDrivers = (massDrivers != null)
+                    ? massDrivers.stream().filter(d -> srcHub.entityId().equalsIgnoreCase(d.planetId())).toList()
+                    : null;
+            List<SpaceElevator> srcElevators = (spaceElevators != null)
+                    ? spaceElevators.stream().filter(e -> srcHub.entityId().equalsIgnoreCase(e.planetId())).toList()
+                    : null;
+
+            OrbitalLiftProfile liftProfile = marketProcessor.calculateOrbitalLiftCost(
+                    shipDryMass, cargoMass, srcGravity, srcAtmosphere, srcDrivers, srcElevators
+            );
+            double orbitalLiftCost = liftProfile.totalLiftCostCredits();
 
             for (int j = 0; j < hubs.size(); j++) {
                 if (i == j) continue;
@@ -188,10 +232,10 @@ public class CorporateFleetProcessor {
                     double grossRevenue = (destOrder.pricePerKg() - srcOrder.pricePerKg()) * cargoMass;
                     double srcTariff = marketProcessor.calculateTariff(srcOrder.pricePerKg() * cargoMass, srcHub.transactionTariffRate());
                     double destTariff = marketProcessor.calculateTariff(destOrder.pricePerKg() * cargoMass, destHub.transactionTariffRate());
-                    double netProfit = grossRevenue - launchTax - srcTariff - destTariff;
+                    double netProfit = grossRevenue - orbitalLiftCost - srcTariff - destTariff;
 
                     if (netProfit > 0 && (best == null || netProfit > best.netProfit())) {
-                        best = new TradeOpportunity(srcHub.id(), destHub.id(), resourceId, netProfit);
+                        best = new TradeOpportunity(srcHub.id(), destHub.id(), resourceId, netProfit, orbitalLiftCost);
                     }
                 }
             }
@@ -241,8 +285,13 @@ public class CorporateFleetProcessor {
             String sourceHubId,
             String destHubId,
             String resourceId,
-            double netProfit
-    ) {}
+            double netProfit,
+            double orbitalLiftCost
+    ) {
+        public TradeOpportunity(String sourceHubId, String destHubId, String resourceId, double netProfit) {
+            this(sourceHubId, destHubId, resourceId, netProfit, 0.0);
+        }
+    }
 
     public record CorporateFleetResult(
             List<Corporation> corporations,

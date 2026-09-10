@@ -61,6 +61,24 @@ public class SystemEconomyProcessor {
      * @return updated system economy record
      */
     public SystemEconomy processSystemEconomy(SystemEconomy current, long systemPopulation, boolean isHiveMind) {
+        return processSystemEconomy(current, systemPopulation, -1L, isHiveMind);
+    }
+
+    /**
+     * Updates a single system economy snapshot for a turn, incorporating bureaucrat fragment availability.
+     *
+     * @param current              current system economy record
+     * @param systemPopulation     total population in the system
+     * @param availableBureaucrats available bureaucrat cohort fragment headcount (-1 for unconstrained baseline)
+     * @param isHiveMind           whether the empire is a Hive Mind (immune to currency, fixed 1.0 baseline)
+     * @return updated system economy record
+     */
+    public SystemEconomy processSystemEconomy(
+            SystemEconomy current,
+            long systemPopulation,
+            long availableBureaucrats,
+            boolean isHiveMind
+    ) {
         if (current == null) {
             return null;
         }
@@ -91,6 +109,29 @@ public class SystemEconomyProcessor {
         double healthIndex = calculateSectorEfficiency(totalBudget, current.healthAndWelfareAllocation(), systemPopulation);
         double infraIndex = calculateSectorEfficiency(totalBudget, current.infrastructureAllocation(), systemPopulation);
         double militiaIndex = calculateSectorEfficiency(totalBudget, current.planetaryMilitiasAllocation(), systemPopulation);
+
+        if (availableBureaucrats >= 0 && systemPopulation > 0) {
+            long dEdu = (long) Math.ceil(systemPopulation * 0.005 * eduIndex);
+            long dLaw = (long) Math.ceil(systemPopulation * 0.008 * lawIndex);
+            long dHealth = (long) Math.ceil(systemPopulation * 0.006 * healthIndex);
+            long dInfra = (long) Math.ceil(systemPopulation * 0.004 * infraIndex);
+            long dMil = (long) Math.ceil(systemPopulation * 0.005 * militiaIndex);
+            long totalD = dEdu + dLaw + dHealth + dInfra + dMil;
+
+            if (totalD > 0 && availableBureaucrats < totalD) {
+                double aEdu = Math.min(1.0, (double) Math.round(availableBureaucrats * ((double) dEdu / totalD)) / Math.max(1, dEdu));
+                double aLaw = Math.min(1.0, (double) Math.round(availableBureaucrats * ((double) dLaw / totalD)) / Math.max(1, dLaw));
+                double aHealth = Math.min(1.0, (double) Math.round(availableBureaucrats * ((double) dHealth / totalD)) / Math.max(1, dHealth));
+                double aInfra = Math.min(1.0, (double) Math.round(availableBureaucrats * ((double) dInfra / totalD)) / Math.max(1, dInfra));
+                double aMil = Math.min(1.0, (double) Math.round(availableBureaucrats * ((double) dMil / totalD)) / Math.max(1, dMil));
+
+                eduIndex *= (0.35 + 0.65 * aEdu);
+                lawIndex *= (0.35 + 0.65 * aLaw);
+                healthIndex *= (0.35 + 0.65 * aHealth);
+                infraIndex *= (0.35 + 0.65 * aInfra);
+                militiaIndex *= (0.35 + 0.65 * aMil);
+            }
+        }
 
         double turnMilitiaSpending = Math.max(0.0, totalBudget * current.planetaryMilitiasAllocation());
         double updatedMilitiaInvestment = (current.accumulatedMilitiaInvestment() * MILITIA_INVESTMENT_DECAY) + turnMilitiaSpending;

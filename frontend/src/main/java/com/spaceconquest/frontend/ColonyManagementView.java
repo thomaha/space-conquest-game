@@ -261,7 +261,7 @@ public class ColonyManagementView {
         section.getChildren().add(header);
 
         if (massDrivers.isEmpty()) {
-            Text empty = new Text("No surface mass driver arrays currently constructed. Build mass drivers to bypass high-gravity launch taxes.");
+            Text empty = new Text("No surface mass driver arrays currently constructed. Build mass drivers to bypass high-gravity orbital lift costs.");
             empty.setFill(Color.LIGHTGRAY);
             section.getChildren().add(empty);
         } else {

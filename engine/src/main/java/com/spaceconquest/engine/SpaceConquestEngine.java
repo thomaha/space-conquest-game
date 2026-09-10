@@ -605,7 +605,7 @@ public class SpaceConquestEngine implements GameEngine {
             }
         }
         CorporateFleetProcessor.CorporateFleetResult fleetResult = corporateFleetProcessor.processFleetOperations(
-                corporations, commercialHubs, diplomaticRelations, gravityMap, atmosphereMap
+                corporations, commercialHubs, diplomaticRelations, gravityMap, atmosphereMap, null, spaceElevators
         );
         corporations = fleetResult.corporations();
         commercialHubs = fleetResult.commercialHubs();
