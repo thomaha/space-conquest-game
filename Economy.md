@@ -62,11 +62,13 @@ Draft:
   $$\text{Strata Upgrade Rate} = \text{Base Mobility Rate} \times E_{\text{eff}, \text{edu}}$$
   where $\text{Base Mobility Rate} = 0.02$ (2% baseline per turn). People only retrain if they will earn better in other jobs. Lacking enough higher level jobs and given demand for simpler jobs, people can also change from a higher to a lower level.
   Retrained cohorts are distributed into higher strata according to systemic demand:
-  - 40% upgrade to `technician`
-  - 25% upgrade to `engineer`
-  - 20% upgrade to `teacher`
-  - 10% upgrade to `medic`
-  - 5% upgrade to `scientist`
+  - Up to 40% upgrade to `technician`
+  - Up to 25% upgrade to `engineer`
+  - Up to 20% upgrade to `teacher`
+  - Up to 10% upgrade to `medic`
+  - Up to 5% upgrade to `scientist`
+
+  Cohorts that do not have their needs met are more likely to retrain, either up or down according to system demand.
 
 - **Local research generation:**
   Hired `scientist` cohorts generate raw research points for the global technology tree:
@@ -240,6 +242,16 @@ Every turn, employed citizens spend disposable income on biological and social n
   $$C_{\text{rent}} = \text{Habitation Base Upkeep} \times \text{Zoning Multiplier}$$
 - **Out-of-pocket healthcare:** If public health and welfare efficiency is below 1.0, citizens pay private medical corporations:
   $$C_{\text{health}} = \max(0.0, 1.0 - E_{\text{eff}, \text{health}}) \times 8.0\text{ credits}$$
+
+###### Every cohort has three levels of needs. 
+  - Basic needs are what is needed for survival, typically food and housing. Not having basic needs met, means the citizen is in a state of starvation and will eventually die.
+  - Secondary needs are what is needed for a satisfactory life style. Not having secondary needs met, means the citizen will have reduced happiness. 
+  - Luxury needs are what is needed for comfort and luxury. Not having luxury needs met have no negative impact, but having them met increases happiness.
+
+#####  Strategic interaction with society types
+  - Individualist: The cohort uses its private wallet salary to purchase these tiers from the CommerceHub. If a corporation is hoarding goods or charging exorbitant prices, secondary and luxury tiers fail first.
+  - Collectivist: The state can set price caps on basic goods to guarantee everyone survives, but this might lower corporate profits, meaning the state must step in with subsidies to keep secondary/luxury production alive.
+  - Hive Mind: Money is bypassed entirely. The central engine allocates raw biomass and energy directly to the cohorts from central storage nodes. Tiers 2 and 3 are either completely deactivated or translated into raw "Drone Maintenance Processing Units" to optimize collective network throughput.
 
 ##### Private savings and demographic feedback
 Draft:

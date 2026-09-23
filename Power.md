@@ -5,6 +5,7 @@ On planetary surfaces, power generation scales dynamically with the planet's uni
 - **Solar power facilities:** Utilizes photovoltaic arrays to harvest starlight. They require 0 fuel consumables to run. However, their electrical output scales down inversely based on the planet's orbital `distance` from the host star and is heavily suppressed by thick atmospheric densities or cloud cover variables.
 - **Hydropower facilities:** Harnesses liquid water currents to spin massive kinetic turbines.
 - **Wind power facilities:** Converts atmospheric currents into electrical energy.
+- **Fossil fuel power facilities:** Utilizes fossil fuel reserves to generate electricity from burning fossil fuels.
 - **Thermoelectric power facilities:** Extracts geothermal energy directly from tectonic friction inside a planet's crust. They provide steady, baseline grid power regardless of atmospheric or orbital conditions, matching well with tectonic variables on active rocky or molten worlds.
 - **Nuclear fission power facilities:** Utilizes centralized ground reactors to split heavy radioactive atoms, outputting heavy baseline electrical energy independent of planetary climate or atmosphere variables.
 - **Nuclear fusion power facilities:** Represents a monumental energy leap, running ground-based magnetic confinement fields to fuse light hydrogen and helium isotopes.
