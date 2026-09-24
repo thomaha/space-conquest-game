@@ -40,17 +40,11 @@ public class EmpireAIControllerTest {
                 List.of()
         );
 
-        GameState state = new GameState(
-                1,
-                "RUNNING",
-                List.of(),
-                List.of(terran),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of()
-        );
+        GameState state = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .empires(List.of(terran))
+                .build();
 
         empireAI.onGameStateUpdate(state);
         assertFalse(commandQueue.isEmpty(), "Empire AI should stage commands for empty cabinet and governor");
@@ -90,17 +84,12 @@ public class EmpireAIControllerTest {
                 List.of()
         );
 
-        GameState state = new GameState(
-                1,
-                "RUNNING",
-                List.of(),
-                List.of(terran),
-                List.of(brokeCorp),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of()
-        );
+        GameState state = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .empires(List.of(terran))
+                .corporations(List.of(brokeCorp))
+                .build();
 
         empireAI.onGameStateUpdate(state);
         GameState updated = commandQueue.drainAndExecute(state);

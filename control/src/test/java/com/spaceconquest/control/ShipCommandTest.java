@@ -37,11 +37,11 @@ public class ShipCommandTest {
                 10000.0, 20000.0, 100.0, 1.5, 100000.0, 500000.0, true, false
         );
 
-        initialState = new GameState(
-                1, "RUNNING", List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(cargoDesign), List.of()
-        );
+        initialState = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .shipDesigns(List.of(cargoDesign))
+                .build();
     }
 
     @Test
@@ -109,11 +109,12 @@ public class ShipCommandTest {
         );
 
         // State with NO cargo blueprints
-        GameState stateWithoutCargo = new GameState(
-                1, "RUNNING", List.of(), List.of(), List.of(corp), List.of(hub),
-                List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of()
-        );
+        GameState stateWithoutCargo = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .corporations(List.of(corp))
+                .commercialHubs(List.of(hub))
+                .build();
 
         CorporationAIController corpAI = new CorporationAIController("corp_atlas", commandQueue);
         corpAI.onGameStateUpdate(stateWithoutCargo);

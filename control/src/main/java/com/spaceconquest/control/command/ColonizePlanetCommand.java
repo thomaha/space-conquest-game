@@ -65,25 +65,11 @@ public record ColonizePlanetCommand(
         List<Fleet> updatedFleets = updateFleetsWithColonizer(state.fleets(), fleetId, res.updatedFleet());
         List<Empire> updatedEmpires = updateEmpireControlledSystems(state.empires(), empireId, targetSystemId);
 
-        return new GameState(
-                state.turn(),
-                state.status(),
-                updatedSystems,
-                updatedEmpires,
-                state.corporations(),
-                state.commercialHubs(),
-                state.shadowSyndicates(),
-                state.diplomaticRelations(),
-                state.systemGovernors(),
-                state.researchProjects(),
-                state.technologyExchangeRoutes(),
-                state.shipDesigns(),
-                updatedFleets,
-                state.geologicalDeposits(),
-                state.powerGrids(),
-                state.industrialFacilities(),
-                state.expansionProjects()
-        );
+        return state.toBuilder()
+                .solarSystems(updatedSystems)
+                .empires(updatedEmpires)
+                .fleets(updatedFleets)
+                .build();
     }
 
     private Race loadEmpireRace(String raceId) {

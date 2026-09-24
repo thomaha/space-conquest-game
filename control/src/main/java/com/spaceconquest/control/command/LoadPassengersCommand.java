@@ -67,24 +67,8 @@ public record LoadPassengersCommand(
             }
         }
 
-        return new GameState(
-                state.turn(),
-                state.status(),
-                state.solarSystems(),
-                state.empires(),
-                state.corporations(),
-                state.commercialHubs(),
-                state.shadowSyndicates(),
-                state.diplomaticRelations(),
-                state.systemGovernors(),
-                state.researchProjects(),
-                state.technologyExchangeRoutes(),
-                state.shipDesigns(),
-                updatedFleets,
-                state.geologicalDeposits(),
-                state.powerGrids(),
-                state.industrialFacilities(),
-                state.expansionProjects()
-        );
+        return state.toBuilder()
+                .fleets(updatedFleets)
+                .build();
     }
 }

@@ -9,5 +9,6 @@ public record ColonyEconomyEntry(
         double grossOutputCredits,
         double taxCollectedCredits,
         double localGovernanceCostCredits,
-        double netContributionCredits
+        double netContributionCredits,
+        double outstandingDebtCredits
 ) {}

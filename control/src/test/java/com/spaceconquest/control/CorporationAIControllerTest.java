@@ -51,17 +51,12 @@ public class CorporationAIControllerTest {
                 List.of()
         );
 
-        GameState state = new GameState(
-                1,
-                "RUNNING",
-                List.of(),
-                List.of(),
-                List.of(corp),
-                List.of(hub),
-                List.of(),
-                List.of(),
-                List.of()
-        );
+        GameState state = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .corporations(List.of(corp))
+                .commercialHubs(List.of(hub))
+                .build();
 
         corpAI.onGameStateUpdate(state);
         assertFalse(commandQueue.isEmpty(), "Corporation AI should submit investment command");

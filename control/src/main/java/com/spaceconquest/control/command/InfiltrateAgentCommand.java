@@ -41,15 +41,8 @@ public record InfiltrateAgentCommand(
         List<SleeperAgent> updated = new ArrayList<>(state.sleeperAgents());
         updated.add(agent);
 
-        return new GameState(
-                state.turn(), state.status(), state.solarSystems(), state.empires(),
-                state.corporations(), state.commercialHubs(), state.shadowSyndicates(),
-                state.diplomaticRelations(), state.systemGovernors(), state.researchProjects(),
-                state.technologyExchangeRoutes(), state.shipDesigns(), state.fleets(),
-                state.geologicalDeposits(), state.powerGrids(), state.industrialFacilities(),
-                state.expansionProjects(), state.orbitalStations(), state.spaceElevators(),
-                state.constructionProjects(), updated, state.espionageOperations(),
-                state.pirateBases()
-        );
+        return state.toBuilder()
+                .sleeperAgents(updated)
+                .build();
     }
 }

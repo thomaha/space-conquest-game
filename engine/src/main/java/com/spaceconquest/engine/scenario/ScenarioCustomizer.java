@@ -78,10 +78,12 @@ public class ScenarioCustomizer {
                 10
         );
 
-        return new GameState(
-                1, "RUNNING", systems, customizedEmpires,
-                loadedCorps,
-                List.of(), List.of(), List.of(), List.of()
-        );
+        return GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .solarSystems(systems)
+                .empires(customizedEmpires)
+                .corporations(loadedCorps)
+                .build();
     }
 }

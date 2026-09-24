@@ -3,7 +3,6 @@ package com.spaceconquest.frontend.empire;
 import com.spaceconquest.control.HumanController;
 import com.spaceconquest.control.command.SetSystemEconomyBudgetCommand;
 import com.spaceconquest.engine.economy.SystemEconomy;
-import com.spaceconquest.engine.economy.SystemEconomyProcessor;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -21,8 +20,6 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 
 public class SystemEconomyWorkbenchCard {
-    private static final SystemEconomyProcessor economyProcessor = new SystemEconomyProcessor();
-
     public static VBox createCard(
             SystemEconomyReport report,
             VBox overviewContainer,
@@ -36,11 +33,11 @@ public class SystemEconomyWorkbenchCard {
         box.setStyle("-fx-background-color: rgba(25, 45, 80, 0.8); -fx-background-radius: 8; " +
                 "-fx-border-color: #3498db; -fx-border-width: 1.5; -fx-border-radius: 8;");
 
-        Text title = new Text("System public funding budget and taxation controls");
+        Text title = new Text("System budget, taxation and empire transfer controls");
         title.setFill(Color.AQUA);
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 15));
 
-        Text desc = new Text("Configure colonial fiscal policy, adjust public sector allocations across five municipal priorities and enact local colonial tax tariffs.");
+        Text desc = new Text("Allocate the public budget, set income tax and choose a signed empire transfer as a percentage of the daily budget.");
         desc.setFill(Color.LIGHTCYAN);
         desc.setFont(Font.font("Verdana", 11));
 
@@ -96,6 +93,15 @@ public class SystemEconomyWorkbenchCard {
         taxValLbl.setTextFill(Color.GOLD);
         addSliderRow(slidersGrid, 5, "Colonial Income Tax Tariff Rate:", taxSlider, taxValLbl, Color.GOLD);
 
+        Slider contributionSlider = new Slider(-100, 100, economy.empireContributionRate() * 100.0);
+        contributionSlider.setPrefWidth(260);
+        contributionSlider.setShowTickMarks(true);
+        contributionSlider.setMajorTickUnit(50);
+        contributionSlider.setBlockIncrement(5);
+        Label contributionValLbl = createPercentLabel(economy.empireContributionRate() * 100.0);
+        addSliderRow(slidersGrid, 6, "Empire contribution (+) / subsidy (-):",
+                contributionSlider, contributionValLbl, Color.AQUA);
+
         HBox statusRow = new HBox(20);
         statusRow.setAlignment(Pos.CENTER_LEFT);
 
@@ -103,11 +109,17 @@ public class SystemEconomyWorkbenchCard {
         sumLbl.setTextFill(Color.LIGHTGREEN);
         sumLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
 
-        Label balancePreviewLbl = new Label(String.format("Projected net balance: %+,.0f ₵/turn", report.netSystemBalance()));
+        Label balancePreviewLbl = new Label(String.format("Projected local balance: %+,.0f ₵/day", report.netSystemBalance()));
         balancePreviewLbl.setTextFill(report.netSystemBalance() >= 0 ? Color.LIGHTGREEN : Color.LIGHTCORAL);
         balancePreviewLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
 
         statusRow.getChildren().addAll(sumLbl, balancePreviewLbl);
+        double lastTransfer = parent.getPlanetaryBalanceSheets().stream()
+                .filter(sheet -> report.systemId().equals(sheet.systemId()))
+                .mapToDouble(sheet -> sheet.empireTransferCredits()).sum();
+        Label settledTransferLbl = new Label(String.format("Last local transfer: %+,.0f ₵", lastTransfer));
+        settledTransferLbl.setTextFill(Color.LIGHTCYAN);
+        statusRow.getChildren().add(settledTransferLbl);
 
         HBox presetsRow = new HBox(8);
         presetsRow.setAlignment(Pos.CENTER_LEFT);
@@ -128,7 +140,7 @@ public class SystemEconomyWorkbenchCard {
         HBox actionRow = new HBox(12);
         actionRow.setAlignment(Pos.CENTER_LEFT);
 
-        Button applyBtn = new Button("Enact and stage system economy budget command");
+        Button applyBtn = new Button("Stage system fiscal policy");
         applyBtn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; " +
                 "-fx-padding: 8 16 8 16; -fx-background-radius: 4; -fx-cursor: hand;");
         applyBtn.setCursor(javafx.scene.Cursor.HAND);
@@ -144,7 +156,8 @@ public class SystemEconomyWorkbenchCard {
 
         Runnable updateCalculations = () -> updateCalculations(
                 report, budgetField, eduSlider, lawSlider, healthSlider, infraSlider, militiaSlider, taxSlider,
-                eduValLbl, lawValLbl, healthValLbl, infraValLbl, militiaValLbl, taxValLbl, sumLbl, balancePreviewLbl
+                contributionSlider, eduValLbl, lawValLbl, healthValLbl, infraValLbl, militiaValLbl,
+                taxValLbl, contributionValLbl, sumLbl, balancePreviewLbl
         );
 
         eduSlider.valueProperty().addListener((obs, oldV, newV) -> updateCalculations.run());
@@ -153,57 +166,38 @@ public class SystemEconomyWorkbenchCard {
         infraSlider.valueProperty().addListener((obs, oldV, newV) -> updateCalculations.run());
         militiaSlider.valueProperty().addListener((obs, oldV, newV) -> updateCalculations.run());
         taxSlider.valueProperty().addListener((obs, oldV, newV) -> updateCalculations.run());
+        contributionSlider.valueProperty().addListener((obs, oldV, newV) -> updateCalculations.run());
         budgetField.textProperty().addListener((obs, oldV, newV) -> updateCalculations.run());
+        updateCalculations.run();
 
         applyBtn.setOnAction(e -> {
             try {
                 double bVal = Double.parseDouble(budgetField.getText().trim());
+                if (!Double.isFinite(bVal) || bVal < 0.0) {
+                    feedback.setText("Budget must be a nonnegative credit amount.");
+                    feedback.setTextFill(Color.LIGHTCORAL);
+                    return;
+                }
                 double eVal = eduSlider.getValue() / 100.0;
                 double lVal = lawSlider.getValue() / 100.0;
                 double hVal = healthSlider.getValue() / 100.0;
                 double iVal = infraSlider.getValue() / 100.0;
                 double mVal = militiaSlider.getValue() / 100.0;
                 double tVal = taxSlider.getValue() / 100.0;
+                double cVal = contributionSlider.getValue() / 100.0;
 
                 SetSystemEconomyBudgetCommand cmd = new SetSystemEconomyBudgetCommand(
-                        parent.getPlayerEmpireId(), report.systemId(), eVal, lVal, hVal, iVal, mVal, bVal, tVal
+                        parent.getPlayerEmpireId(), report.systemId(), eVal, lVal, hVal, iVal, mVal, bVal, tVal, cVal
                 );
 
                 HumanController controller = parent.getHumanController();
                 if (controller != null) {
                     controller.stageCommand(cmd);
-                }
-
-                SystemEconomy updated = new SystemEconomy(
-                        report.systemId(), parent.getPlayerEmpireId(),
-                        eVal, lVal, hVal, iVal, mVal, bVal,
-                        economy.accumulatedMilitiaInvestment(),
-                        economy.educationLevel(), economy.lawAndOrderLevel(),
-                        economy.healthAndWelfareLevel(), economy.infrastructureLevel(),
-                        economy.planetaryMilitiaLevel(),
-                        economy.employedTeachers(), economy.employedScientists(),
-                        economy.employedPolice(), economy.employedMedics(),
-                        economy.employedEngineers(), economy.employedTechnicians(),
-                        economy.employedSoldiers(), economy.recruitableSoldiers(),
-                        tVal
-                );
-
-                parent.getSystemEconomies().removeIf(se -> se.systemId().equals(report.systemId()));
-                parent.getSystemEconomies().add(updated);
-
-                feedback.setText("Staged budget command for " + report.systemName() + "!");
-                feedback.setTextFill(Color.LIGHTGREEN);
-
-                SystemEconomyReport newReport = parent.calculateSystemEconomyReport(report.systemId());
-                overviewContainer.getChildren().setAll(EconomyCards.createSystemEconomyOverviewCard(newReport));
-                breakdownContainer.getChildren().setAll(
-                        EconomyCards.createSystemRevenuesCard(newReport),
-                        EconomyCards.createSystemExpensesCard(newReport)
-                );
-                ledgerContainer.getChildren().setAll(EconomyCards.createSystemCelestialBodiesLedgerCard(newReport, parent));
-
-                if (refreshImperialSummary != null) {
-                    refreshImperialSummary.run();
+                    feedback.setText("Staged fiscal policy for the next simulation day.");
+                    feedback.setTextFill(Color.LIGHTGREEN);
+                } else {
+                    feedback.setText("No controller is available to stage this policy.");
+                    feedback.setTextFill(Color.LIGHTCORAL);
                 }
 
             } catch (NumberFormatException ex) {
@@ -219,17 +213,12 @@ public class SystemEconomyWorkbenchCard {
     private static void updateCalculations(
             SystemEconomyReport report,
             TextField budgetField,
-            Slider eduSlider, Slider lawSlider, Slider healthSlider, Slider infraSlider, Slider militiaSlider, Slider taxSlider,
-            Label eduValLbl, Label lawValLbl, Label healthValLbl, Label infraValLbl, Label militiaValLbl, Label taxValLbl,
+            Slider eduSlider, Slider lawSlider, Slider healthSlider, Slider infraSlider, Slider militiaSlider,
+            Slider taxSlider, Slider contributionSlider,
+            Label eduValLbl, Label lawValLbl, Label healthValLbl, Label infraValLbl, Label militiaValLbl,
+            Label taxValLbl, Label contributionValLbl,
             Label sumLbl, Label balancePreviewLbl
     ) {
-        eduValLbl.setText(String.format("%.1f%%", eduSlider.getValue()));
-        lawValLbl.setText(String.format("%.1f%%", lawSlider.getValue()));
-        healthValLbl.setText(String.format("%.1f%%", healthSlider.getValue()));
-        infraValLbl.setText(String.format("%.1f%%", infraSlider.getValue()));
-        militiaValLbl.setText(String.format("%.1f%%", militiaSlider.getValue()));
-        taxValLbl.setText(String.format("%.1f%%", taxSlider.getValue()));
-
         double sum = eduSlider.getValue() + lawSlider.getValue() + healthSlider.getValue() + infraSlider.getValue() + militiaSlider.getValue();
         sumLbl.setText(String.format("Total allocation: %.1f%% %s", sum, Math.abs(sum - 100.0) < 0.1 ? "✓" : "⚠ (Normalized)"));
         sumLbl.setTextFill(Math.abs(sum - 100.0) < 0.1 ? Color.LIGHTGREEN : Color.GOLD);
@@ -238,14 +227,37 @@ public class SystemEconomyWorkbenchCard {
         try {
             budget = Double.parseDouble(budgetField.getText().trim());
         } catch (Exception ignored) {}
+        budget = Double.isFinite(budget) ? Math.max(0.0, budget) : 0.0;
 
-        double newTaxes = report.grossSystemOutput() * (taxSlider.getValue() / 100.0);
+        setAllocationReadout(eduValLbl, eduSlider.getValue(), sum, budget);
+        setAllocationReadout(lawValLbl, lawSlider.getValue(), sum, budget);
+        setAllocationReadout(healthValLbl, healthSlider.getValue(), sum, budget);
+        setAllocationReadout(infraValLbl, infraSlider.getValue(), sum, budget);
+        setAllocationReadout(militiaValLbl, militiaSlider.getValue(), sum, budget);
+        contributionValLbl.setText(String.format("%+.1f%% (%+,.0f ₵/day)",
+                contributionSlider.getValue(), budget * contributionSlider.getValue() / 100.0));
+
+        double taxBase = report.fromBalanceSheets()
+                ? (report.taxRate() > 0.0
+                    ? report.colonialTaxes() / report.taxRate()
+                    : report.systemPopulation() * 10.0)
+                : report.grossSystemOutput();
+        double newTaxes = taxBase * (taxSlider.getValue() / 100.0);
+        taxValLbl.setText(String.format("%.1f%% (~%,.0f ₵/day)", taxSlider.getValue(), newTaxes));
         double totalRev = newTaxes + report.corporateTariffs() + report.spaceElevatorFees() + report.miningRoyalties() + report.stateIndustryIncome();
         double totalExp = budget + report.governorAdministration() + report.stationMaintenance();
         double projectedBalance = totalRev - totalExp;
 
-        balancePreviewLbl.setText(String.format("Projected net balance: %+,.0f ₵/turn", projectedBalance));
+        balancePreviewLbl.setText(String.format("Projected local balance: %+,.0f ₵/day", projectedBalance));
         balancePreviewLbl.setTextFill(projectedBalance >= 0 ? Color.LIGHTGREEN : Color.LIGHTCORAL);
+    }
+
+    private static void setAllocationReadout(Label label, double percentage, double totalPercentage, double budget) {
+        double share = totalPercentage > 0.0 ? percentage / totalPercentage : 0.20;
+        double effectivePercentage = share * 100.0;
+        label.setText(Math.abs(percentage - effectivePercentage) < 0.1
+                ? String.format("%.1f%% (%,.0f ₵/day)", percentage, budget * share)
+                : String.format("%.1f%% → %.1f%% (%,.0f ₵/day)", percentage, effectivePercentage, budget * share));
     }
 
     public static Slider createSectorSlider(double initialVal) {
@@ -264,7 +276,7 @@ public class SystemEconomyWorkbenchCard {
         Label lbl = new Label(String.format("%.1f%%", val));
         lbl.setTextFill(Color.GOLD);
         lbl.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
-        lbl.setPrefWidth(55);
+        lbl.setPrefWidth(230);
         return lbl;
     }
 

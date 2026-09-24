@@ -28,7 +28,11 @@ public class VictoryConditionCheckerTest {
     @Test
     public void testEconomicMonopolyVictory() {
         Empire rich = new Empire("emp_rich", "Merchant Guild", "human", "Individualist", 600000.0, 0.05, List.of(), List.of(), Map.of(), List.of(), List.of());
-        GameState state = new GameState(1, "RUNNING", List.of(), List.of(rich), List.of(), List.of(), List.of(), List.of(), List.of());
+        GameState state = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .empires(List.of(rich))
+                .build();
         CampaignSetup setup = new CampaignSetup("Econ Campaign", 10, 0, 0.2, CampaignSetup.AI_BALANCED, 1, CampaignSetup.VICTORY_ECONOMIC_MONOPOLY, 500);
 
         VictoryConditionChecker.VictoryCheckResult res = checker.evaluateVictory(state, setup, null, List.of());
@@ -60,7 +64,11 @@ public class VictoryConditionCheckerTest {
     public void testDiplomaticFederationVictory() {
         Empire emp1 = new Empire("emp1", "Emp 1", "human", "Individualist", 10000.0, 0.05, List.of(), List.of(), Map.of(), List.of(), List.of());
         Empire emp2 = new Empire("emp2", "Emp 2", "vulkan", "Collectivist", 10000.0, 0.05, List.of(), List.of(), Map.of(), List.of(), List.of());
-        GameState state = new GameState(1, "RUNNING", List.of(), List.of(emp1, emp2), List.of(), List.of(), List.of(), List.of(), List.of());
+        GameState state = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .empires(List.of(emp1, emp2))
+                .build();
 
         GalacticResolution r1 = new GalacticResolution("r1", "Charter 1", GalacticResolution.TYPE_ANTI_PIRACY, "emp1", "", 0, GalacticResolution.STATUS_PASSED, Map.of());
         GalacticResolution r2 = new GalacticResolution("r2", "Charter 2", GalacticResolution.TYPE_FREE_TRADE, "emp1", "", 0, GalacticResolution.STATUS_PASSED, Map.of());

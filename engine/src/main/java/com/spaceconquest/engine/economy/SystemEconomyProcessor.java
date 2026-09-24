@@ -99,7 +99,8 @@ public class SystemEconomyProcessor {
                     Math.max(30, (long) (systemPopulation * 0.0015)),
                     Math.max(25, (long) (systemPopulation * 0.0012)),
                     Math.max(100, (long) (systemPopulation * 0.0050)),
-                    current.taxRate()
+                    current.taxRate(),
+                    current.empireContributionRate()
             );
         }
 
@@ -169,7 +170,8 @@ public class SystemEconomyProcessor {
                 technicians,
                 soldiers,
                 recruitable,
-                taxRate
+                taxRate,
+                current.empireContributionRate()
         );
     }
 
@@ -193,7 +195,8 @@ public class SystemEconomyProcessor {
      * Processes all system economies in the current game state.
      *
      * @param state simulation game state
-     * @return result containing updated system economies and empire treasury deductions
+     * @return result containing updated system economies and unchanged empire treasuries;
+     * municipal accounting settles the public budget and transfers later in the turn
      */
     public SystemEconomyTurnResult processSystemEconomies(GameState state) {
         if (state == null) {
@@ -230,7 +233,6 @@ public class SystemEconomyProcessor {
         }
 
         List<SystemEconomy> updatedEconomies = new ArrayList<>();
-        Map<String, Double> budgetDeductionsByEmpire = new HashMap<>();
         Map<String, Double> happinessBySystem = new HashMap<>();
 
         for (SystemEconomy economy : state.systemEconomies()) {
@@ -241,38 +243,9 @@ public class SystemEconomyProcessor {
             SystemEconomy updated = processSystemEconomy(economy, pop, isHiveMind);
             updatedEconomies.add(updated);
 
-            if (!isHiveMind && updated.totalBudgetCredits() > 0) {
-                budgetDeductionsByEmpire.merge(updated.empireId(), updated.totalBudgetCredits(), Double::sum);
-            }
-
             happinessBySystem.put(updated.systemId(), calculateHappinessModifier(updated));
         }
-
-        // Apply treasury deductions to empires
-        List<Empire> updatedEmpires = new ArrayList<>();
-        for (Empire emp : state.empires()) {
-            double deduction = budgetDeductionsByEmpire.getOrDefault(emp.id(), 0.0);
-            if (deduction > 0) {
-                double newTreasury = Math.max(0.0, emp.treasuryCredits() - deduction);
-                updatedEmpires.add(new Empire(
-                        emp.id(),
-                        emp.name(),
-                        emp.raceId(),
-                        emp.societyStructure(),
-                        newTreasury,
-                        emp.corporateTaxRate(),
-                        emp.controlledSystemIds(),
-                        emp.ministries(),
-                        emp.systemGovernorAssignments(),
-                        emp.unlockedTechIds(),
-                        emp.activeShipDesignIds()
-                ));
-            } else {
-                updatedEmpires.add(emp);
-            }
-        }
-
-        return new SystemEconomyTurnResult(updatedEconomies, happinessBySystem, updatedEmpires);
+        return new SystemEconomyTurnResult(updatedEconomies, happinessBySystem, state.empires());
     }
 
     public record SystemEconomyTurnResult(

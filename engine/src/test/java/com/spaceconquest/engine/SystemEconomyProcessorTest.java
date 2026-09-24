@@ -159,12 +159,13 @@ public class SystemEconomyProcessorTest {
 
         SystemEconomy economy = SystemEconomy.createDefault("sol", "terran_confederation", 1_000_000L);
 
-        GameState state = new GameState(
-                1, "RUNNING", List.of(sol), List.of(empire), List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null,
-                List.of(), List.of(), List.of(economy)
-        );
+        GameState state = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .solarSystems(List.of(sol))
+                .empires(List.of(empire))
+                .systemEconomies(List.of(economy))
+                .build();
 
         SystemEconomyProcessor.SystemEconomyTurnResult result = processor.processSystemEconomies(state);
         assertNotNull(result);
@@ -172,7 +173,7 @@ public class SystemEconomyProcessorTest {
         assertEquals(1, result.updatedEmpires().size());
 
         Empire updatedEmpire = result.updatedEmpires().get(0);
-        assertTrue(updatedEmpire.treasuryCredits() < 50_000.0, "Treasury should deduct system public sector budget");
-        assertEquals(50_000.0 - economy.totalBudgetCredits(), updatedEmpire.treasuryCredits(), 0.001);
+        assertEquals(50_000.0, updatedEmpire.treasuryCredits(), 0.001,
+                "Budget spending is recorded by municipal balance sheets, not deducted from the empire here");
     }
 }

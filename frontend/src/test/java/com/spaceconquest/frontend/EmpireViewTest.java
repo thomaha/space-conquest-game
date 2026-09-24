@@ -25,6 +25,7 @@ import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.SpaceConquestEngine;
 import com.spaceconquest.engine.SystemGovernor;
+import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
 import com.spaceconquest.engine.industry.PowerGridState;
 import com.spaceconquest.engine.macrostructure.ConstructionDeploymentProject;
@@ -449,6 +450,7 @@ public class EmpireViewTest {
     @Test
     public void testEmpireEconomyReportCalculationAndLedgers() {
         SpaceConquestEngine engine = new SpaceConquestEngine();
+        engine.stepTurn();
         GameState gameState = engine.getGameState();
 
         EmpireView view = new EmpireView(null);
@@ -465,10 +467,12 @@ public class EmpireViewTest {
         assertTrue(report.controlledSystemCount() >= 1);
         assertEquals(0.15, report.corporateTaxRate(), 0.001);
 
-        // Verify incomes and revenues
-        assertTrue(report.colonialTaxIncome() > 0.0);
-        assertTrue(report.totalIncome() > 0.0);
-        assertTrue(report.totalCosts() > 0.0);
+        // The central report reflects only recorded treasury movements.
+        var imperialSheet = gameState.imperialBalanceSheets().stream()
+                .filter(sheet -> "terran_confederation".equals(sheet.empireId())).findFirst().orElseThrow();
+        assertEquals(imperialSheet.incomeCredits(), report.totalIncome(), 0.001);
+        assertEquals(imperialSheet.expenditureCredits(), report.totalCosts(), 0.001);
+        assertEquals(imperialSheet.outstandingDebtCredits(), report.outstandingDebtCredits(), 0.001);
         assertEquals(report.totalIncome() - report.totalCosts(), report.netBudgetBalance(), 0.001);
 
         // Verify colony entries (Earth should be present with population and tax collected)
@@ -485,7 +489,11 @@ public class EmpireViewTest {
         assertTrue(earthEntry.grossOutputCredits() > 0);
         assertTrue(earthEntry.taxCollectedCredits() > 0);
         assertTrue(earthEntry.localGovernanceCostCredits() > 0);
-        assertEquals(earthEntry.taxCollectedCredits() - earthEntry.localGovernanceCostCredits(), earthEntry.netContributionCredits(), 0.001);
+        PlanetaryBalanceSheet earthSheet = gameState.planetaryBalanceSheets().stream()
+                .filter(sheet -> "earth".equalsIgnoreCase(sheet.planetId())).findFirst().orElseThrow();
+        assertEquals(earthSheet.incomeTaxRevenue(), earthEntry.taxCollectedCredits(), 0.001);
+        assertEquals(earthSheet.totalExpenditureCredits(), earthEntry.localGovernanceCostCredits(), 0.001);
+        assertEquals(earthSheet.netBalanceCredits(), earthEntry.netContributionCredits(), 0.001);
 
         // Verify corporate entries
         assertFalse(report.corporateEntries().isEmpty());
@@ -705,7 +713,10 @@ public class EmpireViewTest {
     @Test
     public void testSystemEconomyReportCalculation() {
         SpaceConquestEngine engine = new SpaceConquestEngine();
-        GameState state = engine.getGameState();
+        GameState initial = engine.getGameState();
+        GameState state = initial.withPlanetaryBalanceSheets(initial.planetaryBalanceSheets().stream()
+                .map(sheet -> "sol".equals(sheet.systemId()) ? sheet.withOutstandingDebt(1234.0) : sheet)
+                .toList());
 
         EmpireView view = new EmpireView(null);
         view.setPlayerEmpireId("terran_confederation");
@@ -719,6 +730,17 @@ public class EmpireViewTest {
         assertTrue(report.colonizedBodiesCount() >= 1, "Sol system should have at least 1 colonized world");
         assertTrue(report.grossSystemOutput() > 0, "Gross output should be calculated");
         assertTrue(report.colonialTaxes() > 0, "Colonial taxes should be collected");
+        assertTrue(report.fromBalanceSheets());
+        assertEquals(state.planetaryBalanceSheets().stream()
+                .filter(sheet -> "sol".equals(sheet.systemId()))
+                .mapToDouble(PlanetaryBalanceSheet::incomeTaxRevenue).sum(), report.colonialTaxes(), 0.001);
+        assertEquals(state.planetaryBalanceSheets().stream()
+                .filter(sheet -> "sol".equals(sheet.systemId()))
+                .mapToDouble(PlanetaryBalanceSheet::totalExpenditureCredits).sum(), report.totalExpenditures(), 0.001);
+        assertEquals(state.planetaryBalanceSheets().stream()
+                .filter(sheet -> "sol".equals(sheet.systemId()))
+                .mapToDouble(PlanetaryBalanceSheet::outstandingDebtCredits).sum(),
+                report.outstandingDebtCredits(), 0.001);
         assertNotNull(report.economy());
         assertEquals(0.20, report.economy().educationAllocation(), 0.001);
         assertEquals(0.20, report.economy().planetaryMilitiasAllocation(), 0.001);

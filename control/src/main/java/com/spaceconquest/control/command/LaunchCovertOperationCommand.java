@@ -46,15 +46,8 @@ public record LaunchCovertOperationCommand(
         List<EspionageOperation> updated = new ArrayList<>(state.espionageOperations());
         updated.add(op);
 
-        return new GameState(
-                state.turn(), state.status(), state.solarSystems(), state.empires(),
-                state.corporations(), state.commercialHubs(), state.shadowSyndicates(),
-                state.diplomaticRelations(), state.systemGovernors(), state.researchProjects(),
-                state.technologyExchangeRoutes(), state.shipDesigns(), state.fleets(),
-                state.geologicalDeposits(), state.powerGrids(), state.industrialFacilities(),
-                state.expansionProjects(), state.orbitalStations(), state.spaceElevators(),
-                state.constructionProjects(), state.sleeperAgents(), updated,
-                state.pirateBases()
-        );
+        return state.toBuilder()
+                .espionageOperations(updated)
+                .build();
     }
 }

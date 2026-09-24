@@ -17,7 +17,7 @@
 ##### Cargo transport
 - **Operational scope:** The logistical lifeblood of the empire, moving massive volume caches of materials across solar networks.
 - **Module requirements:** Must equip at least one *Bulk Cargo Vault*.
-- **Systemic constraints:** Private corporations actively buy custom blueprints matching this role to solve system shortcomings. Fully loaded hulls experience severe sub-light acceleration penalties and exponentially higher planetary launch taxes due to the weight-scaling gravity calculations.
+- **Systemic constraints:** Private corporations may manufacture eligible public cargo blueprints or design proprietary cargo blueprints for their own use. The player cannot build from a corporation's proprietary blueprint but may purchase a finished cargo ship from its shipyard. Fully loaded hulls are intended to experience severe sub-light acceleration penalties and higher planetary launch costs due to their mass. The procurement rule and full mass-dependent behavior are not yet enforced end to end.
 
 ##### Colony ship
 - **Operational scope:** A massive, single-use ark hull built to expand the empire’s borders by seeding new populations on virgin worlds.
@@ -301,8 +301,9 @@ Every module constructed on a space station requires a specific combination of r
 - **Size profile:** 24 slots (Mega-Engineering Framework)
 - **Dry mass:** 85,000 kg
 - **Primary material inputs:** `refined_iron`, `titanium_aluminide` and `refined_neodymium`.
-- **Systemic factors:** Restricts ship construction by scale and complexity. It can only assemble user-designed blueprints that do not exceed **50 total module slots** and a maximum dry mass threshold. The construction speed is modified by the empire's active *Advanced Component Assembly Line* tech level. Private corporations use this module to construct their autonomously owned cargo transport and mine ship fleets.
+- **Systemic factors:** Restricts ship construction by scale and complexity. It can assemble eligible public blueprints and a corporation's own proprietary blueprints that do not exceed **50 total module slots** and a maximum dry mass threshold. The construction speed is modified by the active *Advanced Component Assembly Line* tech level. Private corporations use this module to construct their autonomously owned cargo transport and mine ship fleets.
 - **Workforce requirement:** Calibrated and supervised by the `engineer` profession, utilizing `industrial_workers` for heavy structural welding loops.
+- **Assembly cadence (Draft):** Each powered grid provides a finite number of effective work hours per game day. Its slipways advance compatible construction orders on daily turns; queued orders wait for an available slipway and stalled orders retain their completed work.
 
 #### Capital mega-engineering slipway
 - **Size profile:** 60 slots (Super-Heavy Structural Matrix)
@@ -310,6 +311,7 @@ Every module constructed on a space station requires a specific combination of r
 - **Primary material inputs:** `silicon_carbide`, `graphene` and advanced micro-thruster positioning grids.
 - **Systemic factors:** Unlocks the physical capability to construct heavy class vessels (exceeding **50 to 150+ total module slots**). Because these massive hulls possess extreme dry mass profiles that carry crippling launch tax penalties on planetary surfaces, this orbital module functions as the primary, cost-effective manufacturing hub for an interstellar empire's capital fleet.
 - **Workforce requirement:** Requires a high density of the `engineer` profession to manage the complex structural tolerances of heavy starframes.
+- **Assembly cadence (Draft):** Capital slipways use the same daily construction-order progress model as orbital grids but support larger and more complex hulls. Capacity, assigned workforce and production technology affect the rate, while the blueprint determines total required work.
 
 #### Theoretical physics lab
 - **Size profile:** 10 slots (Heavy Research Array)

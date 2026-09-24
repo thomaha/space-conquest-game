@@ -1,6 +1,8 @@
 package com.spaceconquest.engine;
 
 import com.spaceconquest.engine.community.GalacticCommunity;
+import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
+import com.spaceconquest.engine.economy.ImperialBalanceSheet;
 import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.espionage.EspionageOperation;
 import com.spaceconquest.engine.espionage.PirateBase;
@@ -57,9 +59,12 @@ public record SaveGame(
         GalacticCommunity galacticCommunity,
         List<TradeRoute> tradeRoutes,
         List<FogOfWarState> fogOfWarStates,
-        List<SystemEconomy> systemEconomies
+        List<SystemEconomy> systemEconomies,
+        List<CourierShip> courierShips,
+        List<PlanetaryBalanceSheet> planetaryBalanceSheets,
+        List<ImperialBalanceSheet> imperialBalanceSheets
 ) {
-    public static final int CURRENT_VERSION = 9;
+    public static final int CURRENT_VERSION = 11;
 
     public SaveGame {
         if (solarSystems == null) solarSystems = List.of();
@@ -88,142 +93,35 @@ public record SaveGame(
         if (tradeRoutes == null) tradeRoutes = List.of();
         if (fogOfWarStates == null) fogOfWarStates = List.of();
         if (systemEconomies == null) systemEconomies = List.of();
+        if (courierShips == null) courierShips = List.of();
+        if (planetaryBalanceSheets == null) planetaryBalanceSheets = List.of();
+        if (imperialBalanceSheets == null) imperialBalanceSheets = List.of();
     }
 
-    public SaveGame(
-            int version,
-            String savedAt,
-            int gameSpeed,
-            String gameTime,
-            List<SolarSystem> solarSystems
-    ) {
-        this(version, savedAt, gameSpeed, gameTime, solarSystems,
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of());
+    public static SaveGame fromGameState(GameState state, String savedAt, int gameSpeed, String gameTime) {
+        return new SaveGame(
+                CURRENT_VERSION, savedAt, gameSpeed, gameTime,
+                state.solarSystems(), state.empires(), state.corporations(), state.commercialHubs(),
+                state.shadowSyndicates(), state.diplomaticRelations(), state.systemGovernors(), state.researchProjects(),
+                state.technologyExchangeRoutes(), state.shipDesigns(), state.fleets(), state.geologicalDeposits(),
+                state.powerGrids(), state.industrialFacilities(), state.expansionProjects(), state.orbitalStations(),
+                state.spaceElevators(), state.constructionProjects(), state.sleeperAgents(), state.espionageOperations(),
+                state.pirateBases(), state.terraformingProjects(), state.megastructures(), state.galacticCommunity(),
+                state.tradeRoutes(), state.fogOfWarStates(), state.systemEconomies(), state.courierShips(),
+                state.planetaryBalanceSheets(), state.imperialBalanceSheets()
+        );
     }
 
-    public SaveGame(
-            int version,
-            String savedAt,
-            int gameSpeed,
-            String gameTime,
-            List<SolarSystem> solarSystems,
-            List<Empire> empires,
-            List<Corporation> corporations,
-            List<CommercialHub> commercialHubs,
-            List<ShadowSyndicate> shadowSyndicates,
-            List<DiplomaticRelation> diplomaticRelations,
-            List<SystemGovernor> systemGovernors
-    ) {
-        this(version, savedAt, gameSpeed, gameTime, solarSystems,
-                empires, corporations, commercialHubs, shadowSyndicates,
-                diplomaticRelations, systemGovernors, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of());
-    }
-
-    public SaveGame(
-            int version,
-            String savedAt,
-            int gameSpeed,
-            String gameTime,
-            List<SolarSystem> solarSystems,
-            List<Empire> empires,
-            List<Corporation> corporations,
-            List<CommercialHub> commercialHubs,
-            List<ShadowSyndicate> shadowSyndicates,
-            List<DiplomaticRelation> diplomaticRelations,
-            List<SystemGovernor> systemGovernors,
-            List<ResearchProject> researchProjects,
-            List<TechnologyExchangeRoute> technologyExchangeRoutes,
-            List<ShipDesign> shipDesigns,
-            List<Fleet> fleets,
-            List<GeologicalDeposit> geologicalDeposits,
-            List<PowerGridState> powerGrids,
-            List<IndustrialFacility> industrialFacilities,
-            List<FacilityExpansionProject> expansionProjects
-    ) {
-        this(version, savedAt, gameSpeed, gameTime, solarSystems,
-                empires, corporations, commercialHubs, shadowSyndicates,
-                diplomaticRelations, systemGovernors, researchProjects, technologyExchangeRoutes,
-                shipDesigns, fleets, geologicalDeposits, powerGrids, industrialFacilities, expansionProjects,
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), List.of());
-    }
-
-    public SaveGame(
-            int version,
-            String savedAt,
-            int gameSpeed,
-            String gameTime,
-            List<SolarSystem> solarSystems,
-            List<Empire> empires,
-            List<Corporation> corporations,
-            List<CommercialHub> commercialHubs,
-            List<ShadowSyndicate> shadowSyndicates,
-            List<DiplomaticRelation> diplomaticRelations,
-            List<SystemGovernor> systemGovernors,
-            List<ResearchProject> researchProjects,
-            List<TechnologyExchangeRoute> technologyExchangeRoutes,
-            List<ShipDesign> shipDesigns,
-            List<Fleet> fleets,
-            List<GeologicalDeposit> geologicalDeposits,
-            List<PowerGridState> powerGrids,
-            List<IndustrialFacility> industrialFacilities,
-            List<FacilityExpansionProject> expansionProjects,
-            List<OrbitalStation> orbitalStations,
-            List<SpaceElevator> spaceElevators,
-            List<ConstructionDeploymentProject> constructionProjects,
-            List<SleeperAgent> sleeperAgents,
-            List<EspionageOperation> espionageOperations,
-            List<PirateBase> pirateBases,
-            List<GeoengineeringProject> terraformingProjects,
-            List<Megastructure> megastructures,
-            GalacticCommunity galacticCommunity
-    ) {
-        this(version, savedAt, gameSpeed, gameTime, solarSystems,
-                empires, corporations, commercialHubs, shadowSyndicates,
-                diplomaticRelations, systemGovernors, researchProjects, technologyExchangeRoutes,
-                shipDesigns, fleets, geologicalDeposits, powerGrids, industrialFacilities, expansionProjects,
-                orbitalStations, spaceElevators, constructionProjects, sleeperAgents, espionageOperations, pirateBases,
-                terraformingProjects, megastructures, galacticCommunity, List.of(), List.of(), List.of());
-    }
-
-    public SaveGame(
-            int version,
-            String savedAt,
-            int gameSpeed,
-            String gameTime,
-            List<SolarSystem> solarSystems,
-            List<Empire> empires,
-            List<Corporation> corporations,
-            List<CommercialHub> commercialHubs,
-            List<ShadowSyndicate> shadowSyndicates,
-            List<DiplomaticRelation> diplomaticRelations,
-            List<SystemGovernor> systemGovernors,
-            List<ResearchProject> researchProjects,
-            List<TechnologyExchangeRoute> technologyExchangeRoutes,
-            List<ShipDesign> shipDesigns,
-            List<Fleet> fleets,
-            List<GeologicalDeposit> geologicalDeposits,
-            List<PowerGridState> powerGrids,
-            List<IndustrialFacility> industrialFacilities,
-            List<FacilityExpansionProject> expansionProjects,
-            List<OrbitalStation> orbitalStations,
-            List<SpaceElevator> spaceElevators,
-            List<ConstructionDeploymentProject> constructionProjects,
-            List<SleeperAgent> sleeperAgents,
-            List<EspionageOperation> espionageOperations,
-            List<PirateBase> pirateBases,
-            List<GeoengineeringProject> terraformingProjects,
-            List<Megastructure> megastructures,
-            GalacticCommunity galacticCommunity,
-            List<TradeRoute> tradeRoutes,
-            List<FogOfWarState> fogOfWarStates
-    ) {
-        this(version, savedAt, gameSpeed, gameTime, solarSystems,
-                empires, corporations, commercialHubs, shadowSyndicates,
-                diplomaticRelations, systemGovernors, researchProjects, technologyExchangeRoutes,
-                shipDesigns, fleets, geologicalDeposits, powerGrids, industrialFacilities, expansionProjects,
-                orbitalStations, spaceElevators, constructionProjects, sleeperAgents, espionageOperations, pirateBases,
-                terraformingProjects, megastructures, galacticCommunity, tradeRoutes, fogOfWarStates, List.of());
+    public GameState toGameState(long turn, String status) {
+        return new GameState(
+                turn, status, solarSystems, empires,
+                corporations, commercialHubs, shadowSyndicates, diplomaticRelations,
+                systemGovernors, researchProjects, technologyExchangeRoutes, shipDesigns,
+                fleets, geologicalDeposits, powerGrids, industrialFacilities,
+                expansionProjects, orbitalStations, spaceElevators, constructionProjects,
+                sleeperAgents, espionageOperations, pirateBases, terraformingProjects,
+                megastructures, galacticCommunity, tradeRoutes, fogOfWarStates,
+                systemEconomies, courierShips, planetaryBalanceSheets, imperialBalanceSheets
+        );
     }
 }

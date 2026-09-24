@@ -48,7 +48,13 @@ public class TerritoryProcessorTest {
         Empire silicon = new Empire("silicon_core", "Silicon Core", "silicon", "Collectivist", 1000, 0.1, List.of(), List.of(), Map.of(), List.of(), List.of());
         List<Empire> empires = List.of(terran, silicon);
 
-        GameState state = new GameState(1, "RUNNING", systems, empires, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), economies, List.of());
+        GameState state = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .solarSystems(systems)
+                .empires(empires)
+                .systemEconomies(economies)
+                .build();
 
         // 1. Initial check: control should be assigned based on population
         List<Empire> updatedEmpires = territoryProcessor.updateTerritorialControl(state);
@@ -71,7 +77,14 @@ public class TerritoryProcessorTest {
         
         OrbitalStation terranStation = new OrbitalStation("s1", "Forward Base", "sys2", "p2", "terran", OrbitalStation.OWNERSHIP_PUBLIC_STATE, 50, modules, Map.of(), 100, 100, 1000, 1000, 1000, 1000, "steel", 10, true);
         
-        GameState stateWithMilitary = new GameState(1, "RUNNING", systems, empires, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(terranStation), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null, List.of(), List.of(), economies, List.of());
+        GameState stateWithMilitary = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .solarSystems(systems)
+                .empires(empires)
+                .orbitalStations(List.of(terranStation))
+                .systemEconomies(economies)
+                .build();
 
         List<Empire> militaryUpdatedEmpires = territoryProcessor.updateTerritorialControl(stateWithMilitary);
         Empire terranWithMilitary = militaryUpdatedEmpires.stream().filter(e -> e.id().equals("terran")).findFirst().orElseThrow();

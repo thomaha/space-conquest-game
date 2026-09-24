@@ -61,10 +61,12 @@ public class LogisticsAndSensorCommandTest {
                 100000.0, 0.10, List.of(), List.of(), Map.of(), List.of(), List.of()
         );
 
-        GameState state = new GameState(
-                1, "RUNNING", List.of(sol), List.of(terran), List.of(), List.of(),
-                List.of(), List.of(), List.of()
-        );
+        GameState state = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .solarSystems(List.of(sol))
+                .empires(List.of(terran))
+                .build();
 
         ScanSystemCommand scanCmd = new ScanSystemCommand("terran_confederation", "sol");
         assertTrue(scanCmd.validate(state));

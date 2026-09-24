@@ -58,36 +58,9 @@ public record SubsidizeCorporationCommand(
             }
         }
 
-        return new GameState(
-                state.turn(),
-                state.status(),
-                state.solarSystems(),
-                updatedEmpires,
-                updatedCorps,
-                state.commercialHubs(),
-                state.shadowSyndicates(),
-                state.diplomaticRelations(),
-                state.systemGovernors(),
-                state.researchProjects(),
-                state.technologyExchangeRoutes(),
-                state.shipDesigns(),
-                state.fleets(),
-                state.geologicalDeposits(),
-                state.powerGrids(),
-                state.industrialFacilities(),
-                state.expansionProjects(),
-                state.orbitalStations(),
-                state.spaceElevators(),
-                state.constructionProjects(),
-                state.sleeperAgents(),
-                state.espionageOperations(),
-                state.pirateBases(),
-                state.terraformingProjects(),
-                state.megastructures(),
-                state.galacticCommunity(),
-                state.tradeRoutes(),
-                state.fogOfWarStates(),
-                state.systemEconomies()
-        );
+        return state.toBuilder()
+                .empires(updatedEmpires)
+                .corporations(updatedCorps)
+                .build();
     }
 }

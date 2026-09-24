@@ -51,16 +51,8 @@ public record CreateTradeRouteCommand(
         List<TradeRoute> updated = new ArrayList<>(state.tradeRoutes());
         updated.add(newRoute);
 
-        return new GameState(
-                state.turn(), state.status(), state.solarSystems(), state.empires(),
-                state.corporations(), state.commercialHubs(), state.shadowSyndicates(),
-                state.diplomaticRelations(), state.systemGovernors(), state.researchProjects(),
-                state.technologyExchangeRoutes(), state.shipDesigns(), state.fleets(),
-                state.geologicalDeposits(), state.powerGrids(), state.industrialFacilities(),
-                state.expansionProjects(), state.orbitalStations(), state.spaceElevators(),
-                state.constructionProjects(), state.sleeperAgents(), state.espionageOperations(),
-                state.pirateBases(), state.terraformingProjects(), state.megastructures(),
-                state.galacticCommunity(), updated, state.fogOfWarStates()
-        );
+        return state.toBuilder()
+                .tradeRoutes(updated)
+                .build();
     }
 }

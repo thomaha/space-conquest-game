@@ -82,14 +82,12 @@ public class ExpandedFeaturesIntegrationTest {
                 1500.0, 1000.0, 20000.0, List.of("freighter_01"), 0.0, true
         );
 
-        GameState initialState = new GameState(
-                0, "RUNNING", List.of(), List.of(terran), List.of(),
-                List.of(originHub, destHub), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), null,
-                List.of(route), List.of()
-        );
+        GameState initialState = GameState.builder()
+                .status("RUNNING")
+                .empires(List.of(terran))
+                .commercialHubs(List.of(originHub, destHub))
+                .tradeRoutes(List.of(route))
+                .build();
 
         engine.applyGameState(initialState);
         engine.stepTurn();
@@ -163,14 +161,17 @@ public class ExpandedFeaturesIntegrationTest {
         );
 
         SpaceConquestEngine engine = new SpaceConquestEngine();
-        GameState state = new GameState(
-                5, "RUNNING", List.of(sol, alphaCentauri), List.of(terran), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(expDesign), List.of(expFleet), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(rogueBase), List.of(), List.of(), null,
-                List.of(route), List.of(new FogOfWarState("terran_confederation", List.of("sol"), List.of("earth"), List.of(), List.of(), List.of()))
-        );
+        GameState state = GameState.builder()
+                .turn(5)
+                .status("RUNNING")
+                .solarSystems(List.of(sol, alphaCentauri))
+                .empires(List.of(terran))
+                .shipDesigns(List.of(expDesign))
+                .fleets(List.of(expFleet))
+                .pirateBases(List.of(rogueBase))
+                .tradeRoutes(List.of(route))
+                .fogOfWarStates(List.of(new FogOfWarState("terran_confederation", List.of("sol"), List.of("earth"), List.of(), List.of(), List.of())))
+                .build();
 
         engine.applyGameState(state);
         engine.stepTurn();

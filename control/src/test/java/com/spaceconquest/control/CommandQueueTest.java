@@ -10,8 +10,11 @@ import com.spaceconquest.control.command.SetTariffRateCommand;
 import com.spaceconquest.control.command.SubsidizeCorporationCommand;
 import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.Corporation;
+import com.spaceconquest.engine.CourierShip;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.SpaceConquestEngine;
+import com.spaceconquest.engine.economy.ImperialBalanceSheet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -79,17 +82,13 @@ public class CommandQueueTest {
                 Map.of()
         );
 
-        initialState = new GameState(
-                1,
-                "RUNNING",
-                List.of(),
-                List.of(empire, silicon),
-                List.of(corp),
-                List.of(hub),
-                List.of(),
-                List.of(),
-                List.of()
-        );
+        initialState = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .empires(List.of(empire, silicon))
+                .corporations(List.of(corp))
+                .commercialHubs(List.of(hub))
+                .build();
     }
 
     @Test
@@ -99,6 +98,23 @@ public class CommandQueueTest {
 
         assertNotNull(updated);
         assertEquals(0.05, updated.commercialHubs().getFirst().transactionTariffRate(), 0.001);
+    }
+
+    @Test
+    public void testCommandPreservesUnrelatedState() {
+        CourierShip courier = new CourierShip("courier_1", "terran", 125.0, "sol", "alpha", 2, false);
+        ImperialBalanceSheet balance = new ImperialBalanceSheet("terran", 1, 10.0, 20.0, 5.0, 15.0);
+        GameState state = initialState.toBuilder()
+                .courierShips(List.of(courier))
+                .imperialBalanceSheets(List.of(balance))
+                .build();
+
+        commandQueue.submit(new SetTariffRateCommand("terran", "hub_earth", 0.05));
+        GameState updated = commandQueue.drainAndExecute(state);
+
+        assertEquals(0.05, updated.commercialHubs().getFirst().transactionTariffRate(), 0.001);
+        assertEquals(List.of(courier), updated.courierShips());
+        assertEquals(List.of(balance), updated.imperialBalanceSheets());
     }
 
     @Test
@@ -112,6 +128,19 @@ public class CommandQueueTest {
 
         assertEquals(40000.0, updatedEmpire.treasuryCredits(), 0.001);
         assertEquals(30000.0, updatedCorp.liquidCapitalReserves(), 0.001);
+    }
+
+    @Test
+    public void testCommandSpendingAppearsInNextImperialBalanceSheet() {
+        SpaceConquestEngine engine = new SpaceConquestEngine();
+        engine.reset(initialState);
+        commandQueue.submit(new SubsidizeCorporationCommand("terran", "corp_mining", 10000.0));
+        commandQueue.processCommands(engine);
+        engine.stepTurn();
+
+        var balance = engine.getGameState().imperialBalanceSheets().stream()
+                .filter(sheet -> "terran".equals(sheet.empireId())).findFirst().orElseThrow();
+        assertEquals(10000.0, balance.expenditureCredits(), 0.001);
     }
 
     @Test

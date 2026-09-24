@@ -33,17 +33,11 @@ public class ShadowSyndicateAIControllerTest {
                 List.of("pirate_raider_1")
         );
 
-        GameState state = new GameState(
-                1,
-                "RUNNING",
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(syndicate),
-                List.of(),
-                List.of()
-        );
+        GameState state = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .shadowSyndicates(List.of(syndicate))
+                .build();
 
         assertEquals("syndicate_shadow_1", syndicateAI.getSyndicateId());
         assertDoesNotThrow(() -> syndicateAI.onGameStateUpdate(state));

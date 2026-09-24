@@ -61,15 +61,9 @@ public record ExtortSupplyLineCommand(
             return b;
         }).toList();
 
-        return new GameState(
-                state.turn(), state.status(), state.solarSystems(), state.empires(),
-                updatedCorps, state.commercialHubs(), state.shadowSyndicates(),
-                state.diplomaticRelations(), state.systemGovernors(), state.researchProjects(),
-                state.technologyExchangeRoutes(), state.shipDesigns(), state.fleets(),
-                state.geologicalDeposits(), state.powerGrids(), state.industrialFacilities(),
-                state.expansionProjects(), state.orbitalStations(), state.spaceElevators(),
-                state.constructionProjects(), state.sleeperAgents(), state.espionageOperations(),
-                updatedBases
-        );
+        return state.toBuilder()
+                .corporations(updatedCorps)
+                .pirateBases(updatedBases)
+                .build();
     }
 }

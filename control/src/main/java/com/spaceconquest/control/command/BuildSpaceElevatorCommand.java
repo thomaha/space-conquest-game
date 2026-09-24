@@ -43,15 +43,8 @@ public record BuildSpaceElevatorCommand(
         List<SpaceElevator> updated = new ArrayList<>(state.spaceElevators());
         updated.add(elevator);
 
-        return new GameState(
-                state.turn(), state.status(), state.solarSystems(), state.empires(),
-                state.corporations(), state.commercialHubs(), state.shadowSyndicates(),
-                state.diplomaticRelations(), state.systemGovernors(), state.researchProjects(),
-                state.technologyExchangeRoutes(), state.shipDesigns(), state.fleets(),
-                state.geologicalDeposits(), state.powerGrids(), state.industrialFacilities(),
-                state.expansionProjects(), state.orbitalStations(), updated,
-                state.constructionProjects(), state.sleeperAgents(), state.espionageOperations(),
-                state.pirateBases()
-        );
+        return state.toBuilder()
+                .spaceElevators(updated)
+                .build();
     }
 }

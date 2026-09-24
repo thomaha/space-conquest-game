@@ -7,6 +7,7 @@ import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.economy.SystemEconomy;
+import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -37,12 +38,13 @@ public class SystemEconomyCommandTest {
 
         SystemEconomy economy = SystemEconomy.createDefault("sol", "terran_confederation", 2_000_000L);
 
-        baseState = new GameState(
-                1, "RUNNING", List.of(sol), List.of(empire), List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null,
-                List.of(), List.of(), List.of(economy), List.of()
-        );
+        baseState = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .solarSystems(List.of(sol))
+                .empires(List.of(empire))
+                .systemEconomies(List.of(economy))
+                .build();
     }
 
     @Test
@@ -69,13 +71,28 @@ public class SystemEconomyCommandTest {
                 "terran_confederation", "alpha_centauri", 0.20, 0.20, 0.20, 0.20, 0.20, 2000.0, 0.10
         );
         assertFalse(unownedSystem.validate(baseState));
+
+        SetSystemEconomyBudgetCommand subsidy = new SetSystemEconomyBudgetCommand(
+                "terran_confederation", "sol", 0.20, 0.20, 0.20, 0.20, 0.20,
+                2000.0, 0.10, -0.50
+        );
+        assertTrue(subsidy.validate(baseState));
+        assertFalse(new SetSystemEconomyBudgetCommand(
+                "terran_confederation", "sol", 0.20, 0.20, 0.20, 0.20, 0.20,
+                2000.0, 0.10, 1.01).validate(baseState));
+        assertFalse(new SetSystemEconomyBudgetCommand(
+                "terran_confederation", "sol", Double.NaN, 0.20, 0.20, 0.20, 0.20,
+                2000.0, 0.10, 0.0).validate(baseState));
+        assertFalse(new SetSystemEconomyBudgetCommand(
+                "terran_confederation", "sol", 0.20, 0.20, 0.20, 0.20, 0.20,
+                Double.POSITIVE_INFINITY, 0.10, 0.0).validate(baseState));
     }
 
     @Test
     public void testCommandApplyUpdatesAllocationsAndIndices() {
         // Education and Science focus: 40% Edu, 15% Law, 15% Health, 15% Infra, 15% Militia
         SetSystemEconomyBudgetCommand cmd = new SetSystemEconomyBudgetCommand(
-                "terran_confederation", "sol", 40.0, 15.0, 15.0, 15.0, 15.0, 4000.0, 0.25
+                "terran_confederation", "sol", 40.0, 15.0, 15.0, 15.0, 15.0, 4000.0, 0.25, -0.50
         );
 
         GameState updatedState = cmd.apply(baseState);
@@ -94,10 +111,22 @@ public class SystemEconomyCommandTest {
         assertEquals(0.15, updatedEconomy.planetaryMilitiasAllocation(), 0.001);
         assertEquals(4000.0, updatedEconomy.totalBudgetCredits(), 0.001);
         assertEquals(0.25, updatedEconomy.taxRate(), 0.001);
+        assertEquals(-0.50, updatedEconomy.empireContributionRate(), 0.001);
 
         // Indices: Pop = 2,000,000. Budget = 4000. Edu = 4000 * 0.40 = 1600. Per capita = 1600 / 2,000,000 = 0.0008. Baseline = 0.0004 -> index = 2.0
         assertEquals(2.0, updatedEconomy.educationLevel(), 0.001);
         // Law = 4000 * 0.15 = 600. Per capita = 600 / 2,000,000 = 0.0003 -> index = 0.75
         assertEquals(0.75, updatedEconomy.lawAndOrderLevel(), 0.001);
+    }
+
+    @Test
+    public void testCommandPreservesPlanetaryBalanceSheets() {
+        PlanetaryBalanceSheet sheet = PlanetaryBalanceSheet.createEmpty("earth", "sol", empire.id());
+        GameState stateWithSheets = baseState.withPlanetaryBalanceSheets(List.of(sheet));
+        SetSystemEconomyBudgetCommand cmd = new SetSystemEconomyBudgetCommand(
+                empire.id(), "sol", 0.20, 0.20, 0.20, 0.20, 0.20, 4000.0, 0.10
+        );
+
+        assertEquals(List.of(sheet), cmd.apply(stateWithSheets).planetaryBalanceSheets());
     }
 }

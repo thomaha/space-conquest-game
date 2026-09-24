@@ -51,24 +51,8 @@ public record NationalizeAssetCommand(
             }
         }
 
-        return new GameState(
-                state.turn(),
-                state.status(),
-                state.solarSystems(),
-                state.empires(),
-                updatedCorps,
-                state.commercialHubs(),
-                state.shadowSyndicates(),
-                state.diplomaticRelations(),
-                state.systemGovernors(),
-                state.researchProjects(),
-                state.technologyExchangeRoutes(),
-                state.shipDesigns(),
-                state.fleets(),
-                state.geologicalDeposits(),
-                state.powerGrids(),
-                state.industrialFacilities(),
-                state.expansionProjects()
-        );
+        return state.toBuilder()
+                .corporations(updatedCorps)
+                .build();
     }
 }

@@ -24,8 +24,19 @@ public record SetSystemEconomyBudgetCommand(
         double infrastructureAllocation,
         double planetaryMilitiasAllocation,
         double totalBudgetCredits,
-        double taxRate
+        double taxRate,
+        double empireContributionRate
 ) implements GameCommand {
+
+    public SetSystemEconomyBudgetCommand(
+            String empireId, String systemId, double educationAllocation, double lawAndOrderAllocation,
+            double healthAndWelfareAllocation, double infrastructureAllocation,
+            double planetaryMilitiasAllocation, double totalBudgetCredits, double taxRate
+    ) {
+        this(empireId, systemId, educationAllocation, lawAndOrderAllocation,
+                healthAndWelfareAllocation, infrastructureAllocation, planetaryMilitiasAllocation,
+                totalBudgetCredits, taxRate, 0.0);
+    }
 
     private record NormalizedBudget(double edu, double law, double health, double infra, double militia) {}
 
@@ -39,13 +50,18 @@ public record SetSystemEconomyBudgetCommand(
                 || "Hive mind".equalsIgnoreCase(empire.societyStructure());
         if (isHiveMind) return false;
 
-        if (totalBudgetCredits < 0) return false;
-        if (empire.controlledSystemIds() != null && !empire.controlledSystemIds().isEmpty()) {
-            if (!empire.controlledSystemIds().contains(systemId)) {
-                return false;
-            }
-        }
-        return true;
+        if (!Double.isFinite(totalBudgetCredits) || totalBudgetCredits < 0) return false;
+        if (!Double.isFinite(taxRate) || taxRate < 0.0 || taxRate > 0.50) return false;
+        if (!Double.isFinite(empireContributionRate)
+                || empireContributionRate < -1.0 || empireContributionRate > 1.0) return false;
+        if (!Double.isFinite(educationAllocation) || educationAllocation < 0.0
+                || !Double.isFinite(lawAndOrderAllocation) || lawAndOrderAllocation < 0.0
+                || !Double.isFinite(healthAndWelfareAllocation) || healthAndWelfareAllocation < 0.0
+                || !Double.isFinite(infrastructureAllocation) || infrastructureAllocation < 0.0
+                || !Double.isFinite(planetaryMilitiasAllocation) || planetaryMilitiasAllocation < 0.0) return false;
+        return empire.controlledSystemIds() != null
+                && empire.controlledSystemIds().contains(systemId)
+                && state.solarSystems().stream().anyMatch(system -> systemId.equals(system.id()));
     }
 
     @Override
@@ -68,38 +84,7 @@ public record SetSystemEconomyBudgetCommand(
         updatedList.removeIf(se -> se.systemId().equals(systemId));
         updatedList.add(updatedEconomy);
 
-        return new GameState(
-                state.turn(),
-                state.status(),
-                state.solarSystems(),
-                state.empires(),
-                state.corporations(),
-                state.commercialHubs(),
-                state.shadowSyndicates(),
-                state.diplomaticRelations(),
-                state.systemGovernors(),
-                state.researchProjects(),
-                state.technologyExchangeRoutes(),
-                state.shipDesigns(),
-                state.fleets(),
-                state.geologicalDeposits(),
-                state.powerGrids(),
-                state.industrialFacilities(),
-                state.expansionProjects(),
-                state.orbitalStations(),
-                state.spaceElevators(),
-                state.constructionProjects(),
-                state.sleeperAgents(),
-                state.espionageOperations(),
-                state.pirateBases(),
-                state.terraformingProjects(),
-                state.megastructures(),
-                state.galacticCommunity(),
-                state.tradeRoutes(),
-                state.fogOfWarStates(),
-                updatedList,
-                state.courierShips()
-        );
+        return state.withSystemEconomies(updatedList);
     }
 
     private NormalizedBudget normalizeBudgetAllocations() {
@@ -174,7 +159,8 @@ public record SetSystemEconomyBudgetCommand(
                 existing != null ? existing.employedTechnicians() : Math.max(30, Math.round(systemPop * 0.0015)),
                 existing != null ? existing.employedSoldiers() : Math.max(25, Math.round(systemPop * 0.0012)),
                 existing != null ? existing.recruitableSoldiers() : Math.max(100, Math.round(systemPop * 0.0050)),
-                taxRate
+                taxRate,
+                empireContributionRate
         );
     }
 }

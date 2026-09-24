@@ -156,36 +156,7 @@ public class CustomEmpireBuilder {
         updatedEmpires.removeIf(e -> e.id().equals(customEmpire.id()));
         updatedEmpires.add(customEmpire);
 
-        return new GameState(
-                state.turn(),
-                state.status(),
-                state.solarSystems(),
-                updatedEmpires,
-                state.corporations(),
-                state.commercialHubs(),
-                state.shadowSyndicates(),
-                state.diplomaticRelations(),
-                state.systemGovernors(),
-                state.researchProjects(),
-                state.technologyExchangeRoutes(),
-                state.shipDesigns(),
-                state.fleets(),
-                state.geologicalDeposits(),
-                state.powerGrids(),
-                state.industrialFacilities(),
-                state.expansionProjects(),
-                state.orbitalStations(),
-                state.spaceElevators(),
-                state.constructionProjects(),
-                state.sleeperAgents(),
-                state.espionageOperations(),
-                state.pirateBases(),
-                state.terraformingProjects(),
-                state.megastructures(),
-                state.galacticCommunity(),
-                state.tradeRoutes(),
-                state.fogOfWarStates()
-        );
+        return state.withEmpires(updatedEmpires);
     }
 
     private Map<String, SpeciesTrait> getTraitMap() {

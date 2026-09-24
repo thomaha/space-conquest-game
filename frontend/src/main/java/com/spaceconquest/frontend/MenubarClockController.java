@@ -1,5 +1,6 @@
 package com.spaceconquest.frontend;
 
+import com.spaceconquest.engine.GameClock;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.scene.control.Button;
@@ -9,29 +10,39 @@ import javafx.util.Duration;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.function.Consumer;
 
 /**
- * Manages the in-game simulation clock, speed controls, pause states and HUD clock labels.
+ * Schedules real-time pulses and displays the authoritative engine time.
  */
 public class MenubarClockController {
 
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-    private static final String[] SPEED_NAMES = {"1 min/s", "1 hour/s", "6 hours/s", "12 hours/s", "1 day/s"};
-    private static final int[] MINUTES_PER_TICK = {1, 60, 360, 720, 1440};
+    private static final GameClock.ClockSpeed[] SPEEDS = {
+            GameClock.ClockSpeed.SPEED_1_MIN,
+            GameClock.ClockSpeed.SPEED_1_HOUR,
+            GameClock.ClockSpeed.SPEED_6_HOURS,
+            GameClock.ClockSpeed.SPEED_12_HOURS,
+            GameClock.ClockSpeed.SPEED_1_DAY,
+            GameClock.ClockSpeed.SPEED_5_DAYS,
+            GameClock.ClockSpeed.SPEED_10_DAYS
+    };
 
     private final Timeline clock = new Timeline();
     private final Label clockLabel = new Label();
     private final Label speedLabel = new Label();
 
-    private LocalDateTime gameTime = LocalDateTime.of(2200, 1, 1, 8, 0);
+    private LocalDateTime displayedTime = GameClock.START_TIME;
     private int speedIndex = 1;
     private int savedSpeedIndex = 1;
     private boolean paused;
     private boolean manuallyPaused;
-    private Runnable tickAction;
+    private Consumer<Double> pulseAction;
+    private Consumer<GameClock.ClockSpeed> speedChangeAction;
 
-    public void init(Runnable onTick) {
-        this.tickAction = onTick;
+    public void init(Consumer<Double> onPulse, Consumer<GameClock.ClockSpeed> onSpeedChange) {
+        this.pulseAction = onPulse;
+        this.speedChangeAction = onSpeedChange;
         updateClockLabels();
         restartClock();
     }
@@ -48,8 +59,12 @@ public class MenubarClockController {
         return speedIndex;
     }
 
-    public LocalDateTime getGameTime() {
-        return gameTime;
+    public GameClock.ClockSpeed getSelectedSpeed() {
+        return paused ? GameClock.ClockSpeed.PAUSED : SPEEDS[speedIndex];
+    }
+
+    public static GameClock.ClockSpeed speedForIndex(int index) {
+        return SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, index))];
     }
 
     public boolean isPaused() {
@@ -58,16 +73,16 @@ public class MenubarClockController {
 
     public void restoreTime(LocalDateTime time, int speed) {
         if (time != null) {
-            gameTime = time;
+            displayedTime = time;
         }
-        speedIndex = Math.max(0, Math.min(SPEED_NAMES.length - 1, speed));
+        speedIndex = Math.max(0, Math.min(SPEEDS.length - 1, speed));
         savedSpeedIndex = speedIndex;
         updateClockLabels();
         restartClock();
     }
 
     public void changeSpeed(int change) {
-        speedIndex = Math.max(0, Math.min(SPEED_NAMES.length - 1, speedIndex + change));
+        speedIndex = Math.max(0, Math.min(SPEEDS.length - 1, speedIndex + change));
         updateClockLabels();
         restartClock();
     }
@@ -101,12 +116,13 @@ public class MenubarClockController {
 
     public void restartClock() {
         clock.stop();
+        if (speedChangeAction != null) {
+            speedChangeAction.accept(getSelectedSpeed());
+        }
         if (!paused) {
             clock.getKeyFrames().setAll(new KeyFrame(Duration.seconds(1), e -> {
-                gameTime = gameTime.plusMinutes(MINUTES_PER_TICK[speedIndex]);
-                updateClockLabels();
-                if (tickAction != null) {
-                    tickAction.run();
+                if (pulseAction != null) {
+                    pulseAction.accept(1.0);
                 }
             }));
             clock.setCycleCount(Timeline.INDEFINITE);
@@ -115,16 +131,21 @@ public class MenubarClockController {
     }
 
     public void updateClockLabels() {
-        clockLabel.setText(gameTime.format(TIME_FORMAT));
+        clockLabel.setText(displayedTime.format(TIME_FORMAT));
         clockLabel.setTextFill(Color.WHITE);
         clockLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
 
-        speedLabel.setText(paused ? "PAUSED" : SPEED_NAMES[speedIndex]);
+        speedLabel.setText(paused ? "PAUSED" : SPEEDS[speedIndex].getLabel());
         speedLabel.setTextFill(paused ? Color.SALMON : Color.LIGHTGRAY);
         speedLabel.setStyle("-fx-font-size: 11px;");
     }
 
     public void stop() {
         clock.stop();
+    }
+
+    public void displayTime(LocalDateTime time) {
+        displayedTime = time;
+        updateClockLabels();
     }
 }

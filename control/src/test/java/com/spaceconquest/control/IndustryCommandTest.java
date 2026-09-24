@@ -26,11 +26,11 @@ public class IndustryCommandTest {
                 "dep_hidden_1", "earth", "titanium_ore", 200_000.0, 200_000.0, 1.2, false, ""
         );
 
-        initialState = new GameState(
-                1, "RUNNING", List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(hiddenVein), List.of(), List.of(), List.of()
-        );
+        initialState = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .geologicalDeposits(List.of(hiddenVein))
+                .build();
     }
 
     @Test

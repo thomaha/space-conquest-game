@@ -47,13 +47,7 @@ public class SaveGameManager {
         if (solarSystems == null) {
             throw new IOException("Nothing to save: no galaxy loaded");
         }
-        File target = withExtension(file);
-        if (target.getParentFile() != null) {
-            Files.createDirectories(target.getParentFile().toPath());
-        }
-        SaveGame save = new SaveGame(SaveGame.CURRENT_VERSION, Instant.now().toString(),
-                gameSpeed, gameTime, solarSystems);
-        mapper.writeValue(target, save);
+        save(file, GameState.builder().solarSystems(solarSystems).build(), gameSpeed, gameTime);
     }
 
     /**
@@ -76,39 +70,7 @@ public class SaveGameManager {
         if (target.getParentFile() != null) {
             Files.createDirectories(target.getParentFile().toPath());
         }
-        SaveGame save = new SaveGame(
-                SaveGame.CURRENT_VERSION,
-                Instant.now().toString(),
-                gameSpeed,
-                gameTime,
-                gameState.solarSystems(),
-                gameState.empires(),
-                gameState.corporations(),
-                gameState.commercialHubs(),
-                gameState.shadowSyndicates(),
-                gameState.diplomaticRelations(),
-                gameState.systemGovernors(),
-                gameState.researchProjects(),
-                gameState.technologyExchangeRoutes(),
-                gameState.shipDesigns(),
-                gameState.fleets(),
-                gameState.geologicalDeposits(),
-                gameState.powerGrids(),
-                gameState.industrialFacilities(),
-                gameState.expansionProjects(),
-                gameState.orbitalStations(),
-                gameState.spaceElevators(),
-                gameState.constructionProjects(),
-                gameState.sleeperAgents(),
-                gameState.espionageOperations(),
-                gameState.pirateBases(),
-                gameState.terraformingProjects(),
-                gameState.megastructures(),
-                gameState.galacticCommunity(),
-                gameState.tradeRoutes(),
-                gameState.fogOfWarStates(),
-                gameState.systemEconomies()
-        );
+        SaveGame save = SaveGame.fromGameState(gameState, Instant.now().toString(), gameSpeed, gameTime);
         mapper.writeValue(target, save);
     }
 

@@ -2,22 +2,24 @@
 This will be a space conquest game with similarities to Stellaris, Master of Orion and Distant worlds 2. 
 The game will have resources, technology, races, spaceships and combat both in space and on the ground.
 
+## Documentation status
+This repository documents an evolving game design. A feature described without a `Draft` label is not necessarily implemented. All design details may change and `Draft` sections are especially unsettled. The module `MODULE.md` files describe intended boundaries and the current implementation notes below identify known gaps. Check the source and tests when determining current behavior.
+
 ## Project structure
 - `engine`: core game logic and state.
 - `control`: input handling and player/AI logic.
 - `frontend`: main entry point and user interface. All assignments made must be backed by actual data in the game world. Example: you cannot assign more scientists to perform research than available in the empire.
 
 ## Technical stack
-The game will be built using Java. Starting with java26 but will upgrade when new versions are stable.
-Framework will be Spring Boot. A UI-framework is not yet decided but will not be browser-based. Starting with FXGL and see how that works out.
+The current Maven build targets Java 27. Use a Java 27 JDK to build and run the project. The application uses FXGL and JavaFX for its desktop UI, Jackson for JSON data and saves and JUnit for tests. Spring Boot is not a current dependency.
 
 ## Game components
-Every component in the game like race, technologies, technological applications, materials, professions, raw materials should fetch all properties from property files stored in the resources folder.  
+The design aims to load configurable properties for races, technologies, technological applications, materials, professions and raw materials from files in the resources folder. The current code also contains hard-coded simulation constants and catalogs.
 
-### Time. Draft section.
-- the game time will run for many years. The lowest game speed is 1 minute per real second, with steps at 1 hour, 6 hours, 12 hours, 1 day, 5 days, 10 days per second. 
-- it is possible to pause the game.
-- some mechanics will be checked continuously and others less frequently. Points that are mentioned as per turn will be checked daily.
+### Time (Draft)
+- The engine `GameClock` owns the campaign calendar. The frontend schedules real-time pulses and displays the time returned by the engine. Available speeds are 1 minute, 1 hour, 6 hours, 12 hours, 1 day, 5 days and 10 days of game time per real second. The game can be paused.
+- One simulation turn represents one game day. Commands enter at the start of the next daily turn. Systems that track progress in turns or work hours advance on daily boundaries, so a project can span several days. Population age brackets advance on calendar-year boundaries and democratic elections occur every five calendar years.
+- A shared calendar does not mean every action has the same cadence. Some actions still complete immediately because they do not yet have a duration or project model; their intended work rates remain to be defined.
 
 ### Game start
 Player can decide to start the game with: 
@@ -219,10 +221,10 @@ The empire’s central government does not control private corporations directly
 *   **Nationalization:** In times of total war or economic collapse, individualist states can forcefully nationalize corporate assets (such as cargo fleets or weapon foundries), transferring them directly to the public economy. This action instantly destroys corporate trust, driving private capital away from the sub-sector and causing severe happiness drops among the citizen cohorts who held corporate investments.
 
 #### Corporate fleet procurement
-Private corporations do not design their own ship hulls; instead, they utilize the player’s or the empire's custom ship designer blueprints.
-*   **Blueprint selection:** The corporate AI continuously evaluates the empire's unlocked public ship designs. When a corporation detects a logistics shortage or a high-value asteroid node, it scans for blueprints tagged with the matching **Cargo Transport** or **Mine Ship** primary operational roles.
-*   **Shipyard contracts:** The corporation spends its accumulated private liquid capital reserves to place a manufacturing order at a valid planetary or orbital shipyard module. The corporation pays the exact universal credit cost to the shipyard owner (which can be the state or another private mega-corporation).
-*   **Material consumption:** Constructing the corporate ship consumes the required refined metals, electronics and composites from the local industrial storage inventory. The corporation must wait out the required work hour assembly window just like a state-owned military warship order.
+Private corporations may use eligible public designs or create proprietary blueprints for their own fleets. A proprietary blueprint belongs to its designing corporation and only that corporation may use it to build ships. The player cannot commission a ship directly from a corporate blueprint. The player may purchase a finished ship from a corporate shipyard without receiving the blueprint or the right to manufacture further copies.
+*   **Blueprint selection:** Corporate AI may evaluate unlocked public designs and its own proprietary designs for the required **Cargo Transport** or **Mine Ship** role. Public designs remain distinct from corporation-owned designs.
+*   **Shipyard contracts:** The corporation uses its private capital to place a construction order at a compatible shipyard. The yard processes the order over daily turns according to the blueprint's required work hours and its available assembly capacity. The corporation pays the shipyard owner, which may be the state or another corporation.
+*   **Material consumption:** Constructing the corporate ship requires refined metals, electronics and composites from local inventory. The order pauses when required inputs or yard capacity are unavailable. Corporate and state orders follow the same construction-time rules described in [ShipDesign.md](ShipDesign.md).
 
 #### Mine ship operations
 When a private corporation takes delivery of a vessel tagged with the **Mine Ship** role, it operates the asset to extract raw planetary ring or asteroid rock reserves independently of the central government.
@@ -354,17 +356,25 @@ Each module contains a `MODULE.md` file with specific details about its purpose 
 ## How to build and run
 - Build everything and run the tests: `mvn clean install`
 - Run only the engine tests: `mvn test -pl engine`
-- Start the game: `mvn javafx:run -pl frontend` (or run `com.spaceconquest.frontend.Main`)
+- Start the game by running `com.spaceconquest.frontend.Main` with the frontend module dependencies available. The current POMs do not configure the `javafx:run` Maven goal.
 
-## Implemented so far
+## Current implementation
 - Static data model loaded from JSON property files: solar systems, races, materials, technologies with
   applications, star properties (Hertzsprung-Russell) and professions.
 - Procedural galaxy generation with realistic star mass distribution and colors.
-- Physics-standardized simulation engine using SI units (kg, N, K, kW).
-- Megastructure assembly and yields (Dyson spheres, star lifters, hyperlane gateways).
-- Dynamic political elections influenced by material shortages and professional backgrounds.
+- Turn processors for markets, public budgets, municipal finances, industry, governance, research, fleet movement, sensors, espionage, construction, terraforming, megastructures and senate sessions.
 - Procedural audio synthesis worker for event-driven feedback.
-- Galaxy map with zoom (buttons and mouse wheel), goto search, entity focus panels and tooltips.
+- FXGL entity map with zoom, goto search, entity focus panels and tooltips plus a separate canvas galaxy view.
 - Menubar with empire, diplomacy, technology, fleet, galaxy view and game menu pages; opening a page pauses
   the game and closing it resumes at the previous speed.
-Societies: The Pure Automation GameWhen the private sector is toggled off, the entire architecture changes from a financial simulation to a pure network routing game (resembling titles like Factorio or Anno).Bypassing the Finance Module: The engine completely skips citizen wallet allocations, tax collections, corporate accounting loops and local P&L sheets. Everything uses raw material balances.The Logistics Nightmare: Because there is no private corporate AI automatically seeking out market shortcomings, the player must manually design every trade lane and allocate every single ship_crew number. If your capital world runs out of food because you forgot to build cargo haulers, the hive organisms do not look for alternatives—they simply starve and shut down productivity linearly.
+
+### Known integration gaps
+- The UI still supplies one real-time pulse per second, while the engine accumulates partial days and executes the number of daily turns due. Simulation turns run on a dedicated worker and publish snapshots back to JavaFX. At high speeds, processing can lag behind real time if the simulation cannot complete the due turns quickly.
+- `GameState` is a record but does not defensively copy all nested collections. Commands now use a copy builder or `with...` methods to preserve unrelated snapshot fields. The tick refresh does not update every view and some views read initial JSON data instead of live state.
+- Save and load restore the calendar and selected speed; the daily turn is derived from the saved calendar. Courier ships, local and imperial balance sheets and system contribution settings round-trip. Local deficits accumulate as debt on each body. System debt aggregates those local balances and the imperial ledger records actual treasury flows and its own debt. Other newer live fields may still be absent from the save format.
+- Cohort demographics, detailed consumption, warp-network routing and tactical fleet combat have models or processors but are not fully integrated into the normal turn loop.
+- Corporation-owned blueprints exist in the model and AI, but build authorization and finished-ship purchases do not yet enforce the ownership rule above.
+- Ship builds still complete immediately. The planned daily construction-order progress and yard capacity rules are documented in [ShipDesign.md](ShipDesign.md) but have no live project model yet.
+
+### Planned hive mind economy
+For hive mind societies, disabling the private sector is intended to shift the economy toward direct material balances and player-managed logistics. Citizen wallets, taxes and corporate accounting would be bypassed. Without corporate AI responding to shortages, the player would manage trade routes and cargo capacity. This is a design direction, not a description of the current simulation.

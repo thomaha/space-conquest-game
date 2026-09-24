@@ -1,6 +1,6 @@
 # Engine module
-## Engine Module Rules
-- All assignments (e.g., scientists, fleets, resource allocations) must be strictly validated against live model data here.
+## Engine module rules
+- All assignments (e.g., scientists, fleets, resource allocations) must be strictly validated against live model data before they change the engine state.
 - Keep data models decoupled from visual frameworks. No `javafx.*` or `com.almasb.fxgl.*` imports allowed in this package.
 
 This module contains the core game logic, the static data model and state management for the Space Conquest Game.
@@ -40,13 +40,14 @@ This module contains the core game logic, the static data model and state manage
 - `GalacticCommunityProcessor`: Simulates legislative voting cycles, weighted democratic power calculations, resolution enactments and economic sanction enforcement.
 - `VictoryConditionChecker`: Evaluates scenario victory objectives across domination, economic monopoly, megastructure ascension and diplomatic federation.
 - `AudioSynthesizer`: Procedural sound generator providing audio feedback cues for UI, combat, warp transit and galactic senate sessions.
-- `GameClock`: Manages real-time speed scaling, pause states, simulated hour progression and turn increments.
+- `GameClock`: Owns the campaign calendar, speed and pause state. Real-time pulses accumulate partial days and return the number of daily turns due; yearly demographic and five-year election boundaries derive from the same calendar.
 - `LogisticsProcessor`: Simulates automated cargo trade routes, warehouse inventory balancing and transit tariffs.
 - `SensorProcessor`: Calculates sensor detection cones, uncovers uncharted star systems, detects foreign fleets and reveals hidden anomalies.
 - `BiomeAdjacencyProcessor`: Calculates dynamic diameter-based grid dimensions, non-rigid spherical latitude biome allocations with reduced polar row places, gas giant states, direct deposit colocation, high-voltage power couplings and industrial pollution degradation.
 - `CustomEmpireBuilder`: Validates genetic trait budgets, instantiates custom species bio-architectures and registers customized sovereign empires.
 - `CohortFragmentationProcessor`: Simulates single-education cohort fragmentation across colonies, multi-profession facility staffing bottlenecks, administrative bureaucrat allocations and upward social mobility retraining.
-- `PlanetaryMunicipalProcessor`: Simulates authoritative turn-based municipal finances across colonized celestial bodies, computing localized personal income taxes, corporate production tariffs, docking fees, workforce salaries, facility maintenance, public welfare pensions, uncollected local reserves, central subsidies and currency courier dispatches.
+- `PlanetaryMunicipalProcessor`: Calculates local public revenues, expenses, reserves and persistent debt, then settles system contributions and subsidies.
+- `ImperialFinanceCoordinator`: Records treasury movements during the simulation day, carries imperial debt and applies later cash to outstanding obligations.
 
 ## Data model records
 | Record | Resource file | Description |
@@ -111,6 +112,7 @@ This module contains the core game logic, the static data model and state manage
 | `OrbitalLiftProfile` | runtime calculation | Surface-to-orbit launch cost breakdown including propellant, delta-v, spaceport and turnaround wear fees |
 | `CitizenCohort`, `ColonyDemographics` | runtime state / save | Single-education citizen cohort fragments, continuous weighted capacity units and colony demographic compositions |
 | `PlanetaryBalanceSheet` | runtime state / save | Localized municipal accounting record tracking gross planetary product, public revenues, operational costs, uncollected liquid reserves and central subsidies |
+| `ImperialBalanceSheet` | runtime state / save | Last-day central treasury receipts, expenses, debt and principal repayment |
 
 ## Physical units and standard measurement system
 All simulation mechanics, celestial data definitions and calculations standardize on the International System of Units (SI) to prevent unit conversion discrepancies across subsystems:
@@ -123,7 +125,16 @@ All simulation mechanics, celestial data definitions and calculations standardiz
 - **pressure:** Measured in standard atmospheres (atm) or kilopascals (kPa) for planetary gas envelopes and atmospheric drag calculations.
 
 ## Conventions
-- all game component properties are read from property files in the resources folder; no hard-coded game values.
-- data model classes are immutable Java records mapped by Jackson.
+- Game component properties should be read from resource files where practical. The current simulation still has hard-coded values and catalogs.
+- Prefer immutable Java records for data models and snapshots. Current `GameState` nested collections are not all defensively copied and some live model objects are mutable.
+- Create new snapshots with `GameState.builder()` and modify an existing snapshot with `toBuilder()` or a `with...` method. The removed partial positional constructors could silently discard newer fields.
 - `DataModelLoader` caches loaded lists; call `DataModelLoader.clearCache()` to force a reload.
 - unknown JSON properties are ignored, so data files can be extended before the records are updated.
+
+## Current integration gaps
+
+- `SpaceConquestEngine` owns the live world collections and runs the turn processors. `GameState` is the transfer shape, but it is not yet a fully isolated immutable snapshot. `applyGameState` restores couriers and local and imperial balance sheets.
+- Market processing precedes system budgets and municipal accounting in the live turn. The newer `CitizenCohort` and `ColonyDemographics` model and `CohortFragmentationProcessor` are not wired into that turn; `PopulationProcessor` still updates the older age-group model.
+- `WarpNetwork` pathfinding and `TacticalCombatProcessor` exist, but ordinary fleet movement does not route through the network or initiate tactical combat. Generated anomalies are not passed into the normal sensor turn.
+- `CorporateInvestmentProcessor` can record planned asset IDs without creating the corresponding world entities. Engine corporate investment also overlaps with the control-layer corporation AI.
+- `SaveGame.fromGameState` and `SaveGame.toGameState` map all current snapshot fields, while the calendar and speed remain separate save metadata. The data model table describes intended runtime and save ownership, although not every newer live field is covered by the save format. System debt is an aggregate of local debt and has no separate ledger.

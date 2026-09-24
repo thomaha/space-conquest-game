@@ -104,24 +104,8 @@ public record ReverseEngineerSalvageCommand(
             ));
         }
 
-        return new GameState(
-                state.turn(),
-                state.status(),
-                state.solarSystems(),
-                state.empires(),
-                state.corporations(),
-                state.commercialHubs(),
-                state.shadowSyndicates(),
-                state.diplomaticRelations(),
-                state.systemGovernors(),
-                updatedProjects,
-                state.technologyExchangeRoutes(),
-                state.shipDesigns(),
-                state.fleets(),
-                state.geologicalDeposits(),
-                state.powerGrids(),
-                state.industrialFacilities(),
-                state.expansionProjects()
-        );
+        return state.toBuilder()
+                .researchProjects(updatedProjects)
+                .build();
     }
 }

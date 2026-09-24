@@ -31,24 +31,8 @@ public record DesignShipCommand(
         updatedDesigns.removeIf(d -> d.id().equals(shipDesign.id()));
         updatedDesigns.add(shipDesign);
 
-        return new GameState(
-                state.turn(),
-                state.status(),
-                state.solarSystems(),
-                state.empires(),
-                state.corporations(),
-                state.commercialHubs(),
-                state.shadowSyndicates(),
-                state.diplomaticRelations(),
-                state.systemGovernors(),
-                state.researchProjects(),
-                state.technologyExchangeRoutes(),
-                updatedDesigns,
-                state.fleets(),
-                state.geologicalDeposits(),
-                state.powerGrids(),
-                state.industrialFacilities(),
-                state.expansionProjects()
-        );
+        return state.toBuilder()
+                .shipDesigns(updatedDesigns)
+                .build();
     }
 }

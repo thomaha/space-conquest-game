@@ -53,15 +53,15 @@ public class EconomyCards {
         treasuryLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 13));
 
         boolean positiveNet = report.netBudgetBalance() >= 0;
-        Label netLbl = new Label(String.format("Net budget balance: %+,.0f ₵/turn", report.netBudgetBalance()));
+        Label netLbl = new Label(String.format("Net treasury flow: %+,.0f ₵/day", report.netBudgetBalance()));
         netLbl.setTextFill(positiveNet ? Color.LIGHTGREEN : Color.LIGHTCORAL);
         netLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 13));
 
-        Label incomeLbl = new Label(String.format("Projected revenues: +%,.0f ₵/turn", report.totalIncome()));
+        Label incomeLbl = new Label(String.format("Treasury receipts: +%,.0f ₵/day", report.totalIncome()));
         incomeLbl.setTextFill(Color.LIGHTGREEN);
         incomeLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
 
-        Label costLbl = new Label(String.format("Projected expenditures: -%,.0f ₵/turn", report.totalCosts()));
+        Label costLbl = new Label(String.format("Treasury expenditures: -%,.0f ₵/day", report.totalCosts()));
         costLbl.setTextFill(Color.LIGHTCORAL);
         costLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
 
@@ -77,12 +77,16 @@ public class EconomyCards {
         popLbl.setTextFill(Color.LIGHTYELLOW);
         popLbl.setFont(Font.font("Verdana", 11));
 
-        Label taxLbl = new Label(String.format("Corporate tax tariff rate: %.1f%%", report.corporateTaxRate() * 100.0));
+        Label taxLbl = new Label(String.format("Corporate tariff rate: %.1f%%", report.corporateTaxRate() * 100.0));
         taxLbl.setTextFill(Color.LIGHTSKYBLUE);
         taxLbl.setFont(Font.font("Verdana", 11));
 
         metricsGrid.add(treasuryLbl, 0, 0);
         metricsGrid.add(netLbl, 1, 0);
+
+        Label debtLbl = new Label(String.format("Imperial debt: %,.0f ₵", report.outstandingDebtCredits()));
+        debtLbl.setTextFill(Color.LIGHTCORAL);
+        metricsGrid.add(debtLbl, 2, 0);
         metricsGrid.add(incomeLbl, 2, 0);
         metricsGrid.add(costLbl, 3, 0);
 
@@ -101,25 +105,21 @@ public class EconomyCards {
         box.setStyle("-fx-background-color: rgba(20, 45, 35, 0.7); -fx-background-radius: 8; " +
                 "-fx-border-color: #2ecc71; -fx-border-width: 1.5; -fx-border-radius: 8;");
 
-        Text title = new Text("Imperial revenues and incomes (per turn)");
+        Text title = new Text("Imperial treasury receipts (per day)");
         title.setFill(Color.LIGHTGREEN);
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
 
-        Text subtitle = new Text("Revenue streams from colonial taxes, state industry, corporate tariffs and mining royalties.");
+        Text subtitle = new Text("Credits actually received by the central treasury during the last day.");
         subtitle.setFill(Color.LIGHTGRAY);
         subtitle.setFont(Font.font("Verdana", 10));
 
         VBox list = new VBox(8);
-        list.getChildren().add(createEconomyLineItem("Colonial taxes & population levies", String.format("+%,.0f ₵", report.colonialTaxIncome()), "10% baseline tax rate applied across all inhabited colonial worlds.", Color.LIGHTGREEN));
-        list.getChildren().add(createEconomyLineItem("State industrial output dividends", String.format("+%,.0f ₵", report.stateIndustryIncome()), "Commercial dividends from state-operated manufacturing and refining complexes.", Color.LIGHTGREEN));
-        list.getChildren().add(createEconomyLineItem("Corporate commerce tariffs", String.format("+%,.0f ₵", report.corporateTariffIncome()), "Corporate asset levies and commercial activity tariffs.", Color.LIGHTGREEN));
-        list.getChildren().add(createEconomyLineItem("Planetary space elevator transit fees", String.format("+%,.0f ₵", report.spaceElevatorIncome()), "Orbital freight tariffs collected from surface-to-orbit tether operations.", Color.LIGHTGREEN));
-        list.getChildren().add(createEconomyLineItem("Geological mining concessions & royalties", String.format("+%,.0f ₵", report.miningRoyaltiesIncome()), "Concession royalties from mineral deposit extraction.", Color.LIGHTGREEN));
+        list.getChildren().add(createEconomyLineItem("Actual treasury receipts", String.format("+%,.0f ₵", report.totalIncome()), "Delivered couriers, electronic transfers, trade tariffs and industrial receipts.", Color.LIGHTGREEN));
 
         HBox totalRow = new HBox(8);
         totalRow.setAlignment(Pos.CENTER_RIGHT);
         totalRow.setPadding(new Insets(6, 0, 0, 0));
-        Label totalLbl = new Label(String.format("Total projected revenue: +%,.0f ₵/turn", report.totalIncome()));
+        Label totalLbl = new Label(String.format("Total received: +%,.0f ₵/day", report.totalIncome()));
         totalLbl.setTextFill(Color.LIGHTGREEN);
         totalLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 13));
         totalRow.getChildren().add(totalLbl);
@@ -134,28 +134,22 @@ public class EconomyCards {
         box.setStyle("-fx-background-color: rgba(45, 20, 25, 0.7); -fx-background-radius: 8; " +
                 "-fx-border-color: #e74c3c; -fx-border-width: 1.5; -fx-border-radius: 8;");
 
-        Text title = new Text("Imperial expenditures and operational costs (per turn)");
+        Text title = new Text("Imperial treasury expenditures (per day)");
         title.setFill(Color.TOMATO);
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
 
-        Text subtitle = new Text("Recurring state maintenance across municipal services, ministry budgets, naval bases and science.");
+        Text subtitle = new Text("Credits committed by the central treasury during the last day.");
         subtitle.setFill(Color.LIGHTGRAY);
         subtitle.setFont(Font.font("Verdana", 10));
 
         VBox list = new VBox(8);
-        list.getChildren().add(createEconomyLineItem("Colonial municipal & system governance", String.format("-%,.0f ₵", report.governanceExpenses()), "Local colonial administration, public services and system governor budgets.", Color.TOMATO));
-        list.getChildren().add(createEconomyLineItem("Imperial cabinet ministerial portfolios", String.format("-%,.0f ₵", report.ministryBudgets()), "Operational budgets for imperial ministries modified by appointed minister synergy.", Color.TOMATO));
-        list.getChildren().add(createEconomyLineItem("Planetary infrastructure & power maintenance", String.format("-%,.0f ₵", report.infrastructureMaintenance()), "Power grid distribution networks and facility structural maintenance.", Color.TOMATO));
-        list.getChildren().add(createEconomyLineItem("Orbital stations & shipyard upkeep", String.format("-%,.0f ₵", report.orbitalStationMaintenance()), "Station life support, hull integrity and orbital dock upkeep.", Color.TOMATO));
-        list.getChildren().add(createEconomyLineItem("Scientific research subsidies", String.format("-%,.0f ₵", report.researchSubsidies()), "State grants for active technological research and development programs.", Color.TOMATO));
-        if (report.terraformingSubsidies() > 0) {
-            list.getChildren().add(createEconomyLineItem("Geoengineering & terraforming programs", String.format("-%,.0f ₵", report.terraformingSubsidies()), "Planetary atmospheric engineering and ecological transformation projects.", Color.TOMATO));
-        }
+        list.getChildren().add(createEconomyLineItem("Actual treasury expenditures", String.format("-%,.0f ₵", report.totalCosts()), "System subsidies and purchases or grants executed by commands.", Color.TOMATO));
+        list.getChildren().add(createEconomyLineItem("Debt principal repaid", String.format("-%,.0f ₵", report.debtRepaidCredits()), "Cash used to settle earlier imperial obligations; excluded from current expenses.", Color.TOMATO));
 
         HBox totalRow = new HBox(8);
         totalRow.setAlignment(Pos.CENTER_RIGHT);
         totalRow.setPadding(new Insets(6, 0, 0, 0));
-        Label totalLbl = new Label(String.format("Total projected expenditure: -%,.0f ₵/turn", report.totalCosts()));
+        Label totalLbl = new Label(String.format("Total committed: -%,.0f ₵/day", report.totalCosts()));
         totalLbl.setTextFill(Color.TOMATO);
         totalLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 13));
         totalRow.getChildren().add(totalLbl);
@@ -220,7 +214,10 @@ public class EconomyCards {
                 net.setFill(positive ? Color.LIGHTGREEN : Color.LIGHTCORAL);
                 net.setFont(Font.font("Verdana", FontWeight.BOLD, 11));
 
-                row.getChildren().addAll(name, sys, pop, tax, gov, spacer, net);
+                Text debt = new Text(String.format("Debt: %,.0f ₵", entry.outstandingDebtCredits()));
+                debt.setFill(Color.LIGHTCORAL);
+
+                row.getChildren().addAll(name, sys, pop, tax, gov, spacer, net, debt);
                 list.getChildren().add(row);
             }
             box.getChildren().add(list);
@@ -277,7 +274,7 @@ public class EconomyCards {
                 Region spacer = new Region();
                 HBox.setHgrow(spacer, Priority.ALWAYS);
 
-                Text tariff = new Text(String.format("Tariffs: +%,.0f ₵/turn", entry.estimatedTariffPaid()));
+                Text tariff = new Text(String.format("Estimated tariffs: +%,.0f ₵/turn", entry.estimatedTariffPaid()));
                 tariff.setFill(Color.LIGHTGREEN);
                 tariff.setFont(Font.font("Verdana", FontWeight.BOLD, 11));
 
@@ -345,6 +342,9 @@ public class EconomyCards {
         budgetLbl.setTextFill(Color.LIGHTSKYBLUE);
         budgetLbl.setFont(Font.font("Verdana", 11));
 
+        Label debtLbl = new Label(String.format("Local debt: %,.0f ₵", report.outstandingDebtCredits()));
+        debtLbl.setTextFill(Color.LIGHTCORAL);
+
         metricsGrid.add(popLbl, 0, 0);
         metricsGrid.add(grossLbl, 1, 0);
         metricsGrid.add(revLbl, 2, 0);
@@ -354,6 +354,7 @@ public class EconomyCards {
         metricsGrid.add(bodiesLbl, 1, 1);
         metricsGrid.add(taxLbl, 2, 1);
         metricsGrid.add(budgetLbl, 3, 1);
+        metricsGrid.add(debtLbl, 0, 2);
 
         box.getChildren().addAll(topRow, metricsGrid);
         return box;
@@ -372,9 +373,15 @@ public class EconomyCards {
         VBox itemsBox = new VBox(6);
         itemsBox.getChildren().add(createEconomyLineItem("Colonial taxes (" + String.format("%.1f%%", report.taxRate() * 100.0) + ")", String.format("+%,.0f ₵", report.colonialTaxes()), "Direct income and production levies from system planetary populations.", Color.LIGHTGREEN));
         itemsBox.getChildren().add(createEconomyLineItem("Corporate commerce tariffs", String.format("+%,.0f ₵", report.corporateTariffs()), "Tariffs collected from corporation headquarters and commercial facilities.", Color.LIGHTGREEN));
-        itemsBox.getChildren().add(createEconomyLineItem("Space elevator transit fees", String.format("+%,.0f ₵", report.spaceElevatorFees()), "Orbital freight transfer tolls in this system.", Color.LIGHTGREEN));
-        itemsBox.getChildren().add(createEconomyLineItem("Geological mining royalties", String.format("+%,.0f ₵", report.miningRoyalties()), "Mining concessions from active geological resource veins.", Color.LIGHTGREEN));
-        itemsBox.getChildren().add(createEconomyLineItem("State industrial output dividends", String.format("+%,.0f ₵", report.stateIndustryIncome()), "Dividends from public manufacturing facilities.", Color.LIGHTGREEN));
+        itemsBox.getChildren().add(createEconomyLineItem(
+                report.fromBalanceSheets() ? "Docking and handling fees" : "Space elevator transit fees",
+                String.format("+%,.0f ₵", report.spaceElevatorFees()),
+                report.fromBalanceSheets() ? "Fees collected by local commercial hubs." : "Orbital freight transfer tolls in this system.",
+                Color.LIGHTGREEN));
+        if (!report.fromBalanceSheets()) {
+            itemsBox.getChildren().add(createEconomyLineItem("Geological mining royalties", String.format("+%,.0f ₵", report.miningRoyalties()), "Mining concessions from active geological resource veins.", Color.LIGHTGREEN));
+            itemsBox.getChildren().add(createEconomyLineItem("State industrial output dividends", String.format("+%,.0f ₵", report.stateIndustryIncome()), "Dividends from public manufacturing facilities.", Color.LIGHTGREEN));
+        }
 
         box.getChildren().add(itemsBox);
         return box;
@@ -392,8 +399,16 @@ public class EconomyCards {
 
         VBox itemsBox = new VBox(6);
         itemsBox.getChildren().add(createEconomyLineItem("Public sector funding budget", String.format("-%,.0f ₵", report.publicSectorFunding()), "Allocated budget distributed across education, law, health, infrastructure and militias.", Color.TOMATO));
-        itemsBox.getChildren().add(createEconomyLineItem("Governor & municipal administration", String.format("-%,.0f ₵", report.governorAdministration()), "Local administrative salaries and system governance expenses.", Color.TOMATO));
-        itemsBox.getChildren().add(createEconomyLineItem("Orbital station maintenance", String.format("-%,.0f ₵", report.stationMaintenance()), "Upkeep and repairs for orbital starbases in this system.", Color.TOMATO));
+        itemsBox.getChildren().add(createEconomyLineItem(
+                report.fromBalanceSheets() ? "State workforce salaries" : "Governor & municipal administration",
+                String.format("-%,.0f ₵", report.governorAdministration()),
+                report.fromBalanceSheets() ? "Salaries recorded on local balance sheets." : "Local administrative salaries and system governance expenses.",
+                Color.TOMATO));
+        itemsBox.getChildren().add(createEconomyLineItem(
+                report.fromBalanceSheets() ? "Facility, welfare and infrastructure upkeep" : "Orbital station maintenance",
+                String.format("-%,.0f ₵", report.stationMaintenance()),
+                report.fromBalanceSheets() ? "Other local operating expenses recorded by municipalities." : "Upkeep and repairs for orbital starbases in this system.",
+                Color.TOMATO));
 
         box.getChildren().add(itemsBox);
         return box;
@@ -563,12 +578,16 @@ public class EconomyCards {
         treasuryLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 13));
 
         boolean positiveNet = report.netBudgetBalance() >= 0;
-        Label netLbl = new Label(String.format("Net budget balance: %+,.0f ₵/turn", report.netBudgetBalance()));
+        Label netLbl = new Label(String.format("Net treasury flow: %+,.0f ₵/day", report.netBudgetBalance()));
         netLbl.setTextFill(positiveNet ? Color.LIGHTGREEN : Color.LIGHTCORAL);
         netLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 13));
 
         metricsGrid.add(treasuryLbl, 0, 0);
         metricsGrid.add(netLbl, 1, 0);
+
+        Label debtLbl = new Label(String.format("Imperial debt: %,.0f ₵", report.outstandingDebtCredits()));
+        debtLbl.setTextFill(Color.LIGHTCORAL);
+        metricsGrid.add(debtLbl, 2, 0);
 
         box.getChildren().addAll(topRow, metricsGrid);
         return box;

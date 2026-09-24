@@ -1,5 +1,5 @@
 # Frontend module
-## Frontend Module Rules
+## Frontend module rules
 - This package is purely responsible for rendering the UI.
 - All structural player assignments must be backed by actual game data. You are forbidden from allowing a player to assign more resources (e.g., scientists) than are actively available in the empire data model.
 
@@ -40,8 +40,6 @@ All assignments made must be backed by actual data in the game world. Example: y
 - `TacticalCombatArenaView`: Interactive 2D graphical combat arena with real-time subsystem targeting, animated weapon projectiles and fleet stance controls.
 - `EmpireCreationWizardView`: Multi-step interactive wizard for designing custom sovereign empires, species traits, physiology and ideological ethics during new game creation.
 - `AudioSettingsView`: UI panel accessed from the game menu for configuring audio volume levels, mute preferences and testing synthesized acoustic cues.
-- `AudioPlaybackManager`: Coordinates UI acoustic feedback, combat sound effects and procedural synthesized audio playback.
-- `ScreenSettingsView`: UI panel accessed from the game menu for configuring screen resolution and display options.
 - `AudioPlaybackManager`: Coordinates UI acoustic feedback, combat sound effects and procedural synthesized audio playback.
 - `ScreenSettingsView`: UI panel accessed from the game menu for configuring screen resolution and display options.
 - `ScreenSettingsManager`: Manages persistence and loading of screen resolution and display preferences.
@@ -112,8 +110,8 @@ Displays buttons with information about the different sectors of the game. Openi
 ### Empire view and planetary management
 - Central imperial administration hub organized into an extensible tabbed structure.
 - Economy tab features a sub-view switcher between Imperial economy and System economy:
-- Imperial economy displays liquid treasury credits, projected revenues, operational costs, net budget balance, revenue stream breakdowns (colonial taxes, state manufacturing profits, corporate tariffs, space elevator transit fees and mining royalties), expenditure breakdowns (governance overhead, ministry budgets, infrastructure maintenance, station upkeep, science grants and terraforming subsidies), authoritative per-colony economic ledgers sourced from engine municipal balance sheets (clarifying that tax rates are governed per colony in colonial administration) and private corporate market summaries.
-- System economy provides an interactive workbench for selecting controlled star systems, inspecting local revenues (colonial taxes, local corporate tariffs, space elevator fees, mining royalties and state industry) and expenditures (public sector funding, governor administration and station maintenance), adjusting public sector budget allocation sliders (Education, Law and order, Health and welfare, Infrastructure and Planetary militias), selecting budget funding rates (Austerity 50%, Standard 100%, High investment 150% and Maximum 200%) and previewing live projected societal indices, dynamic profession headcounts, happiness modifiers, crime suppression and conscripted militia combat power before applying budget policies via command dispatching.
+- Imperial economy displays liquid treasury credits, recorded central receipts and expenditures for the last processed day, net treasury flow, outstanding imperial debt and principal repayment. Colony ledgers show engine municipal figures and debt. Corporate tariff entries remain estimates and are labeled accordingly.
+- System economy provides a workbench for selecting controlled systems, inspecting local balance-sheet revenues, expenditures and aggregate local debt and adjusting five nonnegative public-budget shares plus a nonnegative tax rate. The final slider is signed from -100% to +100% of the public budget: positive requests an empire contribution and negative requests a system subsidy. Allocation shares, estimated taxes and the transfer target appear in credits per day; the last local transfer appears separately. Positive transfers may still be in courier transit. Commands take effect on the next simulation day.
 - Hovering over buttons, tab switches and interactive controls displays a responsive hand pointer cursor. Tab button styling maintains consistent font size and layout geometry on hover without shrinking.
 - Imperial cabinet tab displays sovereign empire governance, leader details, ministerial portfolios (Interior, Defense, Science, Treasury, Diplomacy), governor planetary assignments and public treasury metrics.
 - Planets tab unifies all planetary bodies (planets and moons) across all star systems in the galaxy owned by the player's empire.
@@ -187,3 +185,11 @@ Make a property file based on the Hertzsprung–Russell diagram to specify the r
 ### Threading and synchronization
 - All simulation logic and pathfinding must remain in the `engine` package, decoupled from the JavaFX application thread.
 - The UI must only ingest immutable `GameState` snapshots during the coordinated simulation tick to ensure thread safety and predictable performance.
+
+## Current integration gaps
+
+- `MenubarClockController` emits a real-time pulse once per second and displays the engine clock. Daily turns and save/load IO are serialized on the simulation worker, then JavaFX receives a world snapshot for rendering. High speed can create a processing backlog if daily turns take longer than the requested real-time rate.
+- The FXGL entity map and `GalaxyCanvasView` are parallel map implementations. Standalone corporate, industry, refinement, orbital station and megastructure views also coexist with corresponding `EmpireView` tabs; some standalone views are instantiated but are not reached through normal navigation.
+- Tick refresh reaches only part of the UI. `CorporateView` and `DiplomacyView` use static JSON data rather than current state. `EmpireEconomyCalculator` uses authoritative local sheets for system reports and the imperial balance sheet for central cash flow. Corporate registry tariff figures remain estimates.
+- `Main` restores the saved calendar and speed, then applies the complete persisted `SaveGame` snapshot including system economies, courier ships and local and imperial balance sheets. Other live fields may still be missing from the save format.
+- `GameState` still exposes nested collections without defensive copies and some views read the engine directly. The snapshot boundary remains incomplete even though the renderer now sorts a local copy of the planet list. The threading and snapshot rules above remain the target.

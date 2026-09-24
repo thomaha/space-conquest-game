@@ -5,7 +5,7 @@ This module handles input, autonomous decision agents and game command execution
 ## Key components
 - `Controller`: Interface for observing game state updates.
 - `HumanController`: Player controller for receiving game state updates and staging interactive commands.
-- `CommandQueue`: Thread-safe staging queue validating and executing game commands during turn transitions.
+- `CommandQueue`: Thread-safe staging queue validating and executing game commands during turn transitions. It reports actual treasury changes to the engine for imperial daily accounting.
 - `GameCommand`: Interface for validated state mutation commands.
 - `SetTariffRateCommand`: Command adjusting transaction tariff rates at commercial hubs.
 - `SubsidizeCorporationCommand`: Command transferring state treasury credits to subsidize corporations.
@@ -49,7 +49,7 @@ This module handles input, autonomous decision agents and game command execution
 - `VoteResolutionCommand`: Command casting democratic votes on active Galactic Senate resolutions.
 - `CreateTradeRouteCommand`: Command establishing automated cargo logistics supply routes between commercial hubs.
 - `CancelTradeRouteCommand`: Command deactivating an automated cargo supply route.
-- `SetSystemEconomyBudgetCommand`: Command configuring public sector budget allocations and total funding for a solar system.
+- `SetSystemEconomyBudgetCommand`: Command configuring nonnegative public sector shares, total funding, income tax and the signed empire contribution rate for a controlled solar system.
 - `ScanSystemCommand`: Command directing sensor arrays or explorer fleets to deep-scan an uncharted solar system.
 - `PlaceFacilityOnTileCommand`: Command constructing an industrial processing facility positioned directly on a surface biome tile.
 - `TargetSubsystemCommand`: Command setting the tactical subsystem target priority (warp drive, weapons, shields, engines) during fleet battles.
@@ -57,3 +57,12 @@ This module handles input, autonomous decision agents and game command execution
 - `EmpireAIController`: Autonomous decision agent managing imperial cabinets, governors, corporate subsidies, diplomacy, senate votes and research.
 - `CorporationAIController`: Autonomous decision agent evaluating market shortcomings, investing in facilities and generating proprietary ship blueprints.
 - `ShadowSyndicateAIController`: Autonomous decision agent monitoring shadow capital pools and pirate operations.
+
+## Current integration gaps
+
+- `CommandQueue` stages commands for the next turn, but command validation is uneven. For example, ship build validation checks that a design exists without checking its owner and ship design registration does not protect another owner's design ID.
+- Commands that change the world now use `GameState.toBuilder()` or a `with...` method to retain unrelated state fields. Validation and persistence behavior remain uneven across individual commands.
+- Some commands compute a result without persisting it: `SelectOptimizationPathCommand` returns the original state, `TargetSubsystemCommand` does not store the target and `DeclareWarCommand` discards its calculated diplomatic impact.
+- `CorporationAIController` can create a corporation-owned proprietary cargo design, but the build command does not enforce owner-only construction. It currently attempts a design only when no cargo design exists anywhere, rather than evaluating each corporation's own needs and designs.
+- `QueueShipBuildCommand` immediately commissions a ship. The intended construction order, work-hour progress and shipyard queue described in [ShipDesign.md](../ShipDesign.md) are not implemented.
+- The frontend currently instantiates empire and corporation AI for hard-coded IDs; the shadow syndicate AI logs its decisions without staging corresponding commands.

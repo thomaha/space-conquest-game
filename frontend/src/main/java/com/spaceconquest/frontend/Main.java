@@ -5,9 +5,11 @@ import com.almasb.fxgl.app.GameSettings;
 import com.almasb.fxgl.entity.Entity;
 import com.spaceconquest.engine.DataModelLoader;
 import com.spaceconquest.engine.GalaxyGenerator;
+import com.spaceconquest.engine.GameClock;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.GameStartScenario;
 import com.spaceconquest.engine.SolarSystem;
+import javafx.application.Platform;
 import javafx.geometry.Point2D;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
@@ -17,6 +19,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 
@@ -94,89 +98,108 @@ public class Main extends GameApplication {
 
     public void createNewGalaxy(int numSystems, int numAIEmpires, GameStartScenario scenario) {
         this.currentScenario = scenario != null ? scenario : GameStartScenario.PRE_SPACE_FLIGHT;
-        registry.clear();
-        getGameWorld().getEntitiesCopy().forEach(Entity::removeFromWorld);
-
-        GameState newGameState = generator.generateGameState(numSystems, numAIEmpires, currentScenario);
-        engine.applyGameState(newGameState);
-
-        // Process any staged commands (such as CreateCustomEmpireCommand from wizard)
-        if (hud != null && hud.getMenubar() != null && hud.getMenubar().getHumanController() != null) {
-            hud.getMenubar().getHumanController().getCommandQueue().processCommands(engine);
-        }
-
-        GameState activeState = engine.getGameState();
-        currentSolarSystems = activeState.solarSystems();
-
-        for (SolarSystem ss : currentSolarSystems) {
-            new SolarSystemRenderer(ss, registry, activeState.megastructures()).render();
-        }
-
-        if (hud != null && hud.getMenubar() != null) {
-            hud.getMenubar().updateAllViews(activeState);
-        }
-
-        if (!currentSolarSystems.isEmpty()) {
-            camera.gotoEntity(currentSolarSystems.get(0).name(), 5);
-        }
-        camera.updateZoom();
+        GameStartScenario selectedScenario = this.currentScenario;
+        if (hud != null && hud.getMenubar() != null) hud.getMenubar().invalidateWorldRefreshes();
+        runSimulationTask(() -> {
+            GameState newGameState = generator.generateGameState(numSystems, numAIEmpires, selectedScenario);
+            GameState activeState;
+            LocalDateTime time;
+            synchronized (engine) {
+                engine.applyGameState(newGameState);
+                engine.getGameClock().alignTurn(newGameState.turn());
+                // Process staged empire-creation commands against the new world.
+                if (hud != null && hud.getMenubar() != null && hud.getMenubar().getHumanController() != null) {
+                    hud.getMenubar().getHumanController().getCommandQueue().processCommands(engine);
+                }
+                activeState = engine.getGameState();
+                time = engine.getGameClock().getGameTime();
+            }
+            Platform.runLater(() -> displayWorld(activeState, time, 1));
+        });
     }
 
     public void loadGame(String saveName) {
-        try {
-            com.spaceconquest.engine.SaveGameManager mgr = new com.spaceconquest.engine.SaveGameManager();
-            java.io.File file = mgr.getSaveDirectory().resolve(saveName.endsWith(".scsave") ? saveName : saveName + ".scsave").toFile();
-            if (file.exists()) {
-                com.spaceconquest.engine.SaveGame save = mgr.load(file);
-                engine.applyGameState(new com.spaceconquest.engine.GameState(
-                        0, "RUNNING", save.solarSystems(), save.empires(), save.corporations(),
-                        save.commercialHubs(), save.shadowSyndicates(), save.diplomaticRelations(),
-                        save.systemGovernors(), save.researchProjects(), save.technologyExchangeRoutes(),
-                        save.shipDesigns(), save.fleets(), save.geologicalDeposits(), save.powerGrids(),
-                        save.industrialFacilities(), save.expansionProjects(), save.orbitalStations(),
-                        save.spaceElevators(), save.constructionProjects(), save.sleeperAgents(),
-                        save.espionageOperations(), save.pirateBases(), save.terraformingProjects(),
-                        save.megastructures(), save.galacticCommunity(), save.tradeRoutes(), save.fogOfWarStates()
-                ));
-                if (save.solarSystems() != null && !save.solarSystems().isEmpty()) {
-                    registry.clear();
-                    getGameWorld().getEntitiesCopy().forEach(Entity::removeFromWorld);
-                    currentSolarSystems = save.solarSystems();
-                    for (SolarSystem ss : currentSolarSystems) {
-                        new SolarSystemRenderer(ss, registry, save.megastructures()).render();
+        if (hud != null && hud.getMenubar() != null) hud.getMenubar().invalidateWorldRefreshes();
+        runSimulationTask(() -> {
+            try {
+                com.spaceconquest.engine.SaveGameManager mgr = new com.spaceconquest.engine.SaveGameManager();
+                java.io.File file = mgr.getSaveDirectory().resolve(saveName.endsWith(".scsave") ? saveName : saveName + ".scsave").toFile();
+                if (file.exists()) {
+                    com.spaceconquest.engine.SaveGame save = mgr.load(file);
+                    LocalDateTime savedTime;
+                    try {
+                        savedTime = LocalDateTime.parse(save.gameTime());
+                    } catch (DateTimeParseException | NullPointerException ignored) {
+                        savedTime = GameClock.START_TIME;
                     }
-                    if (!currentSolarSystems.isEmpty()) {
-                        camera.gotoEntity(currentSolarSystems.get(0).name(), 5);
+                    GameState activeState;
+                    synchronized (engine) {
+                        engine.getGameClock().restore(savedTime, MenubarClockController.speedForIndex(save.gameSpeed()));
+                        engine.applyGameState(save.toGameState(engine.getGameClock().getCurrentTurn(), "RUNNING"));
+                        activeState = engine.getGameState();
                     }
-                    camera.updateZoom();
+                    LocalDateTime restoredTime = savedTime;
+                    Platform.runLater(() -> displayWorld(activeState, restoredTime, save.gameSpeed()));
                 }
-                if (hud != null && hud.getMenubar() != null) {
-                    hud.getMenubar().updateAllViews(engine.getGameState());
-                }
+            } catch (IOException e) {
+                logger.error("Failed to load save " + saveName, e);
             }
-        } catch (IOException e) {
-            logger.error("Failed to load save " + saveName, e);
-        }
+        });
     }
 
     public void saveGame(String saveName) {
-        try {
-            com.spaceconquest.engine.SaveGameManager mgr = new com.spaceconquest.engine.SaveGameManager();
-            mgr.save(saveName, engine.getGameState(), 1, "Day 1");
-            logger.info("Saved game successfully as: " + saveName);
-        } catch (IOException e) {
-            logger.error("Failed to save game as " + saveName, e);
-        }
+        int speed = hud != null && hud.getMenubar() != null ? hud.getMenubar().getSpeedIndex() : 1;
+        runSimulationTask(() -> {
+            try {
+                com.spaceconquest.engine.SaveGameManager mgr = new com.spaceconquest.engine.SaveGameManager();
+                synchronized (engine) {
+                    mgr.save(saveName, engine.getGameState(), speed, engine.getGameClock().getGameTime().toString());
+                }
+                logger.info("Saved game successfully as: " + saveName);
+            } catch (IOException e) {
+                logger.error("Failed to save game as " + saveName, e);
+            }
+        });
     }
 
     public void quickSave() {
-        try {
-            com.spaceconquest.engine.SaveGameManager mgr = new com.spaceconquest.engine.SaveGameManager();
-            mgr.quickSave(engine.getGameState(), 1, "Day 1");
-            logger.info("Quick saved game successfully.");
-        } catch (IOException e) {
-            logger.error("Failed to quick save game", e);
+        int speed = hud != null && hud.getMenubar() != null ? hud.getMenubar().getSpeedIndex() : 1;
+        runSimulationTask(() -> {
+            try {
+                com.spaceconquest.engine.SaveGameManager mgr = new com.spaceconquest.engine.SaveGameManager();
+                synchronized (engine) {
+                    mgr.quickSave(engine.getGameState(), speed, engine.getGameClock().getGameTime().toString());
+                }
+                logger.info("Quick saved game successfully.");
+            } catch (IOException e) {
+                logger.error("Failed to quick save game", e);
+            }
+        });
+    }
+
+    private void runSimulationTask(Runnable task) {
+        if (hud != null && hud.getMenubar() != null) {
+            hud.getMenubar().submitSimulationTask(task);
+        } else {
+            task.run();
         }
+    }
+
+    private void displayWorld(GameState state, LocalDateTime time, int speed) {
+        registry.clear();
+        getGameWorld().getEntitiesCopy().forEach(Entity::removeFromWorld);
+        currentSolarSystems = state.solarSystems();
+        for (SolarSystem system : currentSolarSystems) {
+            new SolarSystemRenderer(system, registry, state.megastructures()).render();
+        }
+        if (hud != null && hud.getMenubar() != null) {
+            hud.getMenubar().restoreTime(time, speed);
+            hud.getMenubar().updateAllViews(state);
+        }
+        if (!currentSolarSystems.isEmpty()) {
+            camera.gotoEntity(currentSolarSystems.getFirst().name(), 5);
+        }
+        camera.updateZoom();
     }
 
     @Override
@@ -225,6 +248,7 @@ public class Main extends GameApplication {
 
     @Override
     protected void initUI() {
+        engine.start();
         hud = new GameHud(camera, registry);
         hud.build(this);
     }

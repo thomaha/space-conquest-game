@@ -37,11 +37,12 @@ public class ScanAnomalyCommandTest {
                 "alpha_centauri", "", 0.0, 0.0, 0.0, false, "PATROL", List.of(explorerShip)
         );
 
-        initialState = new GameState(
-                1, "RUNNING", List.of(), List.of(empire), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(fleet),
-                List.of(), List.of(), List.of(), List.of()
-        );
+        initialState = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .empires(List.of(empire))
+                .fleets(List.of(fleet))
+                .build();
     }
 
     @Test

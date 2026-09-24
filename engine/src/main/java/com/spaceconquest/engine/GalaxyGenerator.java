@@ -148,15 +148,16 @@ public class GalaxyGenerator {
             }
         }
 
-        GameState initial = new GameState(
-                0, "RUNNING", systems, allEmpires, allCorporations, allHubs,
-                List.of(), List.of(), List.of(),
-                new ArrayList<>(), new ArrayList<>(), // research and exchange routes
-                List.of(), List.of(), allDeposits, allGrids,
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), null,
-                List.of(), List.of(), allEconomies
-        );
+        GameState initial = GameState.builder()
+                .status("RUNNING")
+                .solarSystems(systems)
+                .empires(allEmpires)
+                .corporations(allCorporations)
+                .commercialHubs(allHubs)
+                .geologicalDeposits(allDeposits)
+                .powerGrids(allGrids)
+                .systemEconomies(allEconomies)
+                .build();
         com.spaceconquest.engine.economy.PlanetaryMunicipalProcessor municipalProcessor =
                 new com.spaceconquest.engine.economy.PlanetaryMunicipalProcessor();
         return initial.withPlanetaryBalanceSheets(municipalProcessor.processMunicipalFinances(initial).balanceSheets());

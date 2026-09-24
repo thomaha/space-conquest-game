@@ -41,24 +41,8 @@ public record StartProspectingMissionCommand(
                 state.geologicalDeposits()
         );
 
-        return new GameState(
-                state.turn(),
-                state.status(),
-                state.solarSystems(),
-                state.empires(),
-                state.corporations(),
-                state.commercialHubs(),
-                state.shadowSyndicates(),
-                state.diplomaticRelations(),
-                state.systemGovernors(),
-                state.researchProjects(),
-                state.technologyExchangeRoutes(),
-                state.shipDesigns(),
-                state.fleets(),
-                updatedDeposits,
-                state.powerGrids(),
-                state.industrialFacilities(),
-                state.expansionProjects()
-        );
+        return state.toBuilder()
+                .geologicalDeposits(updatedDeposits)
+                .build();
     }
 }

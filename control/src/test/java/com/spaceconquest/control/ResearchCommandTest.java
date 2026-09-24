@@ -30,10 +30,11 @@ public class ResearchCommandTest {
                 List.of(), Map.of(), List.of("electricity"), List.of()
         );
 
-        initialState = new GameState(
-                1, "RUNNING", List.of(), List.of(empire), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of()
-        );
+        initialState = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .empires(List.of(empire))
+                .build();
     }
 
     @Test

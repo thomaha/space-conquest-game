@@ -1,10 +1,13 @@
+#### Design and implementation status
+This file describes intended economic rules and UI behavior, including unmarked sections. The live turn runs market processing before system budgets and municipal accounting. The newer cohort model is not yet part of the normal turn. `PlanetaryMunicipalProcessor` computes local balance sheets, carries unpaid municipal obligations forward and settles signed system transfers. The system view aggregates those sheets and the imperial view reports actual central treasury receipts and expenditures from the last processed day. Of the commands listed below, only `SetSystemEconomyBudgetCommand` exists under that name; the other five are proposed. `ColonyLedgerView` and `CorporateGovernanceView` are also proposed. `tech_subspace_banking` is referenced by code but absent from the current technology catalog. Saves retain planetary and imperial balance sheets, courier ships and the contribution setting. The lifecycle order at the end of this file is a design target rather than the order executed today.
+
 #### Universal credits
 - All financial transactions use universal credits, representing the liquid fiat wealth or asset-backed reserves of an empire.
 - Credits can be spent globally to subsidize planetary deficits, fund technology research or pay for ship module manufacturing.
 
 #### Public economy
 The public economy represents the liquid credit reserves controlled directly by the empire's central government.
-- **State revenue:** Liquid credits are generated primarily by taxing the private sector. This includes planetary income taxes levied on working citizen cohorts, corporate production tariffs on refined materials and commercial docking fees collected inside orbital commerce modules.
+- **State revenue:** Planetary income taxes, local corporate production tariffs and docking fees first enter municipal accounts. They become imperial treasury receipts only when a contribution reaches the treasury. Trade tariffs, industrial receipts and delivered couriers also change the central treasury directly.
 - **State expenditures:** The treasury is used to pay for macro-infrastructure projects. This includes funding technological research applications, paying the base upkeep costs of space stations and colonies, compensating state employees (`soldiers`, `scientists`, `bureaucrats`), maintaining public facilities and covering surface-to-orbit orbital lift costs for state-owned spacecraft.
 - **Planetary subsidies:** If a frontier colony's localized public maintenance exceeds its tax collection, the state treasury can pump credits directly into the world to prevent structural decay, assuming a secure logistics network is active.
 
@@ -16,7 +19,14 @@ Education, law and order, health and welfare, infrastructure and planetary milit
 - **Health and welfare:** Improves population health and happiness, reducing disease outbreak probability and elevating morale. High levels accelerate population growth and bio-resilience while low levels create market opportunities for private healthcare corporations to charge out-of-pocket fees.
 - **Infrastructure:** Enhances the operational throughput and structural durability of all surface and orbital entities in the system. Subsidizes spaceport logistics, maintains ecological baselines on hostile worlds and reduces turnaround maintenance wear.
 - **Military:** Provides a defensive militia for the system to deter invasions and suppress civil unrest. Functions as the primary recruitment ground for the imperial navy, scaling the pool of hireable soldiers and ship crew.
-- **Empire contribution:** Net credit balance delivered to the central treasury. A negative value indicates that the central empire treasury actively subsidizes the system.
+- **Empire contribution:** The only signed slider, from -100% to +100% of the daily public budget. Positive values request a transfer from local credits to the central treasury. Negative values request an empire subsidy for the system. All sector allocation and tax sliders remain nonnegative. The UI shows the requested transfer in credits per day and the last local transfer. A positive local transfer may still be aboard a courier before the imperial treasury receives it.
+
+The five sector sliders are nonnegative shares of the public budget. Their values are normalized to 100% when the command is applied and the workbench shows each effective share as credits per day. The municipal pass charges the public budget locally across inhabited bodies in proportion to population. It does not deduct the same budget directly from the imperial treasury. The signed transfer target is `empireContributionRate * totalBudgetCredits` each day. A positive transfer is limited by available local credits after outstanding local debt is repaid. A negative transfer disburses the requested subsidy even when the imperial treasury is insufficient; the unfunded part becomes imperial debt. Zero requests no transfer. A system may run a daily deficit even after receiving a subsidy.
+
+#### Recorded balances and debt ownership
+`PlanetaryBalanceSheet` stores each body's daily revenue, daily expenditure, net balance, liquid reserve and outstanding municipal debt. A negative daily balance consumes that body's reserve first and any remaining shortfall increases its debt. Later surpluses or subsidies repay existing debt before a reserve can grow or a positive empire contribution can leave. System revenue, expenditure and debt are sums of these local sheets, not a second set of obligations. A depopulated body's debt and reserve remain on its last sheet until the body is processed again.
+
+`ImperialBalanceSheet` stores the central treasury's last-day receipts, expenditures, outstanding debt and debt principal repaid. Receipts are counted when trade tariffs, industrial profits, electronic contributions or couriers actually reach the treasury. Expenditures are counted when the empire pays a subsidy or a command spends central credits. Subsidies may create imperial debt when the treasury cannot fund them. Later treasury cash repays this debt; principal repayment is shown separately from that day's operating expenditure. No interest, creditor market or debt-service penalty is implemented. Local debt is not copied to the imperial ledger.
 
 #### System administrative pipeline and bureaucrat integration
 Allocating liquid credits to system sectors is necessary but insufficient on its own. Every sector requires institutional oversight provided by the `bureaucrat` citizen strata. Without sufficient bureaucrats, funding suffers from administrative bottlenecks, corruption and clerical stagnation.
@@ -147,7 +157,7 @@ Draft:
   Successful suppression breaks the strike and restores production, but inflicts a $-0.15$ happiness penalty and $-0.05$ trust penalty for 5 turns.
 
 #### Planetary balance sheets and municipal finance
-Every colony, outpost and space station maintains an autonomous localized balance sheet calculated authoritatively during the simulation turn.
+The design target gives every colony, outpost and space station an autonomous localized balance sheet. The current municipal pass calculates sheets for populated planets and moons. Space stations do not yet have their own public finance ledger.
 
 ##### Planetary balance sheet data structure
 In the codebase, planetary balance sheets are represented by immutable records:
@@ -169,7 +179,10 @@ public record PlanetaryBalanceSheet(
         double totalExpenditureCredits,
         double netBalanceCredits,
         double uncollectedLocalCredits,
-        double centralSubsidyReceivedCredits
+        double centralSubsidyReceivedCredits,
+        double publicSectorFundingCredits,
+        double empireTransferCredits,
+        double outstandingDebtCredits
 ) {}
 ```
 
@@ -198,13 +211,14 @@ Draft:
 - **Infrastructure upkeep:**
   $$E_{\text{infra}} = \text{Grid Power Maintenance} + \text{Life Support Maintenance}$$
 - **Total localized expenditures:**
-  $$E_{\text{total}} = E_{\text{salaries}} + E_{\text{facility}} + E_{\text{welfare}} + E_{\text{infra}}$$
+  $$E_{\text{total}} = E_{\text{salaries}} + E_{\text{facility}} + E_{\text{welfare}} + E_{\text{infra}} + E_{\text{public budget}}$$
+  The current implementation distributes the daily public budget among inhabited bodies by population share. Workforce salaries and other operating costs are additional expenses.
 
 ##### Deficit handling and emergency state bailouts
 - **Net balance:** $\Delta B = R_{\text{total}} - E_{\text{total}}$.
-- **Surplus resolution:** When $\Delta B > 0$, the surplus credits accumulate in `uncollectedLocalCredits` on the colony until collected and transported by a courier ship or digital banking grid.
-- **Deficit resolution:** When $\Delta B < 0$, the deficit is paid from local credit reserves. If local reserves are exhausted, the colony enters fiscal insolvency:
-  - If central treasury auto-subsidy is enabled, an emergency credit transfer is authorized.
+- **Surplus resolution:** When $\Delta B > 0$, credits accumulate in `uncollectedLocalCredits`. A positive empire contribution setting remits up to its requested amount from available local credits; the rest remains local.
+- **Deficit resolution:** When $\Delta B < 0$, the deficit is paid from local credit reserves. If local reserves are exhausted, the unpaid amount accumulates in `outstandingDebtCredits` on that body. An empire subsidy may reduce the body's debt while increasing imperial debt if central cash is insufficient. Service-collapse effects below are not yet modeled.
+  - A separate emergency auto-subsidy setting is a design target, not current behavior.
   - If subsidies cannot reach the world (due to lack of couriers or trade route blockades), local municipal services collapse: facility efficiency drops by 25% per turn, crime spikes by +0.30 and citizen happiness drops by -0.35.
 
 #### Private economy and civilian markets
@@ -291,6 +305,7 @@ Hive mind societies operate completely outside the public-private market dichoto
 
 ##### Physical currency latency and courier dispatch rules
 Universal credits generated on distant colonies do not teleport instantly to the imperial treasury during early eras. Physical currency caches must be hauled across interstellar distances.
+The current implementation dispatches a courier for each positive scheduled contribution when electronic banking is unavailable, even below the draft thresholds below. Negative subsidies credit local reserves immediately; outbound subsidy couriers and route blockade checks are not implemented yet.
 
 Draft:
 - **Courier dispatch trigger:**
@@ -313,7 +328,7 @@ Draft:
 
 #### Control layer commands and player governance
 The control module provides validated commands for managing the economy:
-- `SetSystemEconomyBudgetCommand`: Sets 5-sector credit allocations and administrative priority weights.
+- `SetSystemEconomyBudgetCommand`: Sets five nonnegative sector shares, the daily public budget, the system income tax rate and the signed empire contribution percentage.
 - `SetPlanetaryTaxRateCommand`: Sets localized income tax rate $\tau_{\text{system}}$ (valid bounds: 0.0 to 0.50).
 - `SetEmpireCorporateTaxCommand`: Adjusts empire-wide corporate production tariff $\tau_{\text{corporate}}$ (valid bounds: 0.0 to 0.40).
 - `SetPlanetarySubsidyCommand`: Authorizes central treasury credit disbursements to deficit worlds.
@@ -323,7 +338,7 @@ The control module provides validated commands for managing the economy:
 #### Presentation layer and user interface requirements
 - **Immutable snapshot consumption:** UI views read strictly from immutable `GameState` records (such as `PlanetaryBalanceSheet` and `SystemEconomy`). The frontend never computes synthetic economic values independently.
 - **`SystemEconomyWorkbenchCard`:**
-  - Sliders for 5-sector credit allocations and tax rate.
+  - Five nonnegative sector allocation sliders, a nonnegative tax-rate slider and one signed empire contribution slider. Allocation shares, estimated tax receipts and the contribution target are shown in credits per day. The last local transfer is shown separately.
   - Live preview of administrative bureaucrat headcount versus demand.
   - Warning indicators for institutional bottlenecks, unrest risk and environmental deficits.
 - **`ColonyLedgerView` in `EconomyTab`:**

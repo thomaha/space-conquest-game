@@ -4,9 +4,11 @@ import com.spaceconquest.control.HumanController;
 import com.spaceconquest.control.ai.CorporationAIController;
 import com.spaceconquest.control.ai.EmpireAIController;
 import com.spaceconquest.control.ai.ShadowSyndicateAIController;
+import com.spaceconquest.engine.GameClock;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.scenario.VictoryConditionChecker;
 import com.spaceconquest.frontend.empire.EmpireView;
+import javafx.application.Platform;
 import javafx.event.Event;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -24,6 +26,9 @@ import javafx.scene.paint.Color;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.almasb.fxgl.dsl.FXGL.*;
 
@@ -47,6 +52,12 @@ public class Menubar {
     private final MenubarViewRegistry viewRegistry = new MenubarViewRegistry();
     private final MenubarClockController clockController = new MenubarClockController();
     private final MenubarNavigation navigation = new MenubarNavigation();
+    private final AtomicLong worldGeneration = new AtomicLong();
+    private final ExecutorService simulationExecutor = Executors.newSingleThreadExecutor(task -> {
+        Thread thread = new Thread(task, "space-conquest-simulation");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     private Main mainApp;
 
@@ -56,6 +67,14 @@ public class Menubar {
 
     public Main getMainApp() {
         return mainApp;
+    }
+
+    public void submitSimulationTask(Runnable task) {
+        simulationExecutor.execute(task);
+    }
+
+    public void invalidateWorldRefreshes() {
+        worldGeneration.incrementAndGet();
     }
 
     public String getPlayerEmpireId() {
@@ -106,10 +125,6 @@ public class Menubar {
 
     public int getSpeedIndex() {
         return clockController.getSpeedIndex();
-    }
-
-    public LocalDateTime getGameTime() {
-        return clockController.getGameTime();
     }
 
     public void restoreTime(LocalDateTime time, int speed) {
@@ -164,7 +179,7 @@ public class Menubar {
         }
 
         registerAllOverlays();
-        clockController.init(this::handleSimulationTick);
+        clockController.init(this::handleSimulationPulse, this::submitSpeedChange);
     }
 
     private HBox buildToolbar(double scale) {
@@ -405,30 +420,53 @@ public class Menubar {
         navigation.setActiveButton(null);
     }
 
-    private void handleSimulationTick() {
-        if (mainApp != null && mainApp.getEngine() != null) {
-            GameState currentState = mainApp.getEngine().getGameState();
-
-            if (empireAIController != null) empireAIController.onGameStateUpdate(currentState);
-            if (corporationAIController != null) corporationAIController.onGameStateUpdate(currentState);
-            if (shadowSyndicateAIController != null) shadowSyndicateAIController.onGameStateUpdate(currentState);
-
-            humanController.getCommandQueue().processCommands(mainApp.getEngine());
-            mainApp.getEngine().stepTurn();
-            GameState state = mainApp.getEngine().getGameState();
-            humanController.onGameStateUpdate(state);
-
-            viewRegistry.refreshOnTick(state, mainApp);
-
-            if (getVictoryDefeatView() != null && !getVictoryDefeatView().isSandboxModeActive() 
-                    && mainApp.getEngine().getVictoryConditionChecker() != null) {
-                VictoryConditionChecker.VictoryCheckResult vRes = mainApp.getEngine().getVictoryConditionChecker().evaluateVictory(
-                        state, mainApp.getEngine().getCampaignSetup(), state.galacticCommunity(), state.megastructures()
-                );
-                if (vRes.isVictoryAchieved()) {
-                    getVictoryDefeatView().showVictory(vRes, playerEmpireId);
+    private void submitSpeedChange(GameClock.ClockSpeed speed) {
+        if (mainApp != null) {
+            simulationExecutor.execute(() -> {
+                synchronized (mainApp.getEngine()) {
+                    mainApp.getEngine().getGameClock().setSpeed(speed);
                 }
+            });
+        }
+    }
+
+    private void handleSimulationPulse(double realSeconds) {
+        if (mainApp == null) return;
+        long generation = worldGeneration.get();
+        simulationExecutor.execute(() -> {
+            GameState state = null;
+            LocalDateTime time;
+            synchronized (mainApp.getEngine()) {
+                GameClock gameClock = mainApp.getEngine().getGameClock();
+                int dueTurns = gameClock.update(realSeconds);
+                for (int i = 0; i < dueTurns; i++) {
+                    GameState currentState = mainApp.getEngine().getGameState();
+                    if (empireAIController != null) empireAIController.onGameStateUpdate(currentState);
+                    if (corporationAIController != null) corporationAIController.onGameStateUpdate(currentState);
+                    if (shadowSyndicateAIController != null) shadowSyndicateAIController.onGameStateUpdate(currentState);
+                    humanController.getCommandQueue().processCommands(mainApp.getEngine());
+                    mainApp.getEngine().processScheduledTurn();
+                }
+                time = gameClock.getGameTime();
+                if (dueTurns > 0) state = mainApp.getEngine().getGameState();
             }
+            GameState publishedState = state;
+            Platform.runLater(() -> {
+                if (generation != worldGeneration.get()) return;
+                clockController.displayTime(time);
+                if (publishedState != null) refreshAfterTurn(publishedState);
+            });
+        });
+    }
+
+    private void refreshAfterTurn(GameState state) {
+        humanController.onGameStateUpdate(state);
+        viewRegistry.refreshOnTick(state, mainApp);
+        if (getVictoryDefeatView() != null && !getVictoryDefeatView().isSandboxModeActive()
+                && mainApp.getEngine().getVictoryConditionChecker() != null) {
+            VictoryConditionChecker.VictoryCheckResult result = mainApp.getEngine().getVictoryConditionChecker().evaluateVictory(
+                    state, mainApp.getEngine().getCampaignSetup(), state.galacticCommunity(), state.megastructures());
+            if (result.isVictoryAchieved()) getVictoryDefeatView().showVictory(result, playerEmpireId);
         }
     }
 }

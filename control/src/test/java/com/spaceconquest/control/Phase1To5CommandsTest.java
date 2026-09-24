@@ -19,9 +19,13 @@ class Phase1To5CommandsTest {
 
     @BeforeEach
     void setUp() {
-        initialState = new GameState(1, "RUNNING", List.of(
+        initialState = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .solarSystems(List.of(
                 new SolarSystem("sol", "Sol System", "", 0, 0, 0, 1.0, 1.0, "Yellow", List.of(), List.of())
-        ));
+        ))
+                .build();
     }
 
     @Test

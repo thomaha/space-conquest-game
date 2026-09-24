@@ -47,17 +47,7 @@ public class NewPhasesIntegrationSimulationTest {
             return e;
         }).toList();
 
-        engine.applyGameState(new com.spaceconquest.engine.GameState(
-                engine.getGameState().turn(),
-                engine.getGameState().status(),
-                engine.getGameState().solarSystems(),
-                updatedEmpires,
-                engine.getGameState().corporations(),
-                engine.getGameState().commercialHubs(),
-                engine.getGameState().shadowSyndicates(),
-                engine.getGameState().diplomaticRelations(),
-                engine.getGameState().systemGovernors()
-        ));
+        engine.applyGameState(engine.getGameState().withEmpires(updatedEmpires));
 
         // 2. Submit Terraforming and Megastructure commands
         commandQueue.submit(new StartTerraformingProjectCommand(

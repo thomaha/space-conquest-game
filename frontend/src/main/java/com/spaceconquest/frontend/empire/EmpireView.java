@@ -15,6 +15,7 @@ import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.SystemGovernor;
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
+import com.spaceconquest.engine.economy.ImperialBalanceSheet;
 import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
@@ -87,6 +88,7 @@ public class EmpireView {
     private final List<Megastructure> megastructures = new ArrayList<>();
     private final List<SystemEconomy> systemEconomies = new ArrayList<>();
     private final List<PlanetaryBalanceSheet> planetaryBalanceSheets = new ArrayList<>();
+    private final List<ImperialBalanceSheet> imperialBalanceSheets = new ArrayList<>();
     private final List<PowerGridState> powerGrids = new ArrayList<>();
     private final List<FacilityExpansionProject> expansionProjects = new ArrayList<>();
     private final List<GeoengineeringProject> terraformingProjects = new ArrayList<>();
@@ -121,6 +123,7 @@ public class EmpireView {
     public List<SystemEconomy> getSystemEconomies() { return systemEconomies; }
     public List<SystemEconomy> getSystemEconomiesList() { return systemEconomies; }
     public List<PlanetaryBalanceSheet> getPlanetaryBalanceSheets() { return planetaryBalanceSheets; }
+    public List<ImperialBalanceSheet> getImperialBalanceSheets() { return imperialBalanceSheets; }
 
     public String getPlayerEmpireId() { return playerEmpireId; }
     public Menubar getMenubar() { return menubar; }
@@ -416,6 +419,8 @@ public class EmpireView {
             planetaryBalanceSheets.clear();
             planetaryBalanceSheets.addAll(gameState.planetaryBalanceSheets());
         }
+        imperialBalanceSheets.clear();
+        imperialBalanceSheets.addAll(gameState.imperialBalanceSheets());
         updateData(
                 gameState.solarSystems(),
                 gameState.empires(),

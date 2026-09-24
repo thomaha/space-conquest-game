@@ -88,17 +88,12 @@ public class CrimeProcessorTest {
                 List.of()
         );
 
-        GameState state = new GameState(
-                1,
-                "RUNNING",
-                List.of(),
-                List.of(terran),
-                List.of(),
-                List.of(hub),
-                List.of(),
-                List.of(),
-                List.of()
-        );
+        GameState state = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .empires(List.of(terran))
+                .commercialHubs(List.of(hub))
+                .build();
 
         CrimeProcessor.CrimeResult result = crimeProcessor.processCrime(state);
         assertTrue(result.totalLeakedCredits() > 0.0, "Black market leakage should siphon credits from unpoliced hub");

@@ -21,6 +21,8 @@ public record SystemEconomyReport(
         double stationMaintenance,
         double totalExpenditures,
         double netSystemBalance,
+        double outstandingDebtCredits,
         double taxRate,
-        SystemEconomy economy
+        SystemEconomy economy,
+        boolean fromBalanceSheets
 ) {}

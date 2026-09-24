@@ -72,24 +72,8 @@ public record ScanAnomalyCommand(
             }
         }
 
-        return new GameState(
-                state.turn(),
-                state.status(),
-                state.solarSystems(),
-                updatedEmpires,
-                state.corporations(),
-                state.commercialHubs(),
-                state.shadowSyndicates(),
-                state.diplomaticRelations(),
-                state.systemGovernors(),
-                state.researchProjects(),
-                state.technologyExchangeRoutes(),
-                state.shipDesigns(),
-                state.fleets(),
-                state.geologicalDeposits(),
-                state.powerGrids(),
-                state.industrialFacilities(),
-                state.expansionProjects()
-        );
+        return state.toBuilder()
+                .empires(updatedEmpires)
+                .build();
     }
 }

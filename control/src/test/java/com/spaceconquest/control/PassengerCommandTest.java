@@ -31,11 +31,11 @@ public class PassengerCommandTest {
                 "sol", "", 0.0, 0.0, 0.0, false, "PASSIVE", List.of(ship)
         );
 
-        initialState = new GameState(
-                1, "RUNNING", List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(fleet),
-                List.of(), List.of(), List.of(), List.of()
-        );
+        initialState = GameState.builder()
+                .turn(1)
+                .status("RUNNING")
+                .fleets(List.of(fleet))
+                .build();
     }
 
     @Test

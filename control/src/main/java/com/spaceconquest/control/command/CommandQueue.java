@@ -59,8 +59,10 @@ public class CommandQueue {
     public int processCommands(com.spaceconquest.engine.SpaceConquestEngine engine) {
         if (engine == null) return 0;
         int count = queue.size();
-        GameState updated = drainAndExecute(engine.getGameState());
+        GameState before = engine.getGameState();
+        GameState updated = drainAndExecute(before);
         engine.applyGameState(updated);
+        engine.recordCommandTreasuryChanges(before.empires(), updated.empires());
         return count;
     }
 

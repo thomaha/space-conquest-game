@@ -11,6 +11,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.util.Duration;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -105,7 +106,7 @@ public class SolarSystemRenderer {
     }
 
     private void displayPlanets() {
-        List<Planet> planets = solarSystem.planets();
+        List<Planet> planets = new ArrayList<>(solarSystem.planets());
         double maxDistance = planets.stream().mapToDouble(Planet::distance).max().orElse(1.0);
         double sunRadius = (solarSystem.sunDiameter() / 2.0) / 1000000.0 * 15.0;
         double availableWidth = (getAppWidth() / 2.0) - 100;

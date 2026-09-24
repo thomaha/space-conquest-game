@@ -54,24 +54,8 @@ public record BuildFacilityCommand(
         List<IndustrialFacility> updatedFacilities = new ArrayList<>(state.industrialFacilities());
         updatedFacilities.add(newFacility);
 
-        return new GameState(
-                state.turn(),
-                state.status(),
-                state.solarSystems(),
-                state.empires(),
-                state.corporations(),
-                state.commercialHubs(),
-                state.shadowSyndicates(),
-                state.diplomaticRelations(),
-                state.systemGovernors(),
-                state.researchProjects(),
-                state.technologyExchangeRoutes(),
-                state.shipDesigns(),
-                state.fleets(),
-                state.geologicalDeposits(),
-                state.powerGrids(),
-                updatedFacilities,
-                state.expansionProjects()
-        );
+        return state.toBuilder()
+                .industrialFacilities(updatedFacilities)
+                .build();
     }
 }

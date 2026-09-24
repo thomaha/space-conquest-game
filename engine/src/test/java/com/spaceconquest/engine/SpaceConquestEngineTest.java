@@ -1,5 +1,7 @@
 package com.spaceconquest.engine;
 
+import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
+import com.spaceconquest.engine.economy.SystemEconomy;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -8,9 +10,24 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class SpaceConquestEngineTest {
+    @Test
+    public void testClockSchedulesDailyTurnsWithoutRunningEarly() {
+        SpaceConquestEngine engine = new SpaceConquestEngine();
+        GameClock clock = engine.getGameClock();
+        clock.setSpeed(GameClock.ClockSpeed.SPEED_6_HOURS);
+        for (int i = 0; i < 3; i++) {
+            assertEquals(0, clock.update(1.0));
+            assertEquals(0, engine.getGameState().turn());
+        }
+        assertEquals(1, clock.update(1.0));
+        engine.processScheduledTurn();
+        assertEquals(1, engine.getGameState().turn());
+        assertEquals(clock.getCurrentTurn(), engine.getGameState().turn());
+    }
+
 
     @Test
-    public void testPopulationGrowthOverTurns() {
+    public void testPopulationAgesOnYearBoundaryRatherThanEveryDailyTurn() {
         SpaceConquestEngine engine = new SpaceConquestEngine();
         engine.start();
         
@@ -20,10 +37,16 @@ public class SpaceConquestEngineTest {
         Population initialPop = earth.populations().getFirst();
         long initialTotal = initialPop.ageGroups().values().stream().mapToLong(Long::longValue).sum();
         
-        // Update for 10 turns (10 years)
-        for (int i = 0; i < 10; i++) {
-            engine.update();
-        }
+        // Jump to the end of 2200, then cross the annual boundary one day at a time.
+        engine.reset(initialState.withTurn(363));
+        engine.update();
+        Population beforeNewYear = engine.getGameState().solarSystems().stream()
+                .filter(ss -> ss.id().equals("sol")).findFirst().orElseThrow()
+                .planets().stream().filter(p -> p.id().equals("earth")).findFirst().orElseThrow()
+                .populations().getFirst();
+        assertEquals(initialPop.ageGroups(), beforeNewYear.ageGroups());
+
+        engine.update();
         
         GameState futureState = engine.getGameState();
         SolarSystem futureSol = futureState.solarSystems().stream().filter(ss -> ss.id().equals("sol")).findFirst().orElseThrow();
@@ -31,9 +54,9 @@ public class SpaceConquestEngineTest {
         Population futurePop = futureEarth.populations().getFirst();
         long futureTotal = futurePop.ageGroups().values().stream().mapToLong(Long::longValue).sum();
         
-        assertTrue(futureTotal > initialTotal, "Population should have grown over 10 years. Initial: " + initialTotal + ", Future: " + futureTotal);
+        assertTrue(futureTotal > initialTotal, "Population should have grown after one year. Initial: " + initialTotal + ", Future: " + futureTotal);
         assertTrue(futurePop.ageGroups().containsKey(0), "Should have newborns");
-        assertTrue(futurePop.ageGroups().containsKey(10), "Age 0 should have aged to 10 if there were any, but at least existing groups should have aged");
+        assertTrue(futurePop.ageGroups().containsKey(1), "Existing newborns should have aged by one year");
     }
 
     @Test
@@ -58,17 +81,9 @@ public class SpaceConquestEngineTest {
                 Map.of("refined_silicon", order)
         );
 
-        GameState modifiedState = new GameState(
-                initialState.turn(),
-                initialState.status(),
-                initialState.solarSystems(),
-                initialState.empires(),
-                initialState.corporations(),
-                List.of(seededHub),
-                initialState.shadowSyndicates(),
-                initialState.diplomaticRelations(),
-                initialState.systemGovernors()
-        );
+        GameState modifiedState = initialState.toBuilder()
+                .commercialHubs(List.of(seededHub))
+                .build();
         engine.reset(modifiedState);
 
         // Run 5 turns
@@ -86,6 +101,42 @@ public class SpaceConquestEngineTest {
     }
 
     @Test
+    public void testDailyEconomySettlesSystemContributionFromLocalCredits() {
+        SpaceConquestEngine engine = new SpaceConquestEngine();
+        GameState initial = engine.getGameState();
+        SystemEconomy solEconomy = initial.systemEconomies().stream()
+                .filter(economy -> "sol".equals(economy.systemId())).findFirst().orElseThrow();
+        List<SystemEconomy> economies = initial.systemEconomies().stream()
+                .map(economy -> "sol".equals(economy.systemId())
+                        ? economy.withEmpireContributionRate(1.0) : economy)
+                .toList();
+        engine.reset(initial.withSystemEconomies(economies));
+
+        engine.stepTurn();
+
+        GameState settled = engine.getGameState();
+        double contribution = settled.planetaryBalanceSheets().stream()
+                .filter(sheet -> "sol".equals(sheet.systemId()))
+                .mapToDouble(PlanetaryBalanceSheet::empireTransferCredits).sum();
+        double funding = settled.planetaryBalanceSheets().stream()
+                .filter(sheet -> "sol".equals(sheet.systemId()))
+                .mapToDouble(PlanetaryBalanceSheet::publicSectorFundingCredits).sum();
+        assertEquals(solEconomy.totalBudgetCredits(), funding, 0.001);
+        assertTrue(contribution > 0.0);
+        assertTrue(contribution <= solEconomy.totalBudgetCredits());
+        assertTrue(settled.courierShips().stream().anyMatch(courier -> "sol".equals(courier.originSystemId())));
+        for (Empire empire : settled.empires()) {
+            Empire opening = initial.empires().stream()
+                    .filter(candidate -> candidate.id().equals(empire.id())).findFirst().orElseThrow();
+            var balance = settled.imperialBalanceSheets().stream()
+                    .filter(sheet -> sheet.empireId().equals(empire.id())).findFirst().orElseThrow();
+            assertEquals(opening.treasuryCredits() + balance.incomeCredits()
+                    - balance.expenditureCredits() - balance.debtRepaidCredits(),
+                    empire.treasuryCredits(), 0.001);
+        }
+    }
+
+    @Test
     public void testGovernanceAndDemocraticElectionSimulationTurns() {
         SpaceConquestEngine engine = new SpaceConquestEngine(GameStartScenario.BASIC_WARP);
         engine.start();
@@ -93,13 +144,12 @@ public class SpaceConquestEngineTest {
         GameState initialState = engine.getGameState();
         assertFalse(initialState.empires().isEmpty(), "Empires should exist");
 
-        // Run 5 turns to trigger governance cycle and democratic election
-        for (int i = 0; i < 5; i++) {
-            engine.update();
-        }
+        // The fifth annual election falls at the start of 2205, after 1826 daily turns.
+        engine.reset(initialState.withTurn(1825));
+        engine.update();
 
         GameState advancedState = engine.getGameState();
-        assertEquals(5, advancedState.turn());
+        assertEquals(1826, advancedState.turn());
         assertFalse(advancedState.empires().isEmpty());
 
         Empire terran = advancedState.empires().stream()
