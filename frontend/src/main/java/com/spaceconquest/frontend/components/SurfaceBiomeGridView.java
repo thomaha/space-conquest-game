@@ -10,6 +10,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -17,6 +18,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
 
 import java.util.function.BiConsumer;
 
@@ -25,13 +27,15 @@ import java.util.function.BiConsumer;
  * Supports rendering based on PlanetBiomeGrid and provides facility placement interaction.
  */
 public class SurfaceBiomeGridView extends VBox {
+    private static final double TILE_WIDTH = 92;
 
     public SurfaceBiomeGridView(PlanetaryBodyEntry body, HumanController humanController, String playerEmpireId, BiConsumer<String, Integer> onBuildRequest) {
         super(8);
         setPadding(new Insets(10));
+        setMinWidth(0);
         setStyle("-fx-background-color: rgba(20, 35, 60, 0.7); -fx-background-radius: 8; -fx-border-color: #3498db; -fx-border-width: 1; -fx-border-radius: 8;");
 
-        Text header = new Text("Planetary surface biome grid and facility adjacency matrix");
+        Text header = new Text("Surface biomes and facilities");
         header.setFill(Color.AQUA);
         header.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
         getChildren().add(header);
@@ -74,9 +78,13 @@ public class SurfaceBiomeGridView extends VBox {
                 SurfaceTile tile = grid.getTile(r, c);
                 if (tile == null) continue;
 
-                VBox tileCard = new VBox(4);
+                VBox tileCard = new VBox(3);
                 tileCard.setPadding(new Insets(6));
-                tileCard.setPrefSize(120, 58);
+                tileCard.setAlignment(Pos.CENTER);
+                tileCard.setMinWidth(TILE_WIDTH);
+                tileCard.setPrefWidth(TILE_WIDTH);
+                tileCard.setMaxWidth(TILE_WIDTH);
+                tileCard.setMinHeight(96);
 
                 String colorStyle = switch (tile.biomeType()) {
                     case SurfaceTile.BIOME_EQUATORIAL_DESERT -> "-fx-background-color: rgba(180, 130, 40, 0.6); -fx-border-color: #f1c40f;";
@@ -90,17 +98,28 @@ public class SurfaceBiomeGridView extends VBox {
                 };
                 tileCard.setStyle(colorStyle + " -fx-background-radius: 6; -fx-border-width: 1; -fx-border-radius: 6;");
 
-                Text tileName = new Text(String.format("Tile #%d [%s]", tile.tileIndex(), tile.biomeType().replace('_', ' ')));
+                Text tileName = new Text("Tile #" + tile.tileIndex());
                 tileName.setFill(Color.WHITE);
                 tileName.setFont(Font.font("Verdana", FontWeight.BOLD, 10));
 
-                Text depositTxt = new Text(tile.hasDeposit() ? "Mineral vein colocated" : "No deposit");
+                Label terrain = new Label(tile.biomeType().replace('_', ' '));
+                terrain.setTextFill(Color.WHITE);
+                terrain.setFont(Font.font("Verdana", 9));
+                terrain.setWrapText(true);
+                terrain.setAlignment(Pos.CENTER);
+                terrain.setTextAlignment(TextAlignment.CENTER);
+                terrain.setMinHeight(22);
+                terrain.setMaxWidth(TILE_WIDTH - 12);
+
+                Text depositTxt = new Text(tile.hasDeposit() ? "Mineral vein" : "No vein");
                 depositTxt.setFill(tile.hasDeposit() ? Color.GOLD : Color.LIGHTGRAY);
                 depositTxt.setFont(Font.font("Verdana", 9));
 
-                Button placeBtn = new Button("Build on tile");
+                Button placeBtn = new Button("Build");
                 placeBtn.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-size: 9px;");
                 final int tIdx = tile.tileIndex();
+                placeBtn.setTooltip(new Tooltip("Build on tile #" + tIdx));
+                placeBtn.setAccessibleText("Build on tile #" + tIdx);
                 placeBtn.setOnAction(e -> {
                     if (onBuildRequest != null) {
                         onBuildRequest.accept(body.id(), tIdx);
@@ -111,14 +130,14 @@ public class SurfaceBiomeGridView extends VBox {
                     }
                 });
 
-                tileCard.getChildren().addAll(tileName, depositTxt, placeBtn);
+                tileCard.getChildren().addAll(tileName, terrain, depositTxt, placeBtn);
                 rowBox.getChildren().add(tileCard);
             }
             surfaceGridContainer.getChildren().add(rowBox);
         }
 
         ScrollPane tileScroll = new ScrollPane(surfaceGridContainer);
-        tileScroll.setFitToWidth(true);
+        tileScroll.setMinWidth(0);
         VBox.setVgrow(tileScroll, Priority.ALWAYS);
         tileScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         getChildren().add(tileScroll);

@@ -51,31 +51,8 @@ public class PopulationProcessor {
             return new BiochemicalConsumptionResult(race.id(), Map.of(), false, "", 0.0, 0.0, 1.0);
         }
 
-        Map<String, Double> required = new HashMap<>();
+        Map<String, Double> required = calculateDailyNutrientRequirements(totalPop, race);
         Map<String, Double> inventory = localInventory != null ? localInventory : Map.of();
-
-        double popScale = totalPop / 1000.0; // Per 1,000 citizens
-
-        String nutrientType = race.nutrientType() != null ? race.nutrientType().toUpperCase() : "ORGANIC";
-        String chem = race.chemicalComposition() != null ? race.chemicalComposition().toLowerCase() : "";
-
-        if ("ORGANIC".equals(nutrientType) || chem.contains("carbon")) {
-            required.put("oxygen_gas", 50.0 * popScale);
-            required.put("food_matrix", 100.0 * popScale);
-        } else if ("ROCK".equals(nutrientType) || chem.contains("silicon")) {
-            required.put("silicates", 150.0 * popScale);
-            required.put("limestone", 50.0 * popScale);
-        } else if ("GAS".equals(nutrientType) || chem.contains("nitrogen")) {
-            required.put("nitrogen_gas", 50.0 * popScale);
-            required.put("methane_ice", 100.0 * popScale);
-        } else if ("ELECTRICITY".equals(nutrientType) || "synthetic_machine".equalsIgnoreCase(race.id())) {
-            required.put("refined_copper", 10.0 * popScale);
-            required.put("refined_silicon", 10.0 * popScale);
-            required.put("silver", 5.0 * popScale);
-        } else if ("METAL".equals(nutrientType) || "plasma_anomaly".equalsIgnoreCase(race.id())) {
-            required.put("hydrogen_gas", 100.0 * popScale);
-            required.put("helium_3", 20.0 * popScale);
-        }
 
         boolean isDeficit = false;
         String missing = "";
@@ -120,6 +97,50 @@ public class PopulationProcessor {
         }
 
         return new BiochemicalConsumptionResult(race.id(), consumed, isDeficit, missing, happinessMod, crimeMod, growthMod);
+    }
+
+    /** Calculates biological requirements before accounting for the body's atmosphere. */
+    public Map<String, Double> calculateDailyNutrientRequirements(long headcount, Race race) {
+        if (race == null || headcount <= 0) return Map.of();
+        Map<String, Double> required = new HashMap<>();
+
+        double popScale = headcount / 1000.0; // Per 1,000 citizens
+
+        String nutrientType = race.nutrientType() != null ? race.nutrientType().toUpperCase() : "ORGANIC";
+        String chem = race.chemicalComposition() != null ? race.chemicalComposition().toLowerCase() : "";
+
+        if ("ORGANIC".equals(nutrientType) || chem.contains("carbon")) {
+            required.put("oxygen_gas", 50.0 * popScale);
+            required.put("food_matrix", 100.0 * popScale);
+        } else if ("ROCK".equals(nutrientType) || chem.contains("silicon")) {
+            required.put("silicates", 150.0 * popScale);
+            required.put("limestone", 50.0 * popScale);
+        } else if ("GAS".equals(nutrientType) || chem.contains("nitrogen")) {
+            required.put("nitrogen_gas", 50.0 * popScale);
+            required.put("methane_ice", 100.0 * popScale);
+        } else if ("ELECTRICITY".equals(nutrientType) || "synthetic_machine".equalsIgnoreCase(race.id())) {
+            required.put("refined_copper", 10.0 * popScale);
+            required.put("refined_silicon", 10.0 * popScale);
+            required.put("silver", 5.0 * popScale);
+        } else if ("METAL".equals(nutrientType) || "plasma_anomaly".equalsIgnoreCase(race.id())) {
+            required.put("hydrogen_gas", 100.0 * popScale);
+            required.put("helium_3", 20.0 * popScale);
+        }
+
+        return required;
+    }
+
+    /** Only known breathable atmospheres supply ambient oxygen to surface residents. */
+    public static boolean hasAmbientBreathableOxygen(String atmosphere) {
+        return "nitrogen_oxygen".equalsIgnoreCase(atmosphere)
+                || "BREATHABLE".equalsIgnoreCase(atmosphere);
+    }
+
+    /** Excludes free ambient oxygen from household market demand on breathable bodies. */
+    public Map<String, Double> calculateDailyMarketRequirements(long headcount, Race race, String atmosphere) {
+        Map<String, Double> required = calculateDailyNutrientRequirements(headcount, race);
+        if (hasAmbientBreathableOxygen(atmosphere)) required.remove("oxygen_gas");
+        return required;
     }
 
     /**

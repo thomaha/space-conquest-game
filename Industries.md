@@ -1,4 +1,20 @@
-#### 1. Core Operational Variables
+## Current implementation
+
+The only live planetary material recipe that produces `oxygen_gas` is pyrometallurgical iron smelting, as a 300 kg byproduct per batch. Online orbital hydroponics modules report 10 kg oxygen per tick, but that output is not connected to a local commercial hub or household life support. There is no dedicated oxygen extraction or recycling industry yet. Breathable worlds supply ambient oxygen to households without an industrial transaction; enclosed settlements still require stocked oxygen.
+
+Starting homeworld farm and consumer-goods staffing now scales with population and technology tier. The live soil-cultivation recipe runs one 120 kg batch per paid farmer before facility and technology modifiers; consumer-goods manufacturing runs one 1,000 kg batch per ten paid workers. The opening hub holds finite agricultural and manufacturing inputs plus basic and luxury stock. This supports the tested first month, but there is no complete replenishment chain for those inputs or a live luxury-goods factory yet.
+
+The live material-industry pass supports mining, industrial soil cultivation and the recipes in `RefinementProcessor.STANDARD_RECIPES`, including their recovered byproducts. A facility requires its owning empire to have `industrial_production`, enough facility tier, paid workers and available grid power. Researched `supply_chain_automation` increases throughput by 10%, while `geological_prospecting` adds 25% to mine output. Its owner pays for powered shifts at 0.02 credits per kWh before production, then buys recipe inputs from the hub on the same body using actual treasury or corporate credits. Unaffordable shifts cannot produce. Mines instead deplete a discovered local ore deposit. Production enters a persistent facility stock account, then the local hub buys as much as its cash and storage permit. The hub receives the goods and the owner receives the sale proceeds without a local freight charge or gross sale tariff. `IndustryAccount` records the day's input costs, electricity costs, wages, production, sales, unsold stock and pretax realized result; saves preserve this account.
+
+Power plants buy distinct fuel where required and deliver measured daily electricity to the local grid. Their generation, fuel costs, wages and electricity sales are recorded. Households and material facilities pay for metered consumption, and plant owners receive those credits. Stored battery power is currently free because the stored energy has no owner ledger. Cargo terminals still do not deliver a metered surface-to-orbit freight service. Detailed grid connections, gravity restrictions, per-facility seller attribution for household retail purchases and the full construction-cost rules below remain design work. Existing market stock and seeded industrial inputs are not attributed to a seller. Recipe IDs for refining are still distinct from technology application IDs.
+
+### Surface-to-orbit freight (draft)
+
+A `cargo_terminal` represents ground-to-orbit handling on its host body, separate from the `CommercialHub` that holds local market stock and settles purchases. Cargo leaving a planetary surface should use a lift method such as rockets, a mass driver or a space elevator, with its own capacity, time, power, fuel and credit costs as applicable. The terminal's exact capacity and fee model are not defined yet. Existing corporate fleet arbitrage and interplanetary trade routes are separate code paths that do not consult cargo terminals; whether those wider freight systems remain part of the final design is undecided.
+
+Material bought and sold within the same planetary body has no transport charge and does not use a cargo terminal. VAT is not implemented; its rate, eligible purchases and treatment of tax paid on business inputs remain draft. Corporate profit tax is collected separately on positive realized earnings across each corporation's facilities after costs and carried losses. Fleet and other corporate income is not included in the tax base yet. Unpaid tax remains a corporate liability, and actual payments enter a populated local municipal balance sheet.
+
+#### 1. Core operational variables
 
 Every technical application inside the industrial tree processes materials according to four baseline operational layers:
 
@@ -130,8 +146,8 @@ The financial flows, capital investments, and output distribution of an expandin
 
 ##### Private Corporate Industries
 - **Management framework:** Managed autonomously by private corporate syndicates using their aggregated liquid capital reserves. The corporate AI independently evaluates local *Market Shortcoming Scores* to initiate and fund expansions where profitable production deficits exist.
-- **The tariff akim layer:** Every turn that a private facility liquidates its output or executes business-to-business (B2B) trade, the engine subjects the gross transaction value to the local hub's active **transaction tariff rate**.
-- **Net profit routing:** Once the public state tariff is cleanly skimmed and local worker salaries are fully settled, **all remaining net profit goes exclusively to the private corporate owner**. These credits are deposited straight into the corporation's treasury pool, providing them with the required capital to buy more *Cargo Transports*, fund independent *Prospector* teams, or trigger further factory expansions.
+- **Local sale settlement:** A private facility receives the full payment for goods sold to its same-body hub. Local sales do not incur freight charges or a gross transaction tariff. VAT remains draft.
+- **Profit tax and reinvestment:** The corporation pays profit tax on positive realized earnings after input costs, wages and carried losses. The remaining credits stay in its reserves for later investments. Unpaid assessed tax carries forward as a corporate liability.
 
 ##### The Hive Mind Exception
 - **Management framework:** The property of the hive. Because hive mind societies completely eliminate the division between public and private sectors, currency, and corporate entities, expansions do not cost credits or require wage balances.

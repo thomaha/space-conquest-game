@@ -1,38 +1,49 @@
 package com.spaceconquest.engine;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 /**
  * Represents the starting technological and expansion era chosen by the player at game start.
  */
 public enum GameStartScenario {
     PRE_SPACE_FLIGHT(
-            "Pre space flight",
-            "Only home planet and basic rocketry technology",
-            List.of("electricity", "rocketry"),
+            "Contemporary industry",
+            "Industrialized homeworld with funded power, food and manufacturing and all tracked starting population needs met",
+            LocalDateTime.of(2027, 1, 1, 8, 0),
+            List.of("electricity", "rocketry", "nuclear_fission", "industrial_production"),
             List.of()
     ),
     ADVANCED_ROCKETRY(
             "Advanced rocketry",
-            "Colonized the most friendly planets in starting solar system, some space bases and several offworld mining bases",
-            List.of("electricity", "rocketry", "nuclear_fission", "basic_automation", "deep_core_drilling"),
+            "Healthy industrialized homeworld, colonies in the starting system and offworld mining bases",
+            LocalDateTime.of(2050, 1, 1, 8, 0),
+            List.of("electricity", "rocketry", "nuclear_fission", "industrial_production",
+                    "computers", "robotics", "supply_chain_automation"),
             List.of("cargo_transport_mk1", "mining_vessel_mk1")
     ),
     BASIC_WARP(
             "Basic warp technology",
-            "Extensive expansion in starting system and some bases in the closest neighboring systems",
-            List.of("electricity", "rocketry", "nuclear_fission", "nuclear_fusion", "energy_fields", "gravitational_engineering", "warp"),
+            "Healthy industrialized homeworld, extensive expansion in the starting system and nearby bases",
+            LocalDateTime.of(2200, 1, 1, 8, 0),
+            List.of("electricity", "rocketry", "nuclear_fission", "industrial_production",
+                    "computers", "robotics", "supply_chain_automation", "superconductors",
+                    "geological_prospecting", "nuclear_fusion", "energy_fields",
+                    "gravitational_engineering", "warp"),
             List.of("cargo_transport_mk1", "mining_vessel_mk1", "scout_corvette_mk1", "colony_transport_mk1")
     );
 
     private final String displayName;
     private final String description;
+    private final LocalDateTime startTime;
     private final List<String> startingTechnologies;
     private final List<String> startingShipDesigns;
 
-    GameStartScenario(String displayName, String description, List<String> startingTechnologies, List<String> startingShipDesigns) {
+    GameStartScenario(String displayName, String description, LocalDateTime startTime,
+                      List<String> startingTechnologies, List<String> startingShipDesigns) {
         this.displayName = displayName;
         this.description = description;
+        this.startTime = startTime;
         this.startingTechnologies = startingTechnologies;
         this.startingShipDesigns = startingShipDesigns;
     }
@@ -43,6 +54,15 @@ public enum GameStartScenario {
 
     public String description() {
         return description;
+    }
+
+    public LocalDateTime startTime() {
+        return startTime;
+    }
+
+    @Override
+    public String toString() {
+        return startTime.getYear() + " — " + displayName;
     }
 
     public List<String> startingTechnologies() {
@@ -56,7 +76,9 @@ public enum GameStartScenario {
     public static GameStartScenario fromDisplayName(String name) {
         if (name == null) return PRE_SPACE_FLIGHT;
         for (GameStartScenario scenario : values()) {
-            if (scenario.displayName.equalsIgnoreCase(name.trim()) || scenario.name().equalsIgnoreCase(name.trim())) {
+            if (scenario.displayName.equalsIgnoreCase(name.trim())
+                    || scenario.name().equalsIgnoreCase(name.trim())
+                    || scenario.toString().equalsIgnoreCase(name.trim())) {
                 return scenario;
             }
         }

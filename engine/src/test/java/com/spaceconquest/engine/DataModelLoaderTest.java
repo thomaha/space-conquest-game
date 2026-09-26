@@ -352,7 +352,8 @@ public class DataModelLoaderTest {
         assertEquals("Electricity", electricity.name());
         assertEquals(1, electricity.complexity());
         assertTrue(electricity.requiredTechnologies().isEmpty());
-        assertEquals(9, electricity.applications().size());
+        assertEquals(10, electricity.applications().size());
+        assertTrue(electricity.applications().stream().anyMatch(a -> a.id().equals("combustion_power")));
 
         TechnicalApplication solar = electricity.applications().stream().filter(a -> a.id().equals("solar_power")).findFirst().orElseThrow();
         assertEquals("Solar power", solar.name());

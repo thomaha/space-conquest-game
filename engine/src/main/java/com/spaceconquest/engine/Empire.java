@@ -11,7 +11,7 @@ import java.util.Map;
  * @param raceId                     primary race identifier
  * @param societyStructure           ideological alignment ("Individualist", "Collectivist", "Hive Mind")
  * @param treasuryCredits            liquid public treasury credits
- * @param corporateTaxRate           active tax rate applied to corporate transactions
+ * @param corporateTaxRate           active tax rate applied to positive realized corporate profit
  * @param controlledSystemIds        list of controlled solar system identifiers
  * @param ministries                 cabinet ministry portfolio assignments
  * @param systemGovernorAssignments  mapping of solar system ID to assigned governor ID

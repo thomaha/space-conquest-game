@@ -244,7 +244,7 @@ public class SystemEconomyWorkbenchCard {
                 : report.grossSystemOutput();
         double newTaxes = taxBase * (taxSlider.getValue() / 100.0);
         taxValLbl.setText(String.format("%.1f%% (~%,.0f ₵/day)", taxSlider.getValue(), newTaxes));
-        double totalRev = newTaxes + report.corporateTariffs() + report.spaceElevatorFees() + report.miningRoyalties() + report.stateIndustryIncome();
+        double totalRev = newTaxes + report.corporateProfitTax() + report.spaceElevatorFees() + report.miningRoyalties() + report.stateIndustryIncome();
         double totalExp = budget + report.governorAdministration() + report.stationMaintenance();
         double projectedBalance = totalRev - totalExp;
 

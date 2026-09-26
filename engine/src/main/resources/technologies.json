@@ -57,6 +57,16 @@
         "complexity": 4
       },
       {
+        "id": "combustion_power",
+        "name": "Combustion power",
+        "description": "Generator turbines driven by burning liquid hydrocarbon fuel.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["power_production", "pollution"],
+        "costToBuildPerUnit": 120.0,
+        "requiredMaterials": ["steel", "hydrocarbons"],
+        "complexity": 3
+      },
+      {
         "id": "nuclear_power_app",
         "name": "Nuclear power",
         "description": "Controlled thermal energy generation from fissionable atomic fuel.",

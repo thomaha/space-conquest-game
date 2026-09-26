@@ -13,7 +13,7 @@ import java.util.Objects;
  * @param empireId                       sovereign empire identifier
  * @param grossPlanetaryProduct          total economic value generated (wages + corporate output)
  * @param incomeTaxRevenue               personal income taxes collected from citizen cohorts
- * @param corporateTariffRevenue         tariffs levied on local corporate trade and production
+ * @param corporateProfitTaxRevenue      profit tax actually collected from local corporations
  * @param dockingFeeRevenue              commercial hub docking and spaceport handling fees
  * @param totalRevenueCredits            sum of all municipal public revenues
  * @param workforceSalaries              salaries paid to state personnel (police, soldiers, bureaucrats, medics, teachers, scientists)
@@ -34,7 +34,8 @@ public record PlanetaryBalanceSheet(
         @JsonProperty("empireId") String empireId,
         @JsonProperty("grossPlanetaryProduct") double grossPlanetaryProduct,
         @JsonProperty("incomeTaxRevenue") double incomeTaxRevenue,
-        @JsonProperty("corporateTariffRevenue") double corporateTariffRevenue,
+        @com.fasterxml.jackson.annotation.JsonAlias("corporateTariffRevenue")
+        @JsonProperty("corporateProfitTaxRevenue") double corporateProfitTaxRevenue,
         @JsonProperty("dockingFeeRevenue") double dockingFeeRevenue,
         @JsonProperty("totalRevenueCredits") double totalRevenueCredits,
         @JsonProperty("workforceSalaries") double workforceSalaries,
@@ -51,14 +52,14 @@ public record PlanetaryBalanceSheet(
 ) {
     public PlanetaryBalanceSheet(
             String planetId, String systemId, String empireId, double grossPlanetaryProduct,
-            double incomeTaxRevenue, double corporateTariffRevenue, double dockingFeeRevenue,
+            double incomeTaxRevenue, double corporateProfitTaxRevenue, double dockingFeeRevenue,
             double totalRevenueCredits, double workforceSalaries, double facilityMaintenanceCosts,
             double publicWelfareExpenditures, double infrastructureUpkeepCosts,
             double totalExpenditureCredits, double netBalanceCredits, double uncollectedLocalCredits,
             double centralSubsidyReceivedCredits, double publicSectorFundingCredits, double empireTransferCredits
     ) {
         this(planetId, systemId, empireId, grossPlanetaryProduct, incomeTaxRevenue,
-                corporateTariffRevenue, dockingFeeRevenue, totalRevenueCredits, workforceSalaries,
+                corporateProfitTaxRevenue, dockingFeeRevenue, totalRevenueCredits, workforceSalaries,
                 facilityMaintenanceCosts, publicWelfareExpenditures, infrastructureUpkeepCosts,
                 totalExpenditureCredits, netBalanceCredits, uncollectedLocalCredits,
                 centralSubsidyReceivedCredits, publicSectorFundingCredits, empireTransferCredits, 0.0);
@@ -66,14 +67,14 @@ public record PlanetaryBalanceSheet(
 
     public PlanetaryBalanceSheet(
             String planetId, String systemId, String empireId, double grossPlanetaryProduct,
-            double incomeTaxRevenue, double corporateTariffRevenue, double dockingFeeRevenue,
+            double incomeTaxRevenue, double corporateProfitTaxRevenue, double dockingFeeRevenue,
             double totalRevenueCredits, double workforceSalaries, double facilityMaintenanceCosts,
             double publicWelfareExpenditures, double infrastructureUpkeepCosts,
             double totalExpenditureCredits, double netBalanceCredits,
             double uncollectedLocalCredits, double centralSubsidyReceivedCredits
     ) {
         this(planetId, systemId, empireId, grossPlanetaryProduct, incomeTaxRevenue,
-                corporateTariffRevenue, dockingFeeRevenue, totalRevenueCredits, workforceSalaries,
+                corporateProfitTaxRevenue, dockingFeeRevenue, totalRevenueCredits, workforceSalaries,
                 facilityMaintenanceCosts, publicWelfareExpenditures, infrastructureUpkeepCosts,
                 totalExpenditureCredits, netBalanceCredits, uncollectedLocalCredits,
                 centralSubsidyReceivedCredits, 0.0, 0.0, 0.0);
@@ -102,11 +103,20 @@ public record PlanetaryBalanceSheet(
 
     public PlanetaryBalanceSheet withOutstandingDebt(double debtCredits) {
         return new PlanetaryBalanceSheet(planetId, systemId, empireId, grossPlanetaryProduct,
-                incomeTaxRevenue, corporateTariffRevenue, dockingFeeRevenue, totalRevenueCredits,
+                incomeTaxRevenue, corporateProfitTaxRevenue, dockingFeeRevenue, totalRevenueCredits,
                 workforceSalaries, facilityMaintenanceCosts, publicWelfareExpenditures,
                 infrastructureUpkeepCosts, totalExpenditureCredits, netBalanceCredits,
                 uncollectedLocalCredits, centralSubsidyReceivedCredits, publicSectorFundingCredits,
                 empireTransferCredits, debtCredits);
+    }
+
+    public PlanetaryBalanceSheet withUncollectedLocalCredits(double credits) {
+        return new PlanetaryBalanceSheet(planetId, systemId, empireId, grossPlanetaryProduct,
+                incomeTaxRevenue, corporateProfitTaxRevenue, dockingFeeRevenue, totalRevenueCredits,
+                workforceSalaries, facilityMaintenanceCosts, publicWelfareExpenditures,
+                infrastructureUpkeepCosts, totalExpenditureCredits, netBalanceCredits,
+                credits, centralSubsidyReceivedCredits, publicSectorFundingCredits,
+                empireTransferCredits, outstandingDebtCredits);
     }
 
     /**

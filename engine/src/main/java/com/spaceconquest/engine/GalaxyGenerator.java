@@ -1,5 +1,8 @@
 package com.spaceconquest.engine;
 
+import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.scenario.StartingEconomySeeder;
+
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
@@ -61,6 +64,11 @@ public class GalaxyGenerator {
     }
 
     public List<SolarSystem> generate(int numSystems, GameStartScenario scenario) {
+        return setupScenario(generateRawSystems(numSystems),
+                scenario != null ? scenario : GameStartScenario.PRE_SPACE_FLIGHT);
+    }
+
+    private List<SolarSystem> generateRawSystems(int numSystems) {
         List<SolarSystem> systems = new ArrayList<>();
         List<String> availableNames = new ArrayList<>(new LinkedHashSet<>(STAR_NAMES));
         Collections.shuffle(availableNames);
@@ -76,7 +84,7 @@ public class GalaxyGenerator {
             }
             systems.add(generateSolarSystem(name, i));
         }
-        return setupScenario(systems, scenario != null ? scenario : GameStartScenario.PRE_SPACE_FLIGHT);
+        return systems;
     }
 
     public GameState generateGameState(int numSystems, GameStartScenario scenario) {
@@ -85,7 +93,7 @@ public class GalaxyGenerator {
 
     public GameState generateGameState(int numSystems, int numAIEmpires, GameStartScenario scenario) {
         GameStartScenario activeScenario = scenario != null ? scenario : GameStartScenario.PRE_SPACE_FLIGHT;
-        List<SolarSystem> rawSystems = generate(numSystems, activeScenario);
+        List<SolarSystem> rawSystems = generateRawSystems(numSystems);
         
         List<Empire> allEmpires = new ArrayList<>();
         List<Corporation> allCorporations = new ArrayList<>();
@@ -93,6 +101,12 @@ public class GalaxyGenerator {
         List<com.spaceconquest.engine.industry.GeologicalDeposit> allDeposits = new ArrayList<>();
         List<com.spaceconquest.engine.industry.PowerGridState> allGrids = new ArrayList<>();
         List<com.spaceconquest.engine.economy.SystemEconomy> allEconomies = new ArrayList<>();
+        List<IndustrialFacility> allFacilities = new ArrayList<>();
+        StartingEconomySeeder economySeeder = new StartingEconomySeeder(races);
+        int maxAI = Math.min(numAIEmpires, rawSystems.size() - 1);
+        Set<String> reservedHomes = rawSystems.stream().limit(maxAI + 1L)
+                .map(SolarSystem::id).collect(java.util.stream.Collectors.toSet());
+        Set<String> claimedSystems = new HashSet<>();
 
         // 1. Setup Player Empire
         Race humanRace = races.stream().filter(r -> r.id().equals("human")).findFirst().orElse(races.get(0));
@@ -103,13 +117,16 @@ public class GalaxyGenerator {
         systems.set(0, playerHome);
 
         Empire playerEmpire = createEmpireForGenerator(
-                "terran_confederation", "Terran Confederation", humanRace, playerHome, systems, activeScenario, true
+                "terran_confederation", "Terran Confederation", humanRace, playerHome, systems,
+                activeScenario, reservedHomes
         );
         allEmpires.add(playerEmpire);
-        setupEmpireAssets(playerEmpire, playerHome, systems, activeScenario, allCorporations, allHubs, allDeposits, allGrids);
+        claimedSystems.addAll(playerEmpire.controlledSystemIds());
+        populateClaimedExpansionSystems(systems, playerEmpire, humanRace, activeScenario);
+        setupEmpireAssets(playerEmpire, playerHome, systems, activeScenario, economySeeder,
+                allCorporations, allFacilities, allHubs, allDeposits, allGrids);
 
         // 2. Setup AI Empires
-        int maxAI = Math.min(numAIEmpires, systems.size() - 1);
         List<Race> aiRaces = races.stream().filter(r -> !r.id().equals("human")).toList();
         if (aiRaces.isEmpty()) aiRaces = races;
 
@@ -123,9 +140,15 @@ public class GalaxyGenerator {
             String id = "ai_empire_" + (i + 1);
             String name = aiRace.name() + " Collective " + (i + 1);
             
-            Empire aiEmpire = createEmpireForGenerator(id, name, aiRace, aiHome, systems, activeScenario, false);
+            Set<String> unavailable = new HashSet<>(reservedHomes);
+            unavailable.addAll(claimedSystems);
+            Empire aiEmpire = createEmpireForGenerator(id, name, aiRace, aiHome, systems,
+                    activeScenario, unavailable);
             allEmpires.add(aiEmpire);
-            setupEmpireAssets(aiEmpire, aiHome, systems, activeScenario, allCorporations, allHubs, allDeposits, allGrids);
+            claimedSystems.addAll(aiEmpire.controlledSystemIds());
+            populateClaimedExpansionSystems(systems, aiEmpire, aiRace, activeScenario);
+            setupEmpireAssets(aiEmpire, aiHome, systems, activeScenario, economySeeder,
+                    allCorporations, allFacilities, allHubs, allDeposits, allGrids);
         }
 
         // 3. Setup Economies for all controlled systems
@@ -156,28 +179,38 @@ public class GalaxyGenerator {
                 .commercialHubs(allHubs)
                 .geologicalDeposits(allDeposits)
                 .powerGrids(allGrids)
+                .industrialFacilities(allFacilities)
                 .systemEconomies(allEconomies)
+                .householdAccounts(economySeeder.createOpeningHouseholds(systems, allEmpires))
                 .build();
         com.spaceconquest.engine.economy.PlanetaryMunicipalProcessor municipalProcessor =
                 new com.spaceconquest.engine.economy.PlanetaryMunicipalProcessor();
-        return initial.withPlanetaryBalanceSheets(municipalProcessor.processMunicipalFinances(initial).balanceSheets());
+        return initial.withPlanetaryBalanceSheets(municipalProcessor.createOpeningBalanceSheets(initial));
     }
 
-    private Empire createEmpireForGenerator(String id, String name, Race race, SolarSystem home, List<SolarSystem> allSystems, GameStartScenario scenario, boolean isPlayer) {
+    private Empire createEmpireForGenerator(String id, String name, Race race, SolarSystem home,
+                                            List<SolarSystem> allSystems, GameStartScenario scenario,
+                                            Set<String> unavailableSystems) {
         List<String> controlledIds = new ArrayList<>();
         controlledIds.add(home.id());
 
         if (scenario == GameStartScenario.BASIC_WARP) {
-            List<SolarSystem> closest = findClosestNeighbors(home, allSystems, 2);
+            List<SolarSystem> closest = allSystems.stream()
+                    .filter(system -> !system.id().equals(home.id()))
+                    .filter(system -> !unavailableSystems.contains(system.id()))
+                    .sorted(Comparator.comparingDouble(system -> distance(home, system)))
+                    .limit(2).toList();
             for (SolarSystem neighbor : closest) {
                 controlledIds.add(neighbor.id());
             }
         }
 
-        double treasury = switch (scenario) {
-            case PRE_SPACE_FLIGHT -> 50000.0;
-            case ADVANCED_ROCKETRY -> 80000.0;
-            case BASIC_WARP -> 150000.0;
+        long homePopulation = home.planets().stream().flatMap(planet -> planet.populations().stream())
+                .mapToLong(Population::totalCount).sum();
+        double treasury = Math.max(50_000.0, homePopulation * 0.5) * switch (scenario) {
+            case PRE_SPACE_FLIGHT -> 1.0;
+            case ADVANCED_ROCKETRY -> 1.5;
+            case BASIC_WARP -> 2.5;
         };
 
         return new Empire(
@@ -195,55 +228,52 @@ public class GalaxyGenerator {
         );
     }
 
+    private void populateClaimedExpansionSystems(List<SolarSystem> systems, Empire empire,
+                                                 Race race, GameStartScenario scenario) {
+        if (scenario != GameStartScenario.BASIC_WARP) return;
+        for (int index = 0; index < systems.size(); index++) {
+            SolarSystem system = systems.get(index);
+            if (empire.controlledSystemIds().contains(system.id())
+                    && !empire.controlledSystemIds().getFirst().equals(system.id())) {
+                systems.set(index, configureNeighborSystem(system, race));
+            }
+        }
+    }
+
     private void setupEmpireAssets(Empire empire, SolarSystem homeSystem, List<SolarSystem> allSystems, GameStartScenario scenario, 
-                                   List<Corporation> corps, List<CommercialHub> hubs, 
+                                   StartingEconomySeeder economySeeder, List<Corporation> corps,
+                                   List<IndustrialFacility> facilities, List<CommercialHub> hubs,
                                    List<com.spaceconquest.engine.industry.GeologicalDeposit> deposits, 
                                    List<com.spaceconquest.engine.industry.PowerGridState> grids) {
         
         Planet homePlanet = homeSystem.planets().stream()
                 .filter(p -> !p.populations().isEmpty())
-                .findFirst()
+                .max(Comparator.comparingLong(p -> p.populations().stream()
+                        .mapToLong(Population::totalCount).sum()))
                 .orElse(homeSystem.planets().isEmpty() ? null : homeSystem.planets().get(0));
 
         if (homePlanet != null) {
-            hubs.add(new CommercialHub("hub_" + homePlanet.id(), homePlanet.id(), 0.05, 500000.0, 50000.0, 15.0, Map.of()));
+            hubs.add(economySeeder.createOpeningHub("hub_" + homePlanet.id(), homePlanet.id(), homePlanet.atmosphere(),
+                    homePlanet.populations(), 15.0));
             
             deposits.add(new com.spaceconquest.engine.industry.GeologicalDeposit(
-                    "dep_" + homePlanet.id() + "_iron", homePlanet.id(), "refined_iron", 
-                    1_000_000.0, 1_000_000.0, 1.2, true, empire.id()
+                    "dep_" + homePlanet.id() + "_iron", homePlanet.id(), "iron_ore",
+                    1_000_000_000.0, 1_000_000_000.0, 1.2, true, empire.id()
             ));
 
             grids.add(new com.spaceconquest.engine.industry.PowerGridState(
                     homePlanet.id(), 5000.0, 2500.0, 2500.0, 10000.0, 5000.0, false
             ));
 
-            List<String> transportShips = switch (scenario) {
-                case PRE_SPACE_FLIGHT -> List.of();
-                case ADVANCED_ROCKETRY -> List.of("cargo_freighter_01");
-                case BASIC_WARP -> List.of("cargo_freighter_01", "cargo_freighter_02", "cargo_freighter_03");
-            };
-            List<String> miningShips = switch (scenario) {
-                case PRE_SPACE_FLIGHT -> List.of();
-                case ADVANCED_ROCKETRY -> List.of("mine_ship_alpha_1");
-                case BASIC_WARP -> List.of("mine_ship_alpha_1", "mine_ship_alpha_2");
-            };
-
-            corps.add(new Corporation(
-                    "corp_" + empire.id() + "_transport", empire.name() + " Transport", empire.id(),
-                    homePlanet.id(), "TRANSPORT", scenario == GameStartScenario.BASIC_WARP ? 60000.0 : 20000.0,
-                    List.of("cargo_terminal_" + homePlanet.id()), transportShips, List.of()
-            ));
-            corps.add(new Corporation(
-                    "corp_" + empire.id() + "_extraction", empire.name() + " Extraction", empire.id(),
-                    homePlanet.id(), "EXTRACTION", scenario == GameStartScenario.BASIC_WARP ? 50000.0 : 15000.0,
-                    List.of(), miningShips, List.of()
-            ));
+            StartingEconomySeeder.HomeAssets assets = economySeeder.createHomeAssets(empire, homePlanet, scenario);
+            corps.addAll(assets.corporations());
+            facilities.addAll(assets.facilities());
         }
 
         if (scenario == GameStartScenario.ADVANCED_ROCKETRY || scenario == GameStartScenario.BASIC_WARP) {
             for (Planet p : homeSystem.planets()) {
                 if (homePlanet != null && !p.id().equals(homePlanet.id()) && !p.populations().isEmpty()) {
-                    hubs.add(new CommercialHub("hub_" + p.id(), p.id(), 0.05, 200000.0, 20000.0, 10.0, Map.of()));
+                    hubs.add(economySeeder.createOpeningHub("hub_" + p.id(), p.id(), p.atmosphere(), p.populations(), 10.0));
                 }
             }
         }
@@ -253,7 +283,7 @@ public class GalaxyGenerator {
                 if (!sys.id().equals(homeSystem.id()) && empire.controlledSystemIds().contains(sys.id())) {
                     for (Planet p : sys.planets()) {
                         if (!p.populations().isEmpty()) {
-                            hubs.add(new CommercialHub("hub_" + p.id(), p.id(), 0.05, 100000.0, 10000.0, 25.0, Map.of()));
+                            hubs.add(economySeeder.createOpeningHub("hub_" + p.id(), p.id(), p.atmosphere(), p.populations(), 25.0));
                             break;
                         }
                     }
@@ -624,9 +654,11 @@ public class GalaxyGenerator {
 
     private Planet configurePlanetForScenario(Planet p, boolean isHomePlanet, Race primaryRace, GameStartScenario scenario, int configuredPlanetCount) {
         if (isHomePlanet) {
+            String atmosphere = "Oxygen based".equalsIgnoreCase(primaryRace.breathingAtmosphere())
+                    ? "nitrogen_oxygen" : p.atmosphere();
             return new Planet(
                     p.id(), p.name(), p.description(), p.mass(), p.gravity(), p.distance(),
-                    p.inclination(), p.diameter(), p.type(), p.atmosphere(), p.hasLiquidWater(),
+                    p.inclination(), p.diameter(), p.type(), atmosphere, p.hasLiquidWater(),
                     p.waterLevel(), p.resources(), p.moons(),
                     List.of(generateColonyPopulation(primaryRace, 7_800_000_000L))
             );

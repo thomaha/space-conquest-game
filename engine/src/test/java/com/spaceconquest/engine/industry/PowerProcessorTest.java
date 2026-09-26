@@ -1,9 +1,11 @@
 package com.spaceconquest.engine.industry;
 
+import com.spaceconquest.engine.GameState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -22,7 +24,7 @@ public class PowerProcessorTest {
         PowerGridState grid = powerProcessor.balanceGrid("earth", 1000.0, 600.0, 200.0, 1000.0);
 
         assertEquals(400.0, grid.netBalanceKw(), 0.001);
-        assertEquals(600.0, grid.currentStoredKwh(), 0.001);
+        assertEquals(1000.0, grid.currentStoredKwh(), 0.001);
         assertFalse(grid.isDeficitBrownoutActive());
     }
 
@@ -32,8 +34,8 @@ public class PowerProcessorTest {
         PowerGridState grid = powerProcessor.balanceGrid("mars", 500.0, 700.0, 500.0, 1000.0);
 
         assertEquals(-200.0, grid.netBalanceKw(), 0.001);
-        assertEquals(300.0, grid.currentStoredKwh(), 0.001);
-        assertFalse(grid.isDeficitBrownoutActive());
+        assertEquals(0.0, grid.currentStoredKwh(), 0.001);
+        assertTrue(grid.isDeficitBrownoutActive());
     }
 
     @Test
@@ -69,5 +71,23 @@ public class PowerProcessorTest {
 
         assertEquals(0, updatedFoundry.allocatedWorkers(), "Heavy foundry should have workers idled during brownout");
         assertEquals(20, updatedFarm.allocatedWorkers(), "Hydroponic farm should remain fully operational");
+    }
+
+    @Test
+    void gridAllocatesLimitedGenerationToFoodBeforeSmelting() {
+        IndustrialFacility farm = new IndustrialFacility("farm", "earth", "industrial_soil_cultivation",
+                "empire", IndustrialFacility.PUBLIC_STATE, 1, 100, "farmer", false, 0.0);
+        IndustrialFacility smelter = new IndustrialFacility("smelter", "earth", "pyro_iron_smelting",
+                "empire", IndustrialFacility.PUBLIC_STATE, 1, 100, "industrial_worker", false, 0.0);
+        GameState state = GameState.builder().industrialFacilities(List.of(farm, smelter))
+                .powerGrids(List.of(new PowerGridState("earth", 99_000.0, 1_000.0, 98_000.0,
+                        0.0, 0.0, false))).build();
+
+        var result = powerProcessor.balanceDay(state, Map.of("earth", 3_000.0),
+                Map.of("farm", 100, "smelter", 100));
+        assertEquals(80, result.poweredWorkers().get("farm"));
+        assertEquals(0, result.poweredWorkers().get("smelter"));
+        assertEquals(3_000.0, result.grids().getFirst().totalGenerationKw(), 0.001);
+        assertTrue(result.grids().getFirst().isDeficitBrownoutActive());
     }
 }

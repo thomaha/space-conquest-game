@@ -3,6 +3,9 @@ package com.spaceconquest.engine;
 import com.spaceconquest.engine.community.GalacticCommunity;
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.economy.ImperialBalanceSheet;
+import com.spaceconquest.engine.economy.HouseholdAccount;
+import com.spaceconquest.engine.economy.MarketAccount;
+import com.spaceconquest.engine.economy.CorporateTaxAccount;
 import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.espionage.EspionageOperation;
 import com.spaceconquest.engine.espionage.PirateBase;
@@ -11,6 +14,7 @@ import com.spaceconquest.engine.galaxy.FogOfWarState;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
 import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.industry.IndustryAccount;
 import com.spaceconquest.engine.industry.PowerGridState;
 import com.spaceconquest.engine.logistics.TradeRoute;
 import com.spaceconquest.engine.macrostructure.ConstructionDeploymentProject;
@@ -60,7 +64,11 @@ public record GameState(
         List<SystemEconomy> systemEconomies,
         List<CourierShip> courierShips,
         List<PlanetaryBalanceSheet> planetaryBalanceSheets,
-        List<ImperialBalanceSheet> imperialBalanceSheets
+        List<ImperialBalanceSheet> imperialBalanceSheets,
+        List<HouseholdAccount> householdAccounts,
+        List<MarketAccount> marketAccounts,
+        List<IndustryAccount> industryAccounts,
+        List<CorporateTaxAccount> corporateTaxAccounts
 ) {
     public GameState {
         if (solarSystems == null) solarSystems = List.of();
@@ -92,6 +100,10 @@ public record GameState(
         if (courierShips == null) courierShips = List.of();
         if (planetaryBalanceSheets == null) planetaryBalanceSheets = List.of();
         if (imperialBalanceSheets == null) imperialBalanceSheets = List.of();
+        if (householdAccounts == null) householdAccounts = List.of();
+        if (marketAccounts == null) marketAccounts = List.of();
+        if (industryAccounts == null) industryAccounts = List.of();
+        if (corporateTaxAccounts == null) corporateTaxAccounts = List.of();
     }
 
     public GameState() {
@@ -107,7 +119,9 @@ public record GameState(
                 builder.expansionProjects, builder.orbitalStations, builder.spaceElevators, builder.constructionProjects,
                 builder.sleeperAgents, builder.espionageOperations, builder.pirateBases, builder.terraformingProjects,
                 builder.megastructures, builder.galacticCommunity, builder.tradeRoutes, builder.fogOfWarStates,
-                builder.systemEconomies, builder.courierShips, builder.planetaryBalanceSheets, builder.imperialBalanceSheets
+                builder.systemEconomies, builder.courierShips, builder.planetaryBalanceSheets, builder.imperialBalanceSheets,
+                builder.householdAccounts, builder.marketAccounts, builder.industryAccounts,
+                builder.corporateTaxAccounts
         );
     }
 
@@ -152,6 +166,10 @@ public record GameState(
         private List<CourierShip> courierShips;
         private List<PlanetaryBalanceSheet> planetaryBalanceSheets;
         private List<ImperialBalanceSheet> imperialBalanceSheets;
+        private List<HouseholdAccount> householdAccounts;
+        private List<MarketAccount> marketAccounts;
+        private List<IndustryAccount> industryAccounts;
+        private List<CorporateTaxAccount> corporateTaxAccounts;
 
         public Builder() {}
 
@@ -188,6 +206,10 @@ public record GameState(
             this.courierShips = state.courierShips();
             this.planetaryBalanceSheets = state.planetaryBalanceSheets();
             this.imperialBalanceSheets = state.imperialBalanceSheets();
+            this.householdAccounts = state.householdAccounts();
+            this.marketAccounts = state.marketAccounts();
+            this.industryAccounts = state.industryAccounts();
+            this.corporateTaxAccounts = state.corporateTaxAccounts();
         }
 
         public Builder turn(long value) { this.turn = value; return this; }
@@ -222,6 +244,10 @@ public record GameState(
         public Builder courierShips(List<CourierShip> value) { this.courierShips = value; return this; }
         public Builder planetaryBalanceSheets(List<PlanetaryBalanceSheet> value) { this.planetaryBalanceSheets = value; return this; }
         public Builder imperialBalanceSheets(List<ImperialBalanceSheet> value) { this.imperialBalanceSheets = value; return this; }
+        public Builder householdAccounts(List<HouseholdAccount> value) { this.householdAccounts = value; return this; }
+        public Builder marketAccounts(List<MarketAccount> value) { this.marketAccounts = value; return this; }
+        public Builder industryAccounts(List<IndustryAccount> value) { this.industryAccounts = value; return this; }
+        public Builder corporateTaxAccounts(List<CorporateTaxAccount> value) { this.corporateTaxAccounts = value; return this; }
 
         public GameState build() {
             return new GameState(this);
@@ -354,5 +380,21 @@ public record GameState(
 
     public GameState withImperialBalanceSheets(List<ImperialBalanceSheet> value) {
         return toBuilder().imperialBalanceSheets(value).build();
+    }
+
+    public GameState withHouseholdAccounts(List<HouseholdAccount> value) {
+        return toBuilder().householdAccounts(value).build();
+    }
+
+    public GameState withMarketAccounts(List<MarketAccount> value) {
+        return toBuilder().marketAccounts(value).build();
+    }
+
+    public GameState withIndustryAccounts(List<IndustryAccount> value) {
+        return toBuilder().industryAccounts(value).build();
+    }
+
+    public GameState withCorporateTaxAccounts(List<CorporateTaxAccount> value) {
+        return toBuilder().corporateTaxAccounts(value).build();
     }
 }

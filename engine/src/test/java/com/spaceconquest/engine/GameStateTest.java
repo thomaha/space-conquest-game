@@ -3,6 +3,9 @@ package com.spaceconquest.engine;
 import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.economy.ImperialBalanceSheet;
+import com.spaceconquest.engine.economy.HouseholdAccount;
+import com.spaceconquest.engine.economy.MarketAccount;
+import com.spaceconquest.engine.industry.IndustryAccount;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -10,6 +13,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -128,8 +132,18 @@ public class GameStateTest {
                 .diplomaticRelations(List.of(relation))
                 .systemGovernors(List.of(governor))
                 .systemEconomies(List.of(economy))
-                .build().withCourierShips(List.of(courier)).withPlanetaryBalanceSheets(List.of(sheet))
-                .withImperialBalanceSheets(List.of(imperialSheet));
+                .courierShips(List.of(courier))
+                .planetaryBalanceSheets(List.of(sheet))
+                .imperialBalanceSheets(List.of(imperialSheet))
+                .householdAccounts(List.of(new HouseholdAccount("earth", "sol", "terran", "human",
+                        "farmer", 1_000, 25.0, 10.0, 0.0, 1.0, 4.0,
+                        Map.of("food_matrix", 5.0), 0.5, 0.0, 2.0, 3.0)))
+                .marketAccounts(List.of(new MarketAccount("hub_1", 90.0)))
+                .industryAccounts(List.of(new IndustryAccount("facility_1", Map.of("ore", 3.0),
+                        Map.of("ore", 5.0), Map.of("ore", 2.0), 4.0, 6.0, 12.0, 1.0, 24.0, 2.0)))
+                .corporateTaxAccounts(List.of(new com.spaceconquest.engine.economy.CorporateTaxAccount(
+                        "corp_1", 20.0, 5.0, 100.0, 20.0, 15.0)))
+                .build();
 
         assertEquals(state, state.toBuilder().build());
 
@@ -140,6 +154,7 @@ public class GameStateTest {
         assertNotNull(loaded);
         assertEquals(SaveGame.CURRENT_VERSION, loaded.version());
         assertEquals("2026-08-22T00:00:00Z", loaded.gameTime());
+        assertEquals(GameClock.START_TIME, loaded.resolvedCampaignStartTime());
         assertEquals(1, loaded.empires().size());
         assertEquals("terran", loaded.empires().getFirst().id());
         assertEquals(1, loaded.corporations().size());
@@ -162,12 +177,20 @@ public class GameStateTest {
         assertEquals(750.0, loaded.planetaryBalanceSheets().getFirst().uncollectedLocalCredits(), 0.001);
         assertEquals(400.0, loaded.planetaryBalanceSheets().getFirst().outstandingDebtCredits(), 0.001);
         assertEquals(List.of(imperialSheet), loaded.imperialBalanceSheets());
+        assertEquals(state.householdAccounts(), loaded.householdAccounts());
+        assertEquals(state.marketAccounts(), loaded.marketAccounts());
+        assertEquals(state.industryAccounts(), loaded.industryAccounts());
+        assertEquals(state.corporateTaxAccounts(), loaded.corporateTaxAccounts());
         assertEquals(state, loaded.toGameState(5, "RUNNING"));
         GameState restored = new SpaceConquestEngine(loaded).getGameState();
         assertEquals(List.of(courier), restored.courierShips());
         assertEquals(750.0, restored.planetaryBalanceSheets().getFirst().uncollectedLocalCredits(), 0.001);
         assertEquals(400.0, restored.planetaryBalanceSheets().getFirst().outstandingDebtCredits(), 0.001);
         assertEquals(List.of(imperialSheet), restored.imperialBalanceSheets());
+        assertEquals(state.householdAccounts(), restored.householdAccounts());
+        assertEquals(state.marketAccounts(), restored.marketAccounts());
+        assertEquals(state.industryAccounts(), restored.industryAccounts());
+        assertEquals(state.corporateTaxAccounts(), restored.corporateTaxAccounts());
     }
 
     @Test
@@ -179,8 +202,29 @@ public class GameStateTest {
                 """);
 
         SaveGame loaded = new SaveGameManager(tempDir).load(path.toFile());
+        assertEquals(LocalDateTime.of(2200, 1, 1, 8, 0), loaded.resolvedCampaignStartTime());
         assertTrue(loaded.courierShips().isEmpty());
         assertTrue(loaded.planetaryBalanceSheets().isEmpty());
         assertTrue(loaded.imperialBalanceSheets().isEmpty());
+        assertTrue(loaded.householdAccounts().isEmpty());
+        assertTrue(loaded.marketAccounts().isEmpty());
+        assertTrue(loaded.industryAccounts().isEmpty());
+        assertTrue(loaded.corporateTaxAccounts().isEmpty());
+    }
+
+    @Test
+    public void scenarioDateSurvivesSaveAndEngineRestore() throws IOException {
+        LocalDateTime start = GameStartScenario.ADVANCED_ROCKETRY.startTime();
+        LocalDateTime savedTime = start.plusDays(4).plusHours(6);
+        File file = tempDir.resolve("era.scsave").toFile();
+        SaveGameManager manager = new SaveGameManager(tempDir);
+        manager.save(file, GameState.builder().build(), 1, savedTime.toString(), start.toString());
+
+        SaveGame loaded = manager.load(file);
+        SpaceConquestEngine restored = new SpaceConquestEngine(loaded);
+        assertEquals(start, loaded.resolvedCampaignStartTime());
+        assertEquals(start, restored.getGameClock().getCampaignStartTime());
+        assertEquals(savedTime, restored.getGameClock().getGameTime());
+        assertEquals(4, restored.getGameClock().getCurrentTurn());
     }
 }

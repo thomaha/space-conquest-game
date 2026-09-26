@@ -37,7 +37,7 @@ public class EmpireEconomyCalculator {
         calculateColonyLedger(view, playerColonies, colonyLedger);
 
         List<CorporateEconomyEntry> corporateLedger = new ArrayList<>();
-        calculateCorporateLedger(view, corpTaxRate, corporateLedger);
+        calculateCorporateLedger(view, corporateLedger);
         ImperialBalanceSheet actual = view.getImperialBalanceSheets().stream()
                 .filter(sheet -> playerEmpire != null && playerEmpire.id().equals(sheet.empireId()))
                 .findFirst().orElse(null);
@@ -98,10 +98,13 @@ public class EmpireEconomyCalculator {
         }
     }
 
-    private static void calculateCorporateLedger(EmpireView view, double taxRate, List<CorporateEconomyEntry> ledger) {
+    private static void calculateCorporateLedger(EmpireView view, List<CorporateEconomyEntry> ledger) {
         for (Corporation corp : view.getCorporationsForPlayerEmpire()) {
-            double estimatedTariff = (corp.liquidCapitalReserves() * 0.001) + (corp.ownedFacilityIds().size() * 120.0 * taxRate);
-            ledger.add(new CorporateEconomyEntry(corp.id(), corp.name(), corp.headquartersEntityId(), corp.marketOrientation(), corp.liquidCapitalReserves(), corp.ownedFacilityIds().size(), estimatedTariff));
+            double paidTax = view.getCorporateTaxAccounts().stream()
+                    .filter(account -> corp.id().equals(account.corporationId()))
+                    .mapToDouble(account -> account.paidTaxCredits()).findFirst().orElse(0.0);
+            ledger.add(new CorporateEconomyEntry(corp.id(), corp.name(), corp.headquartersEntityId(),
+                    corp.marketOrientation(), corp.liquidCapitalReserves(), corp.ownedFacilityIds().size(), paidTax));
         }
     }
 
@@ -176,7 +179,7 @@ public class EmpireEconomyCalculator {
 
         double gross = sheets.stream().mapToDouble(PlanetaryBalanceSheet::grossPlanetaryProduct).sum();
         double incomeTax = sheets.stream().mapToDouble(PlanetaryBalanceSheet::incomeTaxRevenue).sum();
-        double corporateTariffs = sheets.stream().mapToDouble(PlanetaryBalanceSheet::corporateTariffRevenue).sum();
+        double corporateTax = sheets.stream().mapToDouble(PlanetaryBalanceSheet::corporateProfitTaxRevenue).sum();
         double dockingFees = sheets.stream().mapToDouble(PlanetaryBalanceSheet::dockingFeeRevenue).sum();
         double revenue = sheets.stream().mapToDouble(PlanetaryBalanceSheet::totalRevenueCredits).sum();
         double publicFunding = sheets.stream().mapToDouble(PlanetaryBalanceSheet::publicSectorFundingCredits).sum();
@@ -188,7 +191,7 @@ public class EmpireEconomyCalculator {
         double debt = sheets.stream().mapToDouble(PlanetaryBalanceSheet::outstandingDebtCredits).sum();
 
         return new SystemEconomyReport(systemId, systemName, empireId, population, colonizedCount,
-                gross, incomeTax, corporateTariffs, dockingFees, 0.0, 0.0, revenue,
+                gross, incomeTax, corporateTax, dockingFees, 0.0, 0.0, revenue,
                 publicFunding, salaries, localUpkeep, expenses, net, debt,
                 taxRate, economy, true);
     }

@@ -42,14 +42,14 @@ public class GameStartDialog extends Dialog<GameStartDialog.GameStartResult> {
             @Override
             protected void updateItem(GameStartScenario item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty || item == null ? null : item.displayName());
+                setText(empty || item == null ? null : item.toString());
             }
         });
         scenarioBox.setButtonCell(new ListCell<>() {
             @Override
             protected void updateItem(GameStartScenario item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty || item == null ? null : item.displayName());
+                setText(empty || item == null ? null : item.toString());
             }
         });
 
@@ -66,7 +66,7 @@ public class GameStartDialog extends Dialog<GameStartDialog.GameStartResult> {
 
         grid.add(new Label("Number of stars:"), 0, 0);
         grid.add(systemsField, 1, 0);
-        grid.add(new Label("Starting era:"), 0, 1);
+        grid.add(new Label("Starting date / technology:"), 0, 1);
         grid.add(scenarioBox, 1, 1);
         grid.add(new Label("Details:"), 0, 2);
         grid.add(descriptionLabel, 1, 2);

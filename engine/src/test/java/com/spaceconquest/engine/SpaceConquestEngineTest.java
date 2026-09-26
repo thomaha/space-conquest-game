@@ -1,6 +1,7 @@
 package com.spaceconquest.engine;
 
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
+import com.spaceconquest.engine.economy.HouseholdAccount;
 import com.spaceconquest.engine.economy.SystemEconomy;
 import org.junit.jupiter.api.Test;
 
@@ -10,6 +11,35 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class SpaceConquestEngineTest {
+    @Test
+    public void testNewCampaignHasNoUnprocessedMunicipalDay() {
+        GameState opening = new SpaceConquestEngine().getGameState();
+        assertFalse(opening.planetaryBalanceSheets().isEmpty());
+        assertTrue(opening.planetaryBalanceSheets().stream().allMatch(sheet ->
+                sheet.totalRevenueCredits() == 0.0 && sheet.totalExpenditureCredits() == 0.0
+                        && sheet.outstandingDebtCredits() == 0.0));
+    }
+
+    @Test
+    public void testDailyHouseholdTaxesReachTheirLocalBalanceSheets() {
+        SpaceConquestEngine engine = new SpaceConquestEngine();
+        engine.stepTurn();
+        GameState state = engine.getGameState();
+
+        assertFalse(state.householdAccounts().isEmpty());
+        double collected = state.householdAccounts().stream()
+                .mapToDouble(HouseholdAccount::incomeTaxPaidCredits).sum();
+        assertTrue(collected > 0.0);
+        assertEquals(collected, state.planetaryBalanceSheets().stream()
+                .mapToDouble(PlanetaryBalanceSheet::incomeTaxRevenue).sum(), 0.001);
+        for (PlanetaryBalanceSheet sheet : state.planetaryBalanceSheets()) {
+            double paidHere = state.householdAccounts().stream()
+                    .filter(account -> sheet.planetId().equals(account.bodyId()))
+                    .mapToDouble(HouseholdAccount::incomeTaxPaidCredits).sum();
+            assertEquals(paidHere, sheet.incomeTaxRevenue(), 0.001);
+        }
+    }
+
     @Test
     public void testClockSchedulesDailyTurnsWithoutRunningEarly() {
         SpaceConquestEngine engine = new SpaceConquestEngine();
@@ -110,7 +140,11 @@ public class SpaceConquestEngineTest {
                 .map(economy -> "sol".equals(economy.systemId())
                         ? economy.withEmpireContributionRate(1.0) : economy)
                 .toList();
-        engine.reset(initial.withSystemEconomies(economies));
+        engine.reset(initial.toBuilder().systemEconomies(economies)
+                .planetaryBalanceSheets(initial.planetaryBalanceSheets().stream()
+                        .map(sheet -> "sol".equals(sheet.systemId())
+                                ? sheet.withUncollectedLocalCredits(1_000_000_000_000.0) : sheet)
+                        .toList()).build());
 
         engine.stepTurn();
 

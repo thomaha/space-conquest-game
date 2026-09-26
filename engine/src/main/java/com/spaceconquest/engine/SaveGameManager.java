@@ -63,6 +63,11 @@ public class SaveGameManager {
      * Saves the given game state to the given file.
      */
     public void save(File file, GameState gameState, int gameSpeed, String gameTime) throws IOException {
+        save(file, gameState, gameSpeed, gameTime, GameClock.START_TIME.toString());
+    }
+
+    public void save(File file, GameState gameState, int gameSpeed, String gameTime,
+                     String campaignStartTime) throws IOException {
         if (gameState == null || gameState.solarSystems() == null) {
             throw new IOException("Nothing to save: no game state loaded");
         }
@@ -70,7 +75,8 @@ public class SaveGameManager {
         if (target.getParentFile() != null) {
             Files.createDirectories(target.getParentFile().toPath());
         }
-        SaveGame save = SaveGame.fromGameState(gameState, Instant.now().toString(), gameSpeed, gameTime);
+        SaveGame save = SaveGame.fromGameState(gameState, Instant.now().toString(), gameSpeed,
+                gameTime, campaignStartTime);
         mapper.writeValue(target, save);
     }
 
@@ -78,8 +84,13 @@ public class SaveGameManager {
      * Saves the given game state to a file with the given name inside the save directory.
      */
     public Path save(String name, GameState gameState, int gameSpeed, String gameTime) throws IOException {
+        return save(name, gameState, gameSpeed, gameTime, GameClock.START_TIME.toString());
+    }
+
+    public Path save(String name, GameState gameState, int gameSpeed, String gameTime,
+                     String campaignStartTime) throws IOException {
         File target = withExtension(saveDirectory.resolve(name).toFile());
-        save(target, gameState, gameSpeed, gameTime);
+        save(target, gameState, gameSpeed, gameTime, campaignStartTime);
         return target.toPath();
     }
 
@@ -88,6 +99,11 @@ public class SaveGameManager {
      */
     public Path quickSave(GameState gameState, int gameSpeed, String gameTime) throws IOException {
         return save("quicksave", gameState, gameSpeed, gameTime);
+    }
+
+    public Path quickSave(GameState gameState, int gameSpeed, String gameTime,
+                          String campaignStartTime) throws IOException {
+        return save("quicksave", gameState, gameSpeed, gameTime, campaignStartTime);
     }
 
     /**

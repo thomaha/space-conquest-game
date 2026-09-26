@@ -2,8 +2,8 @@
 
 Populations are completely segregated by race and their survival loops are determined by their core chemical compositions established in the `races.json` configuration:
 
-- **Carbon-based oxygen breathers (Humans, Vulkans):**
-    - *Consumption loop:* Continuously deplete stored `oxygen_gas` and require organic food tracking assets from *Food Production Modules*.
+- **Carbon-based oxygen breathers (humans, Vulkans):**
+    - *Consumption loop:* On a breathable planet or moon, residents breathe ambient oxygen without buying `oxygen_gas` from the market. On an airless or hostile body and aboard a conscious-transit spacecraft, enclosed life support needs a supplied oxygen stock. Organic food remains a material requirement in either setting.
     - *The diversity multiplier:* If their `nutrientSpreadRequirement` is set to "Diverse" (e.g., Humans), they demand a mix of plant, animal or synthetic proteins. Fulfilling this diversity requirement multiplies local private economy happiness and accelerates growth. Forcing them to subsist on basic mono-crop sludge hits happiness variables, slowing down training speeds and generating crime.
 - **Silicon-based lithovores (Silicon Core):**
     - *Consumption loop:* Completely ignore standard agricultural food and oxygen reserves. They require no oxygen gas and are fully vacuum-compatible.

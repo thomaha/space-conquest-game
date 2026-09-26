@@ -77,7 +77,7 @@ public class EconomyCards {
         popLbl.setTextFill(Color.LIGHTYELLOW);
         popLbl.setFont(Font.font("Verdana", 11));
 
-        Label taxLbl = new Label(String.format("Corporate tariff rate: %.1f%%", report.corporateTaxRate() * 100.0));
+        Label taxLbl = new Label(String.format("Corporate profit tax rate: %.1f%%", report.corporateTaxRate() * 100.0));
         taxLbl.setTextFill(Color.LIGHTSKYBLUE);
         taxLbl.setFont(Font.font("Verdana", 11));
 
@@ -274,7 +274,7 @@ public class EconomyCards {
                 Region spacer = new Region();
                 HBox.setHgrow(spacer, Priority.ALWAYS);
 
-                Text tariff = new Text(String.format("Estimated tariffs: +%,.0f ₵/turn", entry.estimatedTariffPaid()));
+                Text tariff = new Text(String.format("Profit tax paid: %,.0f ₵/turn", entry.profitTaxPaid()));
                 tariff.setFill(Color.LIGHTGREEN);
                 tariff.setFont(Font.font("Verdana", FontWeight.BOLD, 11));
 
@@ -372,7 +372,7 @@ public class EconomyCards {
 
         VBox itemsBox = new VBox(6);
         itemsBox.getChildren().add(createEconomyLineItem("Colonial taxes (" + String.format("%.1f%%", report.taxRate() * 100.0) + ")", String.format("+%,.0f ₵", report.colonialTaxes()), "Direct income and production levies from system planetary populations.", Color.LIGHTGREEN));
-        itemsBox.getChildren().add(createEconomyLineItem("Corporate commerce tariffs", String.format("+%,.0f ₵", report.corporateTariffs()), "Tariffs collected from corporation headquarters and commercial facilities.", Color.LIGHTGREEN));
+        itemsBox.getChildren().add(createEconomyLineItem("Corporate profit tax", String.format("+%,.0f ₵", report.corporateProfitTax()), "Profit tax actually collected from local corporations.", Color.LIGHTGREEN));
         itemsBox.getChildren().add(createEconomyLineItem(
                 report.fromBalanceSheets() ? "Docking and handling fees" : "Space elevator transit fees",
                 String.format("+%,.0f ₵", report.spaceElevatorFees()),

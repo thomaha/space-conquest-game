@@ -57,10 +57,10 @@ class GameClockTest {
     void partialDaysDoNotRunDailyTurns() {
         clock.setSpeed(GameClock.ClockSpeed.SPEED_6_HOURS);
         for (int i = 0; i < 3; i++) assertEquals(0, clock.update(1.0));
-        assertEquals(LocalDateTime.of(2200, 1, 2, 2, 0), clock.getGameTime());
+        assertEquals(LocalDateTime.of(2027, 1, 2, 2, 0), clock.getGameTime());
         assertEquals(1, clock.update(1.0));
         assertEquals(1, clock.getCurrentTurn());
-        assertEquals(LocalDateTime.of(2200, 1, 2, 8, 0), clock.getGameTime());
+        assertEquals(LocalDateTime.of(2027, 1, 2, 8, 0), clock.getGameTime());
     }
 
     @Test
@@ -69,11 +69,11 @@ class GameClockTest {
         for (int i = 0; i < 1439; i++) assertEquals(0, clock.update(1.0));
         assertEquals(1, clock.update(1.0));
 
-        clock.restore(LocalDateTime.of(2200, 1, 3, 20, 0), GameClock.ClockSpeed.SPEED_12_HOURS);
+        clock.restore(LocalDateTime.of(2027, 1, 3, 20, 0), GameClock.ClockSpeed.SPEED_12_HOURS);
         assertEquals(2, clock.getCurrentTurn());
         assertEquals(12.0, clock.getHoursElapsed(), 1e-9);
         assertEquals(1, clock.update(1.0));
-        assertEquals(LocalDateTime.of(2200, 1, 4, 8, 0), clock.getGameTime());
+        assertEquals(LocalDateTime.of(2027, 1, 4, 8, 0), clock.getGameTime());
     }
 
     @Test
@@ -94,10 +94,24 @@ class GameClockTest {
     void annualCadenceUsesTheCalendarIncludingLeapYears() {
         assertFalse(GameClock.beginsNewYear(364));
         assertTrue(GameClock.beginsNewYear(365));
-        assertTrue(GameClock.beginsNewYear(365 + 365));
+        assertFalse(GameClock.beginsNewYear(365 + 365));
+        assertTrue(GameClock.beginsNewYear(365 + 366));
         assertFalse(GameClock.beginsNewYear(1825));
         assertTrue(GameClock.beginsNewYear(1826));
         assertFalse(GameClock.beginsElectionYear(365));
         assertTrue(GameClock.beginsElectionYear(1826));
+    }
+
+    @Test
+    void selectedCampaignDateControlsYearBoundariesAndRestore() {
+        clock.startNewCampaign(GameStartScenario.ADVANCED_ROCKETRY.startTime());
+        assertEquals(LocalDateTime.of(2050, 1, 1, 8, 0), clock.getGameTime());
+        assertTrue(clock.beginsNewYearAtTurn(365));
+        clock.restore(LocalDateTime.of(2050, 1, 3, 20, 0), GameClock.ClockSpeed.SPEED_12_HOURS);
+        assertEquals(2, clock.getCurrentTurn());
+        assertEquals(12.0, clock.getHoursElapsed(), 1e-9);
+        clock.startNewCampaign(GameStartScenario.BASIC_WARP.startTime());
+        assertEquals(0, clock.getCurrentTurn());
+        assertEquals(LocalDateTime.of(2200, 1, 1, 8, 0), clock.getGameTime());
     }
 }

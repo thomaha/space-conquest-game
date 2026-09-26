@@ -17,10 +17,17 @@ import com.spaceconquest.engine.SystemGovernor;
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.economy.ImperialBalanceSheet;
 import com.spaceconquest.engine.economy.SystemEconomy;
+import com.spaceconquest.engine.economy.CorporateTaxAccount;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
 import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.industry.IndustryAccount;
+import com.spaceconquest.engine.industry.IndustryRecipeCatalog;
+import com.spaceconquest.engine.industry.PowerBillingProcessor;
 import com.spaceconquest.engine.industry.PowerGridState;
+import com.spaceconquest.engine.industry.PowerPlantCatalog;
+import com.spaceconquest.engine.industry.refinement.RefinementProcessor;
+import com.spaceconquest.engine.industry.refinement.RefinementRecipe;
 import com.spaceconquest.engine.macrostructure.ConstructionDeploymentProject;
 import com.spaceconquest.engine.macrostructure.OrbitalStation;
 import com.spaceconquest.engine.macrostructure.SpaceElevator;
@@ -81,6 +88,8 @@ public class EmpireView {
     private final List<SystemGovernor> systemGovernors = new ArrayList<>();
     private final List<GeologicalDeposit> deposits = new ArrayList<>();
     private final List<IndustrialFacility> facilities = new ArrayList<>();
+    private final List<IndustryAccount> industryAccounts = new ArrayList<>();
+    private final List<CorporateTaxAccount> corporateTaxAccounts = new ArrayList<>();
     private final List<OrbitalStation> orbitalStations = new ArrayList<>();
     private final List<SpaceElevator> spaceElevators = new ArrayList<>();
     private final List<Corporation> corporations = new ArrayList<>();
@@ -124,6 +133,7 @@ public class EmpireView {
     public List<SystemEconomy> getSystemEconomiesList() { return systemEconomies; }
     public List<PlanetaryBalanceSheet> getPlanetaryBalanceSheets() { return planetaryBalanceSheets; }
     public List<ImperialBalanceSheet> getImperialBalanceSheets() { return imperialBalanceSheets; }
+    public List<CorporateTaxAccount> getCorporateTaxAccounts() { return corporateTaxAccounts; }
 
     public String getPlayerEmpireId() { return playerEmpireId; }
     public Menubar getMenubar() { return menubar; }
@@ -189,11 +199,13 @@ public class EmpireView {
         VBox card = new VBox(8);
         card.setPadding(new Insets(12));
         card.setStyle("-fx-background-color: rgba(30, 50, 90, 0.7); -fx-background-radius: 8; -fx-border-color: #3498db; -fx-border-width: 1; -fx-border-radius: 8;");
-        Text name = new Text(entry.name() + " (" + (entry.isMoon() ? "Moon" : entry.getBodyType()) + ")");
-        name.setFill(Color.GOLD);
+        Label name = new Label(entry.name() + " (" + (entry.isMoon() ? "Moon" : entry.getBodyType()) + ")");
+        name.setTextFill(Color.GOLD);
         name.setFont(Font.font("Verdana", FontWeight.BOLD, 16));
-        Text details = new Text("System: " + entry.systemName() + " | Population: " + String.format("%,d", entry.totalPopulation()));
-        details.setFill(Color.WHITE);
+        name.setWrapText(true);
+        Label details = new Label("System: " + entry.systemName() + " | Population: " + String.format("%,d", entry.totalPopulation()));
+        details.setTextFill(Color.WHITE);
+        details.setWrapText(true);
         card.getChildren().addAll(name, details);
         return card;
     }
@@ -218,24 +230,137 @@ public class EmpireView {
         return box;
     }
 
-    public VBox createIndustryTableSection(PlanetaryBodyEntry body) {
+    public VBox createIndustrySection(PlanetaryBodyEntry body) {
         VBox box = new VBox(8);
         box.setPadding(new Insets(10));
         box.setStyle("-fx-background-color: rgba(20, 35, 65, 0.6); -fx-background-radius: 6;");
-        Text title = new Text("Industrial operations & facilities");
+        List<IndustrialFacility> localFacilities = facilities.stream()
+                .filter(facility -> body.id().equals(facility.planetId()))
+                .toList();
+        Text title = new Text("Industries and facilities (" + localFacilities.size() + ")");
         title.setFill(Color.AQUA);
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
         box.getChildren().add(title);
 
-        if (body.isColonized()) {
-            box.getChildren().add(createDetailRow("Status:", "Colonized"));
-        } else {
-            Label empty = new Label("No industrial facilities active.");
+        if (localFacilities.isEmpty()) {
+            Label empty = new Label("No industrial facilities on this body.");
             empty.setTextFill(Color.LIGHTGRAY);
             empty.setFont(Font.font("Verdana", 11));
             box.getChildren().add(empty);
+            return box;
         }
+
+        Label note = new Label("Production, sales and profit/loss show the last processed day. Unsold goods remain with their facility.");
+        note.setTextFill(Color.LIGHTGRAY);
+        note.setWrapText(true);
+        box.getChildren().add(note);
+        localFacilities.forEach(facility -> box.getChildren().add(createIndustryCard(facility)));
         return box;
+    }
+
+    private VBox createIndustryCard(IndustrialFacility facility) {
+        VBox card = new VBox(5);
+        card.setPadding(new Insets(8));
+        card.setStyle("-fx-background-color: rgba(30, 50, 90, 0.7); -fx-background-radius: 5;");
+
+        Text name = new Text(readableIndustryName(facility.applicationId()) + " [" + facility.id() + "]");
+        name.setFill(Color.GOLD);
+        name.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
+        card.getChildren().add(name);
+
+        String size = String.format("Tier %d; %.2fx effective throughput%s", facility.tier(),
+                facility.getEffectiveThroughputMultiplier(),
+                facility.isUndergoingExpansion() ? " during expansion" : "");
+        card.getChildren().add(createIndustryDetailRow("Size:", size));
+        card.getChildren().add(createIndustryDetailRow("Workers:", String.format("%,d assigned %s", facility.allocatedWorkers(),
+                readableIndustryName(facility.workerProfessionId()))));
+        card.getChildren().add(createIndustryDetailRow("Owner:", readableIndustryName(facility.ownerEntityId())));
+        card.getChildren().add(createIndustryDetailRow("Configured products:", configuredProducts(facility.applicationId())));
+        IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(facility.applicationId());
+        PowerPlantCatalog.Plant plant = PowerPlantCatalog.find(facility.applicationId());
+        card.getChildren().add(createIndustryDetailRow("Required technology:", recipe == null
+                ? (plant == null ? "No production recipe configured" : plant.requiredTechnology())
+                : String.join(", ", recipe.requiredTechnologies())));
+        if (recipe != null) {
+            String ownerEmpireId = facility.ownerEntityId();
+            if (IndustrialFacility.PRIVATE_CORPORATE.equals(facility.ownershipType())) {
+                ownerEmpireId = corporations.stream().filter(corp -> corp.id().equals(facility.ownerEntityId()))
+                        .map(Corporation::empireId).findFirst().orElse(ownerEmpireId);
+            }
+            String empireId = ownerEmpireId;
+            empires.stream().filter(empire -> empire.id().equals(empireId)).findFirst().ifPresent(empire ->
+                    card.getChildren().add(createIndustryDetailRow("Technology output:",
+                            String.format("%.0f%% (including researched improvements)",
+                                    recipe.technologyMultiplier(empire) * 100.0))));
+        }
+        IndustryAccount account = industryAccounts.stream()
+                .filter(item -> item.facilityId().equals(facility.id())).findFirst().orElse(null);
+        if (account != null) {
+            if (PowerPlantCatalog.find(facility.applicationId()) != null) {
+                card.getChildren().add(createIndustryDetailRow("Generated:",
+                        String.format("%,.0f kWh", account.generatedKwh())));
+            }
+            card.getChildren().add(createIndustryDetailRow("Produced:", formatIndustryQuantities(account.producedKg())));
+            card.getChildren().add(createIndustryDetailRow("Sold:", plant == null
+                    ? formatIndustryQuantities(account.soldKg())
+                    : String.format("%,.0f kWh", account.salesCredits() / PowerBillingProcessor.PRICE_PER_KWH)));
+            card.getChildren().add(createIndustryDetailRow("Unsold stock:", formatIndustryQuantities(account.unsoldStockKg())));
+            card.getChildren().add(createIndustryDetailRow("Input costs:", String.format("%,.2f credits", account.inputCostsCredits())));
+            card.getChildren().add(createIndustryDetailRow("Electricity:", String.format("%,.2f credits", account.powerCostsCredits())));
+            card.getChildren().add(createIndustryDetailRow("Wages:", String.format("%,.2f credits", account.wageCostsCredits())));
+            card.getChildren().add(createIndustryDetailRow("Sales:", String.format("%,.2f credits", account.salesCredits())));
+            card.getChildren().add(createIndustryDetailRow("Pretax profit/loss:", String.format("%,.2f credits", account.realizedResultCredits())));
+        } else {
+            card.getChildren().add(createIndustryDetailRow("Sales:", "Unavailable before the first simulation day"));
+            card.getChildren().add(createIndustryDetailRow("Pretax profit/loss:", "Unavailable before the first simulation day"));
+        }
+        return card;
+    }
+
+    private String formatIndustryQuantities(Map<String, Double> quantities) {
+        if (quantities.isEmpty()) return "None";
+        return quantities.entrySet().stream().sorted(Map.Entry.comparingByKey())
+                .map(entry -> String.format("%s (%,.1f kg)", readableIndustryName(entry.getKey()), entry.getValue()))
+                .reduce((left, right) -> left + ", " + right).orElse("None");
+    }
+
+    private HBox createIndustryDetailRow(String heading, String value) {
+        HBox row = new HBox(8);
+        Label label = new Label(heading);
+        label.setTextFill(Color.LIGHTBLUE);
+        label.setMinWidth(130);
+        Label detail = new Label(value);
+        detail.setTextFill(Color.WHITE);
+        detail.setWrapText(true);
+        HBox.setHgrow(detail, Priority.ALWAYS);
+        row.getChildren().addAll(label, detail);
+        return row;
+    }
+
+    private String configuredProducts(String applicationId) {
+        if (PowerPlantCatalog.find(applicationId) != null) return "Electricity (kWh)";
+        return RefinementProcessor.STANDARD_RECIPES.stream()
+                .filter(recipe -> recipe.id().equals(applicationId))
+                .findFirst()
+                .map(RefinementRecipe::outputMaterialsKg)
+                .filter(outputs -> !outputs.isEmpty())
+                .map(outputs -> outputs.entrySet().stream()
+                        .sorted(Map.Entry.comparingByKey())
+                        .map(output -> String.format("%s (%,.0f kg/recipe)",
+                                readableIndustryName(output.getKey()), output.getValue()))
+                        .reduce((first, next) -> first + ", " + next)
+                        .orElse("No product defined"))
+                .orElseGet(() -> {
+                    IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(applicationId);
+                    return recipe == null ? "No product defined for this application"
+                            : formatIndustryQuantities(recipe.outputsKg());
+                });
+    }
+
+    private String readableIndustryName(String id) {
+        if (id == null || id.isBlank()) return "Unknown";
+        String words = id.replace('_', ' ');
+        return Character.toUpperCase(words.charAt(0)) + words.substring(1);
     }
 
     public VBox createSurfaceBiomeSection(PlanetaryBodyEntry body) {
@@ -296,6 +421,8 @@ public class EmpireView {
         Label info = new Label("Administrative and engineering actions available based on colonial status and technology.");
         info.setTextFill(Color.LIGHTGRAY);
         info.setFont(Font.font("Verdana", 10));
+        info.setWrapText(true);
+        info.setMaxWidth(Double.MAX_VALUE);
         box.getChildren().add(info);
         
         return box;
@@ -311,6 +438,8 @@ public class EmpireView {
         Label val = new Label(value);
         val.setTextFill(Color.WHITE);
         val.setFont(Font.font("Verdana", FontWeight.BOLD, 11));
+        val.setWrapText(true);
+        HBox.setHgrow(val, Priority.ALWAYS);
 
         row.getChildren().addAll(lbl, val);
         return row;
@@ -415,6 +544,10 @@ public class EmpireView {
 
     public void updateData(GameState gameState) {
         if (gameState == null) return;
+        industryAccounts.clear();
+        industryAccounts.addAll(gameState.industryAccounts());
+        corporateTaxAccounts.clear();
+        corporateTaxAccounts.addAll(gameState.corporateTaxAccounts());
         if (gameState.planetaryBalanceSheets() != null) {
             planetaryBalanceSheets.clear();
             planetaryBalanceSheets.addAll(gameState.planetaryBalanceSheets());
@@ -577,6 +710,7 @@ public class EmpireView {
             updateTabButtonStyles();
         }
         ensureDataLoaded();
+        renderCurrentTab();
         if (root != null) {
             root.setVisible(true);
             root.toFront();

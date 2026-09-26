@@ -10,6 +10,7 @@ import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.industry.IndustryAccount;
 import com.spaceconquest.engine.industry.PowerGridState;
 
 import java.util.ArrayList;
@@ -26,9 +27,27 @@ import java.util.Set;
  */
 public class PlanetaryMunicipalProcessor {
 
-    public static final double BASE_CITIZEN_WAGE = 10.0;
-    public static final double BASE_STATE_WORKER_WAGE = 15.0;
     public static final String TECH_SUBSPACE_BANKING = "tech_subspace_banking";
+
+    /** Creates truthful zero-day accounts without charging the public budget before turn one. */
+    public List<PlanetaryBalanceSheet> createOpeningBalanceSheets(GameState state) {
+        List<PlanetaryBalanceSheet> opening = new ArrayList<>();
+        for (SolarSystem system : state.solarSystems()) {
+            Empire empire = findSystemEmpire(system.id(), state.empires());
+            if (empire == null) continue;
+            for (Planet planet : system.planets()) {
+                if (countPopulation(planet.populations()) > 0) {
+                    opening.add(PlanetaryBalanceSheet.createEmpty(planet.id(), system.id(), empire.id()));
+                }
+                for (Moon moon : planet.moons()) {
+                    if (countPopulation(moon.populations()) > 0) {
+                        opening.add(PlanetaryBalanceSheet.createEmpty(moon.id(), system.id(), empire.id()));
+                    }
+                }
+            }
+        }
+        return opening;
+    }
 
     /**
      * Executes the municipal finance pass for the provided game state snapshot.
@@ -37,6 +56,27 @@ public class PlanetaryMunicipalProcessor {
      * @return municipal turn result containing balance sheets, dispatched couriers, and updated empires
      */
     public MunicipalTurnResult processMunicipalFinances(GameState state) {
+        return processMunicipalFinances(state, Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
+    }
+
+    public MunicipalTurnResult processMunicipalFinances(GameState state,
+            HouseholdEconomyProcessor.TurnResult households) {
+        return processMunicipalFinances(state, households.incomeTaxByBody(),
+                households.grossWagesByBody(), households.publicWagesByBody(),
+                households.welfareByBody(), Map.of());
+    }
+
+    public MunicipalTurnResult processMunicipalFinances(GameState state,
+            HouseholdEconomyProcessor.TurnResult households, Map<String, Double> corporateTaxByBody) {
+        return processMunicipalFinances(state, households.incomeTaxByBody(),
+                households.grossWagesByBody(), households.publicWagesByBody(),
+                households.welfareByBody(), corporateTaxByBody);
+    }
+
+    private MunicipalTurnResult processMunicipalFinances(GameState state,
+            Map<String, Double> incomeTaxByBody, Map<String, Double> grossWagesByBody,
+            Map<String, Double> publicWagesByBody, Map<String, Double> welfareByBody,
+            Map<String, Double> corporateTaxByBody) {
         if (state == null) {
             return new MunicipalTurnResult(List.of(), List.of(), List.of(), Map.of());
         }
@@ -57,8 +97,6 @@ public class PlanetaryMunicipalProcessor {
             if (sysEconomy != null && !systemEmpire.id().equals(sysEconomy.empireId())) {
                 sysEconomy = null;
             }
-            double systemTaxRate = sysEconomy != null ? sysEconomy.taxRate() : 0.10;
-            double corporateTaxRate = systemEmpire.corporateTaxRate();
             double financeMinistrySynergy = calculateFinanceMinistrySynergy(systemEmpire);
             double governorSynergy = calculateGovernorSynergy(sys.id(), systemEmpire);
 
@@ -71,8 +109,10 @@ public class PlanetaryMunicipalProcessor {
                 if (planetPop > 0) {
                     processBodyFinances(
                             planet.id(), sys.id(), systemEmpire, isHiveMind, planetPop, totalSystemPopulation,
-                            systemTaxRate, corporateTaxRate, financeMinistrySynergy, governorSynergy,
-                            sysEconomy, systemSubsidy, state, previousSheetMap, treasuryDeltas, balanceSheets, dispatchedCouriers
+                            financeMinistrySynergy, governorSynergy,
+                            sysEconomy, systemSubsidy, state, previousSheetMap, treasuryDeltas, balanceSheets,
+                            dispatchedCouriers, incomeTaxByBody, grossWagesByBody, publicWagesByBody,
+                            welfareByBody, corporateTaxByBody
                     );
                 }
 
@@ -82,8 +122,10 @@ public class PlanetaryMunicipalProcessor {
                         if (moonPop > 0) {
                             processBodyFinances(
                                     moon.id(), sys.id(), systemEmpire, isHiveMind, moonPop, totalSystemPopulation,
-                                    systemTaxRate, corporateTaxRate, financeMinistrySynergy, governorSynergy,
-                                    sysEconomy, systemSubsidy, state, previousSheetMap, treasuryDeltas, balanceSheets, dispatchedCouriers
+                                    financeMinistrySynergy, governorSynergy,
+                                    sysEconomy, systemSubsidy, state, previousSheetMap, treasuryDeltas, balanceSheets,
+                                    dispatchedCouriers, incomeTaxByBody, grossWagesByBody, publicWagesByBody,
+                                    welfareByBody, corporateTaxByBody
                             );
                         }
                     }
@@ -116,8 +158,6 @@ public class PlanetaryMunicipalProcessor {
             boolean isHiveMind,
             long bodyPopulation,
             long systemPopulation,
-            double systemTaxRate,
-            double corporateTaxRate,
             double financeMinistrySynergy,
             double governorSynergy,
             SystemEconomy sysEconomy,
@@ -126,7 +166,12 @@ public class PlanetaryMunicipalProcessor {
             Map<String, PlanetaryBalanceSheet> previousSheetMap,
             Map<String, Double> treasuryDeltas,
             List<PlanetaryBalanceSheet> balanceSheets,
-            List<CourierShip> dispatchedCouriers
+            List<CourierShip> dispatchedCouriers,
+            Map<String, Double> incomeTaxByBody,
+            Map<String, Double> grossWagesByBody,
+            Map<String, Double> publicWagesByBody,
+            Map<String, Double> welfareByBody,
+            Map<String, Double> corporateTaxByBody
     ) {
         if (isHiveMind) {
             PlanetaryBalanceSheet previous = previousSheetMap.get(bodyId);
@@ -145,20 +190,20 @@ public class PlanetaryMunicipalProcessor {
         }
 
         // Revenues
-        double totalCitizenWages = (double) bodyPopulation * BASE_CITIZEN_WAGE;
-        double incomeTax = totalCitizenWages * systemTaxRate * governorSynergy;
+        double totalCitizenWages = grossWagesByBody.getOrDefault(bodyId, 0.0);
+        double incomeTax = incomeTaxByBody.getOrDefault(bodyId, 0.0);
 
-        double corporateValue = calculateCorporateProductionValue(bodyId, state.industrialFacilities());
-        double corporateTariffs = corporateValue * corporateTaxRate * financeMinistrySynergy * governorSynergy;
+        double corporateValue = calculateCorporateProductionValue(bodyId, state);
+        double corporateTax = corporateTaxByBody.getOrDefault(bodyId, 0.0);
 
         double dockingFees = calculateDockingFees(bodyId, state.commercialHubs(), financeMinistrySynergy);
-        double totalRevenue = incomeTax + corporateTariffs + dockingFees;
+        double totalRevenue = incomeTax + corporateTax + dockingFees;
         double grossProduct = totalCitizenWages + corporateValue + (dockingFees * 5.0);
 
         // Operating Expenditures
-        double stateSalaries = calculateStateSalaries(bodyPopulation, systemPopulation, sysEconomy);
+        double stateSalaries = publicWagesByBody.getOrDefault(bodyId, 0.0);
         double facilityMaintenance = calculateFacilityMaintenance(bodyId, empire.id(), state.industrialFacilities());
-        double welfareExpenses = calculatePublicWelfare(bodyPopulation);
+        double welfareExpenses = welfareByBody.getOrDefault(bodyId, 0.0);
         double infraUpkeep = calculateInfrastructureUpkeep(bodyId, state.powerGrids());
         double bodyShare = systemPopulation > 0 ? (double) bodyPopulation / systemPopulation : 0.0;
         double publicFunding = sysEconomy != null ? sysEconomy.totalBudgetCredits() * bodyShare : 0.0;
@@ -178,7 +223,7 @@ public class PlanetaryMunicipalProcessor {
 
         balanceSheets.add(new PlanetaryBalanceSheet(
                 bodyId, systemId, empire.id(),
-                grossProduct, incomeTax, corporateTariffs, dockingFees, totalRevenue,
+                grossProduct, incomeTax, corporateTax, dockingFees, totalRevenue,
                 stateSalaries, facilityMaintenance, welfareExpenses, infraUpkeep, totalExpenditures,
                 netBalance, uncollected, centralSubsidy, publicFunding,
                 empireTransfer - centralSubsidy, outstandingDebt
@@ -204,12 +249,15 @@ public class PlanetaryMunicipalProcessor {
                 empire.id(), credits, systemId, destination, 2, false));
     }
 
-    private double calculateCorporateProductionValue(String bodyId, List<IndustrialFacility> facilities) {
-        if (facilities == null) return 0.0;
+    private double calculateCorporateProductionValue(String bodyId, GameState state) {
         double val = 0.0;
-        for (IndustrialFacility f : facilities) {
-            if (bodyId.equalsIgnoreCase(f.planetId()) && !"PUBLIC_STATE".equalsIgnoreCase(f.ownershipType())) {
-                val += 350.0 * f.tier() * f.getEffectiveThroughputMultiplier();
+        Map<String, IndustrialFacility> facilities = new HashMap<>();
+        for (IndustrialFacility facility : state.industrialFacilities()) facilities.put(facility.id(), facility);
+        for (IndustryAccount account : state.industryAccounts()) {
+            IndustrialFacility facility = facilities.get(account.facilityId());
+            if (facility != null && bodyId.equalsIgnoreCase(facility.planetId())
+                    && IndustrialFacility.PRIVATE_CORPORATE.equals(facility.ownershipType())) {
+                val += account.salesCredits();
             }
         }
         return val;
@@ -225,20 +273,6 @@ public class PlanetaryMunicipalProcessor {
         return 0.0;
     }
 
-    private double calculateStateSalaries(long bodyPop, long sysPop, SystemEconomy sysEconomy) {
-        if (sysEconomy == null || sysPop <= 0) {
-            return (double) bodyPop * 0.002 * BASE_STATE_WORKER_WAGE;
-        }
-        double ratio = (double) bodyPop / (double) sysPop;
-        long totalStateWorkers = sysEconomy.employedTeachers()
-                + sysEconomy.employedPolice()
-                + sysEconomy.employedMedics()
-                + sysEconomy.employedEngineers()
-                + sysEconomy.employedScientists()
-                + sysEconomy.employedSoldiers();
-        return (double) totalStateWorkers * ratio * BASE_STATE_WORKER_WAGE;
-    }
-
     private double calculateFacilityMaintenance(String bodyId, String empireId, List<IndustrialFacility> facilities) {
         if (facilities == null) return 0.0;
         double upkeep = 0.0;
@@ -248,11 +282,6 @@ public class PlanetaryMunicipalProcessor {
             }
         }
         return upkeep;
-    }
-
-    private double calculatePublicWelfare(long bodyPop) {
-        // Pension payments for retirement demographic cohorts (approx 10% of population)
-        return (double) bodyPop * 0.10 * 0.05;
     }
 
     private double calculateInfrastructureUpkeep(String bodyId, List<PowerGridState> grids) {

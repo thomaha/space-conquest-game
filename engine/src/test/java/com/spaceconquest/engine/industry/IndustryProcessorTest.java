@@ -43,14 +43,11 @@ public class IndustryProcessorTest {
                 List.of(normalFacility, expandingFacility), List.of(), List.of(empire), List.of(), List.of(), List.of(), 0.05
         );
 
-        // normal: 10 * 10 * 1.0 = 100 kg
-        // expanding: 10 * 10 * 0.5 = 50 kg
-        // total yield = 150 kg
-        assertEquals(150.0, res.materialYieldsKg().get("refining_blast_furnace"), 0.001);
+        assertTrue(res.materialYieldsKg().isEmpty(), "Expansion progress must not mint output");
     }
 
     @Test
-    public void testOwnershipProfitRoutingPublicCorporateAndHive() {
+    public void testExpansionPassDoesNotMintOwnerProfit() {
         IndustrialFacility publicStateFac = new IndustrialFacility(
                 "fac_pub", "earth", "app_mining", "emp_terran",
                 IndustrialFacility.PUBLIC_STATE, 1, 10, "miner", false, 0.0
@@ -71,10 +68,6 @@ public class IndustryProcessorTest {
                 0.0, List.of(), List.of(), List.of()
         );
 
-        // Facility math:
-        // yield = 10 * 10 * 1.0 = 100 kg, gross = 200, cost = 10, netProfit = 190 credits
-        // For publicStateFac: 190 credits goes to state treasury
-        // For corporateFac: 190 netProfit -> 5% state tariff = 9.5 credits to state treasury, 180.5 credits to corporation
         IndustryProcessor.IndustryTurnResult res = industryProcessor.processIndustrialProduction(
                 List.of(publicStateFac, corporateFac), List.of(), List.of(terran), List.of(corp), List.of(), List.of(), 0.05
         );
@@ -82,10 +75,8 @@ public class IndustryProcessorTest {
         Empire updatedEmpire = res.updatedEmpires().getFirst();
         Corporation updatedCorp = res.updatedCorporations().getFirst();
 
-        // State treasury = 190 (public) + 9.5 (tariff) = 199.5
-        assertEquals(199.5, updatedEmpire.treasuryCredits(), 0.001);
-        // Corporation reserves = 180.5
-        assertEquals(180.5, updatedCorp.liquidCapitalReserves(), 0.001);
+        assertEquals(0.0, updatedEmpire.treasuryCredits(), 0.001);
+        assertEquals(0.0, updatedCorp.liquidCapitalReserves(), 0.001);
     }
 
     @Test

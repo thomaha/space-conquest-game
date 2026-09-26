@@ -3,6 +3,9 @@ package com.spaceconquest.engine;
 import com.spaceconquest.engine.community.GalacticCommunity;
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.economy.ImperialBalanceSheet;
+import com.spaceconquest.engine.economy.HouseholdAccount;
+import com.spaceconquest.engine.economy.MarketAccount;
+import com.spaceconquest.engine.economy.CorporateTaxAccount;
 import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.espionage.EspionageOperation;
 import com.spaceconquest.engine.espionage.PirateBase;
@@ -11,6 +14,7 @@ import com.spaceconquest.engine.galaxy.FogOfWarState;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
 import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.industry.IndustryAccount;
 import com.spaceconquest.engine.industry.PowerGridState;
 import com.spaceconquest.engine.logistics.TradeRoute;
 import com.spaceconquest.engine.macrostructure.ConstructionDeploymentProject;
@@ -24,6 +28,8 @@ import com.spaceconquest.engine.technology.TechnologyExchangeRoute;
 import com.spaceconquest.engine.terraforming.GeoengineeringProject;
 
 import java.util.List;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 
 /**
  * A complete snapshot of a game session, as written to and read from a save file.
@@ -33,6 +39,7 @@ public record SaveGame(
         String savedAt,
         int gameSpeed,
         String gameTime,
+        String campaignStartTime,
         List<SolarSystem> solarSystems,
         List<Empire> empires,
         List<Corporation> corporations,
@@ -62,9 +69,13 @@ public record SaveGame(
         List<SystemEconomy> systemEconomies,
         List<CourierShip> courierShips,
         List<PlanetaryBalanceSheet> planetaryBalanceSheets,
-        List<ImperialBalanceSheet> imperialBalanceSheets
+        List<ImperialBalanceSheet> imperialBalanceSheets,
+        List<HouseholdAccount> householdAccounts,
+        List<MarketAccount> marketAccounts,
+        List<IndustryAccount> industryAccounts,
+        List<CorporateTaxAccount> corporateTaxAccounts
 ) {
-    public static final int CURRENT_VERSION = 11;
+    public static final int CURRENT_VERSION = 16;
 
     public SaveGame {
         if (solarSystems == null) solarSystems = List.of();
@@ -96,11 +107,20 @@ public record SaveGame(
         if (courierShips == null) courierShips = List.of();
         if (planetaryBalanceSheets == null) planetaryBalanceSheets = List.of();
         if (imperialBalanceSheets == null) imperialBalanceSheets = List.of();
+        if (householdAccounts == null) householdAccounts = List.of();
+        if (marketAccounts == null) marketAccounts = List.of();
+        if (industryAccounts == null) industryAccounts = List.of();
+        if (corporateTaxAccounts == null) corporateTaxAccounts = List.of();
     }
 
     public static SaveGame fromGameState(GameState state, String savedAt, int gameSpeed, String gameTime) {
+        return fromGameState(state, savedAt, gameSpeed, gameTime, GameClock.START_TIME.toString());
+    }
+
+    public static SaveGame fromGameState(GameState state, String savedAt, int gameSpeed,
+                                         String gameTime, String campaignStartTime) {
         return new SaveGame(
-                CURRENT_VERSION, savedAt, gameSpeed, gameTime,
+                CURRENT_VERSION, savedAt, gameSpeed, gameTime, campaignStartTime,
                 state.solarSystems(), state.empires(), state.corporations(), state.commercialHubs(),
                 state.shadowSyndicates(), state.diplomaticRelations(), state.systemGovernors(), state.researchProjects(),
                 state.technologyExchangeRoutes(), state.shipDesigns(), state.fleets(), state.geologicalDeposits(),
@@ -108,8 +128,21 @@ public record SaveGame(
                 state.spaceElevators(), state.constructionProjects(), state.sleeperAgents(), state.espionageOperations(),
                 state.pirateBases(), state.terraformingProjects(), state.megastructures(), state.galacticCommunity(),
                 state.tradeRoutes(), state.fogOfWarStates(), state.systemEconomies(), state.courierShips(),
-                state.planetaryBalanceSheets(), state.imperialBalanceSheets()
+                state.planetaryBalanceSheets(), state.imperialBalanceSheets(),
+                state.householdAccounts(), state.marketAccounts(), state.industryAccounts(),
+                state.corporateTaxAccounts()
         );
+    }
+
+    public LocalDateTime resolvedCampaignStartTime() {
+        if (campaignStartTime != null) {
+            try {
+                return LocalDateTime.parse(campaignStartTime);
+            } catch (DateTimeParseException ignored) {
+                // Older or damaged metadata falls back to the calendar used by its save version.
+            }
+        }
+        return version < 13 ? LocalDateTime.of(2200, 1, 1, 8, 0) : GameClock.START_TIME;
     }
 
     public GameState toGameState(long turn, String status) {
@@ -121,7 +154,8 @@ public record SaveGame(
                 expansionProjects, orbitalStations, spaceElevators, constructionProjects,
                 sleeperAgents, espionageOperations, pirateBases, terraformingProjects,
                 megastructures, galacticCommunity, tradeRoutes, fogOfWarStates,
-                systemEconomies, courierShips, planetaryBalanceSheets, imperialBalanceSheets
+                systemEconomies, courierShips, planetaryBalanceSheets, imperialBalanceSheets,
+                householdAccounts, marketAccounts, industryAccounts, corporateTaxAccounts
         );
     }
 }

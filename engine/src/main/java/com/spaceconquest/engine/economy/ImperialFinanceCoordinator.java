@@ -33,6 +33,11 @@ public class ImperialFinanceCoordinator {
         recordChanges(before, after, income, expenses);
     }
 
+    public void recordIndustryFlows(Map<String, Double> receipts, Map<String, Double> payments) {
+        receipts.forEach((empireId, credits) -> income.merge(empireId, credits, Double::sum));
+        payments.forEach((empireId, credits) -> expenses.merge(empireId, credits, Double::sum));
+    }
+
     public void recordMunicipal(List<PlanetaryBalanceSheet> sheets, List<Empire> empires,
                                 Map<String, Double> incurredDebt) {
         for (PlanetaryBalanceSheet sheet : sheets) {

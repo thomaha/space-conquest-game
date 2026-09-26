@@ -1,7 +1,7 @@
 package com.spaceconquest.frontend.empire;
 
 public enum Tab {
-    ECONOMY("Imperial economy"),
+    ECONOMY("Economy"),
     CABINET("Empire cabinet"),
     PLANETS("Planets"),
     STATIONS("Orbital stations and shipyards"),

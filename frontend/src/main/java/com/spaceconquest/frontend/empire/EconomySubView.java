@@ -1,8 +1,8 @@
 package com.spaceconquest.frontend.empire;
 
 public enum EconomySubView {
-    IMPERIAL("Imperial economy"),
-    SYSTEM("System economy");
+    IMPERIAL("Empire treasury and budget"),
+    SYSTEM("System budget and taxes");
 
     private final String displayName;
 

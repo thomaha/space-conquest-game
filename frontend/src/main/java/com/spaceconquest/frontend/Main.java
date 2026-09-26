@@ -105,6 +105,7 @@ public class Main extends GameApplication {
             GameState activeState;
             LocalDateTime time;
             synchronized (engine) {
+                engine.getGameClock().startNewCampaign(selectedScenario.startTime());
                 engine.applyGameState(newGameState);
                 engine.getGameClock().alignTurn(newGameState.turn());
                 // Process staged empire-creation commands against the new world.
@@ -130,10 +131,14 @@ public class Main extends GameApplication {
                     try {
                         savedTime = LocalDateTime.parse(save.gameTime());
                     } catch (DateTimeParseException | NullPointerException ignored) {
-                        savedTime = GameClock.START_TIME;
+                        savedTime = save.resolvedCampaignStartTime();
+                    }
+                    if (savedTime.isBefore(save.resolvedCampaignStartTime())) {
+                        savedTime = save.resolvedCampaignStartTime();
                     }
                     GameState activeState;
                     synchronized (engine) {
+                        engine.getGameClock().startNewCampaign(save.resolvedCampaignStartTime());
                         engine.getGameClock().restore(savedTime, MenubarClockController.speedForIndex(save.gameSpeed()));
                         engine.applyGameState(save.toGameState(engine.getGameClock().getCurrentTurn(), "RUNNING"));
                         activeState = engine.getGameState();
@@ -153,7 +158,9 @@ public class Main extends GameApplication {
             try {
                 com.spaceconquest.engine.SaveGameManager mgr = new com.spaceconquest.engine.SaveGameManager();
                 synchronized (engine) {
-                    mgr.save(saveName, engine.getGameState(), speed, engine.getGameClock().getGameTime().toString());
+                    mgr.save(saveName, engine.getGameState(), speed,
+                            engine.getGameClock().getGameTime().toString(),
+                            engine.getGameClock().getCampaignStartTime().toString());
                 }
                 logger.info("Saved game successfully as: " + saveName);
             } catch (IOException e) {
@@ -168,7 +175,9 @@ public class Main extends GameApplication {
             try {
                 com.spaceconquest.engine.SaveGameManager mgr = new com.spaceconquest.engine.SaveGameManager();
                 synchronized (engine) {
-                    mgr.quickSave(engine.getGameState(), speed, engine.getGameClock().getGameTime().toString());
+                    mgr.quickSave(engine.getGameState(), speed,
+                            engine.getGameClock().getGameTime().toString(),
+                            engine.getGameClock().getCampaignStartTime().toString());
                 }
                 logger.info("Quick saved game successfully.");
             } catch (IOException e) {

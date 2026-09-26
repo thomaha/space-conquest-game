@@ -2,6 +2,7 @@ package com.spaceconquest.engine;
 
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.economy.PlanetaryMunicipalProcessor;
+import com.spaceconquest.engine.economy.HouseholdEconomyProcessor;
 import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.industry.IndustrialFacility;
 import com.spaceconquest.engine.industry.PowerGridState;
@@ -67,7 +68,8 @@ class PlanetaryMunicipalProcessorTest {
                 .systemEconomies(List.of(sysEcon))
                 .build();
 
-        PlanetaryMunicipalProcessor.MunicipalTurnResult result = processor.processMunicipalFinances(state);
+        var households = new HouseholdEconomyProcessor().process(state, List.of());
+        PlanetaryMunicipalProcessor.MunicipalTurnResult result = processor.processMunicipalFinances(state, households);
         assertNotNull(result);
         assertEquals(1, result.balanceSheets().size());
 
@@ -78,13 +80,17 @@ class PlanetaryMunicipalProcessorTest {
 
         assertTrue(sheet.grossPlanetaryProduct() > 0.0);
         assertTrue(sheet.incomeTaxRevenue() > 0.0);
-        assertTrue(sheet.corporateTariffRevenue() > 0.0);
+        assertEquals(0.0, sheet.corporateProfitTaxRevenue(), 0.001);
+        PlanetaryBalanceSheet taxed = processor.processMunicipalFinances(state, households,
+                Map.of("planet_sol_3", 25.0)).balanceSheets().getFirst();
+        assertEquals(25.0, taxed.corporateProfitTaxRevenue(), 0.001);
+        assertEquals(sheet.totalRevenueCredits() + 25.0, taxed.totalRevenueCredits(), 0.001);
         assertTrue(sheet.dockingFeeRevenue() > 0.0);
         assertTrue(sheet.totalRevenueCredits() > 0.0);
 
         assertTrue(sheet.workforceSalaries() > 0.0);
         assertTrue(sheet.facilityMaintenanceCosts() > 0.0);
-        assertTrue(sheet.publicWelfareExpenditures() > 0.0);
+        assertEquals(households.welfareByBody().get("planet_sol_3"), sheet.publicWelfareExpenditures(), 0.001);
         assertTrue(sheet.infrastructureUpkeepCosts() > 0.0);
         assertTrue(sheet.totalExpenditureCredits() > 0.0);
         assertEquals(sysEcon.totalBudgetCredits(), sheet.publicSectorFundingCredits(), 0.001);
@@ -140,8 +146,8 @@ class PlanetaryMunicipalProcessorTest {
         PlanetaryBalanceSheet standardSheet = processor.processMunicipalFinances(standardState).balanceSheets().get(0);
         PlanetaryBalanceSheet boostedSheet = processor.processMunicipalFinances(boostedState).balanceSheets().get(0);
 
-        assertTrue(boostedSheet.corporateTariffRevenue() > standardSheet.corporateTariffRevenue(),
-                "Finance ministry synergy should boost corporate tariff revenue");
+        assertEquals(0.0, standardSheet.corporateProfitTaxRevenue(), 0.001);
+        assertEquals(0.0, boostedSheet.corporateProfitTaxRevenue(), 0.001);
         assertTrue(boostedSheet.dockingFeeRevenue() > standardSheet.dockingFeeRevenue(),
                 "Finance ministry synergy should boost commercial docking fee revenue");
     }
@@ -166,11 +172,14 @@ class PlanetaryMunicipalProcessorTest {
                 .build();
 
         state = state.withSystemEconomies(List.of(SystemEconomy.createDefault(
-                "sys_alpha", "emp_tech", 20_000L).withEmpireContributionRate(1.0)));
-        PlanetaryMunicipalProcessor.MunicipalTurnResult result = processor.processMunicipalFinances(state);
+                "sys_alpha", "emp_tech", 20_000L).withEmpireContributionRate(1.0)))
+                .withPlanetaryBalanceSheets(List.of(PlanetaryBalanceSheet.createEmpty(
+                        "planet_alpha", "sys_alpha", "emp_tech").withUncollectedLocalCredits(100_000.0)));
+        var households = new HouseholdEconomyProcessor().process(state, List.of());
+        PlanetaryMunicipalProcessor.MunicipalTurnResult result = processor.processMunicipalFinances(state, households);
         PlanetaryBalanceSheet sheet = result.balanceSheets().get(0);
 
-        assertTrue(sheet.netBalanceCredits() > 0.0);
+        assertEquals(households.incomeTaxByBody().get("planet_alpha"), sheet.incomeTaxRevenue(), 0.001);
         assertEquals(1000.0, sheet.empireTransferCredits(), 0.001);
         assertEquals(51_000.0, result.updatedEmpires().get(0).treasuryCredits(), 0.001);
         assertTrue(result.dispatchedCouriers().isEmpty(), "No physical courier ships should be dispatched when subspace banking is active");

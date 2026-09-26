@@ -37,7 +37,7 @@ public class EconomyTab {
         subNav.setAlignment(Pos.CENTER_LEFT);
         subNav.setPadding(new Insets(2, 0, 6, 0));
 
-        javafx.scene.control.Button nationalEconomyBtn = new javafx.scene.control.Button("Macro Imperial Treasury & Budget");
+        javafx.scene.control.Button nationalEconomyBtn = new javafx.scene.control.Button(EconomySubView.IMPERIAL.getDisplayName());
         nationalEconomyBtn.setStyle(parent.getEconomySubView() == EconomySubView.IMPERIAL ?
                 "-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-cursor: hand;" :
                 "-fx-background-color: #1a2744; -fx-text-fill: #bdc3c7; -fx-font-size: 11px; -fx-cursor: hand;");
@@ -46,7 +46,7 @@ public class EconomyTab {
             parent.renderCurrentTab();
         });
 
-        javafx.scene.control.Button systemWorkbenchBtn = new javafx.scene.control.Button("Jurisdiction System Economy Workbench");
+        javafx.scene.control.Button systemWorkbenchBtn = new javafx.scene.control.Button(EconomySubView.SYSTEM.getDisplayName());
         systemWorkbenchBtn.setStyle(parent.getEconomySubView() == EconomySubView.SYSTEM ?
                 "-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-cursor: hand;" :
                 "-fx-background-color: #1a2744; -fx-text-fill: #bdc3c7; -fx-font-size: 11px; -fx-cursor: hand;");

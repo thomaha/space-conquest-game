@@ -11,7 +11,7 @@ public record SystemEconomyReport(
         int colonizedBodiesCount,
         double grossSystemOutput,
         double colonialTaxes,
-        double corporateTariffs,
+        double corporateProfitTax,
         double spaceElevatorFees,
         double miningRoyalties,
         double stateIndustryIncome,

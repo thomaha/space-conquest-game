@@ -27,12 +27,17 @@ import com.spaceconquest.engine.SpaceConquestEngine;
 import com.spaceconquest.engine.SystemGovernor;
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
+import com.spaceconquest.engine.industry.IndustrialFacility;
 import com.spaceconquest.engine.industry.PowerGridState;
 import com.spaceconquest.engine.macrostructure.ConstructionDeploymentProject;
 import com.spaceconquest.engine.macrostructure.OrbitalStation;
 import com.spaceconquest.engine.macrostructure.SpaceElevator;
 import com.spaceconquest.engine.macrostructure.StationModule;
 import com.spaceconquest.engine.technology.ResearchProject;
+import javafx.scene.control.Button;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -694,6 +699,107 @@ public class EmpireViewTest {
     }
 
     @Test
+    public void testPlanetSidebarRowsUseTextHeightAndFullWidth() throws Exception {
+        GameState state = new SpaceConquestEngine().getGameState();
+        java.util.concurrent.CompletableFuture<double[]> measurements = new java.util.concurrent.CompletableFuture<>();
+        javafx.application.Platform.runLater(() -> {
+            try {
+                EmpireView view = new EmpireView(null);
+                view.updateData(state);
+                view.selectTab(Tab.PLANETS);
+                view.show();
+                javafx.scene.layout.VBox root = view.getRoot();
+                new javafx.scene.Scene(root, 960, 720);
+                root.resize(960, 720);
+                root.applyCss();
+                root.layout();
+                javafx.scene.layout.VBox tabContent = (javafx.scene.layout.VBox) root.getChildren().get(2);
+                javafx.scene.layout.HBox planets = (javafx.scene.layout.HBox) tabContent.getChildren().get(0);
+                javafx.scene.layout.VBox sidebar = (javafx.scene.layout.VBox) planets.getChildren().get(0);
+                javafx.scene.control.ScrollPane scroll = (javafx.scene.control.ScrollPane) sidebar.getChildren().get(2);
+                javafx.scene.layout.VBox list = (javafx.scene.layout.VBox) scroll.getContent();
+                javafx.scene.control.Button first = (javafx.scene.control.Button) list.getChildren().get(0);
+                measurements.complete(new double[]{first.getHeight(), first.getWidth(), list.getWidth()});
+            } catch (Throwable error) {
+                measurements.completeExceptionally(error);
+            }
+        });
+        double[] sizes = measurements.get(10, java.util.concurrent.TimeUnit.SECONDS);
+        assertTrue(sizes[0] <= 45, "A two-line planet entry should not grow far beyond its text height");
+        assertEquals(sizes[2], sizes[1], 1.0, "Planet entries should fill the sidebar list");
+    }
+
+    @Test
+    public void testPlanetIndustryListingUsesOnlySelectedBodyAndReportsRealizedFinances() {
+        IndustrialFacility goods = new IndustrialFacility("fac_goods", "earth", "consumer_goods_mfg",
+                "terran_confederation", IndustrialFacility.PUBLIC_STATE, 2, 120, "industrial_worker", false, 0.0);
+        IndustrialFacility smelter = new IndustrialFacility("fac_smelter", "earth", "smelter",
+                "terran_confederation", IndustrialFacility.PUBLIC_STATE, 1, 50, "smelter_operator", true, 0.5);
+        IndustrialFacility otherBody = new IndustrialFacility("fac_mars", "mars", "mining_outpost",
+                "terran_confederation", IndustrialFacility.PUBLIC_STATE, 1, 25, "miner", false, 0.0);
+        EmpireView view = new EmpireView(null);
+        view.updateData(GameState.builder().industrialFacilities(List.of(goods, smelter, otherBody))
+                .industryAccounts(List.of(new com.spaceconquest.engine.industry.IndustryAccount(
+                        "fac_goods", Map.of("consumer_goods", 25.0), Map.of("consumer_goods", 100.0),
+                        Map.of("consumer_goods", 75.0), 40.0, 30.0, 150.0, 0.0, 0.0, 5.0))).build());
+
+        PlanetaryBodyEntry earth = new PlanetaryBodyEntry("earth", "Earth", "sol", "Sol", false,
+                null, null, null, 0, false, false, 0, 0, 0, null);
+        String earthDetails = allText(view.createIndustrySection(earth));
+        assertTrue(earthDetails.contains("Industries and facilities (2)"));
+        assertTrue(earthDetails.contains("fac_goods"));
+        assertTrue(earthDetails.contains("fac_smelter"));
+        assertFalse(earthDetails.contains("fac_mars"));
+        assertTrue(earthDetails.contains("Tier 2; 1.50x effective throughput"));
+        assertTrue(earthDetails.contains("120 assigned Industrial worker"));
+        assertTrue(earthDetails.contains("Consumer goods (1,000 kg/recipe)"));
+        assertTrue(earthDetails.contains("Sales: 150.00 credits"));
+        assertTrue(earthDetails.contains("Electricity: 5.00 credits"));
+        assertTrue(earthDetails.contains("Pretax profit/loss: 75.00 credits"));
+
+        PlanetaryBodyEntry mars = new PlanetaryBodyEntry("mars", "Mars", "sol", "Sol", false,
+                null, null, null, 0, false, false, 0, 0, 0, null);
+        String marsDetails = allText(view.createIndustrySection(mars));
+        assertTrue(marsDetails.contains("Industries and facilities (1)"));
+        assertTrue(marsDetails.contains("fac_mars"), "Facilities should be shown even when the body has no population yet");
+        assertFalse(marsDetails.contains("fac_goods"));
+    }
+
+    private static String allText(javafx.scene.Node node) {
+        String ownText = node instanceof javafx.scene.control.Labeled label ? label.getText()
+                : node instanceof javafx.scene.text.Text text ? text.getText() : "";
+        if (node instanceof javafx.scene.Parent parent) {
+            for (javafx.scene.Node child : parent.getChildrenUnmodifiable()) {
+                ownText += " " + allText(child);
+            }
+        }
+        return ownText;
+    }
+
+    @Test
+    public void testEmpireEconomyIsRenderedOnFirstOpen() {
+        EmpireView view = new EmpireView(null);
+        view.updateData(new SpaceConquestEngine().getGameState());
+
+        view.show();
+
+        assertTrue(view.getRoot().isVisible());
+        assertEquals(Tab.ECONOMY, view.getCurrentTab());
+        assertEquals(EconomySubView.IMPERIAL, view.getEconomySubView());
+
+        VBox tabContent = (VBox) view.getRoot().getChildren().get(2);
+        assertEquals(1, tabContent.getChildren().size());
+        VBox economyContent = (VBox) tabContent.getChildren().get(0);
+        HBox subNavigation = (HBox) economyContent.getChildren().get(0);
+        Button empireFinancesButton = (Button) subNavigation.getChildren().get(0);
+        assertEquals(EconomySubView.IMPERIAL.getDisplayName(), empireFinancesButton.getText());
+        assertTrue(empireFinancesButton.getStyle().contains("#27ae60"));
+
+        ScrollPane treasury = (ScrollPane) ((VBox) economyContent.getChildren().get(1)).getChildren().get(0);
+        assertTrue(((VBox) treasury.getContent()).getChildren().get(0) instanceof VBox);
+    }
+
+    @Test
     public void testEconomySubViewSwitchingAndSystemSelection() {
         EmpireView view = new EmpireView(null);
         view.setPlayerEmpireId("terran_confederation");
@@ -713,6 +819,7 @@ public class EmpireViewTest {
     @Test
     public void testSystemEconomyReportCalculation() {
         SpaceConquestEngine engine = new SpaceConquestEngine();
+        engine.stepTurn();
         GameState initial = engine.getGameState();
         GameState state = initial.withPlanetaryBalanceSheets(initial.planetaryBalanceSheets().stream()
                 .map(sheet -> "sol".equals(sheet.systemId()) ? sheet.withOutstandingDebt(1234.0) : sheet)

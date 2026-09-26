@@ -40,7 +40,7 @@
       "sol": "gov_sol_human"
     },
     "unlockedTechIds": [
-      "basic_automation",
+      "supply_chain_automation",
       "advanced_fission"
     ],
     "activeShipDesignIds": [
@@ -79,7 +79,7 @@
       "vulcan-system": "gov_vulcan"
     },
     "unlockedTechIds": [
-      "basic_automation",
+      "supply_chain_automation",
       "advanced_fission"
     ],
     "activeShipDesignIds": [
@@ -108,7 +108,7 @@
     ],
     "systemGovernorAssignments": {},
     "unlockedTechIds": [
-      "deep_core_drilling"
+      "geological_prospecting"
     ],
     "activeShipDesignIds": [
       "heavy_mining_barge"

@@ -11,6 +11,7 @@ This module contains the core game logic, the static data model and state manage
 - `SpaceConquestEngine`: Game engine executing turn-based updates across population, market pricing, corporate investments, crime and imperial governance.
 - `DataModelLoader`: Loads and caches all static data from the JSON property files in `src/main/resources`.
 - `GalaxyGenerator`: Procedurally generates galaxies (solar systems, planets, moons, resources, populations).
+- `StartingEconomySeeder`: Gives generated homeworlds mixed public and corporate facilities, owner corporations, household cash and opening market stock without running a simulation day. Starter food and consumer-goods capacity and opening input reserves scale with population so tracked needs are met through the first month.
 - `PopulationProcessor`: Handles population growth per race and age group.
 - `MarketProcessor`: Computes spot prices, shortcoming scores, state tariffs and orbital lift costs across commercial hubs.
 - `CorporateInvestmentProcessor`: Directs autonomous corporate capital allocations into facilities, training and ships based on market shortcomings.
@@ -24,8 +25,10 @@ This module contains the core game logic, the static data model and state manage
 - `ShipDesignValidator`: Validates modular spaceship blueprints against structural integrity ceilings, power balance, launch thrust-to-mass barriers and nanotech complexity tiers.
 - `FleetProcessor`: Simulates sub-light localized movements, FTL warp bubble transits, fuel consumption and sensor ranges.
 - `ProspectingProcessor`: Simulates stochastic discovery rolls ($P_{\text{discover}}$) with diminishing returns scarcity scaling and subterranean vein mining.
-- `PowerProcessor`: Resolves turn-based planetary power balances, battery buffers and emergency brownout load shedding.
-- `IndustryProcessor`: Manages recipe throughput, facility expansion pipelines (-50% output penalty) and public vs corporate ownership profit routing.
+- `PowerGenerationProcessor`, `PowerPlantCatalog`, `PowerProcessor` and `PowerBillingProcessor`: Buy plant-specific fuel, measure staffed local generation, balance daily grid demand and batteries, cap industrial shifts during brownouts and settle local electricity bills and plant sales.
+- `CorporateProfitTaxProcessor`: Settles tax on realized profit across a corporation's facilities, carries losses and unpaid liability and credits actual payments to populated municipal accounts. Fleet and other corporate income is not included yet.
+- `IndustryProcessor`: Advances facility expansion projects and retains mass-driver calculations; its former estimated profit calculation has been removed.
+- `IndustryMarketProcessor` and `IndustryRecipeCatalog`: Gate material recipes on technology and paid workers, buy inputs from local hubs, deplete ore deposits, deliver output within hub cash and storage limits and record actual owner proceeds.
 - `TacticalCombatProcessor`: Resolves multi-round tactical space combat with range brackets, shield absorption, carrier strike wings and ablative armor mitigation.
 - `OrbitalBombardmentProcessor`: Resolves orbital bombardment weapons (kinetic dart pods, nuclear fission warheads, antimatter planet-crackers).
 - `ColonizationProcessor`: Validates environmental habitability parameters and deploys colony ships to seed virgin worlds.
@@ -40,13 +43,14 @@ This module contains the core game logic, the static data model and state manage
 - `GalacticCommunityProcessor`: Simulates legislative voting cycles, weighted democratic power calculations, resolution enactments and economic sanction enforcement.
 - `VictoryConditionChecker`: Evaluates scenario victory objectives across domination, economic monopoly, megastructure ascension and diplomatic federation.
 - `AudioSynthesizer`: Procedural sound generator providing audio feedback cues for UI, combat, warp transit and galactic senate sessions.
-- `GameClock`: Owns the campaign calendar, speed and pause state. Real-time pulses accumulate partial days and return the number of daily turns due; yearly demographic and five-year election boundaries derive from the same calendar.
+- `GameClock`: Owns the campaign calendar, selected era start date, speed and pause state. Real-time pulses accumulate partial days and return the number of daily turns due; yearly demographic and five-year election boundaries derive from the same calendar.
 - `LogisticsProcessor`: Simulates automated cargo trade routes, warehouse inventory balancing and transit tariffs.
 - `SensorProcessor`: Calculates sensor detection cones, uncovers uncharted star systems, detects foreign fleets and reveals hidden anomalies.
 - `BiomeAdjacencyProcessor`: Calculates dynamic diameter-based grid dimensions, non-rigid spherical latitude biome allocations with reduced polar row places, gas giant states, direct deposit colocation, high-voltage power couplings and industrial pollution degradation.
 - `CustomEmpireBuilder`: Validates genetic trait budgets, instantiates custom species bio-architectures and registers customized sovereign empires.
 - `CohortFragmentationProcessor`: Simulates single-education cohort fragmentation across colonies, multi-profession facility staffing bottlenecks, administrative bureaucrat allocations and upward social mobility retraining.
 - `PlanetaryMunicipalProcessor`: Calculates local public revenues, expenses, reserves and persistent debt, then settles system contributions and subsidies.
+- `HouseholdEconomyProcessor`: Derives household groups from live age-group populations, pays funded public and private jobs, collects income tax and purchases available market goods.
 - `ImperialFinanceCoordinator`: Records treasury movements during the simulation day, carries imperial debt and applies later cash to outstanding obligations.
 
 ## Data model records
@@ -113,6 +117,7 @@ This module contains the core game logic, the static data model and state manage
 | `CitizenCohort`, `ColonyDemographics` | runtime state / save | Single-education citizen cohort fragments, continuous weighted capacity units and colony demographic compositions |
 | `PlanetaryBalanceSheet` | runtime state / save | Localized municipal accounting record tracking gross planetary product, public revenues, operational costs, uncollected liquid reserves and central subsidies |
 | `ImperialBalanceSheet` | runtime state / save | Last-day central treasury receipts, expenses, debt and principal repayment |
+| `HouseholdAccount`, `MarketAccount`, `IndustryAccount` | runtime state / save | Persistent household savings, hub trading cash, facility stock and daily transaction figures |
 
 ## Physical units and standard measurement system
 All simulation mechanics, celestial data definitions and calculations standardize on the International System of Units (SI) to prevent unit conversion discrepancies across subsystems:
@@ -133,8 +138,10 @@ All simulation mechanics, celestial data definitions and calculations standardiz
 
 ## Current integration gaps
 
+- Generated campaigns use the starting era's calendar and opening economy. The default static Sol fixture loaded by the no-argument engine constructor is separate from scenario generation. Power plants deliver measured grid electricity, buy different fuels and receive local electricity sales. Industrial households need electricity as a tier 1 good. Industry pays for powered shifts before production. Stored battery electricity has no owner ledger and is not billed yet. Cargo terminals have no metered surface-to-orbit service. The terminal is distinct from `CommercialHub`; existing interplanetary fleet and route trading does not use it and that wider freight design remains unsettled. Facility types and refinement recipes do not yet share one application catalog.
+- Local industry and household purchases do not pay a transport charge, and same-body industry sales do not pay a gross transaction tariff. VAT is unimplemented. `CorporateProfitTaxProcessor` assesses realized profit across each corporation's facilities after carried losses and records unpaid tax on the corporation's persistent tax account; paid tax enters a populated local municipal account. Fleet and other corporate income is not included yet.
 - `SpaceConquestEngine` owns the live world collections and runs the turn processors. `GameState` is the transfer shape, but it is not yet a fully isolated immutable snapshot. `applyGameState` restores couriers and local and imperial balance sheets.
-- Market processing precedes system budgets and municipal accounting in the live turn. The newer `CitizenCohort` and `ColonyDemographics` model and `CohortFragmentationProcessor` are not wired into that turn; `PopulationProcessor` still updates the older age-group model.
+- Market processing precedes system budgets, household purchases, material industry transactions and municipal accounting in the live turn. `CitizenCohort` and `ColonyDemographics` are derived for the household pass but are not persistent; `PopulationProcessor` still updates the older age-group model. Household purchases deplete market supply and fund hub purchases from producers, but desired demand does not yet feed the spot-price formula. Opening and retail stock have no seller identity. Unmet needs do not yet change health, happiness or population growth.
 - `WarpNetwork` pathfinding and `TacticalCombatProcessor` exist, but ordinary fleet movement does not route through the network or initiate tactical combat. Generated anomalies are not passed into the normal sensor turn.
 - `CorporateInvestmentProcessor` can record planned asset IDs without creating the corresponding world entities. Engine corporate investment also overlaps with the control-layer corporation AI.
 - `SaveGame.fromGameState` and `SaveGame.toGameState` map all current snapshot fields, while the calendar and speed remain separate save metadata. The data model table describes intended runtime and save ownership, although not every newer live field is covered by the save format. System debt is an aggregate of local debt and has no separate ledger.

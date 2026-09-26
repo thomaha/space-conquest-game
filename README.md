@@ -22,10 +22,9 @@ The design aims to load configurable properties for races, technologies, technol
 - A shared calendar does not mean every action has the same cadence. Some actions still complete immediately because they do not yet have a duration or project model; their intended work rates remain to be defined.
 
 ### Game start
-Player can decide to start the game with: 
-- pre space flight (only home planet and basic rocketry technology)
-- advanced rocketry (colonized the most friendly planets in starting solar system, some space bases and several offworld mining bases)
-- basic warp technology (extensive expansion in starting system and some bases in the closest neighboring systems)
+The New game starting date / technology setting chooses one era preset. The default is **2027 — Contemporary industry**: an industrialized homeworld at a broadly present-day technology level, with electricity, rocketry, nuclear fission and industrial production. **2050 — Advanced rocketry** starts with colonies and offworld assets in the home system. **2200 — Basic warp technology** adds expansion into nearby systems. The selected preset sets both the calendar and the initial technology; the date is not a separate input.
+
+Generated player and AI homeworlds start with public power facilities and private transport, mining, agriculture, refining and consumer manufacturing facilities. Their owner corporations, empire treasuries and population household accounts receive opening credits. The starting homeworld is intended to have a healthy economy that meets every tracked population need. Opening food and consumer-goods production are sized for the home population, with input reserves and household cash to support the first month. Populated colonies start with local market stock. Basic warp expansion claims do not overlap another empire's starting system, and selected expansion systems receive populated outposts. These are opening assets rather than a simulated first day: local balance sheets begin at zero revenue, expenditure and debt. The first-month balance test must be extended as new needs are implemented. Full input replenishment and income for every profession remain unfinished.
 
 ### Galaxy
 The galaxy will consist of multiple systems. Systems with stars are solar systems. Most systems are solar systems. 
@@ -106,7 +105,8 @@ A planet will have a finite number of veins.
 
 ### Materials
 What things are built from affect their properties. Building a spaceship from carbon nanotubes will make a strong and lite ship, but require a huge industry producing nanotubes.
-For a material to be transported to space, the transportation cost must be paid. The cost will vary with infrastructure: Using rockets, mass drivers or space elevators.
+For a material to be transported from a planetary surface to orbit, the transportation cost must be paid. The cost will vary with the available lift method: rockets, mass drivers or space elevators. The `cargo_terminal` is intended for this ground-to-orbit handling, while the `CommercialHub` handles local market stock and transactions. The terminal's operational rules are draft.
+Buying and selling goods within one planetary body has no transport charge or gross sale tariff. VAT may apply to eligible purchases if added later. Corporate profit tax is collected separately on positive realized profit after costs and carried losses; unpaid tax remains due from the corporation.
 - Id
 - Name
 - Description
@@ -231,7 +231,8 @@ When a private corporation takes delivery of a vessel tagged with the **Mine Shi
 *   **Asset deployment:** Corporate mine ships autonomously route to un-depleted asteroid fields, comets or low-G moons within their active logistics range. They prioritize nodes rich in high-value or high-demand resources matching current *Market Shortcoming Scores*.
 *   **Yield destinations:** The raw extracted ores do not enter the state's public storage modules. Instead, the corporation routes the raw yield back to its own corporate warehouses or sells the unrefined mass directly to local *Commercial Hubs* to be bought and processed by commercial metallurgy or gas processing modules.
 
-#### Cargo transport operations
+#### Cargo transport operations (draft)
+The existing corporate fleet and trade-route processors model movement between hubs without requiring a cargo terminal. Whether to retain interplanetary freight as a separate simulated system is undecided; it does not define the terminal's ground-to-orbit role. The following wider transport design remains draft.
 Corporate-owned **Cargo Transports** function as the primary physical vehicles for market arbitrage across the galaxy.
 *   **Shortcoming resolution:** These ships are completely controlled by the corporation’s local trade algorithms. If a colony has a massive deficit in `refined_silicon`, corporate cargo haulers will independently purchase the material from a surplus hub, load the vaults and fly to the shorted colony to liquidate the stock for a massive private profit.
 *   **Orbital lift logistics costs:** Corporate captains are fully bound by the game's physics loops. When a corporate cargo transport blasts off from a heavy terrestrial world, the transport must spend propellant to overcome gravity losses and atmospheric drag into orbit. This orbital lift cost is derived from the Tsiolkovsky rocket equation, local fuel prices, municipal spaceport handling fees and vehicle maintenance wear. This cost is automatically deducted from the corporation's gross trading margins, forcing the corporate AI to naturally favor low-G moons, surface mass drivers, space elevators or zero-G orbital space stations for high-volume freight transfers.
@@ -249,7 +250,7 @@ Every planet functions as a commercial hub. So does a space base with a commerci
 Every commerce hub is managed using the following structural parameters:
 *   **ID and name:** Unique identifiers mapping the instance to its host entity
 *   **Module tier / complexity:** Dictates the maximum volume of resource traffic and financial liquidity the hub can process per turn without bottlenecks.
-*   **Transaction tariff rate:** A state-adjusted percentage fee levied on all private and corporate transactions occurring within the hub.
+*   **Transaction tariff rate:** A state-adjusted rate retained for wider trade routes and fleet transactions. Same-body industry sales do not pay it; VAT on eligible local purchases remains draft.
 *   **Storage capacity linkage:** The maximum weight limit (in kilograms) of consumer goods and raw materials the hub can temporarily hold for marketplace trading.
 *   **Logistics range:** The operational distance (measured across the galactic coordinate map) over which the hub can broadcast its local buy/sell orders to private corporate networks.
 
@@ -257,7 +258,7 @@ Every commerce hub is managed using the following structural parameters:
 The commerce hub provides the physical marketplace where private citizen cohorts spend their disposable income.
 *   **Nutrient spread retail:** Citizens access the hub to purchase compatible food varieties. The hub tracks available food inventory. If a diverse selection of organic or synthetic nutrients is present, citizens spend more credits, directly boosting colony happiness and population growth variables.
 *   **Consumer service leasing:** Private companies use the hub's commercial slots to operate healthcare clinics, recreational lounges and retail spaces, paying a fixed credit lease to the hub owner.
-*   **Automated tax harvesting:** Every time a citizen purchases food or services, the game engine processes the transaction through the hub's *transaction tariff rate*. The calculated credits are automatically deducted from the private sector and deposited directly into the public state treasury as tax revenue.
+*   **Automated tax harvesting (draft):** A future VAT may tax eligible household purchases through the hub. Household purchases currently pay for goods but do not collect VAT or route a transaction tax to the treasury.
 
 #### Corporate B2B trading and arbitrage
 Beyond civilian retail, the commerce hubs handles high-volume business-to-business (B2B) trade between competing private corporations and the state.
@@ -362,6 +363,7 @@ Each module contains a `MODULE.md` file with specific details about its purpose 
 - Static data model loaded from JSON property files: solar systems, races, materials, technologies with
   applications, star properties (Hertzsprung-Russell) and professions.
 - Procedural galaxy generation with realistic star mass distribution and colors.
+- New generated campaigns use the selected era's calendar date, starting technologies and opening industrial economy. The bundled Sol data shown before starting a new campaign remains a separate static sample world.
 - Turn processors for markets, public budgets, municipal finances, industry, governance, research, fleet movement, sensors, espionage, construction, terraforming, megastructures and senate sessions.
 - Procedural audio synthesis worker for event-driven feedback.
 - FXGL entity map with zoom, goto search, entity focus panels and tooltips plus a separate canvas galaxy view.
@@ -369,10 +371,11 @@ Each module contains a `MODULE.md` file with specific details about its purpose 
   the game and closing it resumes at the previous speed.
 
 ### Known integration gaps
+- Material industries now require researched technology, paid workers, input stock, owner cash and local grid power. They pay for powered shifts and sell produced goods to local hubs only within hub cash and storage limits; per-facility accounts preserve unsold stock and show actual input costs, electricity costs, wages, sales and pretax realized results. Power plants generate measured electricity; combustion, fission, fusion and antimatter plants buy distinct fuels while solar, wind, hydro and thermoelectric plants do not. Households at industrial technology level treat electricity as a tier 1 need, and metered local electricity sales pay plant owners. Stored battery electricity remains unpriced until grid ownership is modeled. Cargo-terminal services remain unimplemented. Corporate profit tax is collected from realized earnings across a corporation's facilities after carried losses; fleet and other corporate income is not in the tax base yet. Refinement recipe IDs remain separate from technology application IDs, and existing retail stock has no attributed seller.
 - The UI still supplies one real-time pulse per second, while the engine accumulates partial days and executes the number of daily turns due. Simulation turns run on a dedicated worker and publish snapshots back to JavaFX. At high speeds, processing can lag behind real time if the simulation cannot complete the due turns quickly.
 - `GameState` is a record but does not defensively copy all nested collections. Commands now use a copy builder or `with...` methods to preserve unrelated snapshot fields. The tick refresh does not update every view and some views read initial JSON data instead of live state.
 - Save and load restore the calendar and selected speed; the daily turn is derived from the saved calendar. Courier ships, local and imperial balance sheets and system contribution settings round-trip. Local deficits accumulate as debt on each body. System debt aggregates those local balances and the imperial ledger records actual treasury flows and its own debt. Other newer live fields may still be absent from the save format.
-- Cohort demographics, detailed consumption, warp-network routing and tactical fleet combat have models or processors but are not fully integrated into the normal turn loop.
+- The daily turn now derives household groups from age-group populations, pays funded jobs and retiree pensions, collects wage income tax into local balance sheets and buys available nutrients and optional goods from local hubs. Industrial households also require metered electricity before optional goods. Savings, unmet food and electricity needs, hub trading cash and facility stock persist. Housing, healthcare, retail seller attribution and demographic effects of unmet needs remain future work. Cohort staffing, warp-network routing and tactical fleet combat are not fully integrated into the normal turn loop.
 - Corporation-owned blueprints exist in the model and AI, but build authorization and finished-ship purchases do not yet enforce the ownership rule above.
 - Ship builds still complete immediately. The planned daily construction-order progress and yard capacity rules are documented in [ShipDesign.md](ShipDesign.md) but have no live project model yet.
 

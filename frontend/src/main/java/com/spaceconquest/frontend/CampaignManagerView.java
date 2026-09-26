@@ -122,7 +122,7 @@ public class CampaignManagerView {
         HBox systemsRow = new HBox(15,
                 new Label("Solar systems:"), systemsSpinner,
                 new Label("AI empires:"), aiEmpiresSpinner,
-                new Label("Scenario:"), scenarioCombo);
+                new Label("Starting date / technology:"), scenarioCombo);
         systemsRow.setAlignment(Pos.CENTER_LEFT);
 
         Button startBtn = new Button("Quick launch new campaign");

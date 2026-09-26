@@ -7,5 +7,5 @@ public record CorporateEconomyEntry(
         String marketOrientation,
         double liquidCapital,
         int ownedFacilitiesCount,
-        double estimatedTariffPaid
+        double profitTaxPaid
 ) {}

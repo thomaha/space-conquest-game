@@ -35,8 +35,9 @@ public class GameClock {
         }
     }
 
-    public static final LocalDateTime START_TIME = LocalDateTime.of(2200, 1, 1, 8, 0);
+    public static final LocalDateTime START_TIME = LocalDateTime.of(2027, 1, 1, 8, 0);
 
+    private LocalDateTime campaignStartTime = START_TIME;
     private ClockSpeed currentSpeed;
     private ClockSpeed resumeSpeed;
     private long currentTurn;
@@ -115,18 +116,39 @@ public class GameClock {
         }
     }
 
+    public void startNewCampaign(LocalDateTime startTime) {
+        if (startTime == null) throw new IllegalArgumentException("Campaign start time is required");
+        campaignStartTime = startTime;
+        currentTurn = 0;
+        hoursElapsed = 0.0;
+    }
+
+    public LocalDateTime getCampaignStartTime() {
+        return campaignStartTime;
+    }
+
     public void restore(LocalDateTime time, ClockSpeed speed) {
-        if (time == null || time.isBefore(START_TIME)) {
+        if (time == null || time.isBefore(campaignStartTime)) {
             throw new IllegalArgumentException("Game time precedes campaign start");
         }
-        Duration elapsed = Duration.between(START_TIME, time);
+        Duration elapsed = Duration.between(campaignStartTime, time);
         currentTurn = elapsed.toDays();
         hoursElapsed = (elapsed.minusDays(currentTurn).toMillis() / 3_600_000.0);
         setSpeed(speed);
     }
 
     public LocalDateTime getGameTime() {
-        return START_TIME.plusDays(currentTurn).plusSeconds(Math.round(hoursElapsed * 3_600.0));
+        return campaignStartTime.plusDays(currentTurn).plusSeconds(Math.round(hoursElapsed * 3_600.0));
+    }
+
+    public boolean beginsNewYearAtTurn(long turn) {
+        return turn > 0 && campaignStartTime.plusDays(turn).getYear()
+                != campaignStartTime.plusDays(turn - 1).getYear();
+    }
+
+    public boolean beginsElectionYearAtTurn(long turn) {
+        return beginsNewYearAtTurn(turn)
+                && (campaignStartTime.plusDays(turn).getYear() - campaignStartTime.getYear()) % 5 == 0;
     }
 
     public static boolean beginsNewYear(long turn) {

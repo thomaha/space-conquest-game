@@ -37,7 +37,6 @@ public class ScenarioEditorView {
     private ComboBox<GameStartScenario> scenarioCombo;
     private Label scenarioDescriptionLabel;
     private ComboBox<String> aiCombo;
-    private ComboBox<String> techTierCombo;
     private ComboBox<String> victoryCombo;
 
     public ScenarioEditorView(Menubar menubar, AudioSynthesizer audioSynthesizer) {
@@ -95,7 +94,7 @@ public class ScenarioEditorView {
     }
 
     private void buildScenarioRow(GridPane grid) {
-        Label eraLabel = new Label("Starting era / scenario:");
+        Label eraLabel = new Label("Starting date / technology:");
         eraLabel.setTextFill(Color.LIGHTCYAN);
         scenarioCombo = new ComboBox<>();
         scenarioCombo.getItems().addAll(GameStartScenario.values());
@@ -106,14 +105,14 @@ public class ScenarioEditorView {
             @Override
             protected void updateItem(GameStartScenario item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty || item == null ? null : item.displayName());
+                setText(empty || item == null ? null : item.toString());
             }
         });
         scenarioCombo.setButtonCell(new ListCell<>() {
             @Override
             protected void updateItem(GameStartScenario item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty || item == null ? null : item.displayName());
+                setText(empty || item == null ? null : item.toString());
             }
         });
 
@@ -176,23 +175,14 @@ public class ScenarioEditorView {
         grid.add(aiLabel, 0, 4);
         grid.add(aiCombo, 1, 4);
 
-        Label techLabel = new Label("Starting tech tier (1 - 4):");
-        techLabel.setTextFill(Color.LIGHTCYAN);
-        techTierCombo = new ComboBox<>();
-        techTierCombo.getItems().addAll("Tier 1: Basic sub-light", "Tier 2: Fusion drives", "Tier 3: Warp and metamaterials", "Tier 4: Nanotech and megastructures");
-        techTierCombo.setValue("Tier 1: Basic sub-light");
-        techTierCombo.setPrefWidth(380);
-        grid.add(techLabel, 0, 5);
-        grid.add(techTierCombo, 1, 5);
-
         Label vicLabel = new Label("Victory condition:");
         vicLabel.setTextFill(Color.LIGHTCYAN);
         victoryCombo = new ComboBox<>();
         victoryCombo.getItems().addAll(CampaignSetup.VICTORY_DOMINATION, CampaignSetup.VICTORY_ECONOMIC_MONOPOLY, CampaignSetup.VICTORY_MEGASTRUCTURE_ASCENSION, CampaignSetup.VICTORY_DIPLOMATIC_FEDERATION);
         victoryCombo.setValue(currentSetup.victoryConditionType());
         victoryCombo.setPrefWidth(380);
-        grid.add(vicLabel, 0, 6);
-        grid.add(victoryCombo, 1, 6);
+        grid.add(vicLabel, 0, 5);
+        grid.add(victoryCombo, 1, 5);
     }
 
     private HBox buildActionsFooter() {
@@ -221,9 +211,12 @@ public class ScenarioEditorView {
     }
 
     private void syncSetupFromControls() {
-        int techTier = techTierCombo.getSelectionModel().getSelectedIndex() + 1;
-        if (techTier <= 0) techTier = 1;
         selectedScenario = scenarioCombo.getValue() != null ? scenarioCombo.getValue() : GameStartScenario.PRE_SPACE_FLIGHT;
+        int techTier = switch (selectedScenario) {
+            case PRE_SPACE_FLIGHT -> 1;
+            case ADVANCED_ROCKETRY -> 2;
+            case BASIC_WARP -> 3;
+        };
         currentSetup = new CampaignSetup(
                 "Custom Campaign",
                 (int) starCountSlider.getValue(),

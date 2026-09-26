@@ -9,6 +9,11 @@ import com.spaceconquest.engine.community.GalacticCommunityProcessor;
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.economy.ImperialBalanceSheet;
 import com.spaceconquest.engine.economy.ImperialFinanceCoordinator;
+import com.spaceconquest.engine.economy.HouseholdAccount;
+import com.spaceconquest.engine.economy.HouseholdEconomyProcessor;
+import com.spaceconquest.engine.economy.MarketAccount;
+import com.spaceconquest.engine.economy.CorporateProfitTaxProcessor;
+import com.spaceconquest.engine.economy.CorporateTaxAccount;
 import com.spaceconquest.engine.economy.PlanetaryMunicipalProcessor;
 import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.economy.SystemEconomyProcessor;
@@ -26,8 +31,12 @@ import com.spaceconquest.engine.governance.TerritoryProcessor;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
 import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.industry.IndustryAccount;
+import com.spaceconquest.engine.industry.IndustryMarketProcessor;
 import com.spaceconquest.engine.industry.IndustryProcessor;
 import com.spaceconquest.engine.industry.PowerGridState;
+import com.spaceconquest.engine.industry.PowerGenerationProcessor;
+import com.spaceconquest.engine.industry.PowerBillingProcessor;
 import com.spaceconquest.engine.industry.PowerProcessor;
 import com.spaceconquest.engine.industry.ProspectingProcessor;
 import com.spaceconquest.engine.industry.refinement.RefinementProcessor;
@@ -60,6 +69,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -101,6 +111,10 @@ public class SpaceConquestEngine implements GameEngine {
     private List<SystemEconomy> systemEconomies = new ArrayList<>();
     private List<PlanetaryBalanceSheet> planetaryBalanceSheets = new ArrayList<>();
     private List<ImperialBalanceSheet> imperialBalanceSheets = new ArrayList<>();
+    private List<HouseholdAccount> householdAccounts = new ArrayList<>();
+    private List<MarketAccount> marketAccounts = new ArrayList<>();
+    private List<IndustryAccount> industryAccounts = new ArrayList<>();
+    private List<CorporateTaxAccount> corporateTaxAccounts = new ArrayList<>();
     private final ImperialFinanceCoordinator imperialFinance = new ImperialFinanceCoordinator();
 
     private final PopulationProcessor populationProcessor = new PopulationProcessor();
@@ -112,6 +126,7 @@ public class SpaceConquestEngine implements GameEngine {
     private final CrimeProcessor crimeProcessor = new CrimeProcessor();
     private final SystemEconomyProcessor systemEconomyProcessor = new SystemEconomyProcessor();
     private final PlanetaryMunicipalProcessor planetaryMunicipalProcessor = new PlanetaryMunicipalProcessor();
+    private final HouseholdEconomyProcessor householdEconomyProcessor = new HouseholdEconomyProcessor();
     private final GovernanceProcessor governanceProcessor = new GovernanceProcessor();
     private final IdeologicalAccessionManager accessionManager = new IdeologicalAccessionManager(governanceProcessor);
     private final DiplomacyProcessor diplomacyProcessor = new DiplomacyProcessor();
@@ -121,7 +136,10 @@ public class SpaceConquestEngine implements GameEngine {
     private final FleetProcessor fleetProcessor = new FleetProcessor();
     private final ProspectingProcessor prospectingProcessor = new ProspectingProcessor();
     private final PowerProcessor powerProcessor = new PowerProcessor();
+    private final PowerGenerationProcessor powerGenerationProcessor = new PowerGenerationProcessor();
+    private final CorporateProfitTaxProcessor corporateProfitTaxProcessor = new CorporateProfitTaxProcessor();
     private final IndustryProcessor industryProcessor = new IndustryProcessor();
+    private final IndustryMarketProcessor industryMarketProcessor = new IndustryMarketProcessor();
     private final TacticalCombatProcessor tacticalCombatProcessor = new TacticalCombatProcessor();
     private final OrbitalBombardmentProcessor orbitalBombardmentProcessor = new OrbitalBombardmentProcessor();
     private final ColonizationProcessor colonizationProcessor = new ColonizationProcessor();
@@ -161,7 +179,7 @@ public class SpaceConquestEngine implements GameEngine {
                 }
             }
             systemEconomies = initializeDefaultSystemEconomies(solarSystems, empires);
-            planetaryBalanceSheets = planetaryMunicipalProcessor.processMunicipalFinances(getGameState()).balanceSheets();
+            planetaryBalanceSheets = planetaryMunicipalProcessor.createOpeningBalanceSheets(getGameState());
         } catch (java.io.IOException e) {
             logger.error("Failed to load data", e);
         }
@@ -169,6 +187,7 @@ public class SpaceConquestEngine implements GameEngine {
 
     public SpaceConquestEngine(GameStartScenario scenario) {
         try {
+            gameClock.startNewCampaign((scenario == null ? GameStartScenario.PRE_SPACE_FLIGHT : scenario).startTime());
             races = DataModelLoader.loadRaces();
             materials = DataModelLoader.loadMaterials();
             ministryPortfolios = DataModelLoader.loadMinistries();
@@ -182,10 +201,16 @@ public class SpaceConquestEngine implements GameEngine {
 
     public SpaceConquestEngine(SaveGame saveGame) {
         try {
+            gameClock.startNewCampaign(saveGame.resolvedCampaignStartTime());
+            try {
+                gameClock.restore(java.time.LocalDateTime.parse(saveGame.gameTime()), gameClock.getSpeed());
+            } catch (java.time.format.DateTimeParseException | NullPointerException | IllegalArgumentException ignored) {
+                // Legacy saves may have no usable clock value; their state still loads at turn zero.
+            }
             races = DataModelLoader.loadRaces();
             materials = DataModelLoader.loadMaterials();
             ministryPortfolios = DataModelLoader.loadMinistries();
-            applyGameState(saveGame.toGameState(0, "STOPPED"));
+            applyGameState(saveGame.toGameState(gameClock.getCurrentTurn(), "STOPPED"));
         } catch (java.io.IOException e) {
             logger.error("Failed to load save data", e);
         }
@@ -227,14 +252,13 @@ public class SpaceConquestEngine implements GameEngine {
         logger.info("Advancing to turn {}", turn);
 
         // Demographic age brackets are measured in years, unlike daily work turns.
-        if (GameClock.beginsNewYear(turn)) {
+        if (gameClock.beginsNewYearAtTurn(turn)) {
             updatePopulations();
         }
 
         updateGovernance();
         updateResearch();
         updateMarketsAndEconomy();
-        updateIndustryAndPower();
         updateMacroStructures();
         updateEspionage();
         updateFleets();
@@ -403,32 +427,9 @@ public class SpaceConquestEngine implements GameEngine {
         pirateBases = espRes.updatedBases();
     }
 
-    private void updateIndustryAndPower() {
-        List<Empire> beforeTreasuries = empires;
-        // 1. Balance power grids
-        List<PowerGridState> balancedGrids = new ArrayList<>();
-        boolean globalBrownout = false;
-        for (PowerGridState grid : powerGrids) {
-            PowerGridState balanced = powerProcessor.balanceGrid(
-                    grid.entityId(),
-                    grid.totalGenerationKw(),
-                    grid.totalDemandKw(),
-                    grid.currentStoredKwh(),
-                    grid.batteryCapacityKwh()
-            );
-            if (balanced.isDeficitBrownoutActive()) {
-                globalBrownout = true;
-            }
-            balancedGrids.add(balanced);
-        }
-        powerGrids = balancedGrids;
-
-        // 2. Load shedding during brownouts
-        List<IndustrialFacility> activeFacilities = powerProcessor.applyEmergencyLoadShedding(industrialFacilities, globalBrownout);
-
-        // 3. Process Industrial Production Cycles & Ownership routing
+    private void updateIndustryAndPower(HouseholdEconomyProcessor.TurnResult payroll) {
         IndustryProcessor.IndustryTurnResult result = industryProcessor.processIndustrialProduction(
-                activeFacilities,
+                industrialFacilities,
                 expansionProjects,
                 empires,
                 corporations,
@@ -436,17 +437,39 @@ public class SpaceConquestEngine implements GameEngine {
                 solarSystems,
                 0.05
         );
-
         industrialFacilities = result.updatedFacilities();
         expansionProjects = result.remainingProjects();
-        empires = result.updatedEmpires();
-        imperialFinance.recordTreasuryChanges(beforeTreasuries, empires);
-        corporations = result.updatedCorporations();
-
-        // Point 1: Collect newly spawned couriers
-        if (result.spawnedCouriers() != null) {
-            courierShips.addAll(result.spawnedCouriers());
-        }
+        List<Empire> beforeFuel = empires;
+        PowerGenerationProcessor.Result power = powerGenerationProcessor.process(getGameState(),
+                payroll.paidWorkersByFacility(), payroll.wagesByFacility());
+        empires = power.empires();
+        corporations = power.corporations();
+        commercialHubs = power.hubs();
+        marketAccounts = power.marketAccounts();
+        imperialFinance.recordTreasuryChanges(beforeFuel, empires);
+        PowerProcessor.DayResult balance = powerProcessor.balanceDay(getGameState(),
+                power.generationKw(), payroll.paidWorkersByFacility());
+        PowerBillingProcessor.Result billing = new PowerBillingProcessor().process(getGameState(),
+                balance, power.accounts(), payroll.paidWorkersByFacility());
+        empires = billing.empires();
+        corporations = billing.corporations();
+        householdAccounts = billing.households();
+        powerGrids = billing.grids();
+        imperialFinance.recordIndustryFlows(billing.imperialReceipts(), billing.imperialExpenses());
+        IndustryMarketProcessor.TurnResult marketResult = industryMarketProcessor.process(
+                getGameState(), billing.poweredWorkers(), payroll.wagesByFacility());
+        empires = marketResult.empires();
+        corporations = marketResult.corporations();
+        commercialHubs = marketResult.hubs();
+        marketAccounts = marketResult.marketAccounts();
+        geologicalDeposits = marketResult.deposits();
+        Map<String, IndustryAccount> accounts = new LinkedHashMap<>();
+        for (IndustryAccount account : marketResult.industryAccounts()) accounts.put(account.facilityId(),
+                account.withPowerCost(billing.facilityPowerCosts().getOrDefault(account.facilityId(), 0.0)));
+        for (IndustryAccount account : power.accounts()) accounts.put(account.facilityId(),
+                account.withPowerSale(billing.plantSales().getOrDefault(account.facilityId(), 0.0)));
+        industryAccounts = List.copyOf(accounts.values());
+        imperialFinance.recordIndustryFlows(marketResult.imperialReceipts(), marketResult.imperialExpenses());
     }
 
     private void updateFleets() {
@@ -524,7 +547,7 @@ public class SpaceConquestEngine implements GameEngine {
         empires = territoryProcessor.updateTerritorialControl(getGameState());
 
         // 3. Democratic election cycles every five calendar years.
-        if (GameClock.beginsElectionYear(turn) && !commercialHubs.isEmpty()) {
+        if (gameClock.beginsElectionYearAtTurn(turn) && !commercialHubs.isEmpty()) {
             Map<String, Double> shortages = calculateAverageShortages();
             empires = empires.stream()
                     .map(empire -> {
@@ -606,8 +629,26 @@ public class SpaceConquestEngine implements GameEngine {
         systemEconomies = economyResult.updatedEconomies();
         empires = economyResult.updatedEmpires();
 
-        // 6. Municipal Finances and Local Balance Sheets
-        PlanetaryMunicipalProcessor.MunicipalTurnResult municipalResult = planetaryMunicipalProcessor.processMunicipalFinances(getGameState());
+        // 6. Household wages, taxes and consumption precede local accounting.
+        HouseholdEconomyProcessor.TurnResult householdResult = householdEconomyProcessor.process(getGameState(), races);
+        householdAccounts = householdResult.householdAccounts();
+        marketAccounts = householdResult.marketAccounts();
+        commercialHubs = householdResult.commercialHubs();
+        corporations = householdResult.corporations();
+        List<Empire> beforeIndustryPayroll = empires;
+        empires = householdResult.empires();
+        imperialFinance.recordTreasuryChanges(beforeIndustryPayroll, empires);
+
+        // 7. Paid facilities buy inputs, produce and sell to their local hub.
+        updateIndustryAndPower(householdResult);
+        CorporateProfitTaxProcessor.Result profitTax = corporateProfitTaxProcessor.process(getGameState());
+        corporations = profitTax.corporations();
+        corporateTaxAccounts = profitTax.accounts();
+
+        // 8. Municipal Finances and Local Balance Sheets
+        PlanetaryMunicipalProcessor.MunicipalTurnResult municipalResult =
+                planetaryMunicipalProcessor.processMunicipalFinances(getGameState(), householdResult,
+                        profitTax.collectedByBody());
         planetaryBalanceSheets = municipalResult.balanceSheets();
         if (municipalResult.dispatchedCouriers() != null && !municipalResult.dispatchedCouriers().isEmpty()) {
             courierShips.addAll(municipalResult.dispatchedCouriers());
@@ -615,7 +656,7 @@ public class SpaceConquestEngine implements GameEngine {
         empires = municipalResult.updatedEmpires();
         imperialFinance.recordMunicipal(planetaryBalanceSheets, empires, municipalResult.newImperialDebtCredits());
 
-        // 7. Crime and Black Market Leakage
+        // 9. Crime and Black Market Leakage
         GameState currentState = getGameState();
         CrimeProcessor.CrimeResult crimeResult = crimeProcessor.processCrime(currentState);
         empires = crimeResult.empires();
@@ -690,7 +731,11 @@ public class SpaceConquestEngine implements GameEngine {
                 systemEconomies,
                 courierShips,
                 planetaryBalanceSheets,
-                imperialBalanceSheets
+                imperialBalanceSheets,
+                householdAccounts,
+                marketAccounts,
+                industryAccounts,
+                corporateTaxAccounts
         );
     }
 
@@ -802,7 +847,7 @@ public class SpaceConquestEngine implements GameEngine {
         List<AtmosphericComposition> atmoList = new ArrayList<>();
         for (SolarSystem sys : solarSystems) {
             for (Planet p : sys.planets()) {
-                boolean isBreathable = p.atmosphere() != null && !p.atmosphere().equalsIgnoreCase("none") && !p.atmosphere().equalsIgnoreCase("toxic");
+                boolean isBreathable = PopulationProcessor.hasAmbientBreathableOxygen(p.atmosphere());
                 atmoList.add(new AtmosphericComposition(
                         p.id(),
                         isBreathable ? Map.of("oxygen_gas", 0.21, "nitrogen_gas", 0.78, "carbon_dioxide", 0.01)
@@ -859,6 +904,10 @@ public class SpaceConquestEngine implements GameEngine {
         }
         this.courierShips = new ArrayList<>(state.courierShips());
         this.imperialBalanceSheets = new ArrayList<>(state.imperialBalanceSheets());
+        this.householdAccounts = new ArrayList<>(state.householdAccounts());
+        this.marketAccounts = new ArrayList<>(state.marketAccounts());
+        this.industryAccounts = new ArrayList<>(state.industryAccounts());
+        this.corporateTaxAccounts = new ArrayList<>(state.corporateTaxAccounts());
     }
 
     public synchronized void recordCommandTreasuryChanges(List<Empire> before, List<Empire> after) {

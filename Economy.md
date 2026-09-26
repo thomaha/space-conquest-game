@@ -1,5 +1,13 @@
 #### Design and implementation status
-This file describes intended economic rules and UI behavior, including unmarked sections. The live turn runs market processing before system budgets and municipal accounting. The newer cohort model is not yet part of the normal turn. `PlanetaryMunicipalProcessor` computes local balance sheets, carries unpaid municipal obligations forward and settles signed system transfers. The system view aggregates those sheets and the imperial view reports actual central treasury receipts and expenditures from the last processed day. Of the commands listed below, only `SetSystemEconomyBudgetCommand` exists under that name; the other five are proposed. `ColonyLedgerView` and `CorporateGovernanceView` are also proposed. `tech_subspace_banking` is referenced by code but absent from the current technology catalog. Saves retain planetary and imperial balance sheets, courier ships and the contribution setting. The lifecycle order at the end of this file is a design target rather than the order executed today.
+Generated campaigns begin with mixed state-owned and corporate industry on each empire homeworld, opening credits for empires, corporations and population households and stocked hubs on populated colonies. These opening balances are seeded without processing a day. On later daily turns material facilities pay funded workers, pay for powered shifts, buy available inputs and sell produced goods to the local hub using its available cash. The owner receives the sale payment and unsold output stays in facility stock. Power plants buy distinct fuels where required and sell measured electricity to households and industries on their local grid. Cargo terminals are intended for surface-to-orbit handling but do not yet provide a metered service; interplanetary fleet and route trading is separate and its final scope is undecided.
+
+Within one planetary body, local trade has no transport charge or gross industry-sale tariff. VAT remains unimplemented; its rate, input-credit treatment and taxable goods are not set. The live corporate profit-tax pass sums realized earnings and costs across each corporation's facilities, offsets prior losses, assesses the empire's corporate tax rate and carries unpaid liability forward. Fleet and other corporate income is not included yet. Actual payments reduce corporate reserves and enter municipalities hosting profitable facilities with populations, or another populated body in the empire if needed. Without a receiving municipality, assessed tax remains unpaid.
+
+This file describes intended economic rules and UI behavior, including unmarked sections. The live turn runs market processing, system budgets, household wages and purchases, power generation, material industry transactions, corporate profit tax, then municipal accounting. The newer cohort model is derived from age-group populations for household accounting but is not yet persistent or used for industry staffing. `PlanetaryMunicipalProcessor` computes local balance sheets, carries unpaid municipal obligations forward and settles signed system transfers. The system view aggregates those sheets and the imperial view reports actual central treasury receipts and expenditures from the last processed day. Of the commands listed below, only `SetSystemEconomyBudgetCommand` exists under that name; the other five are proposed. `ColonyLedgerView` and `CorporateGovernanceView` are also proposed. `tech_subspace_banking` is referenced by code but absent from the current technology catalog. Saves retain household, market, industry and corporate tax accounts, planetary and imperial balance sheets, courier ships and the contribution setting. The lifecycle order at the end of this file remains a design target beyond the new passes.
+
+Households on known breathable planets and moons use ambient oxygen without a market purchase. Households on airless or hostile bodies still buy `oxygen_gas`. This is a market-demand rule rather than a modeled atmospheric oxygen cycle.
+
+Generated homeworlds now carry enough opening household credits and market stock to meet all tracked basic, electricity, secondary and luxury needs through a 30-day balance check. Farms and consumer-goods factories on those homeworlds are sized against population demand, while other seeded facilities use their required operating crew rather than hundreds of thousands of idle paid workers. Public job quotas are funding targets: the household payroll pass scales actual hires to fit the system's daily public budget. The municipal ledger still records public salaries and the sector budget as separate expenditures. Current agricultural inputs, specialized non-human nutrients and luxury goods rely partly on finite opening stock; replenishment and broad civilian employment are not complete, so the first-month result is not a perpetual equilibrium.
 
 #### Universal credits
 - All financial transactions use universal credits, representing the liquid fiat wealth or asset-backed reserves of an empire.
@@ -7,7 +15,7 @@ This file describes intended economic rules and UI behavior, including unmarked 
 
 #### Public economy
 The public economy represents the liquid credit reserves controlled directly by the empire's central government.
-- **State revenue:** Planetary income taxes, local corporate production tariffs and docking fees first enter municipal accounts. They become imperial treasury receipts only when a contribution reaches the treasury. Trade tariffs, industrial receipts and delivered couriers also change the central treasury directly.
+- **State revenue:** Planetary income taxes, corporate profit-tax payments and docking fees first enter municipal accounts. They become imperial treasury receipts only when a contribution reaches the treasury. State-owned facility sales change the central treasury directly, as do delivered couriers. Same-body industry sales no longer pay a gross corporate sale tariff.
 - **State expenditures:** The treasury is used to pay for macro-infrastructure projects. This includes funding technological research applications, paying the base upkeep costs of space stations and colonies, compensating state employees (`soldiers`, `scientists`, `bureaucrats`), maintaining public facilities and covering surface-to-orbit orbital lift costs for state-owned spacecraft.
 - **Planetary subsidies:** If a frontier colony's localized public maintenance exceeds its tax collection, the state treasury can pump credits directly into the world to prevent structural decay, assuming a secure logistics network is active.
 
@@ -26,7 +34,7 @@ The five sector sliders are nonnegative shares of the public budget. Their value
 #### Recorded balances and debt ownership
 `PlanetaryBalanceSheet` stores each body's daily revenue, daily expenditure, net balance, liquid reserve and outstanding municipal debt. A negative daily balance consumes that body's reserve first and any remaining shortfall increases its debt. Later surpluses or subsidies repay existing debt before a reserve can grow or a positive empire contribution can leave. System revenue, expenditure and debt are sums of these local sheets, not a second set of obligations. A depopulated body's debt and reserve remain on its last sheet until the body is processed again.
 
-`ImperialBalanceSheet` stores the central treasury's last-day receipts, expenditures, outstanding debt and debt principal repaid. Receipts are counted when trade tariffs, industrial profits, electronic contributions or couriers actually reach the treasury. Expenditures are counted when the empire pays a subsidy or a command spends central credits. Subsidies may create imperial debt when the treasury cannot fund them. Later treasury cash repays this debt; principal repayment is shown separately from that day's operating expenditure. No interest, creditor market or debt-service penalty is implemented. Local debt is not copied to the imperial ledger.
+`ImperialBalanceSheet` stores the central treasury's last-day receipts, expenditures, outstanding debt and debt principal repaid. Receipts are counted when state-owned industry sales, electronic contributions or couriers actually reach the treasury. Corporate profit tax remains municipal revenue until transferred. Expenditures include state wages, reactor fuel, subsidies and commands that spend central credits. Subsidies may create imperial debt when the treasury cannot fund them. Later treasury cash repays this debt; principal repayment is shown separately from that day's operating expenditure. No interest, creditor market or debt-service penalty is implemented. Local debt is not copied to the imperial ledger.
 
 #### System administrative pipeline and bureaucrat integration
 Allocating liquid credits to system sectors is necessary but insufficient on its own. Every sector requires institutional oversight provided by the `bureaucrat` citizen strata. Without sufficient bureaucrats, funding suffers from administrative bottlenecks, corruption and clerical stagnation.
@@ -169,7 +177,7 @@ public record PlanetaryBalanceSheet(
         String empireId,
         double grossPlanetaryProduct,
         double incomeTaxRevenue,
-        double corporateTariffRevenue,
+        double corporateProfitTaxRevenue,
         double dockingFeeRevenue,
         double totalRevenueCredits,
         double workforceSalaries,
@@ -187,17 +195,17 @@ public record PlanetaryBalanceSheet(
 ```
 
 ##### Revenue formulas and local tax collection
-Draft:
+Income and corporate profit-tax collection run today; detailed docking charges remain draft.
 - **Planetary income tax:**
   $$R_{\text{income}} = \sum_{\text{cohorts}} (N_{\text{cohort}} \times W_{\text{strata}} \times \tau_{\text{system}})$$
   where $W_{\text{strata}}$ is the wage rate of the profession and $\tau_{\text{system}}$ is the system income tax rate.
-- **Corporate production tariffs:**
-  $$R_{\text{tariff}} = \sum_{\text{produced commodities}} (\text{Produced Units} \times \text{Spot Price} \times \tau_{\text{corporate}})$$
-  where $\tau_{\text{corporate}}$ is the imperial corporate production tariff rate.
+- **Corporate profit tax:**
+  $$R_{\text{corporate}} = \min(\text{available corporate cash},\;\text{prior unpaid tax} + \tau_{\text{corporate}}\max(0,\text{realized profit} - \text{carried losses}))$$
+  Realized profit sums the corporation's facility sales minus input costs and wages. Losses reduce later taxable profit, and assessed tax that cannot be paid remains a corporate liability. Only tax actually paid enters municipal revenue.
 - **Commercial docking and handling fees:**
   $$R_{\text{docking}} = \sum_{\text{docked vessels}} \text{Spaceport Fee Credits}$$
 - **Total localized revenue:**
-  $$R_{\text{total}} = R_{\text{income}} + R_{\text{tariff}} + R_{\text{docking}}$$
+  $$R_{\text{total}} = R_{\text{income}} + R_{\text{corporate}} + R_{\text{docking}}$$
 
 ##### Municipal expenditures and facility upkeep
 Draft:
@@ -223,6 +231,12 @@ Draft:
 
 #### Private economy and civilian markets
 The private economy governs capital generation, disposable income and daily consumer spending by citizens.
+
+New campaigns begin with zero municipal balances; the first daily tick posts the first actual revenues and expenses.
+
+Market purchases currently deplete available order supply, while desired household demand is not yet added to the spot-price calculation.
+
+The household pass groups derived cohorts by body, race and profession. Working-age citizens (18 through 64) earn wages only when a public system job or a funded industrial facility job is available. Retired citizens receive the current small public pension. Public system wages and pensions are charged to the body's municipal balance sheet. State-owned facility wages reduce the empire treasury and corporate facility wages reduce the owner's reserves. The system income tax rate applies to wages actually paid, not pensions; each body's tax receipts enter its municipal balance sheet and therefore its system and empire reports. A household carries its savings across days and buys species-specific basic nutrients from a hub on its body. If its empire has `electricity` and `industrial_production`, electricity is also a tier 1 need; the household reserves its expected power bill before optional `consumer_goods` and `luxury_goods`. Electricity is billed on the grid at 0.02 credits per kWh and recorded as spending and unmet basic kWh. Material purchases reduce market stock and add credits to the hub's trading cash, which can buy facility output. The account separately reports unmet basic kilograms, unmet electricity kWh and secondary and luxury fulfillment. Housing, healthcare, wage settlement for other employers, retail seller attribution, Hive Mind allocation and effects of unmet needs on happiness or mortality remain unimplemented.
 
 ##### Single-education cohort model and colony fragmentation
 Every citizen cohort represents exclusively one education and profession profile (`miner`, `technician`, `engineer`, `medic`, `bureaucrat`, `police`, `soldier`, `farmer`, `scientist`, `teacher`). Because skills cannot be arbitrarily mixed within a single cohort, colonies naturally operate as an ensemble of specialized cohort fragments:
@@ -286,7 +300,7 @@ Profits generated from civilian transactions (food sales, residential rent, priv
 
 ##### State governance and corporate taxation
 The sovereign empire regulates corporate behavior without micro-managing individual vessels:
-- **Corporate production tax ($\tau_{\text{corporate}}$):** Levied on raw and refined material outputs. High rates generate imperial revenue but reduce corporate reinvestment capital.
+- **Corporate profit tax ($\tau_{\text{corporate}}$):** Applies to positive realized earnings across a corporation's facilities after input costs, wages and carried losses. Fleet and other corporate income is not included yet. Actual payments enter populated local municipal balances while unpaid assessed tax stays on the corporation's persistent tax account. A possible VAT on eligible purchases would be separate and its rules remain draft.
 - **Sector subsidies:** State credit grants directed to specific corporate orientations (`EXTRACTION`, `MANUFACTURING`, `AGRICULTURE`, `TRANSPORT`) to guide investment toward strategic shortages.
 - **Public zoning restrictions:** State zoning laws can reserve planetary slots exclusively for military shipyards or government research complexes, prohibiting private commercial construction.
 

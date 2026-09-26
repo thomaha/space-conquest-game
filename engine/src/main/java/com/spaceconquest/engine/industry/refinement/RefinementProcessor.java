@@ -65,7 +65,7 @@ public class RefinementProcessor {
             new RefinementRecipe(
                     "consumer_goods_mfg", "Consumer Electronics and Goods", "CONSUMER_GOODS",
                     RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("bio_polymers", 250.0, "refined_aluminum", 250.0, "refined_copper", 250.0, "refined_silicon", 250.0), 6000.0,
+                    Map.of("bio_polymers", 250.0, "refined_aluminum", 250.0, "refined_copper", 250.0, "silicon", 250.0), 6000.0,
                     Map.of("consumer_goods", 1000.0), Map.of(),
                     1, "industrial_worker"
             ),

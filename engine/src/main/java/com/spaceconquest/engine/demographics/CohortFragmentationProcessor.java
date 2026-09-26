@@ -101,28 +101,21 @@ public class CohortFragmentationProcessor {
             long agePop = ageEntry.getValue();
             if (agePop <= 0) continue;
 
-            long allocatedForAge = 0L;
             String primaryProf = distribution.keySet().iterator().next();
+            long remaining = agePop;
 
             for (Map.Entry<String, Double> distEntry : distribution.entrySet()) {
                 String profId = distEntry.getKey();
+                if (profId.equals(primaryProf)) continue;
                 double ratio = distEntry.getValue();
-                long count = Math.round(agePop * ratio);
+                long count = Math.min(remaining, Math.max(0L, Math.round(agePop * ratio)));
                 if (count > 0) {
                     resultCohorts.add(new CitizenCohort(population.raceId(), profId, age, count));
-                    allocatedForAge += count;
+                    remaining -= count;
                 }
             }
-
-            long diff = agePop - allocatedForAge;
-            if (diff != 0 && !resultCohorts.isEmpty()) {
-                for (int i = resultCohorts.size() - 1; i >= 0; i--) {
-                    CitizenCohort c = resultCohorts.get(i);
-                    if (c.ageBracket() == age && c.professionId().equalsIgnoreCase(primaryProf)) {
-                        resultCohorts.set(i, c.withHeadcount(Math.max(0L, c.headcount() + diff)));
-                        break;
-                    }
-                }
+            if (remaining > 0) {
+                resultCohorts.add(new CitizenCohort(population.raceId(), primaryProf, age, remaining));
             }
         }
 

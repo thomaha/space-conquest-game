@@ -77,7 +77,7 @@ Displays the galaxy map, allowing players to explore and manage their space empi
 ### Menubar
 Displays buttons with information about the different sectors of the game. Opening the corresponding page for a button should pause the game. Closing that page should resume the game, at the game speed it was before the page opened.
 - When a page is selected, the tab should display in a selected state.
-- Empire button. Opens the consolidated Empire view. containing the Imperial economy tab, Imperial cabinet tab, Planets tab, Orbital stations and shipyards tab, Corporation registry tab and Megastructures tab.
+- Empire button. Opens the consolidated Empire view containing the Economy tab, Imperial cabinet tab, Planets tab, Orbital stations and shipyards tab, Corporation registry tab and Megastructures tab.
 - Diplomacy button. On button it displays diplomatic status. At war or at peace. On click of button opens the diplomacy page which will provide detailed information on all diplomatic relations between the empire and other empires. Will also show detailed information about the other empires.
 - Technology button. 
   - On button displays information about the progress of the currently researched technology. 
@@ -106,10 +106,11 @@ Displays buttons with information about the different sectors of the game. Openi
   - The visual representation for star should be based on the star size. For planet and moon it should be based on type and atmosphere.
 - Current time view. Displays the current time in the game and game speed. Include controls to adjust the game speed.
 - Game menu button. At extreme right position. Opening it gives options for New game, Save, Campaign saves, Audio settings, Screen settings and Exit.
+- New game offers a starting date / technology preset: 2027 contemporary industry by default, 2050 advanced rocketry or 2200 basic warp. Each selection sets the calendar and opening technology together.
 
 ### Empire view and planetary management
 - Central imperial administration hub organized into an extensible tabbed structure.
-- Economy tab features a sub-view switcher between Imperial economy and System economy:
+- On first open, the Economy tab selects Empire treasury and budget. Its sub-view switcher offers Empire treasury and budget and System budget and taxes.
 - Imperial economy displays liquid treasury credits, recorded central receipts and expenditures for the last processed day, net treasury flow, outstanding imperial debt and principal repayment. Colony ledgers show engine municipal figures and debt. Corporate tariff entries remain estimates and are labeled accordingly.
 - System economy provides a workbench for selecting controlled systems, inspecting local balance-sheet revenues, expenditures and aggregate local debt and adjusting five nonnegative public-budget shares plus a nonnegative tax rate. The final slider is signed from -100% to +100% of the public budget: positive requests an empire contribution and negative requests a system subsidy. Allocation shares, estimated taxes and the transfer target appear in credits per day; the last local transfer appears separately. Positive transfers may still be in courier transit. Commands take effect on the next simulation day.
 - Hovering over buttons, tab switches and interactive controls displays a responsive hand pointer cursor. Tab button styling maintains consistent font size and layout geometry on hover without shrinking.
@@ -125,7 +126,7 @@ Displays buttons with information about the different sectors of the game. Openi
   - Local megastructures under construction or operational in the system.
   - Orbital stations and shipyards tab displays orbital space stations, attached starframe modules, shipyard slipways, station power balances, and planetary space elevators filtered strictly for selected planet.
   - When a colonized planet is selected, a detailed display of the population should be shown, including population demographics, workforce specialization, resource consumption, production, and trade.
-  - Existing industries on the selected planet should be displayed in a tabular format with columns for industry type, production capacity, resource consumption, and workforce requirements. Location of industry should be indicated on the planet map.
+  - The bottom of the selected planet or moon detail view lists every industrial facility hosted there with its application, tier, effective throughput, assigned worker count and profession, owner and configured recipe products. After the first daily turn, material facilities show actual production, sales, unsold stock, input costs, electricity bills, wages and pretax realized profit or loss. Power plants show measured daily generation, billed kWh, sales and costs. Cargo-terminal services and map locations remain future work.
 - Orbital stations and shipyards tab displays orbital space stations, attached starframe modules, shipyard slipways, station power balances and planetary space elevators filtered strictly for the player's empire.
 - Corporation registry tab displays private commercial corporations, market orientations, liquid capital reserves, owned industrial facilities, commercial freighters and claimed mineral veins filtered strictly for the player's empire.
 - Megastructures tab displays all imperial megastructures (Dyson swarms, Dyson spheres, star lifters, ringworlds, orbital habitats and hyperlane gateways) under construction or complete, energy outputs and housing capacity with a commissioning workbench gated by the researched Stellar megastructures technology.
@@ -146,6 +147,7 @@ Make a property file based on the Hertzsprung–Russell diagram to specify the r
 
 ### Surface biome grid and gas giant handling
 - Dynamically scales surface sector grid dimensions based on celestial diameter with variable row lengths (from 2 rows for asteroids up to 6 rows for massive worlds and super-earths).
+- Planets view keeps a readable minimum width for its body sidebar. Full-width body entries use compact two-line rows with tooltips for full names. Compact biome tiles place the tile number and terrain on separate lines and the surface grid scrolls horizontally when space is limited.
 - Simulates spherical planetary geometry by allocating fewer sector places in top and bottom polar rows compared to equatorial bands.
 - Accurately models terrestrial Earth-like biome coverage with approximately 5% permanent polar ice, 5% equatorial desert, 70% oceanic shelf water and 20% temperate and tectonic landmass.
 - Detects gas giants and ice giants, preventing generation of false solid rock tiles and presenting an informative gaseous status card with disabled ground facility placement.
