@@ -3,6 +3,14 @@
 /engine/target/
 /frontend/target/
 
+# Eclipse project metadata and compiled output
+.project
+.classpath
+.settings/
+/control/bin/
+/engine/bin/
+/frontend/bin/
+
 # Log files
 *.log
 logs/

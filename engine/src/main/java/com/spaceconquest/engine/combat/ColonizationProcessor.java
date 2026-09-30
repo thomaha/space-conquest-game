@@ -83,13 +83,7 @@ public class ColonizationProcessor {
         List<ShipInstance> remainingShips = new ArrayList<>(colonyFleet.ships());
         remainingShips.remove(colonyShip);
 
-        Fleet updatedFleet = new Fleet(
-                colonyFleet.id(), colonyFleet.name(), colonyFleet.ownerEntityId(),
-                colonyFleet.currentSystemId(), colonyFleet.targetSystemId(),
-                colonyFleet.coordinateX(), colonyFleet.coordinateY(),
-                colonyFleet.transitProgress(), colonyFleet.isInWarp(),
-                colonyFleet.fleetStance(), remainingShips
-        );
+        Fleet updatedFleet = colonyFleet.withShips(remainingShips);
 
         return new ColonizationResult(true, colonizedPlanet, updatedFleet, "Colony successfully established");
     }

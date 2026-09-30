@@ -8,6 +8,7 @@ import com.spaceconquest.engine.DataModelLoader;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.MarketOrder;
+import com.spaceconquest.engine.economy.MarketAccount;
 import com.spaceconquest.engine.Material;
 import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.SaveGame;
@@ -16,10 +17,13 @@ import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.SpaceConquestEngine;
 import com.spaceconquest.engine.espionage.PirateBase;
 import com.spaceconquest.engine.galaxy.FogOfWarState;
+import com.spaceconquest.engine.industry.PowerGridState;
+import com.spaceconquest.engine.macrostructure.SpaceElevator;
 import com.spaceconquest.engine.industry.refinement.RefinementProcessor;
 import com.spaceconquest.engine.industry.refinement.RefinementRecipe;
 import com.spaceconquest.engine.logistics.TradeRoute;
 import com.spaceconquest.engine.ship.Fleet;
+import com.spaceconquest.engine.ship.FleetLocation;
 import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.ShipInstance;
 import com.spaceconquest.engine.ship.ShipRole;
@@ -59,7 +63,7 @@ public class ExpandedFeaturesIntegrationTest {
 
     @Test
     public void testAutomatedTradeRouteSimulationLoop() {
-        SpaceConquestEngine engine = new SpaceConquestEngine();
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
 
         CommercialHub originHub = new CommercialHub(
                 "hub_earth", "earth", 0.05, 500000.0, 6000.0, 15.0,
@@ -73,7 +77,7 @@ public class ExpandedFeaturesIntegrationTest {
 
         Empire terran = new Empire(
                 "terran_confederation", "Terran Confederation", "human", "Individualist",
-                100000.0, 0.10, List.of("sol"), List.of(), Map.of(), List.of(), List.of()
+                1_000_000_000.0, 0.10, List.of("sol"), List.of(), Map.of(), List.of(), List.of()
         );
 
         TradeRoute route = new TradeRoute(
@@ -82,11 +86,29 @@ public class ExpandedFeaturesIntegrationTest {
                 1500.0, 1000.0, 20000.0, List.of("freighter_01"), 0.0, true
         );
 
+        ShipDesign design = new ShipDesign("route_cargo", "Route cargo",
+                "terran_confederation", ShipRole.CARGO_TRANSPORT, "steel", List.of(),
+                "steel", 0, 1_000, 2_000, 0, 1, 0, 0, true, false);
+        Fleet freighter = new Fleet("route_fleet", "Route freighter",
+                "terran_confederation", "sol", "", 0, 0, 0, false, "PASSIVE",
+                List.of(new ShipInstance("freighter_01", design.id(),
+                        "terran_confederation", 100, 0, 100, Map.of())),
+                FleetLocation.at(FleetLocation.Site.surface("earth")));
+
         GameState initialState = GameState.builder()
                 .status("RUNNING")
+                .solarSystems(engine.getGameState().solarSystems())
                 .empires(List.of(terran))
                 .commercialHubs(List.of(originHub, destHub))
+                .marketAccounts(List.of(new MarketAccount(originHub.id(), 0),
+                        new MarketAccount(destHub.id(), 100_000)))
                 .tradeRoutes(List.of(route))
+                .shipDesigns(List.of(design))
+                .fleets(List.of(freighter))
+                .spaceElevators(List.of(new SpaceElevator("earth_lift", "earth",
+                        terran.id(), 10_000.0, 0.95, 100.0, true)))
+                .powerGrids(List.of(new PowerGridState("earth", 100.0, 0.0,
+                        100.0, 0.0, 0.0, false)))
                 .build();
 
         engine.applyGameState(initialState);
@@ -95,7 +117,9 @@ public class ExpandedFeaturesIntegrationTest {
         GameState stateAfterTurn = engine.getGameState();
         assertEquals(1, stateAfterTurn.tradeRoutes().size());
         TradeRoute updatedRoute = stateAfterTurn.tradeRoutes().get(0);
-        assertEquals(1500.0, updatedRoute.totalVolumeMovedKg(), 0.001);
+        assertEquals(0.0, updatedRoute.totalVolumeMovedKg(), 0.001);
+        assertEquals(1500.0, stateAfterTurn.fleets().getFirst().ships().getFirst()
+                .storedCargoKg().get("refined_iron"), 0.001);
 
         CommercialHub updatedOrigin = stateAfterTurn.commercialHubs().stream()
                 .filter(h -> h.id().equals("hub_earth")).findFirst().orElseThrow();
@@ -103,11 +127,19 @@ public class ExpandedFeaturesIntegrationTest {
 
         CommercialHub updatedDest = stateAfterTurn.commercialHubs().stream()
                 .filter(h -> h.id().equals("hub_mars")).findFirst().orElseThrow();
-        assertEquals(1700.0, updatedDest.activeOrders().get("refined_iron").supplyKg(), 0.001);
+        assertEquals(200.0, updatedDest.activeOrders().get("refined_iron").supplyKg(), 0.001);
 
         Empire updatedEmpire = stateAfterTurn.empires().stream()
                 .filter(e -> e.id().equals("terran_confederation")).findFirst().orElseThrow();
-        assertTrue(updatedEmpire.treasuryCredits() > 100000.0);
+        assertTrue(updatedEmpire.treasuryCredits() < 1_000_000_000.0);
+        engine.stepTurn();
+        engine.stepTurn();
+        engine.stepTurn();
+        GameState delivered = engine.getGameState();
+        assertEquals(1500.0, delivered.tradeRoutes().getFirst().totalVolumeMovedKg(), 0.001);
+        assertEquals(1700.0, delivered.commercialHubs().stream()
+                .filter(hub -> "hub_mars".equals(hub.id())).findFirst().orElseThrow()
+                .activeOrders().get("refined_iron").supplyKg(), 0.001);
     }
 
     @Test
@@ -160,7 +192,7 @@ public class ExpandedFeaturesIntegrationTest {
                 2000.0, 500.0, 50000.0, List.of("freighter_01"), 5000.0, true
         );
 
-        SpaceConquestEngine engine = new SpaceConquestEngine();
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         GameState state = GameState.builder()
                 .turn(5)
                 .status("RUNNING")

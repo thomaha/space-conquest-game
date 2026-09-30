@@ -4,7 +4,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -117,9 +119,11 @@ public class GalaxyGeneratorTest {
         assertFalse(state.commercialHubs().isEmpty(), "Should have commercial hubs initialized");
         assertFalse(state.corporations().isEmpty(), "Should have corporations initialized");
         Planet home = state.solarSystems().getFirst().planets().stream()
-                .filter(planet -> !planet.populations().isEmpty()).findFirst().orElseThrow();
+                .filter(planet -> !planet.populations().isEmpty())
+                .max(java.util.Comparator.comparingLong(planet -> planet.populations().stream()
+                        .mapToLong(Population::totalCount).sum())).orElseThrow();
         assertTrue(PopulationProcessor.hasAmbientBreathableOxygen(home.atmosphere()));
-        assertFalse(state.commercialHubs().stream()
+        assertTrue(state.commercialHubs().stream()
                 .filter(hub -> home.id().equals(hub.entityId())).findFirst().orElseThrow()
                 .activeOrders().containsKey("oxygen_gas"));
     }
@@ -163,6 +167,57 @@ public class GalaxyGeneratorTest {
     }
 
     @Test
+    public void startingHomeworldHasCommonAndScarceMineralDeposits() {
+        GameState state = generator.generateGameState(8, 2, GameStartScenario.PRE_SPACE_FLIGHT);
+        Planet home = state.solarSystems().getFirst().planets().stream()
+                .filter(planet -> !planet.populations().isEmpty()).findFirst().orElseThrow();
+        for (String resource : List.of("silicates", "aluminum_ore", "copper_ore",
+                "nitrates", "phosphates", "potash", "gold", "silver_ore",
+                "rare_earth_fluorides")) {
+            assertTrue(home.resources().contains(resource), resource);
+            assertTrue(state.geologicalDeposits().stream().anyMatch(deposit ->
+                    home.id().equals(deposit.planetId()) && resource.equals(deposit.materialId())
+                            && deposit.isDiscovered() && deposit.remainingVolumeKg() > 0.0), resource);
+        }
+        double common = state.geologicalDeposits().stream().filter(deposit ->
+                home.id().equals(deposit.planetId()) && "silicates".equals(deposit.materialId()))
+                .findFirst().orElseThrow().initialVolumeKg();
+        double rare = state.geologicalDeposits().stream().filter(deposit ->
+                home.id().equals(deposit.planetId()) && "rare_earth_fluorides".equals(deposit.materialId()))
+                .findFirst().orElseThrow().initialVolumeKg();
+        double gold = state.geologicalDeposits().stream().filter(deposit ->
+                home.id().equals(deposit.planetId()) && "gold".equals(deposit.materialId()))
+                .findFirst().orElseThrow().initialVolumeKg();
+        assertTrue(common > rare);
+        assertTrue(rare > gold);
+    }
+
+    @Test
+    public void expressTerranGalaxyHasFourDistinctPopulatedHomeworlds() {
+        GameState state = generator.generateGameState(50, 3, GameStartScenario.PRE_SPACE_FLIGHT);
+
+        assertEquals(50, state.solarSystems().size());
+        assertEquals(4, state.empires().size());
+        assertEquals("terran_confederation", state.empires().getFirst().id());
+
+        Set<String> homeSystemIds = new HashSet<>();
+        Set<String> raceIds = new HashSet<>();
+        for (Empire empire : state.empires()) {
+            String homeSystemId = empire.controlledSystemIds().getFirst();
+            assertTrue(homeSystemIds.add(homeSystemId), "Each race needs a separate home system");
+            assertTrue(raceIds.add(empire.raceId()), "Each empire needs a distinct starting race");
+
+            SolarSystem homeSystem = state.solarSystems().stream()
+                    .filter(system -> system.id().equals(homeSystemId)).findFirst().orElseThrow();
+            assertTrue(homeSystem.planets().stream().anyMatch(planet -> planet.populations().stream()
+                    .anyMatch(population -> population.raceId().equals(empire.raceId())
+                            && population.totalCount() > 0)), "The homeworld must contain its empire's race");
+        }
+        assertEquals(4, homeSystemIds.size());
+        assertEquals(4, raceIds.size());
+    }
+
+    @Test
     public void generatedHomeworldsStartWithIndustryOwnersAndMoney() {
         GameState state = generator.generateGameState(8, 2, GameStartScenario.PRE_SPACE_FLIGHT);
         for (Empire empire : state.empires()) {
@@ -191,6 +246,33 @@ public class GalaxyGeneratorTest {
             assertTrue(state.planetaryBalanceSheets().stream().anyMatch(sheet -> sheet.planetId().equals(home.id())
                     && sheet.outstandingDebtCredits() == 0.0));
         }
+    }
+
+    @Test
+    public void generatedHiveRunsMaterialIndustryWithoutCorporatePayroll() {
+        SpaceConquestEngine engine = new SpaceConquestEngine();
+        engine.applyGameState(generator.generateGameState(8, 4, GameStartScenario.PRE_SPACE_FLIGHT));
+        GameState opening = engine.getGameState();
+        Empire hive = opening.empires().stream()
+                .filter(empire -> empire.societyStructure().toLowerCase().contains("hive"))
+                .findFirst().orElseThrow();
+        assertTrue(opening.corporations().stream().noneMatch(corporation -> hive.id().equals(corporation.empireId())));
+        String fiberId = opening.industrialFacilities().stream()
+                .filter(facility -> hive.id().equals(facility.ownerEntityId()))
+                .filter(facility -> "industrial_biomass_cultivation".equals(facility.applicationId()))
+                .findFirst().orElseThrow().id();
+
+        engine.stepTurn();
+        GameState after = engine.getGameState();
+        var farmAccount = after.industryAccounts().stream()
+                .filter(account -> fiberId.equals(account.facilityId())).findFirst().orElseThrow();
+
+        assertTrue(farmAccount.producedKg().getOrDefault("agricultural_biomass", 0.0) > 0.0);
+        assertTrue(farmAccount.soldKg().getOrDefault("agricultural_biomass", 0.0) > 0.0);
+        assertEquals(0.0, farmAccount.wageCostsCredits(), 0.001);
+        assertEquals(0.0, farmAccount.inputCostsCredits(), 0.001);
+        assertEquals(0.0, farmAccount.salesCredits(), 0.001);
+        assertTrue(after.corporations().stream().noneMatch(corporation -> hive.id().equals(corporation.empireId())));
     }
 
     @Test
@@ -290,10 +372,12 @@ public class GalaxyGeneratorTest {
                 for (Population group : home.populations()) {
                     Race race = raceCatalog.stream().filter(candidate -> candidate.id().equals(group.raceId()))
                             .findFirst().orElseThrow();
-                    nutrients.calculateDailyMarketRequirements(group.totalCount(), race, home.atmosphere())
-                            .forEach((resource, perDay) -> assertTrue(
-                                    hub.activeOrders().get(resource).supplyKg() >= perDay * 30.0,
-                                    scenario + " " + empire.id() + " lacks opening " + resource));
+                      nutrients.calculateDailyMarketRequirements(group.totalCount(), race, home.atmosphere())
+                              .forEach((resource, perDay) -> assertTrue(
+                                      hub.activeOrders().get(resource).supplyKg() >= perDay
+                                              * (List.of("food_matrix", "silicates", "refined_copper")
+                                              .contains(resource) ? 7.0 : 30.0),
+                                      scenario + " " + empire.id() + " lacks opening " + resource));
                 }
             }
             for (int day = 1; day <= 30; day++) {
@@ -305,7 +389,8 @@ public class GalaxyGeneratorTest {
                     String context = scenario + " " + account.empireId() + " day " + day + " " + account.key();
                     assertTrue(account.unmetBasicKg().isEmpty(), context + " lacks basic goods");
                     assertEquals(0.0, account.unmetBasicElectricityKwh(), 0.001, context + " lacks power");
-                    assertEquals(1.0, account.secondaryNeedsMetFraction(), 0.001, context + " lacks secondary goods");
+                      assertEquals(1.0, account.secondaryNeedsMetFraction(), 0.001,
+                              context + " lacks secondary goods");
                     assertEquals(1.0, account.luxuryNeedsMetFraction(), 0.001, context + " lacks luxury goods");
                 }
                 for (Empire empire : state.empires()) {

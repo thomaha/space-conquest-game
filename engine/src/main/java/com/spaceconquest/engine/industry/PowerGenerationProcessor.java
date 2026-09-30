@@ -20,7 +20,8 @@ import java.util.Map;
 public class PowerGenerationProcessor {
     public record Result(List<Empire> empires, List<Corporation> corporations,
                          List<CommercialHub> hubs, List<MarketAccount> marketAccounts,
-                         List<IndustryAccount> accounts, Map<String, Double> generationKw) {}
+                         List<IndustryAccount> accounts, Map<String, Double> generationKw,
+                         List<IndustryAccount> industryAccounts) {}
 
     public Result process(GameState state, Map<String, Integer> paidWorkers,
                           Map<String, Double> paidWages) {
@@ -52,12 +53,12 @@ public class PowerGenerationProcessor {
                 }
             }
             generation.merge(facility.planetId(), kw, Double::sum);
-            accounts.add(new IndustryAccount(facility.id(), Map.of(), Map.of(), Map.of(),
-                    fuelCost, wages, 0.0, 0.0, kw * 24.0, 0.0));
+            accounts.add(ledger.cash.withDay(new IndustryAccount(facility.id(), Map.of(), Map.of(), Map.of(),
+                    fuelCost, wages, 0.0, 0.0, kw * 24.0, 0.0)));
         }
         return new Result(List.copyOf(ledger.empires.values()), List.copyOf(ledger.corporations.values()),
                 List.copyOf(ledger.hubs.values()), List.copyOf(ledger.accounts.values()),
-                List.copyOf(accounts), Map.copyOf(generation));
+                List.copyOf(accounts), Map.copyOf(generation), ledger.cash.snapshot());
     }
 
     private double environmentFactor(List<SolarSystem> systems, IndustrialFacility facility) {
@@ -95,8 +96,10 @@ public class PowerGenerationProcessor {
         private final Map<String, Corporation> corporations = new LinkedHashMap<>();
         private final Map<String, CommercialHub> hubs = new LinkedHashMap<>();
         private final Map<String, MarketAccount> accounts = new LinkedHashMap<>();
+        private final IndustryOperatingLedger cash;
 
         private Ledger(GameState state) {
+            cash = new IndustryOperatingLedger(state.industryAccounts());
             for (Empire empire : state.empires()) empires.put(empire.id(), empire);
             for (Corporation corporation : state.corporations()) corporations.put(corporation.id(), corporation);
             for (CommercialHub hub : state.commercialHubs()) hubs.put(hub.id(), hub);
@@ -141,6 +144,7 @@ public class PowerGenerationProcessor {
         }
 
         private double ownerBalance(IndustrialFacility facility) {
+            if (IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())) return cash.balance(facility);
             if (IndustrialFacility.PRIVATE_CORPORATE.equals(facility.ownershipType())) {
                 Corporation owner = corporations.get(facility.ownerEntityId());
                 return owner == null ? 0.0 : owner.liquidCapitalReserves();
@@ -150,6 +154,10 @@ public class PowerGenerationProcessor {
         }
 
         private void debitOwner(IndustrialFacility facility, double cost) {
+            if (IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())) {
+                cash.change(facility, -cost);
+                return;
+            }
             if (IndustrialFacility.PRIVATE_CORPORATE.equals(facility.ownershipType())) {
                 Corporation owner = corporations.get(facility.ownerEntityId());
                 corporations.put(owner.id(), new Corporation(owner.id(), owner.name(), owner.empireId(),

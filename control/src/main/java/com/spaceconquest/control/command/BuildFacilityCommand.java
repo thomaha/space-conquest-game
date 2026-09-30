@@ -1,10 +1,13 @@
 package com.spaceconquest.control.command;
 
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
+import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.IndustrialFacility;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -44,18 +47,18 @@ public record BuildFacilityCommand(
                 applicationId,
                 ownerEntityId,
                 (ownershipType != null) ? ownershipType : IndustrialFacility.PUBLIC_STATE,
-                1,
+                0,
                 allocatedWorkers,
                 workerProfessionId != null ? workerProfessionId : "industrial_worker",
-                false,
+                true,
                 0.0
         );
 
-        List<IndustrialFacility> updatedFacilities = new ArrayList<>(state.industrialFacilities());
-        updatedFacilities.add(newFacility);
-
-        return state.toBuilder()
-                .industrialFacilities(updatedFacilities)
-                .build();
+        GameState funded = FacilityOperatingCapital.addFacility(state, newFacility);
+        List<FacilityExpansionProject> projects = new ArrayList<>(funded.expansionProjects());
+        projects.add(new FacilityExpansionProject("project_" + UUID.randomUUID(), facilityId,
+                1, 0.0, 500.0, 0.0,
+                ConstructionMaterialCatalog.facility(applicationId, 1), Map.of()));
+        return funded.withExpansionProjects(projects);
     }
 }

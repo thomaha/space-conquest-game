@@ -1,5 +1,9 @@
 package com.spaceconquest.engine.megastructure;
 
+import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.industry.ConstructionMaterials;
+import com.spaceconquest.engine.industry.ConstructionProgress;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -10,6 +14,41 @@ import java.util.Map;
  * of stellar megastructures and galactic hyperlane gateways.
  */
 public class MegastructureProcessor {
+
+    /** Settles each stage's physical bill before adding construction progress. */
+    public GameState processMegastructures(GameState state) {
+        GameState current = state;
+        List<Megastructure> updated = new ArrayList<>();
+        for (Megastructure mega : state.megastructures()) {
+            if (mega.isFullyConstructed()) {
+                updated.add(mega);
+                continue;
+            }
+            ConstructionProgress.Step step = ConstructionProgress.advanceOrbital(current,
+                    mega.systemId(), mega.targetCelestialId(), mega.ownerEmpireId(),
+                    mega.requiredMaterialsKg(), mega.consumedMaterialsKg(),
+                    mega.currentStageProgress(), mega.requiredStageProgress(), 1.0);
+            current = step.state();
+            if (step.complete()) {
+                int stage = mega.currentStage() + 1;
+                updated.add(new Megastructure(mega.id(), mega.name(), mega.type(),
+                        mega.systemId(), mega.targetCelestialId(), mega.ownerEmpireId(),
+                        stage, mega.totalStages(), 0.0, mega.requiredStageProgress(), true,
+                        calculateEnergyYield(mega.type(), stage),
+                        calculateMaterialYield(mega.type(), stage),
+                        calculateHabitableCapacity(mega.type(), stage),
+                        mega.requiredMaterialsKg(), Map.of()));
+            } else {
+                updated.add(new Megastructure(mega.id(), mega.name(), mega.type(),
+                        mega.systemId(), mega.targetCelestialId(), mega.ownerEmpireId(),
+                        mega.currentStage(), mega.totalStages(), step.workHours(),
+                        mega.requiredStageProgress(), mega.isOperational(), mega.energyYieldKw(),
+                        mega.materialHarvestYieldKgPerTurn(), mega.habitableCapacity(),
+                        mega.requiredMaterialsKg(), step.consumedKg()));
+            }
+        }
+        return current.withMegastructures(updated);
+    }
 
     public record MegastructureTurnResult(
             List<Megastructure> updatedMegastructures,
@@ -32,6 +71,9 @@ public class MegastructureProcessor {
         List<String> gatewaySystems = new ArrayList<>();
 
         for (Megastructure mega : megastructures) {
+            if (!mega.requiredMaterialsKg().isEmpty()) {
+                throw new IllegalStateException("Materialized megastructures require GameState processing");
+            }
             Megastructure current = mega;
 
             // 1. Advance construction if not yet at final stage

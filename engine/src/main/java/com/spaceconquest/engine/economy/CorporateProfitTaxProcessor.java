@@ -9,6 +9,7 @@ import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.industry.IndustrialFacility;
 import com.spaceconquest.engine.industry.IndustryAccount;
+import com.spaceconquest.engine.logistics.LaunchServiceActivity;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -43,6 +44,15 @@ public class CorporateProfitTaxProcessor {
                                 && corporation.id().equals(facility.ownerEntityId());
                     }).toList();
             double profit = owned.stream().mapToDouble(IndustryAccount::realizedResultCredits).sum();
+            profit += state.tradeRoutes().stream()
+                    .filter(route -> corporation.id().equals(route.ownerEntityId()))
+                    .mapToDouble(route -> route.dailyOperatingResultCredits()).sum();
+            List<LaunchServiceActivity> elevators = state.launchActivities().stream()
+                    .filter(activity -> corporation.id().equals(activity.providerOwnerId())
+                            && state.spaceElevators().stream().anyMatch(elevator ->
+                            elevator.id().equals(activity.providerId()))).toList();
+            profit += elevators.stream().mapToDouble(activity ->
+                    activity.feeCredits() - activity.powerCostCredits()).sum();
             CorporateTaxAccount old = previous.get(corporation.id());
             double oldLoss = old == null ? 0.0 : old.lossCarryforwardCredits();
             double oldDue = old == null ? 0.0 : old.unpaidTaxCredits();
@@ -60,12 +70,13 @@ public class CorporateProfitTaxProcessor {
                     Math.max(0.0, corporation.liquidCapitalReserves() - paid), corporation.ownedFacilityIds(),
                     corporation.ownedShipIds(), corporation.claimedVeinIds()));
             accounts.add(new CorporateTaxAccount(corporation.id(), loss, due, taxable, assessed, paid));
-            distributeReceipts(corporation, owned, facilities, recipients, paid, collected);
+            distributeReceipts(corporation, owned, elevators, facilities, recipients, paid, collected);
         }
         return new Result(List.copyOf(corporations), List.copyOf(accounts), Map.copyOf(collected));
     }
 
     private void distributeReceipts(Corporation corporation, List<IndustryAccount> owned,
+                                    List<LaunchServiceActivity> elevators,
                                     Map<String, IndustrialFacility> facilities, Set<String> recipients, double paid,
                                     Map<String, Double> collected) {
         if (paid <= 0.0) return;
@@ -76,6 +87,11 @@ public class CorporateProfitTaxProcessor {
             if (positive > 0.0 && recipients.contains(bodyId)) {
                 weights.merge(bodyId, positive, Double::sum);
             }
+        }
+        for (LaunchServiceActivity activity : elevators) {
+            double positive = Math.max(0.0, activity.feeCredits() - activity.powerCostCredits());
+            if (positive > 0.0 && recipients.contains(activity.bodyId()))
+                weights.merge(activity.bodyId(), positive, Double::sum);
         }
         double total = weights.values().stream().mapToDouble(Double::doubleValue).sum();
         if (total <= 0.0) {

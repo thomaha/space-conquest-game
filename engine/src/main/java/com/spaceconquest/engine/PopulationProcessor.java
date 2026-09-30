@@ -120,8 +120,8 @@ public class PopulationProcessor {
             required.put("methane_ice", 100.0 * popScale);
         } else if ("ELECTRICITY".equals(nutrientType) || "synthetic_machine".equalsIgnoreCase(race.id())) {
             required.put("refined_copper", 10.0 * popScale);
-            required.put("refined_silicon", 10.0 * popScale);
-            required.put("silver", 5.0 * popScale);
+            required.put("silicon", 10.0 * popScale);
+            required.put("refined_silver", 5.0 * popScale);
         } else if ("METAL".equals(nutrientType) || "plasma_anomaly".equalsIgnoreCase(race.id())) {
             required.put("hydrogen_gas", 100.0 * popScale);
             required.put("helium_3", 20.0 * popScale);
@@ -269,11 +269,11 @@ public class PopulationProcessor {
     ) {
         if (ship == null || ship.passengerCount() <= 0) {
             return new PassengerLogisticsResult(
-                    ship != null ? ship.id() : "", 0, ShipInstance.MODE_CRYOGENIC_STASIS, Map.of(), false, 0, 1.0
+                    ship != null ? ship.id() : "", 0, ShipInstance.MODE_CONSCIOUS, Map.of(), false, 0, 1.0
             );
         }
 
-        String mode = ship.transitMode() != null ? ship.transitMode() : ShipInstance.MODE_CRYOGENIC_STASIS;
+        String mode = ship.transitMode() != null ? ship.transitMode() : ShipInstance.MODE_CONSCIOUS;
 
         if (ShipInstance.MODE_CRYOGENIC_STASIS.equalsIgnoreCase(mode)) {
             // Suspended animation: 0 food, 0 oxygen consumed
@@ -282,31 +282,21 @@ public class PopulationProcessor {
             );
         }
 
-        // Conscious transit: consumes food and oxygen per turn
+        // A ship is a sealed habitat: even species that breathe ambient air on a world
+        // need their full nutrient and atmosphere requirements while aboard.
         Map<String, Double> supplies = shipInventory != null ? shipInventory : ship.storedCargoKg();
-        double oxygenReq = ship.passengerCount() * 0.05;
-        double foodReq = ship.passengerCount() * 0.10;
-
-        double availO2 = supplies.getOrDefault("oxygen_gas", 0.0);
-        double availFood = supplies.getOrDefault("food_matrix", 0.0);
-
-        boolean deficit = availO2 < oxygenReq || availFood < foodReq;
-        int casualties = 0;
-        double happiness = 0.90;
-
+        Map<String, Double> required = calculateDailyNutrientRequirements(ship.passengerCount(), race);
+        boolean deficit = false;
         Map<String, Double> consumed = new HashMap<>();
-        if (deficit) {
-            casualties = Math.max(1, (int) (ship.passengerCount() * 0.15));
-            happiness = 0.10;
-            consumed.put("oxygen_gas", availO2);
-            consumed.put("food_matrix", availFood);
-        } else {
-            consumed.put("oxygen_gas", oxygenReq);
-            consumed.put("food_matrix", foodReq);
+        for (Map.Entry<String, Double> need : required.entrySet()) {
+            double available = Math.max(0.0, supplies.getOrDefault(need.getKey(), 0.0));
+            consumed.put(need.getKey(), Math.min(available, need.getValue()));
+            if (available + 1e-9 < need.getValue()) deficit = true;
         }
-
+        int casualties = deficit ? Math.max(1, (int) Math.ceil(ship.passengerCount() * 0.01)) : 0;
         return new PassengerLogisticsResult(
-                ship.id(), ship.passengerCount(), ShipInstance.MODE_CONSCIOUS, consumed, deficit, casualties, happiness
+                ship.id(), ship.passengerCount(), ShipInstance.MODE_CONSCIOUS, consumed, deficit, casualties,
+                deficit ? 0.10 : 0.90
         );
     }
 
@@ -327,8 +317,21 @@ public class PopulationProcessor {
             int activeQueens,
             List<String> unlockedTechIds
     ) {
+        return advanceYears(population, race, years, activeQueens, unlockedTechIds, 0.0);
+    }
+
+    /** Advances demographics using the average shortage recorded over the preceding year. */
+    public Population advanceYears(
+            Population population,
+            Race race,
+            int years,
+            int activeQueens,
+            List<String> unlockedTechIds,
+            double annualShortfall
+    ) {
         if (years <= 0 || population == null || race == null) return population;
 
+        double stress = Math.clamp(Double.isFinite(annualShortfall) ? annualShortfall : 0.0, 0.0, 1.0);
         int effectiveLifespan = calculateEffectiveNaturalLifespan(race, unlockedTechIds);
         Map<Integer, Long> currentGroups = new TreeMap<>(population.ageGroups());
         Map<Integer, Long> nextGroups = new TreeMap<>();
@@ -340,7 +343,7 @@ public class PopulationProcessor {
             int newAge = oldAge + years;
 
             double survivalRate = calculateSurvivalRate(oldAge, effectiveLifespan, years);
-            long survivors = (long) (count * survivalRate);
+            long survivors = (long) (count * survivalRate * (1.0 - 0.05 * stress));
 
             if (survivors > 0) {
                 nextGroups.put(newAge, nextGroups.getOrDefault(newAge, 0L) + survivors);
@@ -348,7 +351,8 @@ public class PopulationProcessor {
         }
 
         // 2. Births / Queen Reproduction
-        long newborns = calculateBirths(currentGroups, race, years, activeQueens);
+        long newborns = (long) (calculateBirths(currentGroups, race, years, activeQueens)
+                * (1.0 - 0.75 * stress));
         if (newborns > 0) {
             nextGroups.put(0, nextGroups.getOrDefault(0, 0L) + newborns);
         }

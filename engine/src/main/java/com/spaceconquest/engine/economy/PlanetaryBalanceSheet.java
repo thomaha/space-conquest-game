@@ -17,14 +17,14 @@ import java.util.Objects;
  * @param dockingFeeRevenue              commercial hub docking and spaceport handling fees
  * @param totalRevenueCredits            sum of all municipal public revenues
  * @param workforceSalaries              salaries paid to state personnel (police, soldiers, bureaucrats, medics, teachers, scientists)
- * @param facilityMaintenanceCosts       operating maintenance for public state-owned facilities
+ * @param facilityMaintenanceCosts       legacy municipal facility maintenance field; industry upkeep now belongs to facilities
  * @param publicWelfareExpenditures      pension payments for retired cohorts and unemployment relief
  * @param infrastructureUpkeepCosts      power grid and life-support maintenance costs
  * @param totalExpenditureCredits        sum of all municipal public expenditures
  * @param netBalanceCredits              net fiscal balance (totalRevenueCredits - totalExpenditureCredits)
  * @param uncollectedLocalCredits        liquid credits stored locally awaiting courier transport or electronic transfer
  * @param centralSubsidyReceivedCredits  central treasury subsidy granted under the signed system policy
- * @param publicSectorFundingCredits      this body's share of the system's daily public budget
+ * @param publicSectorFundingCredits      non-payroll share of the system's daily public budget
  * @param empireTransferCredits           signed transfer sent to the empire (negative for a subsidy received)
  * @param outstandingDebtCredits          unpaid municipal obligations carried into the next day
  */

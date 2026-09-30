@@ -17,7 +17,8 @@ public record CancelTradeRouteCommand(
     @Override
     public boolean validate(GameState state) {
         if (routeId == null || state.tradeRoutes() == null) return false;
-        return state.tradeRoutes().stream().anyMatch(r -> r.id().equals(routeId));
+        return ownerEntityId != null && state.tradeRoutes().stream().anyMatch(r ->
+                r.id().equals(routeId) && ownerEntityId.equals(r.ownerEntityId()));
     }
 
     @Override
@@ -30,7 +31,9 @@ public record CancelTradeRouteCommand(
                 updated.add(new TradeRoute(
                         r.id(), r.name(), r.ownerEntityId(), r.originEntityId(), r.destinationEntityId(),
                         r.materialId(), r.transferAmountPerTurnKg(), r.minSourceInventoryThresholdKg(),
-                        r.maxDestinationCapacityKg(), r.assignedFreighterIds(), r.totalVolumeMovedKg(), false
+                        r.maxDestinationCapacityKg(), r.assignedFreighterIds(), r.totalVolumeMovedKg(),
+                        false, r.phase(), r.onboardKg(), r.onboardCostCredits(),
+                        r.dailyOperatingResultCredits(), r.cumulativeOperatingResultCredits()
                 ));
             } else {
                 updated.add(r);

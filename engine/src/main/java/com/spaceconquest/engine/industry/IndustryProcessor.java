@@ -3,8 +3,10 @@ package com.spaceconquest.engine.industry;
 import com.spaceconquest.engine.Corporation;
 import com.spaceconquest.engine.CourierShip;
 import com.spaceconquest.engine.Empire;
+import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.economy.SystemEconomy;
+import com.spaceconquest.engine.ship.ShipConstructionProcessor;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -42,47 +44,61 @@ public class IndustryProcessor {
         if (empires == null) empires = List.of();
         if (corporations == null) corporations = List.of();
 
-        List<IndustrialFacility> updatedFacilities = new ArrayList<>(facilities);
-
-        Map<String, Integer> completedUpgrades = new HashMap<>();
-        List<FacilityExpansionProject> remainingProjects = processExpansionProjects(expansionProjects, completedUpgrades);
-        updatedFacilities = applyCompletedUpgrades(updatedFacilities, completedUpgrades);
-
+        GameState completed = processIndustrialProduction(GameState.builder()
+                .industrialFacilities(facilities).expansionProjects(expansionProjects)
+                .empires(empires).corporations(corporations).solarSystems(solarSystems)
+                .systemEconomies(economies == null ? List.of() : economies).build());
         return new IndustryTurnResult(
-                updatedFacilities,
-                remainingProjects,
-                empires,
-                corporations,
+                completed.industrialFacilities(),
+                completed.expansionProjects(),
+                completed.empires(),
+                completed.corporations(),
                 Map.of(),
                 List.of()
         );
     }
 
-    private List<FacilityExpansionProject> processExpansionProjects(
-            List<FacilityExpansionProject> expansionProjects,
-            Map<String, Integer> completedUpgrades
-    ) {
+    /** Advances only the work supported by materials actually bought this day. */
+    public GameState processIndustrialProduction(GameState state) {
+        GameState current = state;
         List<FacilityExpansionProject> remaining = new ArrayList<>();
-        for (FacilityExpansionProject proj : expansionProjects) {
-            double newHours = proj.accumulatedWorkHours() + 100.0;
-            if (newHours >= proj.requiredWorkHours()) {
+        Map<String, Integer> completedUpgrades = new HashMap<>();
+        for (FacilityExpansionProject proj : state.expansionProjects()) {
+            IndustrialFacility facility = state.industrialFacilities().stream()
+                    .filter(item -> proj.facilityId().equals(item.id())).findFirst().orElse(null);
+            if (facility == null) continue;
+            ConstructionProgress.Step step = ConstructionProgress.advance(current,
+                    facility.planetId(), facility.ownerEntityId(),
+                    proj.requiredMaterialsKg(), proj.consumedMaterialsKg(),
+                    proj.accumulatedWorkHours(), proj.requiredWorkHours(), 100.0);
+            current = step.state();
+            if (step.complete()) {
                 completedUpgrades.put(proj.facilityId(), proj.targetTier());
             } else {
                 remaining.add(new FacilityExpansionProject(
                         proj.projectId(), proj.facilityId(), proj.targetTier(),
-                        newHours, proj.requiredWorkHours(), proj.costCredits()
+                        step.workHours(), proj.requiredWorkHours(), proj.costCredits(),
+                        proj.requiredMaterialsKg(), step.consumedKg()
                 ));
             }
         }
-        return remaining;
+        GameState completed = current.toBuilder().expansionProjects(remaining)
+                .industrialFacilities(applyCompletedUpgrades(current.industrialFacilities(),
+                        completedUpgrades, remaining)).build();
+        return new ShipConstructionProcessor().process(completed);
     }
 
     private List<IndustrialFacility> applyCompletedUpgrades(
             List<IndustrialFacility> facilities,
-            Map<String, Integer> completedUpgrades
+            Map<String, Integer> completedUpgrades,
+            List<FacilityExpansionProject> remainingProjects
     ) {
-        if (completedUpgrades.isEmpty()) {
+        if (completedUpgrades.isEmpty() && remainingProjects.isEmpty()) {
             return facilities;
+        }
+        Map<String, FacilityExpansionProject> pending = new HashMap<>();
+        for (FacilityExpansionProject project : remainingProjects) {
+            pending.put(project.facilityId(), project);
         }
         return facilities.stream().map(fac -> {
             if (completedUpgrades.containsKey(fac.id())) {
@@ -92,6 +108,14 @@ public class IndustryProcessor {
                         fac.ownershipType(), newTier, fac.allocatedWorkers(),
                         fac.workerProfessionId(), false, 0.0
                 );
+            }
+            FacilityExpansionProject project = pending.get(fac.id());
+            if (project != null) {
+                double progress = project.requiredWorkHours() <= 0.0 ? 1.0
+                        : Math.clamp(project.accumulatedWorkHours() / project.requiredWorkHours(), 0.0, 1.0);
+                return new IndustrialFacility(fac.id(), fac.planetId(), fac.applicationId(),
+                        fac.ownerEntityId(), fac.ownershipType(), fac.tier(), fac.allocatedWorkers(),
+                        fac.workerProfessionId(), true, progress);
             }
             return fac;
         }).toList();

@@ -1,6 +1,5 @@
 package com.spaceconquest.control;
 
-import com.spaceconquest.control.ai.CorporationAIController;
 import com.spaceconquest.control.ai.EmpireAIController;
 import com.spaceconquest.control.ai.ShadowSyndicateAIController;
 import com.spaceconquest.control.command.*;
@@ -29,7 +28,7 @@ public class InteractiveGameplayPipelineTest {
 
     @BeforeEach
     public void setUp() {
-        engine = new SpaceConquestEngine();
+        engine = SpaceConquestEngine.fromSolScenario();
         commandQueue = new CommandQueue();
         humanController = new HumanController(commandQueue);
     }
@@ -47,9 +46,10 @@ public class InteractiveGameplayPipelineTest {
             if (playerEmpire.equalsIgnoreCase(e.id())) {
                 List<String> techs = new java.util.ArrayList<>(e.unlockedTechIds());
                 if (!techs.contains("stellar_megastructures")) techs.add("stellar_megastructures");
+                if (!techs.contains("superconductors")) techs.add("superconductors");
                 return new Empire(
                         e.id(), e.name(), e.raceId(), e.societyStructure(),
-                        e.treasuryCredits(), e.corporateTaxRate(), e.controlledSystemIds(),
+                        Math.max(100_000.0, e.treasuryCredits()), e.corporateTaxRate(), e.controlledSystemIds(),
                         e.ministries(), e.systemGovernorAssignments(),
                         techs, e.activeShipDesignIds()
                 );
@@ -141,12 +141,10 @@ public class InteractiveGameplayPipelineTest {
 
         // 7. Multi-Agent Turn Advancement Loop
         EmpireAIController empireAI = new EmpireAIController("vulkan_forge", commandQueue);
-        CorporationAIController corpAI = new CorporationAIController("corp_sol_extraction", commandQueue);
         ShadowSyndicateAIController syndicateAI = new ShadowSyndicateAIController("shadow_syndicate_sol", commandQueue);
 
         for (int turn = 1; turn <= 5; turn++) {
             empireAI.onGameStateUpdate(engine.getGameState());
-            corpAI.onGameStateUpdate(engine.getGameState());
             syndicateAI.onGameStateUpdate(engine.getGameState());
 
             commandQueue.processCommands(engine);

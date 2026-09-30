@@ -1,6 +1,7 @@
 package com.spaceconquest.frontend.empire;
 
 import com.spaceconquest.engine.Corporation;
+import com.spaceconquest.engine.economy.CorporateValuation;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
@@ -65,7 +66,12 @@ public class CorporationsTab {
         name.setFill(Color.GOLD);
         name.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
         
-        Text details = new Text("HQ: " + corp.headquartersEntityId() + " | Capital: " + String.format("%.0f", corp.liquidCapitalReserves()) + " ₵");
+        CorporateValuation.Valuation value = parent.getLatestGameState() == null ? null
+                : CorporateValuation.value(parent.getLatestGameState(), corp);
+        String worth = value == null ? "unavailable" : String.format("%.0f", value.netWorthCredits());
+        Text details = new Text("HQ: " + corp.headquartersEntityId() + " | Cash: "
+                + String.format("%.0f", corp.liquidCapitalReserves()) + " credits | Estimated book net worth: "
+                + worth + " credits");
         details.setFill(Color.WHITE);
         
         card.getChildren().addAll(name, details);

@@ -16,42 +16,42 @@ public class RefinementProcessor {
             new RefinementRecipe(
                     "pyro_iron_smelting", "Pyrometallurgical Iron Smelting", "PYROMETALLURGY",
                     RefinementRecipe.ENV_GRAVITY_LOCKED, 1.0, 100.0,
-                    Map.of("iron_ore", 1000.0, "carbon_monoxide_ice", 200.0), 4000.0,
-                    Map.of("refined_iron", 700.0), Map.of("oxygen_gas", 300.0),
+                    Map.of("iron_ore", 1000.0, "carbon", 112.5), 4000.0,
+                    Map.of("refined_iron", 700.0), Map.of("carbon_dioxide_gas", 412.5),
                     1, "industrial_worker"
             ),
             new RefinementRecipe(
                     "zero_g_platinum", "Zero-G Magnetic Refining", "ZERO_G",
                     RefinementRecipe.ENV_MICROGRAVITY_NATIVE, 0.0, 0.5,
                     Map.of("platinum_ore", 1000.0), 12000.0,
-                    Map.of("refined_platinum", 500.0), Map.of("refined_iron", 300.0, "refined_sulfur", 200.0),
+                    Map.of("refined_platinum", 500.0), Map.of("refined_iron", 300.0, "sulfur", 200.0),
                     2, "industrial_worker"
             ),
             new RefinementRecipe(
                     "alloy_steel", "Heavy Steel Alloying", "ALLOYING",
                     RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("refined_iron", 980.0, "refined_carbon", 20.0), 8000.0,
+                    Map.of("refined_iron", 980.0, "carbon", 20.0), 8000.0,
                     Map.of("steel", 1000.0), Map.of(),
                     1, "industrial_worker"
             ),
             new RefinementRecipe(
                     "alloy_inconel", "Inconel Superalloy Synthesis", "ALLOYING",
                     RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("refined_nickel", 600.0, "refined_chromium", 200.0, "refined_iron", 200.0), 10000.0,
+                    Map.of("nickel", 600.0, "refined_chromium", 200.0, "refined_iron", 200.0), 10000.0,
                     Map.of("inconel_alloy", 1000.0), Map.of(),
                     2, "industrial_worker"
             ),
             new RefinementRecipe(
                     "alloy_titanium_aluminide", "Titanium Aluminide Alloying", "ALLOYING",
                     RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("titanium", 500.0, "refined_aluminum", 500.0), 11000.0,
+                    Map.of("refined_titanium", 500.0, "refined_aluminum", 500.0), 11000.0,
                     Map.of("titanium_aluminide", 1000.0), Map.of(),
                     2, "industrial_worker"
             ),
             new RefinementRecipe(
                     "superconducting_cuprates", "Superconducting Cuprate Synthesis", "ALLOYING",
                     RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("refined_copper", 600.0, "rare_earth_elements", 300.0, "oxygen_gas", 100.0), 14000.0,
+                    Map.of("refined_copper", 600.0, "refined_yttrium", 300.0, "oxygen_gas", 100.0), 14000.0,
                     Map.of("superconducting_cuprates", 1000.0), Map.of(),
                     3, "engineer"
             ),
@@ -65,8 +65,46 @@ public class RefinementProcessor {
             new RefinementRecipe(
                     "consumer_goods_mfg", "Consumer Electronics and Goods", "CONSUMER_GOODS",
                     RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("bio_polymers", 250.0, "refined_aluminum", 250.0, "refined_copper", 250.0, "silicon", 250.0), 6000.0,
+                    Map.of("bio_polymers", 499.0, "refined_aluminum", 250.0,
+                            "refined_copper", 150.0, "silicon", 100.0,
+                            "refined_rare_earths", 1.0), 6000.0,
                     Map.of("consumer_goods", 1000.0), Map.of(),
+                    1, "industrial_worker"
+            ),
+            new RefinementRecipe(
+                    "aluminum_refining", "Aluminum Refining", "METALLURGY",
+                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
+                    Map.of("aluminum_ore", 1000.0), 9000.0,
+                    Map.of("refined_aluminum", 500.0), Map.of("aluminum_tailings", 500.0),
+                    1, "industrial_worker"
+            ),
+            new RefinementRecipe(
+                    "copper_refining", "Copper Refining", "METALLURGY",
+                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
+                    Map.of("copper_ore", 1000.0), 6000.0,
+                    Map.of("refined_copper", 600.0), Map.of("sulfur", 400.0),
+                    1, "industrial_worker"
+            ),
+            new RefinementRecipe(
+                    "silicon_refining", "Silicon Refining", "METALLURGY",
+                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
+                    Map.of("silicates", 1000.0, "carbon", 187.5), 8000.0,
+                    Map.of("silicon", 500.0), Map.of("carbon_dioxide_gas", 687.5),
+                    1, "industrial_worker"
+            ),
+            new RefinementRecipe(
+                    "rare_earth_refining", "Rare Earth Separation", "METALLURGY",
+                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
+                    Map.of("rare_earth_fluorides", 1000.0), 10000.0,
+                    Map.of("refined_rare_earths", 800.0), Map.of("fluoride_tailings", 200.0),
+                    1, "industrial_worker"
+            ),
+            new RefinementRecipe(
+                    "luxury_goods_mfg", "Luxury Goods Workshop", "CONSUMER_GOODS",
+                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
+                    Map.of("consumer_goods", 500.0, "bio_polymers", 200.0,
+                            "refined_copper", 100.0), 5000.0,
+                    Map.of("luxury_goods", 800.0), Map.of(),
                     1, "industrial_worker"
             ),
             new RefinementRecipe(

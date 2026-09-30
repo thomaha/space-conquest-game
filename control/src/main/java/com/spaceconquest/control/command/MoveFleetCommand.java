@@ -1,13 +1,21 @@
 package com.spaceconquest.control.command;
 
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.DataModelLoader;
+import com.spaceconquest.engine.habitation.PassengerTransitProcessor;
+import com.spaceconquest.engine.logistics.TradeRoute;
 import com.spaceconquest.engine.ship.Fleet;
+import com.spaceconquest.engine.ship.InterstellarTravel;
+import com.spaceconquest.engine.ship.LocalTravel;
+import com.spaceconquest.engine.ship.FleetLocation;
+import com.spaceconquest.engine.logistics.LaunchService;
 
 import java.util.ArrayList;
+import java.io.IOException;
 import java.util.List;
 
 /**
- * Command to order a fleet to maneuver or initiate interstellar warp transit.
+ * Command to order researched warp travel or a slower sublight crossing.
  */
 public record MoveFleetCommand(
         String fleetId,
@@ -25,7 +33,38 @@ public record MoveFleetCommand(
         if (state == null || fleetId == null) {
             return false;
         }
-        return state.fleets().stream().anyMatch(f -> f.id().equals(fleetId));
+        if (targetSystemId == null || state.solarSystems().stream()
+                .noneMatch(system -> targetSystemId.equals(system.id()))) return false;
+        Fleet fleet = state.fleets().stream().filter(item -> fleetId.equals(item.id()))
+                .findFirst().orElse(null);
+        if (fleet == null) return false;
+        boolean valid = state.solarSystems().stream()
+                .anyMatch(system -> system.id().equals(fleet.currentSystemId()))
+                && !targetSystemId.equals(fleet.currentSystemId())
+                && !fleet.hasInterstellarOrder() && !fleet.isInWarp()
+                && !fleet.location().inTransit()
+                && state.tradeRoutes().stream().filter(route -> route.isActive()
+                        || !TradeRoute.LOADING.equals(route.phase()))
+                        .flatMap(route -> route.assignedFreighterIds().stream())
+                        .noneMatch(id -> fleet.ships().stream()
+                                .anyMatch(ship -> id.equals(ship.id())));
+        if (!valid) return false;
+        if (fleet.location().current().kind() == FleetLocation.Kind.SURFACE
+                && LocalTravel.surfaceLaunchPlan(state, fleet) == null) return false;
+        Fleet departure = localDeparture(state, fleet);
+        if (departure == null) return false;
+        InterstellarTravel.Plan plan = InterstellarTravel.plan(state, departure, targetSystemId);
+        if (plan == null) return false;
+        boolean passengers = state.passengerManifests().stream().anyMatch(manifest ->
+                fleet.ships().stream().anyMatch(ship -> ship.id().equals(manifest.shipId())));
+        if (!passengers) return true;
+        try {
+            return PassengerTransitProcessor.canSustainJourney(state, departure,
+                    DataModelLoader.loadRaces(),
+                    plan.days());
+        } catch (IOException exception) {
+            return false;
+        }
     }
 
     @Override
@@ -34,30 +73,50 @@ public record MoveFleetCommand(
             return state;
         }
 
+        Fleet selected = state.fleets().stream().filter(item -> fleetId.equals(item.id()))
+                .findFirst().orElseThrow();
+        LaunchService.Plan launch = selected.location().current().kind()
+                == FleetLocation.Kind.SURFACE
+                ? LocalTravel.surfaceLaunchPlan(state, selected) : null;
+        GameState paid = launch == null ? state
+                : LaunchService.settle(state, selected.ownerEntityId(), launch);
         List<Fleet> updatedFleets = new ArrayList<>();
-        for (Fleet fleet : state.fleets()) {
+        for (Fleet fleet : paid.fleets()) {
             if (fleet.id().equals(fleetId)) {
-                boolean startWarp = targetSystemId != null && !targetSystemId.isEmpty() && !targetSystemId.equals(fleet.currentSystemId());
+                Fleet departure = localDeparture(paid, fleet);
+                InterstellarTravel.Plan plan = InterstellarTravel.plan(paid, departure,
+                        targetSystemId);
+                Fleet fueled = InterstellarTravel.commitReactorFuel(departure, plan);
                 updatedFleets.add(new Fleet(
                         fleet.id(),
                         fleet.name(),
                         fleet.ownerEntityId(),
                         fleet.currentSystemId(),
-                        targetSystemId != null ? targetSystemId : fleet.targetSystemId(),
-                        targetX,
-                        targetY,
-                        startWarp ? 0.0 : fleet.transitProgress(),
-                        startWarp || fleet.isInWarp(),
+                        targetSystemId,
+                        fleet.coordinateX(),
+                        fleet.coordinateY(),
+                        0.0,
+                        false,
                         fleet.fleetStance(),
-                        fleet.ships()
+                        fueled.ships(), departure.location(),
+                        plan.mode(), plan.days(), plan.distanceMeters(),
+                        plan.accelerationMps2(), 0.0,
+                        plan.peakSpeedMps(), plan.fuelBudgetKg()
                 ));
             } else {
                 updatedFleets.add(fleet);
             }
         }
 
-        return state.toBuilder()
+        return paid.toBuilder()
                 .fleets(updatedFleets)
                 .build();
+    }
+
+    private Fleet localDeparture(GameState state, Fleet fleet) {
+        FleetLocation.Site deepSpace = FleetLocation.Site.deepSpace();
+        if (fleet.location().isAt(deepSpace)) return fleet;
+        LocalTravel.Plan plan = LocalTravel.plan(state, fleet, deepSpace);
+        return plan == null ? null : LocalTravel.depart(fleet, deepSpace, plan);
     }
 }

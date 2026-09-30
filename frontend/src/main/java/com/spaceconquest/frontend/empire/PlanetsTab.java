@@ -17,6 +17,9 @@ import java.util.List;
 
 public class PlanetsTab {
     private final EmpireView parent;
+    private Page currentPage = Page.OVERVIEW;
+
+    private enum Page { OVERVIEW, PEOPLE, INDUSTRIES }
 
     public PlanetsTab(EmpireView parent) {
         this.parent = parent;
@@ -147,23 +150,44 @@ public class PlanetsTab {
         content.setPadding(new Insets(0, 10, 0, 0));
 
         content.getChildren().add(parent.createBodyCard(body));
-        
-        GridPane mainGrid = new GridPane();
-        mainGrid.setMinWidth(0);
-        mainGrid.setHgap(16);
-        mainGrid.setVgap(16);
-        ColumnConstraints col1 = new ColumnConstraints();
-        col1.setPercentWidth(50);
-        ColumnConstraints col2 = new ColumnConstraints();
-        col2.setPercentWidth(50);
-        mainGrid.getColumnConstraints().addAll(col1, col2);
+        HBox pages = new HBox(8);
+        for (Page page : Page.values()) {
+            Button button = new Button(switch (page) {
+                case OVERVIEW -> "Overview";
+                case PEOPLE -> "People";
+                case INDUSTRIES -> "Industries";
+            });
+            button.setStyle(page == currentPage
+                    ? "-fx-background-color: #3498db; -fx-text-fill: white;"
+                    : "-fx-background-color: #283c5f; -fx-text-fill: white;");
+            button.setOnAction(event -> {
+                currentPage = page;
+                parent.renderCurrentTab();
+            });
+            pages.getChildren().add(button);
+        }
+        content.getChildren().add(pages);
 
-        mainGrid.add(parent.createPopulationDemographicsSection(body), 0, 0, 2, 1);
-        mainGrid.add(parent.createSurfaceBiomeSection(body), 0, 1, 2, 1);
-        mainGrid.add(parent.createPowerAndDepositsSection(body), 0, 2);
-        mainGrid.add(parent.createTechnologyGatedOperationsSection(body), 1, 2);
-        
-        content.getChildren().addAll(mainGrid, parent.createIndustrySection(body));
+        if (currentPage == Page.PEOPLE) {
+            content.getChildren().add(new PlanetPeoplePanel().build(body, parent.getLatestGameState()));
+        } else if (currentPage == Page.INDUSTRIES) {
+            content.getChildren().add(parent.createIndustrySection(body));
+        } else {
+            GridPane mainGrid = new GridPane();
+            mainGrid.setMinWidth(0);
+            mainGrid.setHgap(16);
+            mainGrid.setVgap(16);
+            ColumnConstraints col1 = new ColumnConstraints();
+            col1.setPercentWidth(50);
+            ColumnConstraints col2 = new ColumnConstraints();
+            col2.setPercentWidth(50);
+            mainGrid.getColumnConstraints().addAll(col1, col2);
+
+            mainGrid.add(parent.createSurfaceBiomeSection(body), 0, 0, 2, 1);
+            mainGrid.add(parent.createPowerAndDepositsSection(body), 0, 1);
+            mainGrid.add(parent.createTechnologyGatedOperationsSection(body), 1, 1);
+            content.getChildren().add(mainGrid);
+        }
 
         VBox container = new VBox(content);
         container.setMinWidth(0);

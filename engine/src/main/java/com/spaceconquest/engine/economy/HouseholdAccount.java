@@ -20,7 +20,9 @@ public record HouseholdAccount(
         double secondaryNeedsMetFraction,
         double luxuryNeedsMetFraction,
         double electricitySpendingCredits,
-        double unmetBasicElectricityKwh
+        double unmetBasicElectricityKwh,
+        HouseholdWellbeing wellbeing,
+        HouseholdEmployment employment
 ) {
     public HouseholdAccount {
         Objects.requireNonNull(bodyId);
@@ -37,6 +39,8 @@ public record HouseholdAccount(
             throw new IllegalArgumentException("Invalid household counts, credits or need fulfillment");
         }
         unmetBasicKg = unmetBasicKg == null ? Map.of() : Map.copyOf(unmetBasicKg);
+        wellbeing = wellbeing == null ? HouseholdWellbeing.healthy() : wellbeing;
+        employment = employment == null ? HouseholdEmployment.none() : employment;
     }
 
     private static boolean validCredits(double credits) {
@@ -52,11 +56,24 @@ public record HouseholdAccount(
     }
 
     public HouseholdAccount withElectricitySettlement(double deliveredKwh, double spentCredits) {
+        double requestedKwh = unmetBasicElectricityKwh;
+        double electricityCoverage = requestedKwh <= 0.0 ? 1.0
+                : Math.clamp(deliveredKwh / requestedKwh, 0.0, 1.0);
         return new HouseholdAccount(bodyId, systemId, empireId, raceId, professionId, headcount,
                 Math.max(0.0, savingsCredits - spentCredits), wageIncomeCredits, welfareIncomeCredits,
                 incomeTaxPaidCredits, marketSpendingCredits, unmetBasicKg,
                 secondaryNeedsMetFraction, luxuryNeedsMetFraction,
                 electricitySpendingCredits + spentCredits,
-                Math.max(0.0, unmetBasicElectricityKwh - deliveredKwh));
+                Math.max(0.0, requestedKwh - deliveredKwh),
+                wellbeing.settle(electricityCoverage, secondaryNeedsMetFraction,
+                        luxuryNeedsMetFraction, employment.unemploymentPressure()), employment);
+    }
+
+    public HouseholdAccount withResetAnnualShortfall() {
+        return new HouseholdAccount(bodyId, systemId, empireId, raceId, professionId, headcount,
+                savingsCredits, wageIncomeCredits, welfareIncomeCredits, incomeTaxPaidCredits,
+                marketSpendingCredits, unmetBasicKg, secondaryNeedsMetFraction,
+                luxuryNeedsMetFraction, electricitySpendingCredits, unmetBasicElectricityKwh,
+                wellbeing.resetAnnualShortfall(), employment);
     }
 }

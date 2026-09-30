@@ -11,6 +11,7 @@ import com.spaceconquest.engine.espionage.EspionageOperation;
 import com.spaceconquest.engine.espionage.PirateBase;
 import com.spaceconquest.engine.espionage.SleeperAgent;
 import com.spaceconquest.engine.galaxy.FogOfWarState;
+import com.spaceconquest.engine.habitation.PassengerManifest;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
 import com.spaceconquest.engine.industry.IndustrialFacility;
@@ -23,11 +24,13 @@ import com.spaceconquest.engine.macrostructure.SpaceElevator;
 import com.spaceconquest.engine.megastructure.Megastructure;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.ShipDesign;
+import com.spaceconquest.engine.ship.ShipConstructionOrder;
 import com.spaceconquest.engine.technology.ResearchProject;
 import com.spaceconquest.engine.technology.TechnologyExchangeRoute;
 import com.spaceconquest.engine.terraforming.GeoengineeringProject;
 
 import java.util.List;
+import java.util.Map;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 
@@ -50,7 +53,9 @@ public record SaveGame(
         List<ResearchProject> researchProjects,
         List<TechnologyExchangeRoute> technologyExchangeRoutes,
         List<ShipDesign> shipDesigns,
+        List<ShipConstructionOrder> shipConstructionOrders,
         List<Fleet> fleets,
+        List<PassengerManifest> passengerManifests,
         List<GeologicalDeposit> geologicalDeposits,
         List<PowerGridState> powerGrids,
         List<IndustrialFacility> industrialFacilities,
@@ -75,7 +80,7 @@ public record SaveGame(
         List<IndustryAccount> industryAccounts,
         List<CorporateTaxAccount> corporateTaxAccounts
 ) {
-    public static final int CURRENT_VERSION = 16;
+    public static final int CURRENT_VERSION = 17;
 
     public SaveGame {
         if (solarSystems == null) solarSystems = List.of();
@@ -88,7 +93,9 @@ public record SaveGame(
         if (researchProjects == null) researchProjects = List.of();
         if (technologyExchangeRoutes == null) technologyExchangeRoutes = List.of();
         if (shipDesigns == null) shipDesigns = List.of();
+        if (shipConstructionOrders == null) shipConstructionOrders = List.of();
         if (fleets == null) fleets = List.of();
+        if (passengerManifests == null) passengerManifests = List.of();
         if (geologicalDeposits == null) geologicalDeposits = List.of();
         if (powerGrids == null) powerGrids = List.of();
         if (industrialFacilities == null) industrialFacilities = List.of();
@@ -123,7 +130,8 @@ public record SaveGame(
                 CURRENT_VERSION, savedAt, gameSpeed, gameTime, campaignStartTime,
                 state.solarSystems(), state.empires(), state.corporations(), state.commercialHubs(),
                 state.shadowSyndicates(), state.diplomaticRelations(), state.systemGovernors(), state.researchProjects(),
-                state.technologyExchangeRoutes(), state.shipDesigns(), state.fleets(), state.geologicalDeposits(),
+                state.technologyExchangeRoutes(), state.shipDesigns(), state.shipConstructionOrders(),
+                state.fleets(), state.passengerManifests(), state.geologicalDeposits(),
                 state.powerGrids(), state.industrialFacilities(), state.expansionProjects(), state.orbitalStations(),
                 state.spaceElevators(), state.constructionProjects(), state.sleeperAgents(), state.espionageOperations(),
                 state.pirateBases(), state.terraformingProjects(), state.megastructures(), state.galacticCommunity(),
@@ -150,12 +158,14 @@ public record SaveGame(
                 turn, status, solarSystems, empires,
                 corporations, commercialHubs, shadowSyndicates, diplomaticRelations,
                 systemGovernors, researchProjects, technologyExchangeRoutes, shipDesigns,
-                fleets, geologicalDeposits, powerGrids, industrialFacilities,
+                shipConstructionOrders,
+                fleets, passengerManifests, geologicalDeposits, powerGrids, industrialFacilities,
                 expansionProjects, orbitalStations, spaceElevators, constructionProjects,
                 sleeperAgents, espionageOperations, pirateBases, terraformingProjects,
                 megastructures, galacticCommunity, tradeRoutes, fogOfWarStates,
                 systemEconomies, courierShips, planetaryBalanceSheets, imperialBalanceSheets,
-                householdAccounts, marketAccounts, industryAccounts, corporateTaxAccounts
+                householdAccounts, marketAccounts, industryAccounts, corporateTaxAccounts,
+                Map.of(), List.of()
         );
     }
 }

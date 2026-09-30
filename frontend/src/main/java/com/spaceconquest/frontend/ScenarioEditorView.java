@@ -25,6 +25,9 @@ import javafx.scene.text.Text;
  */
 public class ScenarioEditorView {
 
+    private static final int EXPRESS_SYSTEM_COUNT = 50;
+    private static final int EXPRESS_AI_EMPIRE_COUNT = 3;
+
     private VBox root;
     private final Menubar menubar;
     private final AudioSynthesizer audioSynthesizer;
@@ -198,7 +201,7 @@ public class ScenarioEditorView {
             }
         });
 
-        Button launchDefaultBtn = new Button("Quick start (Terran Confederation)");
+        Button launchDefaultBtn = new Button("Express Terran start (50 systems, 3 rival races)");
         launchDefaultBtn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold;");
         launchDefaultBtn.setOnAction(e -> handleLaunchDefault());
 
@@ -234,7 +237,7 @@ public class ScenarioEditorView {
         audioSynthesizer.triggerCue(AudioSynthesizer.EVENT_WARP_TRANSIT);
         hide();
         if (menubar != null && menubar.getMainApp() != null) {
-            menubar.getMainApp().createNewGalaxy(currentSetup.starSystemCount(), currentSetup.aiEmpireCount(), selectedScenario);
+            menubar.getMainApp().createNewGalaxy(EXPRESS_SYSTEM_COUNT, EXPRESS_AI_EMPIRE_COUNT, selectedScenario);
         }
     }
 

@@ -3,17 +3,31 @@ package com.spaceconquest.engine;
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.economy.HouseholdAccount;
 import com.spaceconquest.engine.economy.SystemEconomy;
+import com.spaceconquest.engine.market.CorporateInvestmentProcessor;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class SpaceConquestEngineTest {
     @Test
+    public void defaultEngineStartsWithoutAScenario() {
+        SpaceConquestEngine engine = new SpaceConquestEngine();
+        GameState state = engine.getGameState();
+        assertEquals(0, state.turn());
+        assertTrue(state.solarSystems().isEmpty());
+        assertTrue(state.empires().isEmpty());
+        assertTrue(state.corporations().isEmpty());
+        assertTrue(state.commercialHubs().isEmpty());
+    }
+
+    @Test
     public void testNewCampaignHasNoUnprocessedMunicipalDay() {
-        GameState opening = new SpaceConquestEngine().getGameState();
+        GameState opening = SpaceConquestEngine.fromSolScenario().getGameState();
         assertFalse(opening.planetaryBalanceSheets().isEmpty());
         assertTrue(opening.planetaryBalanceSheets().stream().allMatch(sheet ->
                 sheet.totalRevenueCredits() == 0.0 && sheet.totalExpenditureCredits() == 0.0
@@ -21,8 +35,50 @@ public class SpaceConquestEngineTest {
     }
 
     @Test
+    public void corporateFactoryProjectSurvivesTheLiveTurn() {
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
+        GameState opening = engine.getGameState();
+        List<CommercialHub> starved = opening.commercialHubs().stream().map(hub -> {
+            if (!"earth".equals(hub.entityId())) return hub;
+            Map<String, MarketOrder> orders = new HashMap<>(hub.activeOrders());
+            orders.put("food_matrix", new MarketOrder("food_matrix", 0.0, 0.0, 2.0, 0.0));
+            for (String material : List.of("refined_iron", "refined_aluminum", "refined_copper", "silicon")) {
+                orders.put(material, new MarketOrder(material, 2_000.0, 0.0, 1.0, 0.0));
+            }
+            return new CommercialHub(hub.id(), hub.entityId(), hub.transactionTariffRate(),
+                    hub.storageCapacityKg(), hub.currentStoredWeightKg(), hub.logisticsRangeUnits(), orders);
+        }).toList();
+        List<Empire> industrial = opening.empires().stream().map(empire -> {
+            if (!"terran_confederation".equals(empire.id())) return empire;
+            List<String> technologies = new ArrayList<>(empire.unlockedTechIds());
+            technologies.add("industrial_production");
+            return new Empire(empire.id(), empire.name(), empire.raceId(), empire.societyStructure(),
+                    empire.treasuryCredits(), empire.corporateTaxRate(), empire.controlledSystemIds(),
+                    empire.ministries(), empire.systemGovernorAssignments(), technologies,
+                    empire.activeShipDesignIds());
+        }).toList();
+        GameState ready = opening.toBuilder().commercialHubs(starved).empires(industrial).build();
+        GameState invested = new CorporateInvestmentProcessor().invest(ready, "corp_bio_harvest",
+                "earth", "INFRASTRUCTURE", CorporateInvestmentProcessor.INFRASTRUCTURE_COST);
+        assertEquals(ready.industrialFacilities().size() + 1, invested.industrialFacilities().size());
+        engine.applyGameState(invested);
+
+        engine.stepTurn();
+        GameState after = engine.getGameState();
+        var newFactory = after.industrialFacilities().stream()
+                .filter(facility -> "corp_bio_harvest".equals(facility.ownerEntityId()))
+                .filter(facility -> opening.industrialFacilities().stream()
+                        .noneMatch(original -> original.id().equals(facility.id())))
+                .findFirst().orElseThrow();
+        assertEquals(0, newFactory.tier());
+        assertEquals(0.2, newFactory.expansionProgress(), 0.001);
+        assertTrue(after.expansionProjects().stream()
+                .anyMatch(project -> newFactory.id().equals(project.facilityId())));
+    }
+
+    @Test
     public void testDailyHouseholdTaxesReachTheirLocalBalanceSheets() {
-        SpaceConquestEngine engine = new SpaceConquestEngine();
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         engine.stepTurn();
         GameState state = engine.getGameState();
 
@@ -42,7 +98,7 @@ public class SpaceConquestEngineTest {
 
     @Test
     public void testClockSchedulesDailyTurnsWithoutRunningEarly() {
-        SpaceConquestEngine engine = new SpaceConquestEngine();
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         GameClock clock = engine.getGameClock();
         clock.setSpeed(GameClock.ClockSpeed.SPEED_6_HOURS);
         for (int i = 0; i < 3; i++) {
@@ -58,7 +114,7 @@ public class SpaceConquestEngineTest {
 
     @Test
     public void testPopulationAgesOnYearBoundaryRatherThanEveryDailyTurn() {
-        SpaceConquestEngine engine = new SpaceConquestEngine();
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         engine.start();
         
         GameState initialState = engine.getGameState();
@@ -132,7 +188,7 @@ public class SpaceConquestEngineTest {
 
     @Test
     public void testDailyEconomySettlesSystemContributionFromLocalCredits() {
-        SpaceConquestEngine engine = new SpaceConquestEngine();
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         GameState initial = engine.getGameState();
         SystemEconomy solEconomy = initial.systemEconomies().stream()
                 .filter(economy -> "sol".equals(economy.systemId())).findFirst().orElseThrow();
@@ -155,7 +211,10 @@ public class SpaceConquestEngineTest {
         double funding = settled.planetaryBalanceSheets().stream()
                 .filter(sheet -> "sol".equals(sheet.systemId()))
                 .mapToDouble(PlanetaryBalanceSheet::publicSectorFundingCredits).sum();
-        assertEquals(solEconomy.totalBudgetCredits(), funding, 0.001);
+        double publicSalaries = settled.planetaryBalanceSheets().stream()
+                .filter(sheet -> "sol".equals(sheet.systemId()))
+                .mapToDouble(PlanetaryBalanceSheet::workforceSalaries).sum();
+        assertEquals(solEconomy.totalBudgetCredits(), funding + publicSalaries, 0.001);
         assertTrue(contribution > 0.0);
         assertTrue(contribution <= solEconomy.totalBudgetCredits());
         assertTrue(settled.courierShips().stream().anyMatch(courier -> "sol".equals(courier.originSystemId())));
@@ -201,7 +260,7 @@ public class SpaceConquestEngineTest {
 
     @Test
     public void testDefaultScenarioEarthAndVulcanBelongToDifferentEmpires() {
-        SpaceConquestEngine engine = new SpaceConquestEngine();
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         GameState state = engine.getGameState();
 
         // Locate Earth and Vulcan systems

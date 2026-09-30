@@ -2,6 +2,7 @@ package com.spaceconquest.control.command;
 
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
 import com.spaceconquest.engine.megastructure.Megastructure;
 
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ public record BuildMegastructureCommand(
         }
         return state.empires().stream()
                 .anyMatch(e -> e.id().equalsIgnoreCase(empireId)
+                        && e.controlledSystemIds().contains(systemId)
                         && e.treasuryCredits() >= 50000.0
                         && (e.unlockedTechIds() == null || e.unlockedTechIds().isEmpty()
                                 || e.unlockedTechIds().contains("stellar_megastructures")
@@ -78,7 +80,8 @@ public record BuildMegastructureCommand(
                 false,
                 0.0,
                 Map.of(),
-                0
+                0,
+                ConstructionMaterialCatalog.megastructure(megastructureType), Map.of()
         );
 
         List<Megastructure> updatedMegastructures = new ArrayList<>(state.megastructures());

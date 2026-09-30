@@ -25,7 +25,7 @@ public class DataModelLoader {
     }
 
     public static List<SolarSystem> loadSolarSystems() throws IOException {
-        return load("solar_systems.json", new TypeReference<>() {});
+        return load("scenarios/sol/solar_systems.json", new TypeReference<>() {});
     }
 
     public static List<Race> loadRaces() throws IOException {
@@ -49,11 +49,11 @@ public class DataModelLoader {
     }
 
     public static List<Empire> loadEmpires() throws IOException {
-        return load("empires.json", new TypeReference<>() {});
+        return load("scenarios/sol/empires.json", new TypeReference<>() {});
     }
 
     public static List<Corporation> loadCorporations() throws IOException {
-        return load("corporations.json", new TypeReference<>() {});
+        return load("scenarios/sol/corporations.json", new TypeReference<>() {});
     }
 
     public static List<MinistryPortfolio> loadMinistries() throws IOException {

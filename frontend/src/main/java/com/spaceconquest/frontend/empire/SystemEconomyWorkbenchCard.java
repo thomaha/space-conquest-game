@@ -77,11 +77,11 @@ public class SystemEconomyWorkbenchCard {
 
         Slider healthSlider = createSectorSlider(economy.healthAndWelfareAllocation() * 100.0);
         Label healthValLbl = createPercentLabel(economy.healthAndWelfareAllocation() * 100.0);
-        addSliderRow(slidersGrid, 2, "Public Healthcare & Hospitals:", healthSlider, healthValLbl, Color.LIGHTGREEN);
+        addSliderRow(slidersGrid, 2, "Health and welfare:", healthSlider, healthValLbl, Color.LIGHTGREEN);
 
         Slider infraSlider = createSectorSlider(economy.infrastructureAllocation() * 100.0);
         Label infraValLbl = createPercentLabel(economy.infrastructureAllocation() * 100.0);
-        addSliderRow(slidersGrid, 3, "Municipal Infrastructure & Transit:", infraSlider, infraValLbl, Color.ORANGE);
+        addSliderRow(slidersGrid, 3, "Municipal infrastructure and industry:", infraSlider, infraValLbl, Color.ORANGE);
 
         Slider militiaSlider = createSectorSlider(economy.planetaryMilitiasAllocation() * 100.0);
         Label militiaValLbl = createPercentLabel(economy.planetaryMilitiasAllocation() * 100.0);
@@ -130,7 +130,7 @@ public class SystemEconomyWorkbenchCard {
         Button balancedPreset = createPresetButton("Balanced (20% each)", eduSlider, lawSlider, healthSlider, infraSlider, militiaSlider, 20, 20, 20, 20, 20);
         Button industrialPreset = createPresetButton("Heavy industry (40% infra)", eduSlider, lawSlider, healthSlider, infraSlider, militiaSlider, 10, 15, 15, 40, 20);
         Button securityPreset = createPresetButton("High security (35% law/mil)", eduSlider, lawSlider, healthSlider, infraSlider, militiaSlider, 10, 35, 10, 10, 35);
-        Button welfarePreset = createPresetButton("Welfare & Health (35% health)", eduSlider, lawSlider, healthSlider, infraSlider, militiaSlider, 25, 10, 35, 20, 10);
+        Button welfarePreset = createPresetButton("Health and welfare (35% health)", eduSlider, lawSlider, healthSlider, infraSlider, militiaSlider, 25, 10, 35, 20, 10);
         Button maxTaxPreset = new Button("Standard 10% tax");
         maxTaxPreset.setFont(Font.font("Verdana", 10));
         maxTaxPreset.setOnAction(e -> taxSlider.setValue(10.0));

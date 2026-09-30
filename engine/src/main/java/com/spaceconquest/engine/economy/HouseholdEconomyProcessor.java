@@ -13,8 +13,8 @@ import com.spaceconquest.engine.Profession;
 import com.spaceconquest.engine.Race;
 import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.demographics.CitizenCohort;
-import com.spaceconquest.engine.demographics.ColonyFocus;
 import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.industry.IndustryAccount;
 import com.spaceconquest.engine.industry.PowerBillingProcessor;
 
 import java.util.ArrayList;
@@ -35,6 +35,7 @@ public class HouseholdEconomyProcessor {
     private static final String SECONDARY_GOOD = "consumer_goods";
     private static final String LUXURY_GOOD = "luxury_goods";
     private final PopulationProcessor populationProcessor = new PopulationProcessor();
+    private final HouseholdJobMobility jobMobility = new HouseholdJobMobility();
 
     public TurnResult process(GameState state, List<Race> races) {
         Map<String, Race> raceById = new HashMap<>();
@@ -49,6 +50,8 @@ public class HouseholdEconomyProcessor {
         for (Corporation corporation : state.corporations()) corporations.put(corporation.id(), corporation);
         Map<String, Empire> empires = new LinkedHashMap<>();
         for (Empire empire : state.empires()) empires.put(empire.id(), empire);
+        Map<String, IndustryAccount> industryAccounts = new LinkedHashMap<>();
+        for (IndustryAccount account : state.industryAccounts()) industryAccounts.put(account.facilityId(), account);
         Map<String, Integer> industryJobs = new HashMap<>();
         for (IndustrialFacility facility : state.industrialFacilities()) {
             industryJobs.put(facility.id(), Math.max(0, facility.allocatedWorkers()));
@@ -58,6 +61,7 @@ public class HouseholdEconomyProcessor {
         Map<String, Double> taxByBody = new HashMap<>();
         Map<String, Double> grossWagesByBody = new HashMap<>();
         Map<String, Double> publicWagesByBody = new HashMap<>();
+        Map<String, Double> infrastructureWagesBySystem = new HashMap<>();
         Map<String, Double> welfareByBody = new HashMap<>();
         List<HouseholdAccount> accounts = new ArrayList<>();
 
@@ -74,14 +78,16 @@ public class HouseholdEconomyProcessor {
             for (Planet planet : system.planets()) {
                 processBody(planet.id(), planet.atmosphere(), system.id(), empire, planet.populations(), economy,
                         state.industrialFacilities(), raceById, previous, publicJobs, industryJobs, corporations,
-                        empires, paidWorkersByFacility, wagesByFacility,
+                        empires, industryAccounts, paidWorkersByFacility, wagesByFacility,
                         hubs, marketAccounts, taxByBody, grossWagesByBody, publicWagesByBody,
+                        infrastructureWagesBySystem,
                         welfareByBody, accounts);
                 for (Moon moon : planet.moons()) {
                     processBody(moon.id(), moon.atmosphere(), system.id(), empire, moon.populations(), economy,
                             state.industrialFacilities(), raceById, previous, publicJobs, industryJobs, corporations,
-                            empires, paidWorkersByFacility, wagesByFacility,
+                            empires, industryAccounts, paidWorkersByFacility, wagesByFacility,
                             hubs, marketAccounts, taxByBody, grossWagesByBody, publicWagesByBody,
+                            infrastructureWagesBySystem,
                             welfareByBody, accounts);
                 }
             }
@@ -92,7 +98,7 @@ public class HouseholdEconomyProcessor {
             if (!activeKeys.contains(old.key()) && old.savingsCredits() > 0.0) {
                 accounts.add(new HouseholdAccount(old.bodyId(), old.systemId(), old.empireId(), old.raceId(),
                         old.professionId(), 0, old.savingsCredits(), 0.0, 0.0, 0.0, 0.0,
-                        Map.of(), 1.0, 1.0, 0.0, 0.0));
+                        Map.of(), 1.0, 1.0, 0.0, 0.0, old.wellbeing(), HouseholdEmployment.none()));
             }
         }
         return new TurnResult(List.copyOf(accounts), List.copyOf(hubs.values()),
@@ -101,7 +107,8 @@ public class HouseholdEconomyProcessor {
                         .sorted(Comparator.comparing(MarketAccount::hubId)).toList(),
                 Map.copyOf(taxByBody), Map.copyOf(grossWagesByBody), Map.copyOf(publicWagesByBody),
                 Map.copyOf(welfareByBody), Map.copyOf(paidWorkersByFacility),
-                Map.copyOf(wagesByFacility));
+                Map.copyOf(wagesByFacility), List.copyOf(industryAccounts.values()),
+                Map.copyOf(infrastructureWagesBySystem));
     }
 
     private void processBody(String bodyId, String atmosphere, String systemId, Empire empire, List<Population> populations,
@@ -109,18 +116,19 @@ public class HouseholdEconomyProcessor {
                              Map<String, HouseholdAccount> previous, Map<String, Long> publicJobs,
                              Map<String, Integer> industryJobs,
                              Map<String, Corporation> corporations, Map<String, Empire> empires,
+                             Map<String, IndustryAccount> industryAccounts,
                              Map<String, Integer> paidWorkersByFacility,
                              Map<String, Double> wagesByFacility, Map<String, CommercialHub> hubs,
                              Map<String, MarketAccount> marketAccounts, Map<String, Double> taxes,
                              Map<String, Double> grossWages, Map<String, Double> publicWages,
+                             Map<String, Double> infrastructureWages,
                              Map<String, Double> welfareByBody,
                              List<HouseholdAccount> accounts) {
         Map<String, List<CitizenCohort>> groups = new TreeMap<>();
-        for (Population population : populations) {
-            for (CitizenCohort cohort : population.toDemographics(bodyId, systemId, ColonyFocus.BALANCED).cohorts()) {
-                groups.computeIfAbsent(cohort.raceId() + "/" + cohort.professionId(), ignored -> new ArrayList<>())
-                        .add(cohort);
-            }
+        for (CitizenCohort cohort : jobMobility.distribute(bodyId, systemId, populations,
+                previous, publicJobs, facilities)) {
+            groups.computeIfAbsent(cohort.raceId() + "/" + cohort.professionId(),
+                    ignored -> new ArrayList<>()).add(cohort);
         }
         for (List<CitizenCohort> cohorts : groups.values()) {
             CitizenCohort first = cohorts.getFirst();
@@ -134,27 +142,43 @@ public class HouseholdEconomyProcessor {
             long publicHired = Math.min(working, publicJobs.getOrDefault(first.professionId(), 0L));
             publicJobs.merge(first.professionId(), -publicHired, Long::sum);
             double publicPay = publicHired * wage;
-            double industrialPay = payIndustryWorkers(bodyId, empire.id(), first.professionId(),
+            IndustryHire industryHire = payIndustryWorkers(bodyId, empire.id(), first.professionId(),
                     working - publicHired, wage, facilities, industryJobs, corporations, empires,
+                    industryAccounts,
                     paidWorkersByFacility, wagesByFacility);
+            double industrialPay = industryHire.wages();
             double income = publicPay + industrialPay;
             double welfare = retired * PENSION_CREDITS_PER_RETIREE;
             double taxRate = economy == null ? 0.10 : Math.clamp(economy.taxRate(), 0.0, 0.50);
             double tax = income * taxRate;
-            Wallet wallet = new Wallet(Math.max(0.0, previous.containsKey(key)
-                    ? previous.get(key).savingsCredits() : 0.0) + income + welfare - tax);
-            Map<String, Double> unmetBasic = new LinkedHashMap<>();
             Map<String, Double> requirements = races.containsKey(first.raceId())
                     ? populationProcessor.calculateDailyMarketRequirements(headcount, races.get(first.raceId()), atmosphere)
                     : Map.of("food_matrix", headcount * 0.1);
+            double electricityNeed = PowerBillingProcessor.householdDemandKwh(empire, headcount);
+            Wallet wallet = new Wallet(Math.max(0.0, previous.containsKey(key)
+                    ? previous.get(key).savingsCredits() : 0.0) + income + welfare - tax);
+            // Missing stock remains a physical shortage, not a cash benefit for other goods.
+            double basicCost = purchasableBasicCost(bodyId, requirements, hubs)
+                    + electricityNeed * PowerBillingProcessor.PRICE_PER_KWH;
+            double basicSupport = Math.max(0.0, basicCost - wallet.credits);
+            welfare += basicSupport;
+            wallet.credits += basicSupport;
+            Map<String, Double> unmetBasic = new LinkedHashMap<>();
             requirements.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry -> {
                 double bought = buy(bodyId, entry.getKey(), entry.getValue(), wallet, 0.0,
                         hubs, marketAccounts);
                 if (bought + 0.000001 < entry.getValue()) unmetBasic.put(entry.getKey(), entry.getValue() - bought);
             });
+            double requestedKg = requirements.values().stream().mapToDouble(Double::doubleValue).sum();
+            double missingKg = unmetBasic.values().stream().mapToDouble(Double::doubleValue).sum();
+            double materialCoverage = requestedKg <= 0.0 ? 1.0
+                    : Math.clamp(1.0 - missingKg / requestedKg, 0.0, 1.0);
+            HouseholdWellbeing priorWellbeing = previous.containsKey(key)
+                    ? previous.get(key).wellbeing() : HouseholdWellbeing.healthy();
+            HouseholdEmployment priorEmployment = previous.containsKey(key)
+                    ? previous.get(key).employment() : HouseholdEmployment.none();
             double secondaryNeed = headcount * 0.005;
             double luxuryNeed = headcount * 0.001;
-            double electricityNeed = PowerBillingProcessor.householdDemandKwh(empire, headcount);
             double reserved = electricityNeed * PowerBillingProcessor.PRICE_PER_KWH;
             double secondaryMet = buy(bodyId, SECONDARY_GOOD, secondaryNeed, wallet, reserved,
                     hubs, marketAccounts);
@@ -163,23 +187,32 @@ public class HouseholdEconomyProcessor {
             accounts.add(new HouseholdAccount(bodyId, systemId, empire.id(), first.raceId(),
                     first.professionId(), headcount, wallet.credits, income, welfare, tax, wallet.spent,
                     unmetBasic, fraction(secondaryMet, secondaryNeed), fraction(luxuryMet, luxuryNeed),
-                    0.0, electricityNeed));
+                    0.0, electricityNeed, priorWellbeing.withMaterialCoverage(materialCoverage),
+                    priorEmployment.settle(working, publicHired, industryHire.workers())));
             taxes.merge(bodyId, tax, Double::sum);
             grossWages.merge(bodyId, income, Double::sum);
             publicWages.merge(bodyId, publicPay, Double::sum);
+            if ("engineer".equals(first.professionId()) || "technician".equals(first.professionId())) {
+                infrastructureWages.merge(systemId, publicPay, Double::sum);
+            }
             welfareByBody.merge(bodyId, welfare, Double::sum);
         }
     }
 
-    private double payIndustryWorkers(String bodyId, String empireId, String professionId, long available,
+    private record IndustryHire(long workers, double wages) {}
+
+    private IndustryHire payIndustryWorkers(String bodyId, String empireId, String professionId, long available,
                                       double wage, List<IndustrialFacility> facilities,
                                       Map<String, Integer> industryJobs, Map<String, Corporation> corporations,
-                                      Map<String, Empire> empires, Map<String, Integer> paidWorkers,
+                                      Map<String, Empire> empires, Map<String, IndustryAccount> industryAccounts,
+                                      Map<String, Integer> paidWorkers,
                                       Map<String, Double> wagesByFacility) {
         double paid = 0.0;
+        long hiredTotal = 0L;
         for (IndustrialFacility facility : facilities) {
             if (available <= 0) break;
-            if (!bodyId.equals(facility.planetId()) || !professionId.equals(facility.workerProfessionId())) continue;
+            if (!bodyId.equals(facility.planetId()) || !professionId.equals(facility.workerProfessionId())
+                    || facility.tier() <= 0) continue;
             Corporation corporation = corporations.get(facility.ownerEntityId());
             Empire stateOwner = empires.get(facility.ownerEntityId());
             boolean privateOwner = IndustrialFacility.PRIVATE_CORPORATE.equals(facility.ownershipType())
@@ -187,7 +220,8 @@ public class HouseholdEconomyProcessor {
             boolean publicOwner = IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())
                     && stateOwner != null && empireId.equals(stateOwner.id());
             if (!privateOwner && !publicOwner) continue;
-            double funds = privateOwner ? corporation.liquidCapitalReserves() : stateOwner.treasuryCredits();
+            IndustryAccount account = industryAccounts.getOrDefault(facility.id(), IndustryAccount.empty(facility.id()));
+            double funds = privateOwner ? corporation.liquidCapitalReserves() : account.operatingCashCredits();
             long hired = Math.min(available, Math.min(industryJobs.getOrDefault(facility.id(), 0),
                     (long) Math.floor(Math.max(0.0, funds) / wage)));
             if (hired <= 0) continue;
@@ -198,19 +232,16 @@ public class HouseholdEconomyProcessor {
                         funds - payment, corporation.ownedFacilityIds(), corporation.ownedShipIds(),
                         corporation.claimedVeinIds()));
             } else {
-                empires.put(stateOwner.id(), new Empire(stateOwner.id(), stateOwner.name(), stateOwner.raceId(),
-                        stateOwner.societyStructure(), funds - payment, stateOwner.corporateTaxRate(),
-                        stateOwner.controlledSystemIds(), stateOwner.ministries(),
-                        stateOwner.systemGovernorAssignments(), stateOwner.unlockedTechIds(),
-                        stateOwner.activeShipDesignIds()));
+                industryAccounts.put(facility.id(), account.withOperatingCash(funds - payment));
             }
             industryJobs.merge(facility.id(), -(int) hired, Integer::sum);
             paidWorkers.merge(facility.id(), (int) hired, Integer::sum);
             wagesByFacility.merge(facility.id(), payment, Double::sum);
             available -= hired;
             paid += payment;
+            hiredTotal += hired;
         }
-        return paid;
+        return new IndustryHire(hiredTotal, paid);
     }
 
     private double buy(String bodyId, String resourceId, double requested, Wallet wallet,
@@ -246,6 +277,25 @@ public class HouseholdEconomyProcessor {
         return acquired;
     }
 
+    private double purchasableBasicCost(String bodyId, Map<String, Double> requirements,
+                                        Map<String, CommercialHub> hubs) {
+        double cost = 0.0;
+        for (var requirement : requirements.entrySet()) {
+            double remaining = requirement.getValue();
+            for (CommercialHub hub : hubs.values()) {
+                if (!bodyId.equals(hub.entityId())) continue;
+                MarketOrder order = hub.activeOrders().get(requirement.getKey());
+                if (order == null || !Double.isFinite(order.supplyKg()) || order.supplyKg() <= 0.0
+                        || !Double.isFinite(order.pricePerKg()) || order.pricePerKg() < 0.0) continue;
+                double quantity = Math.min(remaining, order.supplyKg());
+                cost += quantity * order.pricePerKg();
+                remaining -= quantity;
+                if (remaining <= 0.0) break;
+            }
+        }
+        return cost;
+    }
+
     private Map<String, Long> publicJobs(SystemEconomy economy) {
         if (economy == null) return new HashMap<>();
         Map<String, Long> jobs = new HashMap<>();
@@ -256,13 +306,23 @@ public class HouseholdEconomyProcessor {
         jobs.put("engineer", economy.employedEngineers());
         jobs.put("technician", economy.employedTechnicians());
         jobs.put("soldier", economy.employedSoldiers());
-        double requestedWages = jobs.entrySet().stream()
-                .mapToDouble(entry -> entry.getValue() * Profession.getBaseWageForProfession(entry.getKey()))
-                .sum();
-        double fundedShare = requestedWages <= 0.0 ? 0.0
-                : Math.min(1.0, Math.max(0.0, economy.totalBudgetCredits()) / requestedWages);
-        jobs.replaceAll((profession, count) -> (long) Math.floor(count * fundedShare));
+        double budget = Math.max(0.0, economy.totalBudgetCredits());
+        capPublicJobs(jobs, List.of("teacher", "scientist"), budget * economy.educationAllocation());
+        capPublicJobs(jobs, List.of("police"), budget * economy.lawAndOrderAllocation());
+        capPublicJobs(jobs, List.of("medic"), budget * economy.healthAndWelfareAllocation());
+        capPublicJobs(jobs, List.of("engineer", "technician"), budget * economy.infrastructureAllocation());
+        capPublicJobs(jobs, List.of("soldier"), budget * economy.planetaryMilitiasAllocation());
         return jobs;
+    }
+
+    private void capPublicJobs(Map<String, Long> jobs, List<String> professions, double credits) {
+        double requested = professions.stream()
+                .mapToDouble(profession -> jobs.getOrDefault(profession, 0L)
+                        * Profession.getBaseWageForProfession(profession)).sum();
+        double fundedShare = requested <= 0.0 ? 0.0 : Math.min(1.0, Math.max(0.0, credits) / requested);
+        for (String profession : professions) {
+            jobs.put(profession, (long) Math.floor(jobs.getOrDefault(profession, 0L) * fundedShare));
+        }
     }
 
     private double fraction(double received, double requested) {
@@ -284,5 +344,7 @@ public class HouseholdEconomyProcessor {
                              Map<String, Double> incomeTaxByBody, Map<String, Double> grossWagesByBody,
                              Map<String, Double> publicWagesByBody, Map<String, Double> welfareByBody,
                              Map<String, Integer> paidWorkersByFacility,
-                             Map<String, Double> wagesByFacility) {}
+                             Map<String, Double> wagesByFacility,
+                             List<IndustryAccount> industryAccounts,
+                             Map<String, Double> infrastructureWagesBySystem) {}
 }

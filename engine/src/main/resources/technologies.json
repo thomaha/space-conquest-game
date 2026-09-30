@@ -1,5 +1,62 @@
 [
   {
+    "id": "methalox_propulsion",
+    "name": "Methane-oxygen propulsion",
+    "description": "Cryogenic methane and oxygen handling, storage and reusable rocket combustion.",
+    "complexity": 5,
+    "requiredTechnologies": ["rocketry", "industrial_production"],
+    "applications": [
+      {
+        "id": "methalox_rocket_engines",
+        "name": "Methane/LOX rocket engines",
+        "description": "Liquid-methane and liquid-oxygen rocket engines.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["propulsion_efficiency"],
+        "costToBuildPerUnit": 500.0,
+        "requiredMaterials": ["steel", "liquid_methane", "liquid_oxygen"],
+        "complexity": 6
+      }
+    ]
+  },
+  {
+    "id": "hydrolox_propulsion",
+    "name": "Hydrogen-oxygen propulsion",
+    "description": "Deep-cryogenic hydrogen and oxygen systems for high-impulse rocket engines.",
+    "complexity": 7,
+    "requiredTechnologies": ["methalox_propulsion"],
+    "applications": [
+      {
+        "id": "hydrolox_rocket_engines",
+        "name": "Hydrogen/LOX rocket engines",
+        "description": "Liquid-hydrogen and liquid-oxygen rocket engines.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["propulsion_efficiency"],
+        "costToBuildPerUnit": 900.0,
+        "requiredMaterials": ["steel", "liquid_hydrogen", "liquid_oxygen"],
+        "complexity": 7
+      }
+    ]
+  },
+  {
+    "id": "cryogenic_stasis",
+    "name": "Cryogenic stasis",
+    "description": "Suspended animation for passengers during long voyages.",
+    "complexity": 7,
+    "requiredTechnologies": ["electricity"],
+    "applications": [
+      {
+        "id": "cryogenic_stasis_pod",
+        "name": "Cryogenic stasis pod",
+        "description": "Keeps embarked passengers in suspended animation without daily nutrient consumption.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["passenger_life_support"],
+        "costToBuildPerUnit": 5000.0,
+        "requiredMaterials": ["refined_aluminum", "refined_copper", "silicon"],
+        "complexity": 7
+      }
+    ]
+  },
+  {
     "id": "electricity",
     "name": "Electricity",
     "description": "Basic electrical power generation, circuit distribution, and storage systems.",
@@ -134,6 +191,26 @@
         "costToBuildPerUnit": 2000.0,
         "requiredMaterials": ["uranium_ore", "steel"],
         "complexity": 8
+      },
+      {
+        "id": "uranium_refining",
+        "name": "Uranium refining",
+        "description": "Refines mined uranium ore into reactor fuel.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["fission_fuel_supply"],
+        "costToBuildPerUnit": 1500.0,
+        "requiredMaterials": ["uranium_ore", "steel"],
+        "complexity": 6
+      },
+      {
+        "id": "thorium_refining",
+        "name": "Thorium refining",
+        "description": "Refines mined thorium ore into alternative reactor fuel.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["fission_fuel_supply"],
+        "costToBuildPerUnit": 1500.0,
+        "requiredMaterials": ["thorium_ore", "steel"],
+        "complexity": 6
       }
     ]
   },
@@ -163,6 +240,16 @@
         "costToBuildPerUnit": 10000.0,
         "requiredMaterials": ["helium_3", "refined_titanium", "uranium_ore"],
         "complexity": 10
+      },
+      {
+        "id": "water_isotope_separation",
+        "name": "Water isotope separation",
+        "description": "Separates deuterium from water while recovering hydrogen and oxygen.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["fusion_fuel_supply"],
+        "costToBuildPerUnit": 3000.0,
+        "requiredMaterials": ["purified_water", "steel"],
+        "complexity": 7
       }
     ]
   },
@@ -174,6 +261,96 @@
     "requiredTechnologies": [],
     "applications": [
       {
+        "id": "aluminum_ore_mining", "name": "Bauxite mining",
+        "description": "Extracts a discovered aluminum ore deposit.",
+        "requiredTechnologies": [], "affectedFactors": ["ore_production"],
+        "costToBuildPerUnit": 30.0, "requiredMaterials": ["steel"], "complexity": 2
+      },
+      {
+        "id": "copper_ore_mining", "name": "Copper ore mining",
+        "description": "Extracts a discovered copper ore deposit.",
+        "requiredTechnologies": [], "affectedFactors": ["ore_production"],
+        "costToBuildPerUnit": 30.0, "requiredMaterials": ["steel"], "complexity": 2
+      },
+      {
+        "id": "silicates_mining", "name": "Silicate quarry",
+        "description": "Extracts a discovered silicate deposit.",
+        "requiredTechnologies": [], "affectedFactors": ["mineral_production"],
+        "costToBuildPerUnit": 20.0, "requiredMaterials": ["steel"], "complexity": 2
+      },
+      {
+        "id": "nitrates_mining", "name": "Nitrate extraction",
+        "description": "Extracts a discovered mineral nitrate deposit.",
+        "requiredTechnologies": [], "affectedFactors": ["fertilizer_supply"],
+        "costToBuildPerUnit": 20.0, "requiredMaterials": ["steel"], "complexity": 2
+      },
+      {
+        "id": "phosphates_mining", "name": "Phosphate extraction",
+        "description": "Extracts a discovered phosphate deposit.",
+        "requiredTechnologies": [], "affectedFactors": ["fertilizer_supply"],
+        "costToBuildPerUnit": 20.0, "requiredMaterials": ["steel"], "complexity": 2
+      },
+      {
+        "id": "potash_mining", "name": "Potash extraction",
+        "description": "Extracts a discovered potash deposit.",
+        "requiredTechnologies": [], "affectedFactors": ["fertilizer_supply"],
+        "costToBuildPerUnit": 20.0, "requiredMaterials": ["steel"], "complexity": 2
+      },
+      {
+        "id": "carbon_mining", "name": "Carbon extraction",
+        "description": "Extracts a discovered carbon deposit for refining.",
+        "requiredTechnologies": [], "affectedFactors": ["mineral_production"],
+        "costToBuildPerUnit": 20.0, "requiredMaterials": ["steel"], "complexity": 2
+      },
+      {
+        "id": "water_ice_mining", "name": "Water ice mining",
+        "description": "Extracts finite water ice from a discovered deposit on a dry body.",
+        "requiredTechnologies": [], "affectedFactors": ["water_production"],
+        "costToBuildPerUnit": 30.0, "requiredMaterials": ["steel"], "complexity": 2
+      },
+      {
+        "id": "gold_mining", "name": "Gold mining",
+        "description": "Low-yield extraction of a discovered gold deposit.",
+        "requiredTechnologies": [], "affectedFactors": ["precious_metal_supply"],
+        "costToBuildPerUnit": 150.0, "requiredMaterials": ["steel"], "complexity": 3
+      },
+      {
+        "id": "silver_ore_mining", "name": "Silver ore mining",
+        "description": "Low-yield extraction of a discovered silver deposit.",
+        "requiredTechnologies": [], "affectedFactors": ["precious_metal_supply"],
+        "costToBuildPerUnit": 100.0, "requiredMaterials": ["steel"], "complexity": 3
+      },
+      {
+        "id": "rare_earth_fluorides_mining", "name": "Rare-earth mining",
+        "description": "Low-yield extraction of a discovered rare-earth deposit.",
+        "requiredTechnologies": [], "affectedFactors": ["rare_earth_supply"],
+        "costToBuildPerUnit": 150.0, "requiredMaterials": ["steel"], "complexity": 3
+      },
+      {
+        "id": "uranium_ore_mining", "name": "Uranium ore mining",
+        "description": "Low-yield extraction of a discovered uranium deposit.",
+        "requiredTechnologies": [], "affectedFactors": ["uranium_supply"],
+        "costToBuildPerUnit": 120.0, "requiredMaterials": ["steel"], "complexity": 3
+      },
+      {
+        "id": "thorium_ore_mining", "name": "Thorium ore mining",
+        "description": "Low-yield extraction of a discovered thorium deposit.",
+        "requiredTechnologies": [], "affectedFactors": ["thorium_supply"],
+        "costToBuildPerUnit": 120.0, "requiredMaterials": ["steel"], "complexity": 3
+      },
+      {
+        "id": "lithium_ore_mining", "name": "Lithium ore mining",
+        "description": "Extraction of a discovered lithium deposit.",
+        "requiredTechnologies": [], "affectedFactors": ["lithium_supply"],
+        "costToBuildPerUnit": 90.0, "requiredMaterials": ["steel"], "complexity": 3
+      },
+      {
+        "id": "nickel_ore_mining", "name": "Nickel ore mining",
+        "description": "Extraction of a discovered nickel deposit.",
+        "requiredTechnologies": [], "affectedFactors": ["nickel_supply"],
+        "costToBuildPerUnit": 90.0, "requiredMaterials": ["steel"], "complexity": 3
+      },
+      {
         "id": "industrial_soil_cultivation",
         "name": "Industrial soil cultivation",
         "description": "Large-scale mechanized harvesting of native or terraformed soils using basic irrigation and chemical fertilizers.",
@@ -182,6 +359,13 @@
         "costToBuildPerUnit": 15.0,
         "requiredMaterials": ["nitrates", "phosphates", "potash"],
         "complexity": 2
+      },
+      {
+        "id": "industrial_biomass_cultivation", "name": "Industrial biomass cultivation",
+        "description": "Grows industrial fibers from mineral nutrients, carbon and treated water without producing food.",
+        "requiredTechnologies": [], "affectedFactors": ["biomass_production"],
+        "costToBuildPerUnit": 45.0, "requiredMaterials": ["carbon", "purified_water", "nitrates"],
+        "complexity": 3
       },
       {
         "id": "automated_biosphere_macro_farms",
@@ -220,8 +404,50 @@
         "requiredTechnologies": [],
         "affectedFactors": ["manufacturing_cost", "petrochemical_reliance"],
         "costToBuildPerUnit": 60.0,
-        "requiredMaterials": ["hydrocarbons"],
+        "requiredMaterials": ["agricultural_biomass", "water_ice"],
         "complexity": 3
+      },
+      {
+        "id": "consumer_goods_mfg",
+        "name": "Consumer goods manufacturing",
+        "description": "Assembles household goods from biopolymers and refined metals.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["consumer_goods_production"],
+        "costToBuildPerUnit": 80.0,
+        "requiredMaterials": ["steel", "refined_copper"],
+        "complexity": 3
+      },
+      {
+        "id": "luxury_goods_mfg",
+        "name": "Luxury goods workshop",
+        "description": "Finishes consumer goods with extra materials and skilled craftwork.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["luxury_goods_production"],
+        "costToBuildPerUnit": 120.0,
+        "requiredMaterials": ["steel", "refined_copper"],
+        "complexity": 4
+      },
+      {
+        "id": "water_electrolysis",
+        "name": "Water electrolysis",
+        "description": "Splits water into oxygen for enclosed settlements and hydrogen for industry.",
+        "requiredTechnologies": ["electricity"],
+        "affectedFactors": ["oxygen_production", "hydrogen_production", "power_consumption"],
+        "costToBuildPerUnit": 90.0,
+        "requiredMaterials": ["water_ice", "steel"],
+        "complexity": 3
+      },
+      {
+        "id": "surface_water_treatment", "name": "Surface water treatment",
+        "description": "Purifies water drawn from an accessible surface source on a water-bearing body.",
+        "requiredTechnologies": [], "affectedFactors": ["water_production"],
+        "costToBuildPerUnit": 40.0, "requiredMaterials": ["steel"], "complexity": 2
+      },
+      {
+        "id": "ice_water_treatment", "name": "Ice water treatment",
+        "description": "Melts and purifies mined ice for settlement and industrial use.",
+        "requiredTechnologies": [], "affectedFactors": ["water_production"],
+        "costToBuildPerUnit": 50.0, "requiredMaterials": ["water_ice", "steel"], "complexity": 2
       },
       {
         "id": "algae_carbon_scrubbing",
@@ -244,7 +470,7 @@
         "complexity": 8
       },
       {
-        "id": "pyrometallurgical_smelting",
+        "id": "pyro_iron_smelting",
         "name": "Pyrometallurgical smelting",
         "description": "Uses high thermal energy (coal, oil, basic electricity) to melt and separate common ores into basic metals.",
         "requiredTechnologies": [],
@@ -252,6 +478,30 @@
         "costToBuildPerUnit": 50.0,
         "requiredMaterials": ["iron_ore", "carbon"],
         "complexity": 2
+      },
+      {
+        "id": "aluminum_refining", "name": "Aluminum refining",
+        "description": "Separates aluminum from mined bauxite.",
+        "requiredTechnologies": [], "affectedFactors": ["metal_production"],
+        "costToBuildPerUnit": 100.0, "requiredMaterials": ["aluminum_ore", "steel"], "complexity": 3
+      },
+      {
+        "id": "copper_refining", "name": "Copper refining",
+        "description": "Separates copper from mined copper ore.",
+        "requiredTechnologies": [], "affectedFactors": ["metal_production"],
+        "costToBuildPerUnit": 80.0, "requiredMaterials": ["copper_ore", "steel"], "complexity": 3
+      },
+      {
+        "id": "silicon_refining", "name": "Silicon refining",
+        "description": "Reduces silicates with carbon to make industrial silicon.",
+        "requiredTechnologies": [], "affectedFactors": ["silicon_production"],
+        "costToBuildPerUnit": 90.0, "requiredMaterials": ["silicates", "carbon"], "complexity": 3
+      },
+      {
+        "id": "rare_earth_refining", "name": "Rare-earth separation",
+        "description": "Separates electronics-grade rare earths from mined fluoride minerals.",
+        "requiredTechnologies": [], "affectedFactors": ["rare_earth_supply"],
+        "costToBuildPerUnit": 160.0, "requiredMaterials": ["rare_earth_fluorides"], "complexity": 4
       },
       {
         "id": "chemical_leaching_hydrometallurgy",
@@ -389,7 +639,7 @@
         "requiredTechnologies": [],
         "affectedFactors": ["propulsion_power"],
         "costToBuildPerUnit": 200.0,
-        "requiredMaterials": ["steel", "hydrocarbons", "oxygen_gas"],
+        "requiredMaterials": ["steel", "rp1_kerosene", "liquid_oxygen"],
         "complexity": 5
       },
       {
@@ -429,7 +679,7 @@
         "requiredTechnologies": [],
         "affectedFactors": ["payload_to_orbit"],
         "costToBuildPerUnit": 500.0,
-        "requiredMaterials": ["aluminum_ore", "hydrocarbons", "oxygen_gas"],
+        "requiredMaterials": ["aluminum_ore", "rp1_kerosene", "liquid_oxygen"],
         "complexity": 6
       },
       {
@@ -605,7 +855,18 @@
     "description": "Materials exhibiting zero electrical resistance and expulsion of magnetic fields at high temperatures.",
     "complexity": 5,
     "requiredTechnologies": ["electricity", "industrial_production"],
-    "applications": []
+    "applications": [
+      {
+        "id": "mpd_ion_drives",
+        "name": "MPD ion drives",
+        "description": "Magnetoplasmadynamic thrusters accelerate ionized gas propellant using superconducting field coils.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["propulsion_efficiency", "thrust"],
+        "costToBuildPerUnit": 6000.0,
+        "requiredMaterials": ["inconel_alloy", "superconducting_cuprates", "refined_neodymium"],
+        "complexity": 7
+      }
+    ]
   },
   {
     "id": "computers",

@@ -8,6 +8,7 @@ import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.industry.IndustrialFacility;
 import com.spaceconquest.engine.industry.IndustryAccount;
+import com.spaceconquest.engine.logistics.TradeRoute;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -74,6 +75,28 @@ class CorporateProfitTaxProcessorTest {
         assertEquals(0.0, result.accounts().getFirst().paidTaxCredits(), 0.001);
         assertEquals(100.0, result.corporations().getFirst().liquidCapitalReserves(), 0.001);
         assertEquals(Map.of(), result.collectedByBody());
+    }
+
+    @Test
+    void freightProfitIsTaxedAndFreightLossCarriesForward() {
+        TradeRoute profit = new TradeRoute("route", "Carrier", "corp", "source",
+                "destination", "steel", 10, 0, 100, List.of("ship"), 10,
+                true, TradeRoute.RETURNING, 0, 0, 40, 40);
+        GameState state = state(100, List.of(),
+                new CorporateTaxAccount("corp", 0, 0, 0, 0, 0))
+                .withTradeRoutes(List.of(profit));
+        var taxed = processor.process(state);
+        assertEquals(40, taxed.accounts().getFirst().taxableProfitCredits(), 0.001);
+        assertEquals(8, taxed.accounts().getFirst().paidTaxCredits(), 0.001);
+        assertEquals(8, taxed.collectedByBody().get("earth"), 0.001);
+
+        TradeRoute loss = new TradeRoute("route", "Carrier", "corp", "source",
+                "destination", "steel", 10, 0, 100, List.of("ship"), 10,
+                true, TradeRoute.RETURNING, 0, 0, -25, 15);
+        var carried = processor.process(state.withTradeRoutes(List.of(loss))
+                .withCorporateTaxAccounts(taxed.accounts()));
+        assertEquals(25, carried.accounts().getFirst().lossCarryforwardCredits(), 0.001);
+        assertEquals(0, carried.accounts().getFirst().assessedTaxCredits(), 0.001);
     }
 
     private GameState state(double reserves, List<IndustryAccount> accounts, CorporateTaxAccount previous) {

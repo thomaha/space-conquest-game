@@ -1,7 +1,7 @@
 package com.spaceconquest.frontend;
 
 import com.spaceconquest.engine.Corporation;
-import com.spaceconquest.engine.DataModelLoader;
+import com.spaceconquest.engine.GameState;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -13,20 +13,15 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import java.io.IOException;
 import java.util.List;
 
 /**
  * UI panel displaying registered private corporations, market orientations, liquid reserves, and fleets.
  */
 public class CorporateView {
-    private static final Logger logger = LogManager.getLogger(CorporateView.class);
-
     private VBox root;
     private VBox content;
+    private List<Corporation> corporations = List.of();
     private final Menubar menubar;
 
     public CorporateView(Menubar menubar) {
@@ -79,6 +74,11 @@ public class CorporateView {
         root.toFront();
     }
 
+    public void updateData(GameState state) {
+        corporations = state == null ? List.of() : state.corporations();
+        if (root.isVisible()) loadData();
+    }
+
     public void hide() {
         root.setVisible(false);
         if (menubar != null) {
@@ -88,16 +88,8 @@ public class CorporateView {
 
     private void loadData() {
         content.getChildren().clear();
-        try {
-            List<Corporation> corporations = DataModelLoader.loadCorporations();
-            for (Corporation corp : corporations) {
-                content.getChildren().add(createCorpBox(corp));
-            }
-        } catch (IOException e) {
-            logger.error("Failed to load corporate registry", e);
-            Text errorText = new Text("Error loading corporate data.");
-            errorText.setFill(Color.RED);
-            content.getChildren().add(errorText);
+        for (Corporation corp : corporations) {
+            content.getChildren().add(createCorpBox(corp));
         }
     }
 

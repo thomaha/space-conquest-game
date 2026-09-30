@@ -1,7 +1,6 @@
 package com.spaceconquest.frontend;
 
 import com.spaceconquest.control.HumanController;
-import com.spaceconquest.control.ai.CorporationAIController;
 import com.spaceconquest.control.ai.EmpireAIController;
 import com.spaceconquest.control.ai.ShadowSyndicateAIController;
 import com.spaceconquest.engine.GameClock;
@@ -38,6 +37,7 @@ import static com.almasb.fxgl.dsl.FXGL.*;
 public class Menubar {
 
     private VBox root;
+    private HBox campaignToolbar;
     private VBox detailPanel;
     private Label detailTitle;
     private Label detailText;
@@ -45,7 +45,6 @@ public class Menubar {
 
     private final HumanController humanController = new HumanController();
     private EmpireAIController empireAIController;
-    private CorporationAIController corporationAIController;
     private ShadowSyndicateAIController shadowSyndicateAIController;
     private String playerEmpireId = "terran_confederation";
 
@@ -90,7 +89,7 @@ public class Menubar {
 
     public void updateAllViews(GameState state) {
         viewRegistry.updateAllViews(state, mainApp, humanController,
-                empireAIController, corporationAIController, shadowSyndicateAIController, playerEmpireId);
+                empireAIController, shadowSyndicateAIController, playerEmpireId);
     }
 
     public TechnologyView getTechView() { return viewRegistry.getTechView(); }
@@ -131,6 +130,14 @@ public class Menubar {
         clockController.restoreTime(time, speed);
     }
 
+    public void setCampaignActive(boolean active) {
+        if (campaignToolbar != null) {
+            campaignToolbar.getChildren().stream().filter(Button.class::isInstance)
+                    .map(Button.class::cast).forEach(button -> button.setDisable(!active));
+        }
+        if (!active) clockController.showNoCampaign();
+    }
+
     public void showGameStartDialog() {
         startNewGameSetup();
     }
@@ -148,7 +155,6 @@ public class Menubar {
         root = new VBox(8);
 
         empireAIController = new EmpireAIController("vulkan_forge", humanController.getCommandQueue());
-        corporationAIController = new CorporationAIController("corp_sol_extraction", humanController.getCommandQueue());
         shadowSyndicateAIController = new ShadowSyndicateAIController("shadow_syndicate_sol", humanController.getCommandQueue());
 
         viewRegistry.initViews(this, mainApp, humanController, playerEmpireId);
@@ -184,6 +190,7 @@ public class Menubar {
 
     private HBox buildToolbar(double scale) {
         HBox toolbar = new HBox(6);
+        campaignToolbar = toolbar;
         toolbar.setAlignment(Pos.CENTER_LEFT);
 
         toolbar.getChildren().addAll(
@@ -264,14 +271,14 @@ public class Menubar {
 
     private void showShipyardView() {
         if (mainApp != null && mainApp.getEngine() != null) {
-            getShipDesignerView().updateDesigns(mainApp.getEngine().getGameState().shipDesigns());
+            getShipDesignerView().updateData(mainApp.getEngine().getGameState());
         }
         getShipDesignerView().show();
     }
 
     private void showFleetsView() {
         if (mainApp != null && mainApp.getEngine() != null) {
-            getFleetManagementView().updateFleets(mainApp.getEngine().getGameState().fleets());
+            getFleetManagementView().updateData(mainApp.getEngine().getGameState());
         }
         getFleetManagementView().show();
     }
@@ -279,6 +286,7 @@ public class Menubar {
     private void showCommercialHubView() {
         if (mainApp != null && mainApp.getEngine() != null) {
             GameState st = mainApp.getEngine().getGameState();
+            getCommercialHubView().updateData(st);
             getCommercialHubView().show(st.commercialHubs(), st.tradeRoutes());
         } else {
             getCommercialHubView().show(List.of(), List.of());
@@ -303,7 +311,7 @@ public class Menubar {
     private void showCanvasView() {
         if (mainApp != null && mainApp.getSolarSystems() != null && mainApp.getEngine() != null) {
             GameState gs = mainApp.getEngine().getGameState();
-            getGalaxyCanvasView().updateData(mainApp.getSolarSystems(), gs.fleets(), gs.megastructures(), gs.fogOfWarStates());
+            getGalaxyCanvasView().updateData(gs);
         } else if (mainApp != null && mainApp.getSolarSystems() != null) {
             getGalaxyCanvasView().updateData(mainApp.getSolarSystems(), List.of(), List.of(), List.of());
         }
@@ -416,6 +424,11 @@ public class Menubar {
     }
 
     public void closePage() {
+        if (mainApp != null && !mainApp.hasActiveCampaign()) {
+            clockController.showNoCampaign();
+            navigation.setActiveButton(null);
+            return;
+        }
         clockController.closePage();
         navigation.setActiveButton(null);
     }
@@ -431,7 +444,7 @@ public class Menubar {
     }
 
     private void handleSimulationPulse(double realSeconds) {
-        if (mainApp == null) return;
+        if (mainApp == null || !mainApp.hasActiveCampaign()) return;
         long generation = worldGeneration.get();
         simulationExecutor.execute(() -> {
             GameState state = null;
@@ -442,7 +455,6 @@ public class Menubar {
                 for (int i = 0; i < dueTurns; i++) {
                     GameState currentState = mainApp.getEngine().getGameState();
                     if (empireAIController != null) empireAIController.onGameStateUpdate(currentState);
-                    if (corporationAIController != null) corporationAIController.onGameStateUpdate(currentState);
                     if (shadowSyndicateAIController != null) shadowSyndicateAIController.onGameStateUpdate(currentState);
                     humanController.getCommandQueue().processCommands(mainApp.getEngine());
                     mainApp.getEngine().processScheduledTurn();

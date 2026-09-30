@@ -1,6 +1,7 @@
 package com.spaceconquest.engine.ship;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Operational grouping of starships maneuvering across solar networks.
@@ -16,6 +17,14 @@ import java.util.List;
  * @param isInWarp        true if fleet is traversing FTL spacetime warp bubble
  * @param fleetStance     operational stance (PASSIVE, AGGRESSIVE, PATROL, ESCORT)
  * @param ships           list of constituent ShipInstance platforms
+ * @param location        shared physical site of every ship in this fleet and local journey progress
+ * @param interstellarMode WARP or SUBLIGHT for an active interstellar order
+ * @param interstellarTravelDays duration in simulation days for that order
+ * @param interstellarDistanceMeters distance of a sublight crossing
+ * @param interstellarAccelerationMps2 slowest loaded ship's initial acceleration
+ * @param interstellarElapsedDays time spent in the interstellar crossing
+ * @param interstellarPeakSpeedMps fuel-limited peak speed for the current itinerary
+ * @param interstellarFuelBudgetKg planned fuel consumption by ship ID
  */
 public record Fleet(
         String id,
@@ -28,9 +37,98 @@ public record Fleet(
         double transitProgress,
         boolean isInWarp,
         String fleetStance,
-        List<ShipInstance> ships
+        List<ShipInstance> ships,
+        FleetLocation location,
+        String interstellarMode,
+        double interstellarTravelDays,
+        double interstellarDistanceMeters,
+        double interstellarAccelerationMps2,
+        double interstellarElapsedDays,
+        double interstellarPeakSpeedMps,
+        Map<String, Double> interstellarFuelBudgetKg
 ) {
+    public static final String MODE_WARP = "WARP";
+    public static final String MODE_SUBLIGHT = "SUBLIGHT";
+
     public Fleet {
         if (ships == null) ships = List.of();
+        if (location == null) location = FleetLocation.at(FleetLocation.Site.deepSpace());
+        if (interstellarMode == null) interstellarMode = "";
+        if (interstellarFuelBudgetKg == null) interstellarFuelBudgetKg = Map.of();
+        else interstellarFuelBudgetKg = Map.copyOf(interstellarFuelBudgetKg);
+        if (!Double.isFinite(interstellarTravelDays) || interstellarTravelDays < 0.0
+                || !Double.isFinite(interstellarDistanceMeters) || interstellarDistanceMeters < 0.0
+                || !Double.isFinite(interstellarAccelerationMps2) || interstellarAccelerationMps2 < 0.0
+                || !Double.isFinite(interstellarElapsedDays) || interstellarElapsedDays < 0.0
+                || !Double.isFinite(interstellarPeakSpeedMps) || interstellarPeakSpeedMps < 0.0)
+            throw new IllegalArgumentException("Invalid interstellar travel profile");
+    }
+
+    public Fleet(String id, String name, String ownerEntityId, String currentSystemId,
+                 String targetSystemId, double coordinateX, double coordinateY,
+                 double transitProgress, boolean isInWarp, String fleetStance,
+                 List<ShipInstance> ships, FleetLocation location,
+                 String interstellarMode, double interstellarTravelDays,
+                 double interstellarDistanceMeters, double interstellarAccelerationMps2,
+                 double interstellarElapsedDays) {
+        this(id, name, ownerEntityId, currentSystemId, targetSystemId, coordinateX,
+                coordinateY, transitProgress, isInWarp, fleetStance, ships, location,
+                interstellarMode, interstellarTravelDays, interstellarDistanceMeters,
+                interstellarAccelerationMps2, interstellarElapsedDays, 0.0, Map.of());
+    }
+
+    public Fleet(String id, String name, String ownerEntityId, String currentSystemId,
+                 String targetSystemId, double coordinateX, double coordinateY,
+                 double transitProgress, boolean isInWarp, String fleetStance,
+                 List<ShipInstance> ships, FleetLocation location,
+                 String interstellarMode, double interstellarTravelDays) {
+        this(id, name, ownerEntityId, currentSystemId, targetSystemId, coordinateX,
+                coordinateY, transitProgress, isInWarp, fleetStance, ships, location,
+                interstellarMode, interstellarTravelDays, 0.0, 0.0, 0.0);
+    }
+
+    public Fleet(String id, String name, String ownerEntityId, String currentSystemId,
+                 String targetSystemId, double coordinateX, double coordinateY,
+                 double transitProgress, boolean isInWarp, String fleetStance,
+                 List<ShipInstance> ships, FleetLocation location) {
+        this(id, name, ownerEntityId, currentSystemId, targetSystemId, coordinateX,
+                coordinateY, transitProgress, isInWarp, fleetStance, ships, location,
+                targetSystemId != null && !targetSystemId.isBlank() ? MODE_WARP : "",
+                targetSystemId != null && !targetSystemId.isBlank() ? 4.0 : 0.0);
+    }
+
+    public Fleet(String id, String name, String ownerEntityId, String currentSystemId,
+                 String targetSystemId, double coordinateX, double coordinateY,
+                 double transitProgress, boolean isInWarp, String fleetStance,
+                 List<ShipInstance> ships) {
+        this(id, name, ownerEntityId, currentSystemId, targetSystemId, coordinateX,
+                coordinateY, transitProgress, isInWarp, fleetStance, ships,
+                FleetLocation.at(FleetLocation.Site.deepSpace()));
+    }
+
+    public Fleet withLocation(FleetLocation value) {
+        return new Fleet(id, name, ownerEntityId, currentSystemId, targetSystemId,
+                coordinateX, coordinateY, transitProgress, isInWarp, fleetStance, ships, value,
+                interstellarMode, interstellarTravelDays, interstellarDistanceMeters,
+                interstellarAccelerationMps2, interstellarElapsedDays,
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg);
+    }
+
+    public Fleet withShips(List<ShipInstance> value) {
+        return new Fleet(id, name, ownerEntityId, currentSystemId, targetSystemId,
+                coordinateX, coordinateY, transitProgress, isInWarp, fleetStance, value, location,
+                interstellarMode, interstellarTravelDays, interstellarDistanceMeters,
+                interstellarAccelerationMps2, interstellarElapsedDays,
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg);
+    }
+
+    public boolean isInterstellarTransit() {
+        return hasInterstellarOrder()
+                && location.isAt(FleetLocation.Site.deepSpace())
+                && transitProgress > 0.0;
+    }
+
+    public boolean hasInterstellarOrder() {
+        return targetSystemId != null && !targetSystemId.isBlank();
     }
 }

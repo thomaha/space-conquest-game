@@ -17,10 +17,12 @@ To produce an item of a given complexity, you will need a production facility of
 - Nuclear fission
   - Fission reactors
   - Fission weapons
+  - Uranium and thorium refining for reactor fuel
 
 - Nuclear fusion
   - Fusion reactors
   - Fusion weapons
+  - Water isotope separation for deuterium feed
 
 - Industrial production
     - Farming applications take planetary raw materials (like liquid water, raw nitrogen, phosphates and soil minerals) or space station power grids and convert them into complex biological matter.
@@ -78,6 +80,8 @@ To produce an item of a given complexity, you will need a production facility of
   - Launch facilities
   - Fission engines, req: Fission reactors
   - Fusion engines, req: Fusion reactors
+  - MPD ion drives, req: Superconductors
+  - Antimatter drives, req: Antimatter
   - Orbital rockets
   - Interplanetary rockets
   - Spacecraft

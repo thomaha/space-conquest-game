@@ -70,7 +70,8 @@ public class MenubarViewTest {
     public void testCampaignScenarioSetupDefaults() {
         com.spaceconquest.engine.scenario.CampaignSetup setup = com.spaceconquest.engine.scenario.CampaignSetup.createDefault();
         assertNotNull(setup);
-        assertEquals(12, setup.starSystemCount());
+        assertEquals(50, setup.starSystemCount());
+        assertEquals(3, setup.aiEmpireCount());
         assertEquals(com.spaceconquest.engine.scenario.CampaignSetup.AI_BALANCED, setup.aiPersonalityDistribution());
         assertEquals(com.spaceconquest.engine.scenario.CampaignSetup.VICTORY_DOMINATION, setup.victoryConditionType());
     }

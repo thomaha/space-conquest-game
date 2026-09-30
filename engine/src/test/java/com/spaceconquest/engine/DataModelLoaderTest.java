@@ -181,7 +181,7 @@ public class DataModelLoaderTest {
         assertEquals(98.0, steel.composition().get("Fe"));
 
         Material silicon = materials.stream().filter(m -> m.id().equals("silicon")).findFirst().orElseThrow();
-        assertTrue(silicon.foundInNature());
+        assertFalse(silicon.foundInNature());
         assertEquals("Silicon", silicon.name());
         assertEquals(100.0, silicon.composition().get("Si"));
 
@@ -346,7 +346,10 @@ public class DataModelLoaderTest {
     public void testLoadTechnologies() throws IOException {
         List<Technology> technologies = DataModelLoader.loadTechnologies();
         assertNotNull(technologies);
-        assertEquals(26, technologies.size());
+        assertEquals(29, technologies.size());
+        assertTrue(technologies.stream().anyMatch(tech -> tech.id().equals("cryogenic_stasis")
+                && tech.applications().stream().anyMatch(application ->
+                application.id().equals("cryogenic_stasis_pod"))));
 
         Technology electricity = technologies.stream().filter(t -> t.id().equals("electricity")).findFirst().orElseThrow();
         assertEquals("Electricity", electricity.name());
@@ -377,7 +380,7 @@ public class DataModelLoaderTest {
         assertTrue(industrial.applications().stream().anyMatch(a -> a.id().equals("biomass_processing")));
         assertTrue(industrial.applications().stream().anyMatch(a -> a.id().equals("algae_carbon_scrubbing")));
         assertTrue(industrial.applications().stream().anyMatch(a -> a.id().equals("bioreactor_tissue_printing")));
-        assertTrue(industrial.applications().stream().anyMatch(a -> a.id().equals("pyrometallurgical_smelting")));
+        assertTrue(industrial.applications().stream().anyMatch(a -> a.id().equals("pyro_iron_smelting")));
         assertTrue(industrial.applications().stream().anyMatch(a -> a.id().equals("chemical_leaching_hydrometallurgy")));
         assertTrue(industrial.applications().stream().anyMatch(a -> a.id().equals("centrifugal_isotope_separation")));
         assertTrue(industrial.applications().stream().anyMatch(a -> a.id().equals("zero_g_magnetic_refining")));

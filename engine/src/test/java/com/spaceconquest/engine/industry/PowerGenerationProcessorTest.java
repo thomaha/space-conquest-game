@@ -44,7 +44,8 @@ class PowerGenerationProcessorTest {
         assertEquals(10_000.0, result.generationKw().get("earth"), 0.001);
         assertEquals(240_000.0, result.accounts().getFirst().generatedKwh(), 0.001);
         assertEquals(20.0, result.accounts().getFirst().inputCostsCredits(), 0.001);
-        assertEquals(480.0, result.empires().getFirst().treasuryCredits(), 0.001);
+        assertEquals(500.0, result.empires().getFirst().treasuryCredits(), 0.001);
+        assertEquals(480.0, result.industryAccounts().getFirst().operatingCashCredits(), 0.001);
         assertEquals(0.0, result.hubs().getFirst().activeOrders().get("refined_uranium").supplyKg(), 0.001);
         assertEquals(20.0, result.marketAccounts().getFirst().unsettledSalesCredits(), 0.001);
 
@@ -77,7 +78,10 @@ class PowerGenerationProcessorTest {
                 Map.of("hydrocarbons", new MarketOrder("hydrocarbons", 100.0, 0.0, 2.0, 0.0),
                         "fusion_fuel_pellets", new MarketOrder("fusion_fuel_pellets", 5.0, 0.0, 2.0, 0.0)));
         GameState state = base.toBuilder().industrialFacilities(List.of(solar, combustion, fusion))
-                .commercialHubs(List.of(hub)).build();
+                .commercialHubs(List.of(hub))
+                .industryAccounts(List.of(IndustryAccount.empty("solar").withOperatingCash(500.0),
+                        IndustryAccount.empty("burner").withOperatingCash(500.0),
+                        IndustryAccount.empty("fusion").withOperatingCash(500.0))).build();
 
         var result = generator.process(state, Map.of("solar", 100, "burner", 100, "fusion", 100), Map.of());
         assertEquals(35_500.0, result.generationKw().get("earth"), 0.001);
@@ -126,6 +130,7 @@ class PowerGenerationProcessorTest {
         CommercialHub hub = new CommercialHub("hub", "earth", 0.05, 1_000.0, fuelKg, 10.0,
                 Map.of("refined_uranium", new MarketOrder("refined_uranium", fuelKg, 0.0, 2.0, 0.0)));
         return GameState.builder().empires(List.of(empire)).industrialFacilities(List.of(reactor))
+                .industryAccounts(List.of(IndustryAccount.empty("reactor").withOperatingCash(treasury)))
                 .commercialHubs(List.of(hub)).marketAccounts(List.of(new MarketAccount("hub", 0.0)))
                 .powerGrids(List.of(new PowerGridState("earth", 99_000.0, 5_000.0, 94_000.0,
                         0.0, 0.0, false))).build();

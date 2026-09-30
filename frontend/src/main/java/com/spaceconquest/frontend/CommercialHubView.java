@@ -4,8 +4,10 @@ import com.spaceconquest.control.HumanController;
 import com.spaceconquest.control.command.CancelTradeRouteCommand;
 import com.spaceconquest.control.command.CreateTradeRouteCommand;
 import com.spaceconquest.engine.CommercialHub;
+import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.MarketOrder;
 import com.spaceconquest.engine.logistics.TradeRoute;
+import com.spaceconquest.engine.ship.ShipRole;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -40,6 +42,7 @@ public class CommercialHubView {
     private String playerEmpireId = "terran_confederation";
     private final List<CommercialHub> activeHubs = new ArrayList<>();
     private final List<TradeRoute> activeTradeRoutes = new ArrayList<>();
+    private GameState snapshot;
 
     public CommercialHubView(Menubar menubar) {
         this.menubar = menubar;
@@ -103,6 +106,12 @@ public class CommercialHubView {
         show(hubs, List.of());
     }
 
+    public void updateData(GameState state) {
+        snapshot = state;
+        if (root.isVisible() && state != null)
+            show(state.commercialHubs(), state.tradeRoutes());
+    }
+
     public void show(List<CommercialHub> hubs, List<TradeRoute> routes) {
         activeHubs.clear();
         if (hubs != null) activeHubs.addAll(hubs);
@@ -154,10 +163,8 @@ public class CommercialHubView {
         for (CommercialHub hub : activeHubs) {
             originCombo.getItems().add(hub.id());
         }
-        if (originCombo.getItems().isEmpty()) {
-            originCombo.getItems().addAll("hub_earth", "hub_mars", "hub_luna", "hub_ceres");
-        }
-        originCombo.setValue(originCombo.getItems().get(0));
+        if (!originCombo.getItems().isEmpty())
+            originCombo.setValue(originCombo.getItems().getFirst());
 
         Label destLbl = new Label("Destination hub:");
         destLbl.setTextFill(Color.LIGHTCYAN);
@@ -165,10 +172,12 @@ public class CommercialHubView {
         for (CommercialHub hub : activeHubs) {
             destCombo.getItems().add(hub.id());
         }
-        if (destCombo.getItems().isEmpty()) {
-            destCombo.getItems().addAll("hub_mars", "hub_earth", "hub_ceres", "hub_titan");
-        }
-        destCombo.setValue(destCombo.getItems().size() > 1 ? destCombo.getItems().get(1) : destCombo.getItems().get(0));
+        if (!destCombo.getItems().isEmpty())
+            destCombo.setValue(destCombo.getItems().get(destCombo.getItems().size() > 1 ? 1 : 0));
+
+        Label freighterLabel = new Label("Freighter:");
+        freighterLabel.setTextFill(Color.LIGHTCYAN);
+        ComboBox<String> freighterCombo = availableFreighters();
 
         Label matLbl = new Label("Cargo material:");
         matLbl.setTextFill(Color.LIGHTCYAN);
@@ -187,6 +196,7 @@ public class CommercialHubView {
         thresholdSpinner.setPrefWidth(90);
 
         Button establishBtn = new Button("Commission trade route");
+        establishBtn.setDisable(activeHubs.size() < 2 || freighterCombo.getItems().isEmpty());
         establishBtn.setStyle("-fx-background-color: #e67e22; -fx-text-fill: white; -fx-font-weight: bold;");
         establishBtn.setOnAction(e -> {
             if (humanController != null) {
@@ -199,7 +209,7 @@ public class CommercialHubView {
                         amountSpinner.getValue(),
                         thresholdSpinner.getValue(),
                         50000.0,
-                        List.of("freighter_01")
+                        List.of(freighterCombo.getValue())
                 ));
                 feedbackLabel.setText("Commissioned trade route: " + matCombo.getValue() + " from " + originCombo.getValue() + " to " + destCombo.getValue());
                 feedbackLabel.setTextFill(Color.LIGHTGREEN);
@@ -218,10 +228,28 @@ public class CommercialHubView {
 
         grid.add(thresholdLbl, 0, 2);
         grid.add(thresholdSpinner, 1, 2);
-        grid.add(establishBtn, 2, 2, 2, 1);
+        grid.add(freighterLabel, 2, 2);
+        grid.add(freighterCombo, 3, 2);
+        grid.add(establishBtn, 2, 3, 2, 1);
 
         section.getChildren().addAll(title, grid);
         return section;
+    }
+
+    private ComboBox<String> availableFreighters() {
+        ComboBox<String> choices = new ComboBox<>();
+        if (snapshot == null) return choices;
+        snapshot.fleets().stream().filter(fleet -> playerEmpireId.equals(fleet.ownerEntityId()))
+                .filter(fleet -> activeTradeRoutes.stream().filter(TradeRoute::isActive)
+                        .flatMap(route -> route.assignedFreighterIds().stream())
+                        .noneMatch(id -> fleet.ships().stream().anyMatch(ship -> id.equals(ship.id()))))
+                .flatMap(fleet -> fleet.ships().stream())
+                .filter(ship -> snapshot.shipDesigns().stream().anyMatch(design ->
+                        design.id().equals(ship.designId())
+                                && ShipRole.CARGO_TRANSPORT.equalsIgnoreCase(design.role())))
+                .map(ship -> ship.id()).forEach(choices.getItems()::add);
+        if (!choices.getItems().isEmpty()) choices.setValue(choices.getItems().getFirst());
+        return choices;
     }
 
     private VBox createActiveRoutesSection() {
@@ -245,12 +273,18 @@ public class CommercialHubView {
                 row.setPadding(new Insets(6));
                 row.setStyle("-fx-background-color: rgba(30, 45, 70, 0.6); -fx-background-radius: 4;");
 
-                Text info = new Text(String.format("• [%s] %s | Moving %,.0f kg/turn %s (Total moved: %,.0f kg) | Status: %s",
+                Text info = new Text(String.format("• [%s] %s | %,.0f kg/load %s | Delivered: %,.0f kg | %s, onboard %,.0f kg | %s",
                         r.id(), r.name(), r.transferAmountPerTurnKg(), r.materialId(), r.totalVolumeMovedKg(),
-                        r.isActive() ? "ACTIVE" : "INACTIVE"));
+                        r.phase(), r.onboardKg(), r.isActive() ? "ACTIVE" : "CLOSING"));
                 info.setFill(r.isActive() ? Color.LIGHTGREEN : Color.GRAY);
                 info.setFont(Font.font("Verdana", 11));
-                HBox.setHgrow(info, Priority.ALWAYS);
+                Text finances = new Text(String.format("Cargo cost: %,.0f credits | Today: %+.0f credits | Total: %+.0f credits",
+                        r.onboardCostCredits(), r.dailyOperatingResultCredits(),
+                        r.cumulativeOperatingResultCredits()));
+                finances.setFill(r.dailyOperatingResultCredits() < 0.0 ? Color.SALMON : Color.LIGHTCYAN);
+                finances.setFont(Font.font("Verdana", 10));
+                VBox routeDetails = new VBox(2, info, finances);
+                HBox.setHgrow(routeDetails, Priority.ALWAYS);
 
                 if (r.isActive()) {
                     Button cancelBtn = new Button("Cancel");
@@ -262,9 +296,9 @@ public class CommercialHubView {
                             feedbackLabel.setTextFill(Color.LIGHTGREEN);
                         }
                     });
-                    row.getChildren().addAll(info, cancelBtn);
+                    row.getChildren().addAll(routeDetails, cancelBtn);
                 } else {
-                    row.getChildren().add(info);
+                    row.getChildren().add(routeDetails);
                 }
                 section.getChildren().add(row);
             }

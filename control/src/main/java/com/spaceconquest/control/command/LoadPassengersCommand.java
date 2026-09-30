@@ -1,74 +1,58 @@
 package com.spaceconquest.control.command;
 
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.habitation.PassengerTransitProcessor;
+import com.spaceconquest.engine.habitation.PassengerStasis;
 import com.spaceconquest.engine.ship.Fleet;
+import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.ShipInstance;
 
-import java.util.ArrayList;
-import java.util.List;
-
-/**
- * Command to embark passengers/troops onto a spaceship.
- */
+/** Books actual residents onto a ship for one explicit offworld destination. */
 public record LoadPassengersCommand(
         String fleetId,
         String shipId,
         String passengerRaceId,
         int passengerCount,
-        String transitMode
+        String transitMode,
+        String destinationBodyId
 ) implements GameCommand {
+    /** An unaddressed passenger request cannot remove people from a population. */
+    @Deprecated(forRemoval = true)
+    public LoadPassengersCommand(String fleetId, String shipId, String passengerRaceId,
+                                 int passengerCount, String transitMode) {
+        this(fleetId, shipId, passengerRaceId, passengerCount, transitMode, null);
+    }
 
     @Override
     public boolean validate(GameState state) {
-        if (state == null || fleetId == null || shipId == null || passengerCount <= 0) {
-            return false;
-        }
-
-        return state.fleets().stream()
-                .filter(f -> f.id().equals(fleetId))
-                .flatMap(f -> f.ships().stream())
-                .anyMatch(s -> s.id().equals(shipId));
+        if (state == null || fleetId == null || shipId == null || passengerRaceId == null
+                || destinationBodyId == null || passengerCount <= 0) return false;
+        Fleet fleet = state.fleets().stream().filter(item -> fleetId.equals(item.id()))
+                .findFirst().orElse(null);
+        if (fleet == null) return false;
+        ShipInstance ship = fleet.ships().stream().filter(item -> shipId.equals(item.id()))
+                .findFirst().orElse(null);
+        if (ship == null || !fleet.ownerEntityId().equals(ship.ownerEntityId())) return false;
+        String mode = transitMode == null || transitMode.isBlank()
+                ? ShipInstance.MODE_CONSCIOUS : transitMode;
+        if (!ShipInstance.MODE_CONSCIOUS.equalsIgnoreCase(mode)
+                && !ShipInstance.MODE_CRYOGENIC_STASIS.equalsIgnoreCase(mode)) return false;
+        if (ShipInstance.MODE_CRYOGENIC_STASIS.equalsIgnoreCase(mode)
+                && !PassengerStasis.availableFor(state, ship, passengerCount)) return false;
+        ShipDesign design = state.shipDesigns().stream()
+                .filter(item -> ship.designId().equals(item.id())).findFirst().orElse(null);
+        double cargoKg = ship.storedCargoKg().values().stream().mapToDouble(Double::doubleValue).sum();
+        return design != null && cargoKg + passengerCount * 80.0 <= design.maxCargoMassKg()
+                && PassengerTransitProcessor.canBoard(state, shipId, passengerRaceId,
+                passengerCount, destinationBodyId);
     }
 
     @Override
     public GameState apply(GameState state) {
-        if (!validate(state)) {
-            return state;
-        }
-
-        String mode = (transitMode != null && !transitMode.isEmpty())
-                ? transitMode.toUpperCase()
-                : ShipInstance.MODE_CRYOGENIC_STASIS;
-
-        List<Fleet> updatedFleets = new ArrayList<>();
-        for (Fleet fleet : state.fleets()) {
-            if (fleet.id().equals(fleetId)) {
-                List<ShipInstance> updatedShips = new ArrayList<>();
-                for (ShipInstance ship : fleet.ships()) {
-                    if (ship.id().equals(shipId)) {
-                        updatedShips.add(new ShipInstance(
-                                ship.id(), ship.designId(), ship.ownerEntityId(),
-                                ship.currentHullHealth(), ship.currentShieldHealth(), ship.currentFuelKg(),
-                                ship.storedCargoKg(), passengerCount, passengerRaceId != null ? passengerRaceId : "human", mode
-                        ));
-                    } else {
-                        updatedShips.add(ship);
-                    }
-                }
-                updatedFleets.add(new Fleet(
-                        fleet.id(), fleet.name(), fleet.ownerEntityId(),
-                        fleet.currentSystemId(), fleet.targetSystemId(),
-                        fleet.coordinateX(), fleet.coordinateY(),
-                        fleet.transitProgress(), fleet.isInWarp(), fleet.fleetStance(),
-                        updatedShips
-                ));
-            } else {
-                updatedFleets.add(fleet);
-            }
-        }
-
-        return state.toBuilder()
-                .fleets(updatedFleets)
-                .build();
+        if (!validate(state)) return state;
+        String mode = transitMode == null || transitMode.isBlank()
+                ? ShipInstance.MODE_CONSCIOUS : transitMode.toUpperCase();
+        return PassengerTransitProcessor.board(state, shipId, passengerRaceId,
+                passengerCount, destinationBodyId, mode);
     }
 }

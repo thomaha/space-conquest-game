@@ -19,7 +19,7 @@ public enum GameStartScenario {
             "Healthy industrialized homeworld, colonies in the starting system and offworld mining bases",
             LocalDateTime.of(2050, 1, 1, 8, 0),
             List.of("electricity", "rocketry", "nuclear_fission", "industrial_production",
-                    "computers", "robotics", "supply_chain_automation"),
+                    "computers", "robotics", "supply_chain_automation", "methalox_propulsion"),
             List.of("cargo_transport_mk1", "mining_vessel_mk1")
     ),
     BASIC_WARP(
@@ -28,7 +28,8 @@ public enum GameStartScenario {
             LocalDateTime.of(2200, 1, 1, 8, 0),
             List.of("electricity", "rocketry", "nuclear_fission", "industrial_production",
                     "computers", "robotics", "supply_chain_automation", "superconductors",
-                    "geological_prospecting", "nuclear_fusion", "energy_fields",
+                    "geological_prospecting", "nuclear_fusion", "methalox_propulsion",
+                    "hydrolox_propulsion", "energy_fields",
                     "gravitational_engineering", "warp"),
             List.of("cargo_transport_mk1", "mining_vessel_mk1", "scout_corvette_mk1", "colony_transport_mk1")
     );

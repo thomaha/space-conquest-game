@@ -22,6 +22,7 @@ public class ShipDesignValidator {
             double powerBalanceKw,
             double totalDryMassKg,
             double maxCargoMassKg,
+            double fuelCapacityKg,
             double totalThrustN,
             double minLaunchThrustRequiredN,
             List<String> validationErrors
@@ -34,6 +35,7 @@ public class ShipDesignValidator {
             double powerOutput,
             double thrust,
             double maxCargo,
+            double fuelCapacity,
             double troopCapacity,
             double colonizationCapacity,
             double miningRate,
@@ -74,6 +76,7 @@ public class ShipDesignValidator {
                 armorThicknessCm,
                 res.totalDryMassKg(),
                 res.maxCargoMassKg(),
+                res.fuelCapacityKg(),
                 res.powerBalanceKw(),
                 res.structuralIntegrity(),
                 res.minLaunchThrustRequiredN(),
@@ -99,6 +102,10 @@ public class ShipDesignValidator {
     ) {
         List<String> errors = new ArrayList<>();
         ModuleAggregation agg = aggregateModules(modules);
+        List<String> moduleIds = modules == null ? List.of()
+                : modules.stream().map(ShipModule::id).toList();
+        if (!PropulsionCatalog.validConfiguration(moduleIds, agg.fuelCapacity()))
+            errors.add("A recognized main drive needs one drive and a positive propellant tank capacity");
 
         int maxFrameSlots = (frame != null) ? frame.totalSlots() : 100;
         if (agg.totalSlots() > maxFrameSlots) {
@@ -131,7 +138,7 @@ public class ShipDesignValidator {
 
         double gravity = Math.max(0.1, homePlanetGravity);
         double atmosphere = Math.max(0.0, homeAtmospherePressure);
-        double maxLaunchMass = totalDryMass + agg.maxCargo();
+        double maxLaunchMass = totalDryMass + agg.maxCargo() + agg.fuelCapacity();
         double minLaunchThrustRequiredN = maxLaunchMass * gravity * (1.0 + atmosphere);
         boolean isLaunchCapable = agg.thrust() >= minLaunchThrustRequiredN;
 
@@ -142,6 +149,7 @@ public class ShipDesignValidator {
                 powerBalance,
                 totalDryMass,
                 agg.maxCargo(),
+                agg.fuelCapacity(),
                 agg.thrust(),
                 minLaunchThrustRequiredN,
                 errors
@@ -155,6 +163,7 @@ public class ShipDesignValidator {
         double powerOutput = 0.0;
         double thrust = 0.0;
         double maxCargo = 0.0;
+        double fuelCapacity = 0.0;
         double troopCapacity = 0.0;
         double colonizationCapacity = 0.0;
         double miningRate = 0.0;
@@ -171,6 +180,7 @@ public class ShipDesignValidator {
 
                 Map<String, Double> stats = mod.operationalStats();
                 if (stats.containsKey("cargoCapacityKg")) maxCargo += stats.get("cargoCapacityKg");
+                if (stats.containsKey("fuelCapacityKg")) fuelCapacity += stats.get("fuelCapacityKg");
                 if (stats.containsKey("troopCapacity")) troopCapacity += stats.get("troopCapacity");
                 if (stats.containsKey("colonizationCapacity")) colonizationCapacity += stats.get("colonizationCapacity");
                 if (stats.containsKey("miningRateKgPerTurn")) miningRate += stats.get("miningRateKgPerTurn");
@@ -178,7 +188,8 @@ public class ShipDesignValidator {
         }
         return new ModuleAggregation(
                 totalSlots, dryMass, powerDraw, powerOutput, thrust,
-                maxCargo, troopCapacity, colonizationCapacity, miningRate, highestModuleComplexity
+                maxCargo, fuelCapacity, troopCapacity, colonizationCapacity,
+                miningRate, highestModuleComplexity
         );
     }
 

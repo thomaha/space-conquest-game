@@ -326,8 +326,13 @@ public class IndustryView {
                 ProgressBar bar = new ProgressBar(proj.accumulatedWorkHours() / Math.max(1.0, proj.requiredWorkHours()));
                 bar.setPrefWidth(400);
 
-                Text progText = new Text(String.format("Work hours: %.0f / %.0f (%.1f%%)",
-                        proj.accumulatedWorkHours(), proj.requiredWorkHours(), proj.getProgressPercentage()));
+                double requiredKg = proj.requiredMaterialsKg().values().stream()
+                        .mapToDouble(Double::doubleValue).sum();
+                double usedKg = proj.consumedMaterialsKg().values().stream()
+                        .mapToDouble(Double::doubleValue).sum();
+                Text progText = new Text(String.format("Work: %.0f / %.0f hours (%.1f%%) | Materials: %.0f / %.0f kg",
+                        proj.accumulatedWorkHours(), proj.requiredWorkHours(),
+                        proj.getProgressPercentage(), usedKg, requiredKg));
                 progText.setFill(Color.WHITE);
                 progText.setFont(Font.font("Verdana", 11));
 

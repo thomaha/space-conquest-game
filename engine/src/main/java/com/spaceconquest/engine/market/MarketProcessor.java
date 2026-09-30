@@ -65,8 +65,41 @@ public class MarketProcessor {
             basePrice = DEFAULT_BASE_PRICE;
         }
         double ratio = (demandKg - supplyKg) / (supplyKg + demandKg + 1.0);
-        double multiplier = Math.max(0.1, 1.0 + ratio);
+        double multiplier = Math.max(0.4, 1.0 + ratio);
         return Math.round(basePrice * multiplier * 100.0) / 100.0;
+    }
+
+    /** Baseline local prices in credits per kilogram before supply and demand adjustment. */
+    public static double basePricePerKg(String resourceId) {
+        if (resourceId == null) return DEFAULT_BASE_PRICE;
+        if ("silver_ore".equals(resourceId)) return 30.0;
+        if (resourceId.endsWith("_ore")) return 2.0;
+        return switch (resourceId) {
+            case "water_ice" -> 1.0;
+            case "purified_water" -> 1.5;
+            case "gold" -> 200.0;
+            case "rare_earth_fluorides" -> 50.0;
+            case "refined_silver" -> 100.0;
+            case "refined_rare_earths" -> 250.0;
+            case "refined_uranium", "refined_thorium" -> 100.0;
+            case "deuterium_gas" -> 1_000.0;
+            case "fusion_fuel_pellets" -> 2_000.0;
+            case "rp1_kerosene" -> 4.0;
+            case "liquid_methane" -> 5.0;
+            case "liquid_oxygen" -> 4.0;
+            case "liquid_hydrogen" -> 8.0;
+            case "carbon", "hydrocarbons", "nitrates",
+                    "phosphates", "potash", "silicates", "limestone",
+                    "methane_ice", "nitrogen_gas", "oxygen_gas", "hydrogen_gas",
+                    "helium_3", "carbon_monoxide_ice", "carbon_dioxide_gas" -> 2.0;
+            case "food_matrix" -> 4.0;
+            case "agricultural_biomass" -> 3.0;
+            case "refined_iron", "bio_polymers" -> 5.0;
+            case "refined_aluminum", "refined_copper", "silicon" -> 10.0;
+            case "consumer_goods" -> 12.0;
+            case "luxury_goods" -> 24.0;
+            default -> DEFAULT_BASE_PRICE;
+        };
     }
 
     /**
@@ -299,8 +332,9 @@ public class MarketProcessor {
         for (Map.Entry<String, MarketOrder> entry : hub.activeOrders().entrySet()) {
             String resourceId = entry.getKey();
             MarketOrder order = entry.getValue();
-            double spotPrice = calculateSpotPrice(DEFAULT_BASE_PRICE, order.supplyKg(), order.demandKg());
-            double priceModifier = spotPrice / DEFAULT_BASE_PRICE;
+            double basePrice = basePricePerKg(resourceId);
+            double spotPrice = calculateSpotPrice(basePrice, order.supplyKg(), order.demandKg());
+            double priceModifier = spotPrice / basePrice;
             double shortcoming = calculateShortcomingScore(order.supplyKg(), order.demandKg(), priceModifier);
 
             updatedOrders.put(resourceId, new MarketOrder(

@@ -26,7 +26,7 @@ class RefinementProcessorTest {
                 .orElse(null);
         assertNotNull(pyroSmelting);
 
-        Map<String, Double> mats = Map.of("iron_ore", 1000.0, "carbon_monoxide_ice", 200.0);
+        Map<String, Double> mats = Map.of("iron_ore", 1000.0, "carbon", 112.5);
 
         // Fails in microgravity (0.01 m/s² < 1.0 m/s²)
         RefinementProcessor.RefinementExecutionResult failRes = processor.processRecipeExecution(
@@ -40,7 +40,7 @@ class RefinementProcessorTest {
         );
         assertTrue(successRes.isSuccessful());
         assertEquals(700.0, successRes.producedOutputsKg().get("refined_iron"));
-        assertEquals(300.0, successRes.producedByproductsKg().get("oxygen_gas"));
+        assertEquals(412.5, successRes.producedByproductsKg().get("carbon_dioxide_gas"));
     }
 
     @Test

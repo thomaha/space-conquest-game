@@ -11,23 +11,27 @@ import com.spaceconquest.engine.espionage.EspionageOperation;
 import com.spaceconquest.engine.espionage.PirateBase;
 import com.spaceconquest.engine.espionage.SleeperAgent;
 import com.spaceconquest.engine.galaxy.FogOfWarState;
+import com.spaceconquest.engine.habitation.PassengerManifest;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
 import com.spaceconquest.engine.industry.IndustrialFacility;
 import com.spaceconquest.engine.industry.IndustryAccount;
 import com.spaceconquest.engine.industry.PowerGridState;
 import com.spaceconquest.engine.logistics.TradeRoute;
+import com.spaceconquest.engine.logistics.LaunchServiceActivity;
 import com.spaceconquest.engine.macrostructure.ConstructionDeploymentProject;
 import com.spaceconquest.engine.macrostructure.OrbitalStation;
 import com.spaceconquest.engine.macrostructure.SpaceElevator;
 import com.spaceconquest.engine.megastructure.Megastructure;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.ShipDesign;
+import com.spaceconquest.engine.ship.ShipConstructionOrder;
 import com.spaceconquest.engine.technology.ResearchProject;
 import com.spaceconquest.engine.technology.TechnologyExchangeRoute;
 import com.spaceconquest.engine.terraforming.GeoengineeringProject;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Immutable snapshot of the complete simulation state at a specific turn.
@@ -45,7 +49,9 @@ public record GameState(
         List<ResearchProject> researchProjects,
         List<TechnologyExchangeRoute> technologyExchangeRoutes,
         List<ShipDesign> shipDesigns,
+        List<ShipConstructionOrder> shipConstructionOrders,
         List<Fleet> fleets,
+        List<PassengerManifest> passengerManifests,
         List<GeologicalDeposit> geologicalDeposits,
         List<PowerGridState> powerGrids,
         List<IndustrialFacility> industrialFacilities,
@@ -68,7 +74,9 @@ public record GameState(
         List<HouseholdAccount> householdAccounts,
         List<MarketAccount> marketAccounts,
         List<IndustryAccount> industryAccounts,
-        List<CorporateTaxAccount> corporateTaxAccounts
+        List<CorporateTaxAccount> corporateTaxAccounts,
+        Map<String, Double> launchUsageKg,
+        List<LaunchServiceActivity> launchActivities
 ) {
     public GameState {
         if (solarSystems == null) solarSystems = List.of();
@@ -81,7 +89,9 @@ public record GameState(
         if (researchProjects == null) researchProjects = List.of();
         if (technologyExchangeRoutes == null) technologyExchangeRoutes = List.of();
         if (shipDesigns == null) shipDesigns = List.of();
+        if (shipConstructionOrders == null) shipConstructionOrders = List.of();
         if (fleets == null) fleets = List.of();
+        if (passengerManifests == null) passengerManifests = List.of();
         if (geologicalDeposits == null) geologicalDeposits = List.of();
         if (powerGrids == null) powerGrids = List.of();
         if (industrialFacilities == null) industrialFacilities = List.of();
@@ -104,6 +114,8 @@ public record GameState(
         if (marketAccounts == null) marketAccounts = List.of();
         if (industryAccounts == null) industryAccounts = List.of();
         if (corporateTaxAccounts == null) corporateTaxAccounts = List.of();
+        if (launchUsageKg == null) launchUsageKg = Map.of();
+        if (launchActivities == null) launchActivities = List.of();
     }
 
     public GameState() {
@@ -115,13 +127,14 @@ public record GameState(
                 builder.turn, builder.status, builder.solarSystems, builder.empires,
                 builder.corporations, builder.commercialHubs, builder.shadowSyndicates, builder.diplomaticRelations,
                 builder.systemGovernors, builder.researchProjects, builder.technologyExchangeRoutes, builder.shipDesigns,
-                builder.fleets, builder.geologicalDeposits, builder.powerGrids, builder.industrialFacilities,
+                builder.shipConstructionOrders, builder.fleets, builder.passengerManifests,
+                builder.geologicalDeposits, builder.powerGrids, builder.industrialFacilities,
                 builder.expansionProjects, builder.orbitalStations, builder.spaceElevators, builder.constructionProjects,
                 builder.sleeperAgents, builder.espionageOperations, builder.pirateBases, builder.terraformingProjects,
                 builder.megastructures, builder.galacticCommunity, builder.tradeRoutes, builder.fogOfWarStates,
                 builder.systemEconomies, builder.courierShips, builder.planetaryBalanceSheets, builder.imperialBalanceSheets,
                 builder.householdAccounts, builder.marketAccounts, builder.industryAccounts,
-                builder.corporateTaxAccounts
+                builder.corporateTaxAccounts, builder.launchUsageKg, builder.launchActivities
         );
     }
 
@@ -146,7 +159,9 @@ public record GameState(
         private List<ResearchProject> researchProjects;
         private List<TechnologyExchangeRoute> technologyExchangeRoutes;
         private List<ShipDesign> shipDesigns;
+        private List<ShipConstructionOrder> shipConstructionOrders;
         private List<Fleet> fleets;
+        private List<PassengerManifest> passengerManifests;
         private List<GeologicalDeposit> geologicalDeposits;
         private List<PowerGridState> powerGrids;
         private List<IndustrialFacility> industrialFacilities;
@@ -170,6 +185,8 @@ public record GameState(
         private List<MarketAccount> marketAccounts;
         private List<IndustryAccount> industryAccounts;
         private List<CorporateTaxAccount> corporateTaxAccounts;
+        private Map<String, Double> launchUsageKg;
+        private List<LaunchServiceActivity> launchActivities;
 
         public Builder() {}
 
@@ -186,7 +203,9 @@ public record GameState(
             this.researchProjects = state.researchProjects();
             this.technologyExchangeRoutes = state.technologyExchangeRoutes();
             this.shipDesigns = state.shipDesigns();
+            this.shipConstructionOrders = state.shipConstructionOrders();
             this.fleets = state.fleets();
+            this.passengerManifests = state.passengerManifests();
             this.geologicalDeposits = state.geologicalDeposits();
             this.powerGrids = state.powerGrids();
             this.industrialFacilities = state.industrialFacilities();
@@ -210,6 +229,8 @@ public record GameState(
             this.marketAccounts = state.marketAccounts();
             this.industryAccounts = state.industryAccounts();
             this.corporateTaxAccounts = state.corporateTaxAccounts();
+            this.launchUsageKg = state.launchUsageKg();
+            this.launchActivities = state.launchActivities();
         }
 
         public Builder turn(long value) { this.turn = value; return this; }
@@ -224,7 +245,9 @@ public record GameState(
         public Builder researchProjects(List<ResearchProject> value) { this.researchProjects = value; return this; }
         public Builder technologyExchangeRoutes(List<TechnologyExchangeRoute> value) { this.technologyExchangeRoutes = value; return this; }
         public Builder shipDesigns(List<ShipDesign> value) { this.shipDesigns = value; return this; }
+        public Builder shipConstructionOrders(List<ShipConstructionOrder> value) { this.shipConstructionOrders = value; return this; }
         public Builder fleets(List<Fleet> value) { this.fleets = value; return this; }
+        public Builder passengerManifests(List<PassengerManifest> value) { this.passengerManifests = value; return this; }
         public Builder geologicalDeposits(List<GeologicalDeposit> value) { this.geologicalDeposits = value; return this; }
         public Builder powerGrids(List<PowerGridState> value) { this.powerGrids = value; return this; }
         public Builder industrialFacilities(List<IndustrialFacility> value) { this.industrialFacilities = value; return this; }
@@ -248,6 +271,8 @@ public record GameState(
         public Builder marketAccounts(List<MarketAccount> value) { this.marketAccounts = value; return this; }
         public Builder industryAccounts(List<IndustryAccount> value) { this.industryAccounts = value; return this; }
         public Builder corporateTaxAccounts(List<CorporateTaxAccount> value) { this.corporateTaxAccounts = value; return this; }
+        public Builder launchUsageKg(Map<String, Double> value) { this.launchUsageKg = value; return this; }
+        public Builder launchActivities(List<LaunchServiceActivity> value) { this.launchActivities = value; return this; }
 
         public GameState build() {
             return new GameState(this);
@@ -300,6 +325,10 @@ public record GameState(
 
     public GameState withShipDesigns(List<ShipDesign> value) {
         return toBuilder().shipDesigns(value).build();
+    }
+
+    public GameState withShipConstructionOrders(List<ShipConstructionOrder> value) {
+        return toBuilder().shipConstructionOrders(value).build();
     }
 
     public GameState withFleets(List<Fleet> value) {

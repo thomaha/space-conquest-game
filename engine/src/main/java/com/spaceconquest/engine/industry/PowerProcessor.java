@@ -72,14 +72,20 @@ public class PowerProcessor {
         List<PowerGridState> grids = new ArrayList<>();
         Set<String> bodies = new HashSet<>(generationKw.keySet());
         for (PowerGridState grid : state.powerGrids()) bodies.add(grid.entityId());
+        state.launchActivities().forEach(activity -> bodies.add(activity.bodyId()));
         for (IndustrialFacility facility : state.industrialFacilities()) {
             if (IndustryRecipeCatalog.find(facility.applicationId()) != null) bodies.add(facility.planetId());
         }
         for (String bodyId : bodies) {
             PowerGridState prior = state.powerGrids().stream()
                     .filter(grid -> grid.entityId().equals(bodyId)).findFirst().orElse(null);
+            double launchInstantKw = state.launchActivities().stream()
+                    .filter(activity -> bodyId.equals(activity.bodyId()))
+                    .mapToDouble(activity -> activity.powerKwh()).sum();
             double baseKw = baselineDemandKw(state, bodyId,
-                    prior == null ? 0.0 : prior.totalDemandKw());
+                    prior == null ? 0.0 : Math.max(0.0,
+                            prior.totalDemandKw() - launchInstantKw))
+                    + launchInstantKw / HOURS_PER_DAY;
             double generated = generationKw.getOrDefault(bodyId, 0.0);
             double battery = prior == null ? 0.0 : prior.currentStoredKwh();
             double capacity = prior == null ? 0.0 : prior.batteryCapacityKwh();
@@ -90,7 +96,9 @@ public class PowerProcessor {
                     .filter(facility -> IndustryRecipeCatalog.find(facility.applicationId()) != null)
                     .sorted(Comparator.comparingInt(this::powerPriority)).toList();
             for (IndustrialFacility facility : consumers) {
-                int workers = paidWorkers.getOrDefault(facility.id(), 0);
+                int workers = IndustrialFacility.HIVE_GRID.equals(facility.ownershipType())
+                        ? Math.max(0, facility.allocatedWorkers())
+                        : paidWorkers.getOrDefault(facility.id(), 0);
                 IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(facility.applicationId());
                 if (workers <= 0 || recipe == null) continue;
                 double requested = requestedIndustryKw(facility, workers);

@@ -312,13 +312,7 @@ public class TacticalCombatProcessor {
     }
 
     private Fleet createUpdatedFleet(Fleet original, List<ShipInstance> survivingShips) {
-        return new Fleet(
-                original.id(), original.name(), original.ownerEntityId(),
-                original.currentSystemId(), original.targetSystemId(),
-                original.coordinateX(), original.coordinateY(),
-                original.transitProgress(), original.isInWarp(),
-                original.fleetStance(), survivingShips
-        );
+        return original.withShips(survivingShips);
     }
 
     private List<ShipVisualState> buildVisualStates(List<ShipInstance> ships, List<ShipDesign> designs, boolean isAttacker, String targetedSubsystem) {

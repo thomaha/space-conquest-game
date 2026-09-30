@@ -7,12 +7,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Simulates sub-light maneuvering, FTL warp bubble transits, fuel depletion and fleet stances.
+ * Simulates sub-light maneuvering, FTL warp bubble transits and fleet stances.
  */
 public class FleetProcessor {
 
     public static final double BASE_WARP_SPEED_PER_TURN = 0.25;
-    public static final double FTL_FUEL_CONSUMPTION_KG = 5.0;
 
     /**
      * Updates all active fleets for one turn cycle.
@@ -42,80 +41,56 @@ public class FleetProcessor {
 
         boolean inWarp = fleet.isInWarp();
         double progress = fleet.transitProgress();
+        double elapsedDays = fleet.interstellarElapsedDays();
         String currentSys = fleet.currentSystemId();
         String targetSys = fleet.targetSystemId();
         double posX = fleet.coordinateX();
         double posY = fleet.coordinateY();
+        FleetLocation location = fleet.location();
+        boolean wasLocalTransit = location.inTransit();
 
-        List<ShipInstance> updatedShips = new ArrayList<>(fleet.ships());
+        List<ShipInstance> updatedShips = repairDockedShips(fleet, stations, relations);
 
-        // Allied Repairs (Point 1): Repair ships if fleet is at an allied Military Hangar
-        if (!inWarp && stations != null) {
-            for (OrbitalStation station : stations) {
-                if (station.systemId().equals(currentSys)) {
-                    // Check if owner is ally
-                    boolean isAlly = fleet.ownerEntityId().equals(station.ownerEntityId());
-                    if (!isAlly && relations != null) {
-                        for (DiplomaticRelation rel : relations) {
-                            if (rel.tier().contains("ALLIANCE") || rel.tier().contains("FEDERATION")) {
-                                if ((rel.empireAId().equals(fleet.ownerEntityId()) && rel.empireBId().equals(station.ownerEntityId()))
-                                        || (rel.empireBId().equals(fleet.ownerEntityId()) && rel.empireAId().equals(station.ownerEntityId()))) {
-                                    isAlly = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    if (isAlly && station.hasModuleType(StationModule.TYPE_MILITARY_HANGAR)) {
-                        updatedShips = updatedShips.stream().map(ship -> {
-                            double newHull = Math.min(100.0, ship.currentHullHealth() + 5.0); // Simple 5% repair
-                            double newShield = Math.min(100.0, ship.currentShieldHealth() + 10.0);
-                            return new ShipInstance(
-                                    ship.id(), ship.designId(), ship.ownerEntityId(),
-                                    newHull, newShield,
-                                    ship.currentFuelKg(), ship.storedCargoKg(),
-                                    ship.passengerCount(), ship.passengerRaceId(), ship.transitMode()
-                            );
-                        }).toList();
-                        break;
-                    }
-                }
+        if (!inWarp && location.inTransit()) location = location.advanceDay();
+        else if (!inWarp && !fleet.isInterstellarTransit()
+                && targetSys != null && !targetSys.isEmpty()
+                && !targetSys.equals(currentSys)) {
+            FleetLocation.Site departure = FleetLocation.Site.deepSpace();
+            if (location.isAt(departure)) {
+                inWarp = Fleet.MODE_WARP.equals(fleet.interstellarMode());
+                progress = 0.0;
+                elapsedDays = 0.0;
             }
         }
 
-        // 1. Check if initiating interstellar warp transit
-        if (!inWarp && targetSys != null && !targetSys.isEmpty() && !targetSys.equals(currentSys)) {
-            inWarp = true;
-            progress = 0.0;
-        }
+        boolean crossing = targetSys != null && !targetSys.isEmpty()
+                && !wasLocalTransit
+                && location.isAt(FleetLocation.Site.deepSpace())
+                && (inWarp || Fleet.MODE_SUBLIGHT.equals(fleet.interstellarMode()));
+        if (crossing) {
+            double days = fleet.interstellarTravelDays() > 0.0
+                    ? fleet.interstellarTravelDays() : 1.0 / BASE_WARP_SPEED_PER_TURN;
+            elapsedDays += 1.0;
+            progress = Fleet.MODE_SUBLIGHT.equals(fleet.interstellarMode())
+                    && fleet.interstellarDistanceMeters() > 0.0
+                    && fleet.interstellarAccelerationMps2() > 0.0
+                    ? InterstellarTravel.progress(fleet.interstellarDistanceMeters(),
+                    fleet.interstellarAccelerationMps2(),
+                    fleet.interstellarPeakSpeedMps() > 0.0
+                            ? fleet.interstellarPeakSpeedMps() : InterstellarTravel.MAX_CRUISE_MPS,
+                    elapsedDays * InterstellarTravel.SECONDS_PER_DAY)
+                    : elapsedDays / days;
 
-        // 2. Advance warp transit
-        if (inWarp) {
-            progress += BASE_WARP_SPEED_PER_TURN;
-
-            // Deplete fuel across fleet ships
-            updatedShips = updatedShips.stream().map(ship -> {
-                double newFuel = Math.max(0.0, ship.currentFuelKg() - FTL_FUEL_CONSUMPTION_KG);
-                return new ShipInstance(
-                        ship.id(), ship.designId(), ship.ownerEntityId(),
-                        ship.currentHullHealth(), ship.currentShieldHealth(),
-                        newFuel, ship.storedCargoKg()
-                );
-            }).toList();
+            updatedShips = burnSublightFuel(fleet, updatedShips, elapsedDays);
 
             // Check if arrived at destination
-            if (progress >= 1.0) {
+            if (progress + 0.000000001 >= 1.0) {
                 inWarp = false;
                 progress = 0.0;
+                elapsedDays = 0.0;
                 currentSys = targetSys;
                 targetSys = "";
-            }
-        } else {
-            // Sub-light localized positioning or patrol stance
-            if ("PATROL".equalsIgnoreCase(fleet.fleetStance())) {
-                posX = (posX + 1.0) % 100.0;
-                posY = (posY + 1.0) % 100.0;
+                location = FleetLocation.at(FleetLocation.Site.deepSpace());
             }
         }
 
@@ -130,8 +105,67 @@ public class FleetProcessor {
                 progress,
                 inWarp,
                 fleet.fleetStance(),
-                updatedShips
+                updatedShips,
+                location,
+                targetSys.isEmpty() ? "" : fleet.interstellarMode(),
+                targetSys.isEmpty() ? 0.0 : fleet.interstellarTravelDays(),
+                targetSys.isEmpty() ? 0.0 : fleet.interstellarDistanceMeters(),
+                targetSys.isEmpty() ? 0.0 : fleet.interstellarAccelerationMps2(),
+                elapsedDays,
+                targetSys.isEmpty() ? 0.0 : fleet.interstellarPeakSpeedMps(),
+                targetSys.isEmpty() ? java.util.Map.of() : fleet.interstellarFuelBudgetKg()
         );
+    }
+
+    private List<ShipInstance> burnSublightFuel(Fleet fleet, List<ShipInstance> ships,
+                                                double elapsedDays) {
+        if (!Fleet.MODE_SUBLIGHT.equals(fleet.interstellarMode())
+                || fleet.interstellarPeakSpeedMps() <= 0.0
+                || fleet.interstellarFuelBudgetKg().isEmpty()) return ships;
+        double previousFraction = InterstellarTravel.fuelBurnFraction(
+                fleet.interstellarDistanceMeters(), fleet.interstellarAccelerationMps2(),
+                fleet.interstellarPeakSpeedMps(),
+                fleet.interstellarElapsedDays() * InterstellarTravel.SECONDS_PER_DAY);
+        double currentFraction = InterstellarTravel.fuelBurnFraction(
+                fleet.interstellarDistanceMeters(), fleet.interstellarAccelerationMps2(),
+                fleet.interstellarPeakSpeedMps(), elapsedDays * InterstellarTravel.SECONDS_PER_DAY);
+        double deltaFraction = Math.max(0.0, currentFraction - previousFraction);
+        return ships.stream().map(ship -> {
+            double budget = fleet.interstellarFuelBudgetKg().getOrDefault(ship.id(), 0.0);
+            if (budget <= 0.0) return ship;
+            return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(),
+                    ship.currentHullHealth(), ship.currentShieldHealth(),
+                    Math.max(0.0, ship.currentFuelKg() - budget * deltaFraction),
+                    ship.storedCargoKg(), ship.passengerCount(),
+                    ship.passengerRaceId(), ship.transitMode());
+        }).toList();
+    }
+
+    private List<ShipInstance> repairDockedShips(Fleet fleet, List<OrbitalStation> stations,
+                                                 List<DiplomaticRelation> relations) {
+        if (fleet.isInWarp() || fleet.location().inTransit() || stations == null)
+            return fleet.ships();
+        for (OrbitalStation station : stations) {
+            if (!station.systemId().equals(fleet.currentSystemId())
+                    || !fleet.location().isAt(FleetLocation.Site.docked(station.id()))
+                    || !station.hasModuleType(StationModule.TYPE_MILITARY_HANGAR)) continue;
+            boolean allied = fleet.ownerEntityId().equals(station.ownerEntityId());
+            if (!allied && relations != null) allied = relations.stream().anyMatch(relation ->
+                    (relation.tier().contains("ALLIANCE")
+                            || relation.tier().contains("FEDERATION"))
+                            && ((relation.empireAId().equals(fleet.ownerEntityId())
+                            && relation.empireBId().equals(station.ownerEntityId()))
+                            || (relation.empireBId().equals(fleet.ownerEntityId())
+                            && relation.empireAId().equals(station.ownerEntityId()))));
+            if (!allied) continue;
+            return fleet.ships().stream().map(ship -> new ShipInstance(ship.id(),
+                    ship.designId(), ship.ownerEntityId(),
+                    Math.min(100.0, ship.currentHullHealth() + 5.0),
+                    Math.min(100.0, ship.currentShieldHealth() + 10.0),
+                    ship.currentFuelKg(), ship.storedCargoKg(), ship.passengerCount(),
+                    ship.passengerRaceId(), ship.transitMode())).toList();
+        }
+        return fleet.ships();
     }
 
     /**

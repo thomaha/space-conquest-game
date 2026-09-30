@@ -19,6 +19,7 @@ import static com.almasb.fxgl.dsl.FXGL.*;
 public class GameMenuView {
 
     private VBox root;
+    private Button quickSaveButton;
     private final Menubar menubar;
 
     public GameMenuView(Menubar menubar) {
@@ -66,6 +67,7 @@ public class GameMenuView {
         });
 
         Button btnSave = createMenuButton("Quick save");
+        quickSaveButton = btnSave;
         btnSave.setOnAction(e -> {
             if (menubar.getMainApp() != null) {
                 menubar.getMainApp().quickSave();
@@ -73,7 +75,7 @@ public class GameMenuView {
             hide();
         });
 
-        Button btnCampaign = createMenuButton("Campaign and saves");
+        Button btnCampaign = createMenuButton("Load game");
         btnCampaign.setOnAction(e -> {
             hide();
             if (menubar.getCampaignManagerView() != null) {
@@ -128,6 +130,8 @@ public class GameMenuView {
     }
 
     public void show() {
+        quickSaveButton.setDisable(menubar.getMainApp() == null
+                || !menubar.getMainApp().hasActiveCampaign());
         root.setVisible(true);
         root.toFront();
         menubar.openPage();

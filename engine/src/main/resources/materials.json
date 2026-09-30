@@ -1,5 +1,45 @@
 [
   {
+    "id": "rp1_kerosene",
+    "name": "Refined kerosene (RP-1)",
+    "description": "High-purity kerosene propellant for oxygen-fed chemical rockets.",
+    "foundInNature": false,
+    "composition": {"C": 85, "H": 15},
+    "weightPerUnit": 0.81,
+    "strength": 0.0,
+    "complexity": 3
+  },
+  {
+    "id": "liquid_oxygen",
+    "name": "Liquid oxygen (LOX)",
+    "description": "Cryogenic oxidizer for liquid-fueled rocket engines.",
+    "foundInNature": false,
+    "composition": {"O": 100},
+    "weightPerUnit": 1.14,
+    "strength": 0.0,
+    "complexity": 3
+  },
+  {
+    "id": "liquid_methane",
+    "name": "Liquid methane",
+    "description": "Cryogenic methane rocket fuel refined from hydrocarbon feedstock.",
+    "foundInNature": false,
+    "composition": {"C": 75, "H": 25},
+    "weightPerUnit": 0.42,
+    "strength": 0.0,
+    "complexity": 4
+  },
+  {
+    "id": "liquid_hydrogen",
+    "name": "Liquid hydrogen",
+    "description": "Deep-cryogenic hydrogen rocket fuel.",
+    "foundInNature": false,
+    "composition": {"H": 100},
+    "weightPerUnit": 0.071,
+    "strength": 0.0,
+    "complexity": 5
+  },
+  {
     "id": "iron_ore",
     "name": "Iron Ore",
     "description": "Common ore containing iron oxides.",
@@ -63,6 +103,16 @@
     "complexity": 1
   },
   {
+    "id": "purified_water",
+    "name": "Purified water",
+    "description": "Usable water treated from surface water or mined ice for settlements and industry.",
+    "foundInNature": false,
+    "composition": {"H": 11, "O": 89},
+    "weightPerUnit": 1.0,
+    "strength": 0.0,
+    "complexity": 1
+  },
+  {
     "id": "helium_3",
     "name": "Helium-3",
     "description": "Rare isotope of helium, useful for fusion.",
@@ -99,6 +149,16 @@
     "weightPerUnit": 2.7,
     "strength": 30.0,
     "complexity": 3
+  },
+  {
+    "id": "aluminum_tailings",
+    "name": "Aluminum refinery tailings",
+    "description": "Residual minerals from aluminum refining, stored until reused or disposed of.",
+    "foundInNature": false,
+    "composition": {"O": 80, "H": 20},
+    "weightPerUnit": 2.0,
+    "strength": 0.0,
+    "complexity": 1
   },
   {
     "id": "copper_ore",
@@ -167,7 +227,7 @@
     "id": "silicon",
     "name": "Silicon",
     "description": "High-purity silicon used in electronics and semiconductors.",
-    "foundInNature": true,
+    "foundInNature": false,
     "composition": {
       "Si": 100
     },
@@ -746,8 +806,8 @@
   },
   {
     "id": "bio_polymers",
-    "name": "Advanced Bio-Polymers",
-    "description": "Synthetic polymers derived from biological precursors.",
+    "name": "Biopolymers",
+    "description": "Industrial polymers recovered from agricultural biomass.",
     "foundInNature": false,
     "composition": {
       "C": 60,
@@ -757,7 +817,7 @@
     },
     "weightPerUnit": 1.1,
     "strength": 100.0,
-    "complexity": 7
+    "complexity": 3
   },
   {
     "id": "refined_manganese",
@@ -1308,5 +1368,75 @@
     "weightPerUnit": 0.7,
     "strength": 2500.0,
     "complexity": 9
+  },
+  {
+    "id": "agricultural_biomass",
+    "name": "Agricultural biomass",
+    "description": "Recoverable plant fibers and crop residues from food cultivation.",
+    "foundInNature": false,
+    "composition": {"C": 45, "H": 6, "O": 45, "N": 4},
+    "weightPerUnit": 0.6,
+    "strength": 5.0,
+    "complexity": 1
+  },
+  {
+    "id": "food_matrix",
+    "name": "Food stocks",
+    "description": "A market basket of processed edible foods measured by mass.",
+    "foundInNature": false,
+    "composition": {"C": 45, "H": 7, "O": 42, "N": 6},
+    "weightPerUnit": 1.0,
+    "strength": 0.0,
+    "complexity": 2
+  },
+  {
+    "id": "consumer_goods",
+    "name": "Consumer goods",
+    "description": "A mass-based basket of household goods and electronics.",
+    "foundInNature": false,
+    "composition": {"C": 50, "H": 10, "O": 10, "Al": 15, "Cu": 10, "Si": 5},
+    "weightPerUnit": 1.0,
+    "strength": 20.0,
+    "complexity": 3
+  },
+  {
+    "id": "refined_rare_earths",
+    "name": "Refined rare earths",
+    "description": "Separated lanthanides for small but essential electronic components.",
+    "foundInNature": false,
+    "composition": {"La": 37.5, "Ce": 37.5, "Nd": 25},
+    "weightPerUnit": 6.0,
+    "strength": 5.0,
+    "complexity": 4
+  },
+  {
+    "id": "fluoride_tailings",
+    "name": "Fluoride tailings",
+    "description": "Residual material from rare-earth separation, requiring future disposal or recovery.",
+    "foundInNature": false,
+    "composition": {"F": 100},
+    "weightPerUnit": 2.0,
+    "strength": 0.0,
+    "complexity": 1
+  },
+  {
+    "id": "luxury_goods",
+    "name": "Luxury goods",
+    "description": "Finished discretionary goods with additional design and craft value.",
+    "foundInNature": false,
+    "composition": {"C": 50, "H": 10, "O": 10, "Al": 10, "Cu": 15, "Si": 5},
+    "weightPerUnit": 1.0,
+    "strength": 20.0,
+    "complexity": 4
+  },
+  {
+    "id": "carbon_dioxide_gas",
+    "name": "Carbon dioxide gas",
+    "description": "Industrial carbon dioxide exhaust that may later be captured or reused.",
+    "foundInNature": true,
+    "composition": {"C": 27, "O": 73},
+    "weightPerUnit": 1.98,
+    "strength": 0.0,
+    "complexity": 1
   }
 ]

@@ -4,6 +4,7 @@ import com.spaceconquest.engine.Corporation;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.economy.HouseholdAccount;
+import com.spaceconquest.engine.logistics.LaunchServiceActivity;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,7 +22,8 @@ public class PowerBillingProcessor {
                          List<HouseholdAccount> households, List<PowerGridState> grids,
                          Map<String, Integer> poweredWorkers, Map<String, Double> facilityPowerCosts,
                          Map<String, Double> plantSales, Map<String, Double> imperialReceipts,
-                         Map<String, Double> imperialExpenses) {}
+                         Map<String, Double> imperialExpenses, List<IndustryAccount> industryAccounts,
+                         List<LaunchServiceActivity> launchActivities) {}
 
     public static double householdDemandKwh(Empire empire, long headcount) {
         if (empire == null || empire.unlockedTechIds() == null
@@ -49,6 +51,8 @@ public class PowerBillingProcessor {
             physical.put(grid.entityId(), Math.min(grid.totalDemandKw() * HOURS_PER_DAY, available));
             billable.put(grid.entityId(), Math.max(0.0, grid.totalGenerationKw() * HOURS_PER_DAY));
         }
+        List<LaunchServiceActivity> launches = billLaunches(state, physical, billable,
+                consumed, chargesByBody, ledger);
         List<HouseholdAccount> households = new ArrayList<>();
         for (HouseholdAccount household : state.householdAccounts()) {
             String body = household.bodyId();
@@ -72,7 +76,32 @@ public class PowerBillingProcessor {
         List<PowerGridState> grids = settledGrids(state, balance.grids(), consumed);
         return new Result(List.copyOf(ledger.empires.values()), List.copyOf(ledger.corporations.values()),
                 List.copyOf(households), grids, Map.copyOf(powered), Map.copyOf(costs), Map.copyOf(sales),
-                Map.copyOf(ledger.receipts), Map.copyOf(ledger.expenses));
+                Map.copyOf(ledger.receipts), Map.copyOf(ledger.expenses), ledger.cash.snapshot(),
+                List.copyOf(launches));
+    }
+
+    private List<LaunchServiceActivity> billLaunches(GameState state,
+                                                     Map<String, Double> physical,
+                                                     Map<String, Double> billable,
+                                                     Map<String, Double> consumed,
+                                                     Map<String, Double> chargesByBody,
+                                                     Ledger ledger) {
+        List<LaunchServiceActivity> settled = new ArrayList<>();
+        for (LaunchServiceActivity activity : state.launchActivities()) {
+            double delivered = Math.min(activity.powerKwh(),
+                    Math.max(0.0, physical.getOrDefault(activity.bodyId(), 0.0)));
+            double priced = Math.min(delivered,
+                    Math.max(0.0, billable.getOrDefault(activity.bodyId(), 0.0)));
+            double charge = Math.min(activity.powerCostCredits(), priced * PRICE_PER_KWH);
+            double refund = activity.powerCostCredits() - charge;
+            if (refund > 0.0) ledger.adjustProvider(state, activity, refund);
+            physical.merge(activity.bodyId(), -delivered, Double::sum);
+            billable.merge(activity.bodyId(), -priced, Double::sum);
+            consumed.merge(activity.bodyId(), activity.powerKwh(), Double::sum);
+            chargesByBody.merge(activity.bodyId(), charge, Double::sum);
+            settled.add(activity.withPowerCost(charge));
+        }
+        return settled;
     }
 
     private void billFacility(IndustrialFacility facility, Map<String, Integer> paidWorkers,
@@ -82,7 +111,9 @@ public class PowerBillingProcessor {
         IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(facility.applicationId());
         if (recipe == null) return;
         int workers = powered.getOrDefault(facility.id(), 0);
-        int paid = paidWorkers.getOrDefault(facility.id(), 0);
+        boolean hive = IndustrialFacility.HIVE_GRID.equals(facility.ownershipType());
+        int paid = hive ? Math.max(0, facility.allocatedWorkers())
+                : paidWorkers.getOrDefault(facility.id(), 0);
         Empire technologyOwner = ledger.technologyOwner(facility);
         if (!IndustryRecipeCatalog.isUnlocked(recipe, technologyOwner)
                 || facility.tier() < recipe.minTier() || workers <= 0 || paid <= 0) {
@@ -93,6 +124,11 @@ public class PowerBillingProcessor {
         double fullKwh = PowerProcessor.requestedIndustryKw(facility, paid)
                 * HOURS_PER_DAY * workers / paid;
         if (fullKwh <= 0.0) return;
+        if (hive) {
+            consumed.merge(body, fullKwh, Double::sum);
+            billable.merge(body, -Math.min(fullKwh, billable.getOrDefault(body, 0.0)), Double::sum);
+            return;
+        }
         double pricedKwh = Math.min(fullKwh, billable.getOrDefault(body, 0.0));
         double pricePerWorker = pricedKwh * PRICE_PER_KWH / workers;
         int affordable = pricePerWorker <= 0.0 ? workers : Math.min(workers,
@@ -153,14 +189,17 @@ public class PowerBillingProcessor {
         private final Map<String, Corporation> corporations = new LinkedHashMap<>();
         private final Map<String, Double> receipts = new HashMap<>();
         private final Map<String, Double> expenses = new HashMap<>();
+        private final IndustryOperatingLedger cash;
 
         private Ledger(GameState state) {
+            cash = new IndustryOperatingLedger(state.industryAccounts());
             for (Empire empire : state.empires()) empires.put(empire.id(), empire);
             for (Corporation corporation : state.corporations()) corporations.put(corporation.id(), corporation);
         }
 
         private Empire technologyOwner(IndustrialFacility facility) {
-            if (IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())) {
+            if (IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())
+                    || IndustrialFacility.HIVE_GRID.equals(facility.ownershipType())) {
                 return empires.get(facility.ownerEntityId());
             }
             Corporation owner = corporations.get(facility.ownerEntityId());
@@ -169,8 +208,7 @@ public class PowerBillingProcessor {
 
         private double ownerBalance(IndustrialFacility facility) {
             if (IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())) {
-                Empire owner = empires.get(facility.ownerEntityId());
-                return owner == null ? 0.0 : Math.max(0.0, owner.treasuryCredits());
+                return cash.balance(facility);
             }
             Corporation owner = corporations.get(facility.ownerEntityId());
             return owner == null ? 0.0 : Math.max(0.0, owner.liquidCapitalReserves());
@@ -179,14 +217,7 @@ public class PowerBillingProcessor {
         private void changeOwnerBalance(IndustrialFacility facility, double delta) {
             if (delta == 0.0) return;
             if (IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())) {
-                Empire owner = empires.get(facility.ownerEntityId());
-                if (owner == null) return;
-                if (delta > 0.0) receipts.merge(owner.id(), delta, Double::sum);
-                else expenses.merge(owner.id(), -delta, Double::sum);
-                empires.put(owner.id(), new Empire(owner.id(), owner.name(), owner.raceId(),
-                        owner.societyStructure(), Math.max(0.0, owner.treasuryCredits() + delta),
-                        owner.corporateTaxRate(), owner.controlledSystemIds(), owner.ministries(),
-                        owner.systemGovernorAssignments(), owner.unlockedTechIds(), owner.activeShipDesignIds()));
+                cash.change(facility, delta);
             } else if (IndustrialFacility.PRIVATE_CORPORATE.equals(facility.ownershipType())) {
                 Corporation owner = corporations.get(facility.ownerEntityId());
                 if (owner == null) return;
@@ -194,6 +225,29 @@ public class PowerBillingProcessor {
                         owner.headquartersEntityId(), owner.marketOrientation(),
                         Math.max(0.0, owner.liquidCapitalReserves() + delta), owner.ownedFacilityIds(),
                         owner.ownedShipIds(), owner.claimedVeinIds()));
+            }
+        }
+
+        private void adjustProvider(GameState state, LaunchServiceActivity activity,
+                                    double delta) {
+            IndustrialFacility facility = state.industrialFacilities().stream()
+                    .filter(item -> activity.providerId().equals(item.id()))
+                    .findFirst().orElse(null);
+            if (facility != null && IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())) {
+                cash.change(facility, delta);
+            } else if (corporations.containsKey(activity.providerOwnerId())) {
+                Corporation owner = corporations.get(activity.providerOwnerId());
+                corporations.put(owner.id(), new Corporation(owner.id(), owner.name(), owner.empireId(),
+                        owner.headquartersEntityId(), owner.marketOrientation(),
+                        owner.liquidCapitalReserves() + delta, owner.ownedFacilityIds(),
+                        owner.ownedShipIds(), owner.claimedVeinIds()));
+            } else if (empires.containsKey(activity.providerOwnerId())) {
+                Empire owner = empires.get(activity.providerOwnerId());
+                empires.put(owner.id(), new Empire(owner.id(), owner.name(), owner.raceId(),
+                        owner.societyStructure(), owner.treasuryCredits() + delta,
+                        owner.corporateTaxRate(), owner.controlledSystemIds(), owner.ministries(),
+                        owner.systemGovernorAssignments(), owner.unlockedTechIds(),
+                        owner.activeShipDesignIds()));
             }
         }
     }

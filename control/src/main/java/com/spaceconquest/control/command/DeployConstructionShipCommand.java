@@ -1,7 +1,9 @@
 package com.spaceconquest.control.command;
 
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
 import com.spaceconquest.engine.macrostructure.ConstructionDeploymentProject;
+import com.spaceconquest.engine.ship.FleetPositioning;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +23,24 @@ public record DeployConstructionShipCommand(
 
     @Override
     public boolean validate(GameState state) {
-        return state != null && targetSystemId != null && targetCelestialId != null && targetStructureType != null;
+        if (state == null || constructionShipId == null || targetSystemId == null
+                || targetCelestialId == null || targetStructureType == null) return false;
+        String owner = owner(state);
+        boolean present = state.fleets().stream().anyMatch(fleet ->
+                FleetPositioning.atOrbitalSite(state, fleet, targetSystemId,
+                        targetCelestialId) && fleet.ships().stream()
+                        .anyMatch(ship -> constructionShipId.equals(ship.id())));
+        boolean duplicateElevator = ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR
+                .equals(targetStructureType) && (state.spaceElevators().stream()
+                .anyMatch(elevator -> targetCelestialId.equals(elevator.planetId()))
+                || state.constructionProjects().stream().anyMatch(project ->
+                targetCelestialId.equals(project.targetCelestialId())
+                        && ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR.equals(
+                        project.targetStructureType())));
+        return owner != null && present && !duplicateElevator
+                && (ConstructionDeploymentProject.TYPE_ORBITAL_STATION
+                .equals(targetStructureType) || ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR
+                .equals(targetStructureType));
     }
 
     @Override
@@ -31,16 +50,21 @@ public record DeployConstructionShipCommand(
         }
 
         String projId = "proj_" + UUID.randomUUID().toString().substring(0, 8);
+        Map<String, Double> bill = ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR
+                .equals(targetStructureType) ? ConstructionMaterialCatalog.spaceElevator()
+                : ConstructionMaterialCatalog.orbitalStation("steel", 20);
         ConstructionDeploymentProject project = new ConstructionDeploymentProject(
                 projId,
-                constructionShipId != null ? constructionShipId : "ship_const_01",
+                constructionShipId,
                 targetSystemId,
                 targetCelestialId,
                 targetStructureType,
                 0.0,
                 requiredTurns > 0.0 ? requiredTurns : 3.0,
-                Map.of("steel", 5000.0),
-                false
+                owner(state), bill, Map.of(), null,
+                com.spaceconquest.engine.macrostructure.OrbitalStation.OWNERSHIP_PUBLIC_STATE,
+                null, null, 20, "steel", 5.0,
+                100_000.0, false
         );
 
         List<ConstructionDeploymentProject> updated = new ArrayList<>(state.constructionProjects());
@@ -49,5 +73,11 @@ public record DeployConstructionShipCommand(
         return state.toBuilder()
                 .constructionProjects(updated)
                 .build();
+    }
+
+    private String owner(GameState state) {
+        return state.fleets().stream().filter(fleet -> fleet.ships().stream()
+                .anyMatch(ship -> constructionShipId.equals(ship.id())))
+                .map(fleet -> fleet.ownerEntityId()).findFirst().orElse(null);
     }
 }

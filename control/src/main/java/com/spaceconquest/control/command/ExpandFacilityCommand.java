@@ -1,11 +1,13 @@
 package com.spaceconquest.control.command;
 
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.IndustrialFacility;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -27,7 +29,10 @@ public record ExpandFacilityCommand(
         if (state == null || facilityId == null) {
             return false;
         }
-        return state.industrialFacilities().stream().anyMatch(f -> f.id().equals(facilityId));
+        return state.industrialFacilities().stream().anyMatch(f ->
+                f.id().equals(facilityId) && targetTier > f.tier())
+                && state.expansionProjects().stream()
+                .noneMatch(project -> facilityId.equals(project.facilityId()));
     }
 
     @Override
@@ -57,13 +62,18 @@ public record ExpandFacilityCommand(
         }
 
         String projectId = "exp_" + UUID.randomUUID().toString().substring(0, 8);
+        IndustrialFacility original = state.industrialFacilities().stream()
+                .filter(facility -> facilityId.equals(facility.id())).findFirst().orElseThrow();
         FacilityExpansionProject newProject = new FacilityExpansionProject(
                 projectId,
                 facilityId,
                 targetTier,
                 0.0,
                 requiredWorkHours > 0.0 ? requiredWorkHours : 200.0,
-                costCredits
+                costCredits,
+                ConstructionMaterialCatalog.facility(original.applicationId(),
+                        targetTier - original.tier()),
+                Map.of()
         );
 
         List<FacilityExpansionProject> updatedProjects = new ArrayList<>(state.expansionProjects());

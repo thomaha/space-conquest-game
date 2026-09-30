@@ -14,6 +14,8 @@ import java.util.Map;
  * @param targetPressureAtm   desired surface pressure target
  * @param targetTemperatureK desired mean surface equilibrium temperature
  * @param targetGasRatios     target gas concentrations
+ * @param requiredMaterialsKg physical bill for the project
+ * @param consumedMaterialsKg materials already bought and used
  * @param isCompleted         true if project milestone has completed
  */
 public record GeoengineeringProject(
@@ -26,6 +28,8 @@ public record GeoengineeringProject(
         double targetPressureAtm,
         double targetTemperatureK,
         Map<String, Double> targetGasRatios,
+        Map<String, Double> requiredMaterialsKg,
+        Map<String, Double> consumedMaterialsKg,
         boolean isCompleted
 ) {
     public static final String TYPE_SOLAR_MIRROR = "SOLAR_MIRROR";
@@ -39,5 +43,17 @@ public record GeoengineeringProject(
 
     public GeoengineeringProject {
         if (targetGasRatios == null) targetGasRatios = Map.of();
+        if (requiredMaterialsKg == null) requiredMaterialsKg = Map.of();
+        if (consumedMaterialsKg == null) consumedMaterialsKg = Map.of();
+    }
+
+    public GeoengineeringProject(String id, String planetId, String ownerEmpireId,
+                                 String projectType, double accumulatedProgress,
+                                 double requiredProgress, double targetPressureAtm,
+                                 double targetTemperatureK, Map<String, Double> targetGasRatios,
+                                 boolean isCompleted) {
+        this(id, planetId, ownerEmpireId, projectType, accumulatedProgress,
+                requiredProgress, targetPressureAtm, targetTemperatureK, targetGasRatios,
+                Map.of(), Map.of(), isCompleted);
     }
 }

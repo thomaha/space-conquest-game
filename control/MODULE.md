@@ -18,8 +18,10 @@ This module handles input, autonomous decision agents and game command execution
 - `SelectOptimizationPathCommand`: Command selecting performance or miniaturization optimization paths.
 - `ReverseEngineerSalvageCommand`: Command injecting progress vectors from foreign component salvage.
 - `DesignShipCommand`: Command registering physics-validated spaceship blueprints.
-- `QueueShipBuildCommand`: Command manufacturing and commissioning spacecraft into active fleets.
-- `MoveFleetCommand`: Command ordering sub-light repositioning or FTL warp transits.
+- `QueueShipBuildCommand`: Command queuing spacecraft construction for daily work and material purchases.
+- `LoadOrbitalCargoCommand`: Command buying material at a body's hub and lifting it into an owned cargo or construction ship after capacity and cost checks.
+- `MoveFleetCommand`: Command paying a surface launch provider when needed, committing local maneuver fuel and queuing a deep-space departure followed by researched warp or thrust-and-loaded-mass-based sublight travel.
+- `MoveFleetLocalCommand`: Command validating a maneuver fuel budget and queuing a timed movement to a body's surface or orbit, a station dock or a named deep-space site.
 - `SetFleetStanceCommand`: Command setting fleet tactical stances.
 - `BuildFacilityCommand`: Command constructing planetary industrial facilities.
 - `ExpandFacilityCommand`: Command queuing facility tier scaling upgrades.
@@ -29,40 +31,43 @@ This module handles input, autonomous decision agents and game command execution
 - `ColonizePlanetCommand`: Command deploying colony ships to seed virgin worlds.
 - `EnactMartialLawCommand`: Command enacting emergency planetary martial law.
 - `SetPassengerTransitModeCommand`: Command toggling conscious vs cryogenic stasis passenger transport.
-- `LoadPassengersCommand`: Command embarking passenger and troop cohorts onto transport spacecraft.
-- `LaunchMassDriverPayloadCommand`: Command launching mineral freight from surface mass drivers into orbit.
+- `LoadPassengersCommand`: Books real residents on a surface ship for an explicit offworld destination and stores their age groups in a manifest until arrival.
+- `LaunchMassDriverPayloadCommand`: Purchases local goods and launches them into an owned orbital transport through a built mass-driver facility.
+- `LoadOrbitalCargoCommand`: Purchases ground stock for a ship in orbit and pays an available rocket, mass-driver or elevator launch provider.
+- `LoadSurfaceCargoCommand`: Purchases local hub stock into a ship already on the body's surface without an orbital lift fee.
 - `ScanAnomalyCommand`: Command directing science fleets to investigate deep-space anomalies.
 - `ProposeDiplomaticPactCommand`: Command dispatching bilateral treaty proposals to foreign states.
 - `DeclareWarCommand`: Command formally declaring war with casus belli justification tracking.
 - `BuildOrbitalStationCommand`: Command deploying new orbital space stations with initial power and control modules.
 - `BuildSpaceElevatorCommand`: Command constructing planetary space elevator tethers to reduce launch costs to near zero.
-- `AddStationModuleCommand`: Command installing specialized functional modules onto orbital stations.
+- `AddStationModuleCommand`: Command queuing material-backed module assembly for orbital stations.
 - `DeployConstructionShipCommand`: Command ordering construction vessels to assemble macro-structures at target coordinates.
 - `InfiltrateAgentCommand`: Command embedding sleeper operatives in foreign colonies and corporations.
 - `LaunchCovertOperationCommand`: Command initiating covert sabotage, technology theft and false-flag operations.
 - `ExtortSupplyLineCommand`: Command directing syndicate pirate bases to extort private corporate supply lines.
 - `SetFacilityRecipeCommand`: Command configuring the active chemical or metallurgical refinement recipe of a facility.
 - `DistributeConsumerGoodsCommand`: Command supplying consumer goods to colonies to raise living standards and lower crime.
-- `StartTerraformingProjectCommand`: Command funding and initiating planetary atmospheric geoengineering and biological seeding.
+- `StartTerraformingProjectCommand`: Command funding and queuing material-backed planetary geoengineering or biological seeding.
 - `BuildMegastructureCommand`: Command initiating construction of Dyson swarms, stellar lifters, ringworlds and hyperlane gateways.
 - `ProposeResolutionCommand`: Command introducing legislative charters, treaties and economic sanctions to the Galactic Senate.
 - `VoteResolutionCommand`: Command casting democratic votes on active Galactic Senate resolutions.
-- `CreateTradeRouteCommand`: Command establishing automated cargo logistics supply routes between commercial hubs.
+- `CreateTradeRouteCommand`: Command establishing an automated cargo route between real hubs with an available owned freighter.
 - `CancelTradeRouteCommand`: Command deactivating an automated cargo supply route.
 - `SetSystemEconomyBudgetCommand`: Command configuring nonnegative public sector shares, total funding, income tax and the signed empire contribution rate for a controlled solar system.
+- `SetPublicIndustrySubsidyCommand`: Command letting an empire opt an owned state facility into or out of local infrastructure and industry support.
 - `ScanSystemCommand`: Command directing sensor arrays or explorer fleets to deep-scan an uncharted solar system.
 - `PlaceFacilityOnTileCommand`: Command constructing an industrial processing facility positioned directly on a surface biome tile.
 - `TargetSubsystemCommand`: Command setting the tactical subsystem target priority (warp drive, weapons, shields, engines) during fleet battles.
 - `CreateCustomEmpireCommand`: Command instantiating and registering a custom sovereign empire and species archetype into the game state.
 - `EmpireAIController`: Autonomous decision agent managing imperial cabinets, governors, corporate subsidies, diplomacy, senate votes and research.
-- `CorporationAIController`: Autonomous decision agent evaluating market shortcomings, investing in facilities and generating proprietary ship blueprints.
+- `CorporateInvestCommand`: Uses the engine investment processor to validate and create a real corporation-owned asset on a controlled body.
 - `ShadowSyndicateAIController`: Autonomous decision agent monitoring shadow capital pools and pirate operations.
 
 ## Current integration gaps
 
-- `CommandQueue` stages commands for the next turn, but command validation is uneven. For example, ship build validation checks that a design exists without checking its owner and ship design registration does not protect another owner's design ID.
+- `CommandQueue` stages commands for the next turn, but command validation is uneven. Ship build validation rejects corporation-owned blueprints and free corporate builds. Ship design registration rejects duplicate IDs and corporation-owned submissions through the player command. Registration and construction gate recognized propulsion modules on researched technology, including MPD ion drives on superconductors. `RefuelShipCommand` checks local access, tank capacity, reactor-fuel storage, market stock, owner funds and orbital launch availability before buying propellant and any selected reactor fuel. Full designer authorization and construction-time physics validation remain open.
 - Commands that change the world now use `GameState.toBuilder()` or a `with...` method to retain unrelated state fields. Validation and persistence behavior remain uneven across individual commands.
 - Some commands compute a result without persisting it: `SelectOptimizationPathCommand` returns the original state, `TargetSubsystemCommand` does not store the target and `DeclareWarCommand` discards its calculated diplomatic impact.
-- `CorporationAIController` can create a corporation-owned proprietary cargo design, but the build command does not enforce owner-only construction. It currently attempts a design only when no cargo design exists anywhere, rather than evaluating each corporation's own needs and designs.
-- `QueueShipBuildCommand` immediately commissions a ship. The intended construction order, work-hour progress and shipyard queue described in [ShipDesign.md](../ShipDesign.md) are not implemented.
-- The frontend currently instantiates empire and corporation AI for hard-coded IDs; the shadow syndicate AI logs its decisions without staging corresponding commands.
+- Autonomous corporate investment runs once inside the engine turn. The duplicate control-layer corporation AI was removed.
+- `QueueShipBuildCommand` now creates a material-backed work-hour order; ships appear only after it completes. Shipyard capacity, qualified labor and finished corporate-yard purchases described in [ShipDesign.md](../ShipDesign.md) remain open.
+- The frontend currently instantiates empire AI for a hard-coded ID; the shadow syndicate AI logs its decisions without staging corresponding commands.

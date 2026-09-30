@@ -1,6 +1,5 @@
 package com.spaceconquest.control;
 
-import com.spaceconquest.control.ai.CorporationAIController;
 import com.spaceconquest.control.ai.EmpireAIController;
 import com.spaceconquest.control.command.BombardPlanetCommand;
 import com.spaceconquest.control.command.BuildFacilityCommand;
@@ -53,9 +52,8 @@ public class FuturePhasesMultiAgentTest {
         Planet homePlanet = state.solarSystems().getFirst().planets().getFirst();
 
         EmpireAIController empireAI = new EmpireAIController(playerEmpireId, commandQueue);
-        CorporationAIController corpAI = new CorporationAIController(state.corporations().getFirst().id(), commandQueue);
 
-        List<Controller> controllers = List.of(human, empireAI, corpAI);
+        List<Controller> controllers = List.of(human, empireAI);
 
         // Turn 0: Human issues foundational research and modular ship design
         human.dispatchCommand(new StartResearchCommand(playerEmpireId, "nuclear_fission", false, 10));

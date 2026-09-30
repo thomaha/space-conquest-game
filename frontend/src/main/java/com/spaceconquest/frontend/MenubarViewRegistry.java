@@ -1,7 +1,6 @@
 package com.spaceconquest.frontend;
 
 import com.spaceconquest.control.HumanController;
-import com.spaceconquest.control.ai.CorporationAIController;
 import com.spaceconquest.control.ai.EmpireAIController;
 import com.spaceconquest.control.ai.ShadowSyndicateAIController;
 import com.spaceconquest.engine.Empire;
@@ -177,15 +176,16 @@ public class MenubarViewRegistry {
     }
 
     public void updateAllViews(GameState state, Main mainApp, HumanController humanController,
-                               EmpireAIController empireAIController, CorporationAIController corporationAIController,
+                               EmpireAIController empireAIController,
                                ShadowSyndicateAIController shadowSyndicateAIController, String playerEmpireId) {
         if (state == null) return;
         if (empireAIController != null) empireAIController.onGameStateUpdate(state);
-        if (corporationAIController != null) corporationAIController.onGameStateUpdate(state);
         if (shadowSyndicateAIController != null) shadowSyndicateAIController.onGameStateUpdate(state);
         if (humanController != null) humanController.onGameStateUpdate(state);
 
         if (empireView != null) empireView.updateData(state);
+        if (corporateView != null) corporateView.updateData(state);
+        if (diplomacyView != null) diplomacyView.updateData(state);
         if (techView != null) {
             Empire playerEmpire = state.empires().stream()
                     .filter(e -> e.id().equals(playerEmpireId))
@@ -193,30 +193,32 @@ public class MenubarViewRegistry {
             techView.updateData(state.researchProjects(), state.technologyExchangeRoutes(), state.systemEconomies(), playerEmpire);
         }
         if (industryView != null) industryView.updateData(state.industrialFacilities(), state.expansionProjects());
-        if (shipDesignerView != null) shipDesignerView.updateDesigns(state.shipDesigns());
-        if (fleetManagementView != null) fleetManagementView.updateFleets(state.fleets());
+        if (shipDesignerView != null) shipDesignerView.updateData(state);
+        if (fleetManagementView != null) fleetManagementView.updateData(state);
+        if (commercialHubView != null) commercialHubView.updateData(state);
         if (galacticSenateView != null) galacticSenateView.updateData(state.galacticCommunity());
         if (megastructureView != null) megastructureView.updateData(state.megastructures());
         if (terraformingView != null && mainApp != null && mainApp.getEngine() != null) {
             terraformingView.updateData(mainApp.getEngine().getAtmospheres(), state.terraformingProjects());
         }
         if (planetDetailView != null) planetDetailView.updateData(state);
-        if (colonyManagementView != null && mainApp != null && mainApp.getEngine() != null) {
-            colonyManagementView.updateData(mainApp.getEngine().getAllPlanets(), List.of());
-        }
+        if (colonyManagementView != null) colonyManagementView.updateData(state);
         if (espionageView != null) espionageView.updateData(state.sleeperAgents(), state.espionageOperations(), state.pirateBases());
         if (orbitalStationView != null) orbitalStationView.updateData(state.orbitalStations(), state.spaceElevators());
-        if (galaxyCanvasView != null && mainApp != null && mainApp.getSolarSystems() != null) {
-            galaxyCanvasView.updateData(mainApp.getSolarSystems(), state.fleets(), state.megastructures(), state.fogOfWarStates());
-        }
+        if (galaxyCanvasView != null) galaxyCanvasView.updateData(state);
     }
 
     public void refreshOnTick(GameState state, Main mainApp) {
         if (state == null) return;
+        if (empireView != null) empireView.updateData(state);
+        if (corporateView != null) corporateView.updateData(state);
+        if (diplomacyView != null) diplomacyView.updateData(state);
         if (techView != null) techView.setResearchProjects(state.researchProjects());
         if (industryView != null) industryView.updateData(state.industrialFacilities(), state.expansionProjects());
-        if (shipDesignerView != null) shipDesignerView.updateDesigns(state.shipDesigns());
-        if (fleetManagementView != null) fleetManagementView.updateFleets(state.fleets());
+        if (shipDesignerView != null) shipDesignerView.updateData(state);
+        if (fleetManagementView != null) fleetManagementView.updateData(state);
+        if (commercialHubView != null) commercialHubView.updateData(state);
+        if (galaxyCanvasView != null) galaxyCanvasView.updateData(state);
         if (galacticSenateView != null) galacticSenateView.updateData(state.galacticCommunity());
         if (megastructureView != null) megastructureView.updateData(state.megastructures());
         if (terraformingView != null && mainApp != null && mainApp.getEngine() != null) {

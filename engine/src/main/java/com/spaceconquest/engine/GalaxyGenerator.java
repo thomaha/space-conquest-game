@@ -1,6 +1,9 @@
 package com.spaceconquest.engine;
 
 import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.industry.IndustryAccount;
+import com.spaceconquest.engine.market.CorporateInvestmentProcessor;
+import com.spaceconquest.engine.scenario.OpeningMarketSeeder;
 import com.spaceconquest.engine.scenario.StartingEconomySeeder;
 
 import java.io.IOException;
@@ -171,6 +174,8 @@ public class GalaxyGenerator {
             }
         }
 
+        List<IndustryAccount> openingIndustryAccounts = fundOpeningPublicIndustry(allEmpires, allFacilities);
+
         GameState initial = GameState.builder()
                 .status("RUNNING")
                 .solarSystems(systems)
@@ -180,12 +185,44 @@ public class GalaxyGenerator {
                 .geologicalDeposits(allDeposits)
                 .powerGrids(allGrids)
                 .industrialFacilities(allFacilities)
+                .industryAccounts(openingIndustryAccounts)
                 .systemEconomies(allEconomies)
                 .householdAccounts(economySeeder.createOpeningHouseholds(systems, allEmpires))
                 .build();
+        initial = new OpeningMarketSeeder().align(initial, races);
+        if (activeScenario != GameStartScenario.PRE_SPACE_FLIGHT) {
+            CorporateInvestmentProcessor investments = new CorporateInvestmentProcessor();
+            for (Corporation corporation : allCorporations) {
+                if ("TRANSPORT".equals(corporation.marketOrientation())
+                        || "EXTRACTION".equals(corporation.marketOrientation())) {
+                    initial = investments.invest(initial, corporation.id(), corporation.headquartersEntityId(),
+                            "FLEET", CorporateInvestmentProcessor.SHIP_PROCUREMENT_COST);
+                }
+            }
+        }
         com.spaceconquest.engine.economy.PlanetaryMunicipalProcessor municipalProcessor =
                 new com.spaceconquest.engine.economy.PlanetaryMunicipalProcessor();
         return initial.withPlanetaryBalanceSheets(municipalProcessor.createOpeningBalanceSheets(initial));
+    }
+
+    private List<IndustryAccount> fundOpeningPublicIndustry(List<Empire> empires,
+                                                             List<IndustrialFacility> facilities) {
+        List<IndustryAccount> accounts = new ArrayList<>();
+        for (IndustrialFacility facility : facilities) {
+            if (!IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())) continue;
+            for (int index = 0; index < empires.size(); index++) {
+                Empire owner = empires.get(index);
+                if (!owner.id().equals(facility.ownerEntityId())) continue;
+                double capital = Math.min(50_000.0, Math.max(0.0, owner.treasuryCredits()));
+                accounts.add(IndustryAccount.empty(facility.id()).withOperatingCash(capital));
+                empires.set(index, new Empire(owner.id(), owner.name(), owner.raceId(),
+                        owner.societyStructure(), owner.treasuryCredits() - capital,
+                        owner.corporateTaxRate(), owner.controlledSystemIds(), owner.ministries(),
+                        owner.systemGovernorAssignments(), owner.unlockedTechIds(), owner.activeShipDesignIds()));
+                break;
+            }
+        }
+        return accounts;
     }
 
     private Empire createEmpireForGenerator(String id, String name, Race race, SolarSystem home,
@@ -253,13 +290,24 @@ public class GalaxyGenerator {
                 .orElse(homeSystem.planets().isEmpty() ? null : homeSystem.planets().get(0));
 
         if (homePlanet != null) {
-            hubs.add(economySeeder.createOpeningHub("hub_" + homePlanet.id(), homePlanet.id(), homePlanet.atmosphere(),
-                    homePlanet.populations(), 15.0));
+            CommercialHub openingHub = economySeeder.createOpeningHub("hub_" + homePlanet.id(),
+                    homePlanet.id(), homePlanet.atmosphere(), homePlanet.populations(), 15.0);
+            if (empire.societyStructure() != null
+                    && empire.societyStructure().toLowerCase().contains("hive")) {
+                openingHub = new CommercialHub(openingHub.id(), openingHub.entityId(),
+                        openingHub.transactionTariffRate(),
+                        openingHub.storageCapacityKg() + Math.max(1_000_000.0,
+                                openingHub.currentStoredWeightKg() * 0.25),
+                        openingHub.currentStoredWeightKg(), openingHub.logisticsRangeUnits(),
+                        openingHub.activeOrders());
+            }
+            hubs.add(openingHub);
             
             deposits.add(new com.spaceconquest.engine.industry.GeologicalDeposit(
                     "dep_" + homePlanet.id() + "_iron", homePlanet.id(), "iron_ore",
                     1_000_000_000.0, 1_000_000_000.0, 1.2, true, empire.id()
             ));
+            addHomeDeposits(homePlanet, empire, deposits);
 
             grids.add(new com.spaceconquest.engine.industry.PowerGridState(
                     homePlanet.id(), 5000.0, 2500.0, 2500.0, 10000.0, 5000.0, false
@@ -274,6 +322,7 @@ public class GalaxyGenerator {
             for (Planet p : homeSystem.planets()) {
                 if (homePlanet != null && !p.id().equals(homePlanet.id()) && !p.populations().isEmpty()) {
                     hubs.add(economySeeder.createOpeningHub("hub_" + p.id(), p.id(), p.atmosphere(), p.populations(), 10.0));
+                    addIceDeposit(p, empire, deposits);
                 }
             }
         }
@@ -284,12 +333,46 @@ public class GalaxyGenerator {
                     for (Planet p : sys.planets()) {
                         if (!p.populations().isEmpty()) {
                             hubs.add(economySeeder.createOpeningHub("hub_" + p.id(), p.id(), p.atmosphere(), p.populations(), 25.0));
+                            addIceDeposit(p, empire, deposits);
                             break;
                         }
                     }
                 }
             }
         }
+    }
+
+    private void addHomeDeposits(Planet home, Empire empire,
+                                 List<com.spaceconquest.engine.industry.GeologicalDeposit> deposits) {
+        double population = home.populations().stream().mapToLong(Population::totalCount).sum();
+        Map<String, Double> reserveShares = Map.ofEntries(
+                Map.entry("silicates", 10.0), Map.entry("aluminum_ore", 0.5),
+                Map.entry("copper_ore", 0.25), Map.entry("carbon", 0.3),
+                Map.entry("hydrocarbons", 0.05),
+                Map.entry("nitrates", 0.5), Map.entry("phosphates", 0.3),
+                Map.entry("potash", 0.3), Map.entry("rare_earth_fluorides", 0.02),
+                Map.entry("silver_ore", 0.003), Map.entry("gold", 0.0002),
+                Map.entry("uranium_ore", 0.003), Map.entry("thorium_ore", 0.002),
+                Map.entry("lithium_ore", 0.02),
+                Map.entry("nickel_ore", 0.05));
+        for (var entry : reserveShares.entrySet()) {
+            String material = entry.getKey();
+            double variation = 0.75 + Math.floorMod((home.id() + material).hashCode(), 5) * 0.125;
+            double reserve = Math.max(100_000.0, population * 20.0 * entry.getValue() * variation);
+            deposits.add(new com.spaceconquest.engine.industry.GeologicalDeposit(
+                    "dep_" + home.id() + "_" + material, home.id(), material,
+                    reserve, reserve, variation, true, empire.id()));
+        }
+    }
+
+    private void addIceDeposit(Planet body, Empire empire,
+                               List<com.spaceconquest.engine.industry.GeologicalDeposit> deposits) {
+        if (body.hasLiquidWater() || (!body.resources().contains("water_ice") && body.waterLevel() <= 0.0)) return;
+        double reserve = Math.max(1_000_000.0,
+                body.populations().stream().mapToLong(Population::totalCount).sum() * 20.0);
+        deposits.add(new com.spaceconquest.engine.industry.GeologicalDeposit(
+                "dep_" + body.id() + "_water_ice", body.id(), "water_ice",
+                reserve, reserve, 1.0, true, empire.id()));
     }
 
     private SolarSystem generateSolarSystem(String name, int index) {
@@ -659,7 +742,7 @@ public class GalaxyGenerator {
             return new Planet(
                     p.id(), p.name(), p.description(), p.mass(), p.gravity(), p.distance(),
                     p.inclination(), p.diameter(), p.type(), atmosphere, p.hasLiquidWater(),
-                    p.waterLevel(), p.resources(), p.moons(),
+                    p.waterLevel(), homeResources(p.resources()), p.moons(),
                     List.of(generateColonyPopulation(primaryRace, 7_800_000_000L))
             );
         }
@@ -710,6 +793,14 @@ public class GalaxyGenerator {
                 );
             }
         };
+    }
+
+    private List<String> homeResources(List<String> original) {
+        Set<String> resources = new LinkedHashSet<>(original);
+        resources.addAll(List.of("iron_ore", "silicates", "aluminum_ore", "copper_ore", "carbon",
+                "nitrates", "phosphates", "potash", "rare_earth_fluorides", "silver_ore",
+                "gold", "uranium_ore", "thorium_ore", "lithium_ore", "nickel_ore"));
+        return List.copyOf(resources);
     }
 
     private List<AsteroidBelt> configureAsteroidBeltsForScenario(List<AsteroidBelt> belts, Race primaryRace, GameStartScenario scenario) {

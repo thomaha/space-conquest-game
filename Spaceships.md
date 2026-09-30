@@ -17,7 +17,7 @@
 ##### Cargo transport
 - **Operational scope:** The logistical lifeblood of the empire, moving massive volume caches of materials across solar networks.
 - **Module requirements:** Must equip at least one *Bulk Cargo Vault*.
-- **Systemic constraints:** Private corporations may manufacture eligible public cargo blueprints or design proprietary cargo blueprints for their own use. The player cannot build from a corporation's proprietary blueprint but may purchase a finished cargo ship from its shipyard. Fully loaded hulls are intended to experience severe sub-light acceleration penalties and higher planetary launch costs due to their mass. The procurement rule and full mass-dependent behavior are not yet enforced end to end.
+- **Systemic constraints:** Private corporations may manufacture eligible public cargo blueprints or design proprietary cargo blueprints for their own use. The player cannot build from a corporation's proprietary blueprint but may purchase a finished cargo ship from its shipyard. Loaded cargo, passengers and fuel now increase departure mass and lengthen sublight interstellar travel through lower acceleration. Higher launch costs and fuel-limited thrust remain unfinished. Finished-ship procurement from corporate yards remains planned.
 
 ##### Colony ship
 - **Operational scope:** A massive, single-use ark hull built to expand the empire’s borders by seeding new populations on virgin worlds.
@@ -59,13 +59,15 @@
 - **Description:** Utilizes controlled nuclear fission to superheat a gas propellant, providing steady, long-range propulsion for early interstellar vessels.
 - **Primary material inputs:** `steel`, `refined_iron` and `lead` (for reactor core containment shielding).
 - **Fuel consumption:** Consumes `refined_uranium` or `refined_thorium` fuel allocations per transit leg.
+- **Current implementation:** The propulsion tank consumes `hydrogen_gas` as heated propellant. Refined uranium or thorium is bought separately and carried as reactor fuel. Local maneuvers and sublight legs both require it; local fuel is committed at departure while interstellar propellant burns during travel. The fuel-use ratios are provisional.
 - **Systemic factors:** A low-complexity (Level 4), high-mass engine variant. It is incredibly cheap to manufacture, but its heavy dry mass drastically increases the ship's planetary blast-off gravity tax.
 - **Workforce requirement:** Operated and maintained by the `technician` profession.
 
 ##### Advanced fusion propulsion drive
 - **Description:** Leverages high-energy magnetic fields to fuse hydrogen isotopes, unlocking exceptional thrust velocities and fuel efficiency.
 - **Primary material inputs:** `inconel_alloy`, `superconducting_cuprates` and `refined_neodymium` (for magnetic plasma constriction nozzles).
-- **Fuel consumption:** Requires a continuous feed of high-density `fusion_fuel_pellets` to execute system transits.
+- **Fuel consumption:** Uses hydrogen as reaction mass. Deuterium and dense fusion fuel pellets provide higher-performance reactor feed when available.
+- **Current implementation:** The propulsion tank uses `hydrogen_gas` as reaction mass. Hydrogen alone gives the lowest exhaust speed; carried `deuterium_gas` improves it and `fusion_fuel_pellets` give the highest current performance. Local maneuvers and sublight legs consume their selected isotope feed at departure.
 - **Systemic factors:** A high-complexity (Level 8) propulsion unit. It reduces overall transit travel times across solar systems and possesses a significantly lower dry mass footprint than fission drives, optimizing the ship for planetary launches.
 - **Workforce requirement:** Supervised and calibrated exclusively by the `engineer` profession.
 
@@ -144,6 +146,7 @@
 - **Dry mass:** 4,500 kg
 - **Primary material inputs:** `inconel_alloy`, `superconducting_cuprates` (for electromagnetic ionization fields) and `refined_neodymium` (for magnetic plasma acceleration tracks).
 - **Consumables:** Utilizes ionized gas propellant loops derived directly from processed `ammonia_ice` or `methane_ice`.
+- **Current implementation:** The MPD drive requires researched Superconductors and its tank uses `methane_ice`. The alternative ammonia propellant remains unimplemented.
 - **Systemic factors:** A high-complexity (Level 7) maneuvering module. It generates extreme structural impulse vectors, allowing even heavy capital warships or dense cargo transports to execute tight tactical evasions and change headings rapidly in deep space. It produces enough raw force to actively counter heavy gravity wells during planetary landing runs.
 - **Workforce requirement:** Supervised and calibrated exclusively by the `engineer` profession.
 

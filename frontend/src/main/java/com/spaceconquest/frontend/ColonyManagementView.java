@@ -5,9 +5,13 @@ import com.spaceconquest.control.command.ColonizePlanetCommand;
 import com.spaceconquest.control.command.EnactMartialLawCommand;
 import com.spaceconquest.control.command.LaunchMassDriverPayloadCommand;
 import com.spaceconquest.engine.Planet;
+import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.PopulationProcessor;
-import com.spaceconquest.engine.industry.SurfaceMassDriver;
+import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.ship.Fleet;
+import com.spaceconquest.engine.ship.FleetLocation;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -41,7 +45,7 @@ public class ColonyManagementView {
     private String playerEmpireId = "terran_confederation";
     private final PopulationProcessor populationProcessor = new PopulationProcessor();
     private final List<Planet> planets = new ArrayList<>();
-    private final List<SurfaceMassDriver> massDrivers = new ArrayList<>();
+    private GameState snapshot;
 
     public ColonyManagementView(Menubar menubar) {
         this.menubar = menubar;
@@ -114,12 +118,10 @@ public class ColonyManagementView {
         }
     }
 
-    public void updateData(List<Planet> newPlanets, List<SurfaceMassDriver> newDrivers) {
+    public void updateData(GameState state) {
+        snapshot = state;
         planets.clear();
-        if (newPlanets != null) planets.addAll(newPlanets);
-
-        massDrivers.clear();
-        if (newDrivers != null) massDrivers.addAll(newDrivers);
+        if (state != null) state.solarSystems().forEach(system -> planets.addAll(system.planets()));
 
         if (root.isVisible()) {
             renderContent();
@@ -260,40 +262,60 @@ public class ColonyManagementView {
         header.setFont(Font.font("Verdana", FontWeight.BOLD, 15));
         section.getChildren().add(header);
 
-        if (massDrivers.isEmpty()) {
-            Text empty = new Text("No surface mass driver arrays currently constructed. Build mass drivers to bypass high-gravity orbital lift costs.");
+        List<IndustrialFacility> drivers = snapshot == null ? List.of()
+                : snapshot.industrialFacilities().stream()
+                .filter(facility -> "mass_driver".equals(facility.applicationId())
+                        && facility.tier() > 0).toList();
+        if (drivers.isEmpty()) {
+            Text empty = new Text("No operational mass-driver facilities are built.");
             empty.setFill(Color.LIGHTGRAY);
             section.getChildren().add(empty);
         } else {
-            for (SurfaceMassDriver driver : massDrivers) {
+            for (IndustrialFacility driver : drivers) {
                 VBox card = new VBox(6);
                 card.setPadding(new Insets(8));
                 card.setStyle("-fx-background-color: rgba(15, 30, 55, 0.6); -fx-background-radius: 6;");
 
-                HBox topRow = new HBox(10);
-                topRow.setAlignment(Pos.CENTER_LEFT);
-
-                Text dInfo = new Text(String.format("• Mass driver [%s] Planet: %s | Max capacity: %.0f tons/turn | Power: %.1f kW | Cost: %.2f cr/ton | Status: %s",
-                        driver.id(), driver.planetId().toUpperCase(), driver.maxPayloadTonsPerTurn(), driver.powerDrawKw(),
-                        driver.launchCostPerTonCredits(), driver.isActive() ? "ONLINE" : "OFFLINE"));
-                dInfo.setFill(driver.isActive() ? Color.LIGHTGREEN : Color.GRAY);
+                Text dInfo = new Text(String.format("%s on %s | %.0f kg/day | %.0f kW",
+                        driver.id(), driver.planetId(), driver.tier() * 1_000.0,
+                        driver.tier() * 250.0));
+                dInfo.setFill(Color.LIGHTGREEN);
                 dInfo.setFont(Font.font("Verdana", 11));
-                HBox.setHgrow(dInfo, Priority.ALWAYS);
-
-                Button launchBtn = new Button("Launch 1000t freight");
+                CommercialHub hub = snapshot.commercialHubs().stream()
+                        .filter(item -> driver.planetId().equals(item.entityId()))
+                        .findFirst().orElse(null);
+                ComboBox<String> material = new ComboBox<>();
+                if (hub != null) hub.activeOrders().forEach((id, order) -> {
+                    if (order.supplyKg() > 0.0) material.getItems().add(id);
+                });
+                material.setPromptText("Ground material");
+                ComboBox<String> ship = new ComboBox<>();
+                for (Fleet fleet : snapshot.fleets()) {
+                    if (fleet.location().isAt(FleetLocation.Site.orbit(driver.planetId())))
+                        fleet.ships().stream().filter(item -> playerEmpireId.equals(item.ownerEntityId())
+                                || snapshot.corporations().stream().anyMatch(corporation ->
+                                playerEmpireId.equals(corporation.empireId())
+                                        && corporation.id().equals(item.ownerEntityId())))
+                                .forEach(item -> ship.getItems().add(item.id()));
+                }
+                ship.setPromptText("Ship in orbit");
+                Spinner<Integer> kilograms = new Spinner<>(1, Math.max(1, driver.tier() * 1_000), 100, 10);
+                kilograms.setEditable(true);
+                Button launchBtn = new Button("Launch freight");
                 launchBtn.setStyle("-fx-background-color: #e67e22; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
+                launchBtn.disableProperty().bind(material.valueProperty().isNull()
+                        .or(ship.valueProperty().isNull()));
                 launchBtn.setOnAction(e -> {
                     if (humanController != null) {
                         humanController.stageCommand(new LaunchMassDriverPayloadCommand(
-                                driver.id(), "refined_iron", 1000.0, "low_orbit_depot"
+                                driver.id(), material.getValue(), kilograms.getValue() / 1000.0,
+                                ship.getValue()
                         ));
-                        feedbackLabel.setText("Catapulted 1000 tons of freight from " + driver.planetId().toUpperCase() + " into orbit.");
+                        feedbackLabel.setText("Launch queued; it will run on the next tick if stock, power and funds remain available.");
                         feedbackLabel.setTextFill(Color.LIGHTGREEN);
                     }
                 });
-
-                topRow.getChildren().addAll(dInfo, launchBtn);
-                card.getChildren().add(topRow);
+                card.getChildren().addAll(dInfo, new HBox(8, material, ship, kilograms, launchBtn));
                 section.getChildren().add(card);
             }
         }

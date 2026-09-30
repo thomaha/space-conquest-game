@@ -2,13 +2,19 @@ package com.spaceconquest.control;
 
 import com.spaceconquest.control.command.CancelTradeRouteCommand;
 import com.spaceconquest.control.command.CreateTradeRouteCommand;
+import com.spaceconquest.control.command.MoveFleetCommand;
 import com.spaceconquest.control.command.ScanSystemCommand;
 import com.spaceconquest.engine.Empire;
+import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.galaxy.FogOfWarState;
 import com.spaceconquest.engine.logistics.TradeRoute;
+import com.spaceconquest.engine.ship.Fleet;
+import com.spaceconquest.engine.ship.ShipDesign;
+import com.spaceconquest.engine.ship.ShipInstance;
+import com.spaceconquest.engine.ship.ShipRole;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -20,7 +26,24 @@ public class LogisticsAndSensorCommandTest {
 
     @Test
     public void testCreateAndCancelTradeRouteCommand() {
-        GameState state = new GameState();
+        ShipDesign design = new ShipDesign("cargo_design", "Cargo", "terran_confederation",
+                ShipRole.CARGO_TRANSPORT, "steel", List.of(), "steel", 0,
+                1_000, 5_000, 0, 1, 0, 100_000, true, false);
+        Fleet freighter = new Fleet("fleet", "Freighter", "terran_confederation",
+                "sol", "", 0, 0, 0, false, "PASSIVE", List.of(new ShipInstance(
+                "freighter_01", design.id(), "terran_confederation", 100, 0, 100, Map.of())));
+        GameState state = GameState.builder().solarSystems(List.of(
+                new SolarSystem("sol", "Sol", "", 0, 0, 0, 1, 1, "Yellow",
+                        List.of(), List.of()),
+                new SolarSystem("alpha", "Alpha", "", 1, 0, 0, 1, 1, "Yellow",
+                        List.of(), List.of())))
+                .empires(List.of(new Empire("terran_confederation", "Terran", "human",
+                        "Individualist", 1_000, 0.1, List.of("sol"), List.of(),
+                        Map.of(), List.of(), List.of())))
+                .commercialHubs(List.of(
+                new CommercialHub("hub_earth", "earth", 0, 10_000, 0, 10, Map.of()),
+                new CommercialHub("hub_mars", "mars", 0, 10_000, 0, 10, Map.of())))
+                .shipDesigns(List.of(design)).fleets(List.of(freighter)).build();
 
         CreateTradeRouteCommand createCmd = new CreateTradeRouteCommand(
                 "terran_confederation", "Earth-Mars Iron Line", "hub_earth", "hub_mars",
@@ -35,6 +58,8 @@ public class LogisticsAndSensorCommandTest {
         assertEquals("Earth-Mars Iron Line", route.name());
         assertEquals("refined_iron", route.materialId());
         assertTrue(route.isActive());
+        assertFalse(createCmd.validate(afterCreate));
+        assertFalse(new MoveFleetCommand(freighter.id(), "alpha").validate(afterCreate));
 
         CancelTradeRouteCommand cancelCmd = new CancelTradeRouteCommand(route.id(), "terran_confederation");
         assertTrue(cancelCmd.validate(afterCreate));
@@ -42,6 +67,7 @@ public class LogisticsAndSensorCommandTest {
 
         assertEquals(1, afterCancel.tradeRoutes().size());
         assertFalse(afterCancel.tradeRoutes().get(0).isActive());
+        assertTrue(new MoveFleetCommand(freighter.id(), "alpha").validate(afterCancel));
     }
 
     @Test

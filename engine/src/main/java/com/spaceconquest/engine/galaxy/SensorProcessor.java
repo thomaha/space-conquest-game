@@ -66,7 +66,8 @@ public class SensorProcessor {
             // Sensor ranges from mobile fleets
             if (fleets != null) {
                 for (Fleet fleet : fleets) {
-                    if (empire.id().equals(fleet.ownerEntityId())) {
+                    if (empire.id().equals(fleet.ownerEntityId())
+                            && !fleet.isInterstellarTransit()) {
                         String currentSys = fleet.currentSystemId();
                         if (currentSys != null && !currentSys.isEmpty()) {
                             exploredSystems.add(currentSys);
@@ -98,7 +99,8 @@ public class SensorProcessor {
             // Detect foreign fleets in explored systems
             if (fleets != null) {
                 for (Fleet fleet : fleets) {
-                    if (!empire.id().equals(fleet.ownerEntityId())) {
+                    if (!empire.id().equals(fleet.ownerEntityId())
+                            && !fleet.isInterstellarTransit()) {
                         if (exploredSystems.contains(fleet.currentSystemId())) {
                             detectedFleets.add(fleet.id());
                         }

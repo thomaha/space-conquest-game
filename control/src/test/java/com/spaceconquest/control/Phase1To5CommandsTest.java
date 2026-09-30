@@ -2,9 +2,19 @@ package com.spaceconquest.control;
 
 import com.spaceconquest.control.command.*;
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.CommercialHub;
+import com.spaceconquest.engine.Empire;
+import com.spaceconquest.engine.MarketOrder;
+import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.SolarSystem;
+import com.spaceconquest.engine.macrostructure.MacroStructureProcessor;
 import com.spaceconquest.engine.macrostructure.OrbitalStation;
 import com.spaceconquest.engine.macrostructure.StationModule;
+import com.spaceconquest.engine.ship.Fleet;
+import com.spaceconquest.engine.ship.FleetLocation;
+import com.spaceconquest.engine.ship.ShipInstance;
+import com.spaceconquest.engine.ship.ShipDesign;
+import com.spaceconquest.engine.ship.ShipRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -23,8 +33,33 @@ class Phase1To5CommandsTest {
                 .turn(1)
                 .status("RUNNING")
                 .solarSystems(List.of(
-                new SolarSystem("sol", "Sol System", "", 0, 0, 0, 1.0, 1.0, "Yellow", List.of(), List.of())
+                new SolarSystem("sol", "Sol System", "", 0, 0, 0, 1.0, 1.0, "Yellow",
+                        List.of(new Planet("earth", "Earth", "", 1, 1, 1, 0, 1,
+                                "terrestrial", "breathable", true, 1, List.of(), List.of(), List.of()),
+                                new Planet("mars", "Mars", "", 1, 1, 1, 0, 0,
+                                        "terrestrial", "none", false, 1, List.of(), List.of(), List.of())), List.of())
         ))
+                .empires(List.of(new Empire("terran_confederation", "Terran", "human",
+                        "Individualist", 1_000_000.0, 0.15, List.of("sol"), List.of(),
+                        Map.of(), List.of("industrial_production"), List.of())))
+                .commercialHubs(List.of(new CommercialHub("hub_earth", "earth", 0.0,
+                        1_000_000.0, 500_000.0, 10.0,
+                        Map.of("refined_iron", new MarketOrder("refined_iron", 200_000.0, 0, 1, 0),
+                                "refined_aluminum", new MarketOrder("refined_aluminum", 100_000.0, 0, 1, 0),
+                                "refined_copper", new MarketOrder("refined_copper", 100_000.0, 0, 1, 0),
+                                "steel", new MarketOrder("steel", 50_000.0, 0, 1, 0),
+                                "silicon", new MarketOrder("silicon", 50_000.0, 0, 1, 0)))))
+                .fleets(List.of(new Fleet("fleet_const", "Builders", "terran_confederation",
+                        "sol", "", 0, 0, 0, false, "PASSIVE", List.of(
+                        new ShipInstance("const_ship_1", "transport_design", "terran_confederation",
+                                1_000.0, 100.0, 100.0, Map.of("refined_iron", 100_000.0,
+                                "refined_aluminum", 30_000.0, "refined_copper", 30_000.0,
+                                "steel", 30_000.0, "silicon", 10_000.0))),
+                        FleetLocation.at(FleetLocation.Site.orbit("earth")))))
+                .shipDesigns(List.of(new ShipDesign("transport_design", "Orbital cargo",
+                        "terran_confederation", ShipRole.CARGO_TRANSPORT, "steel", List.of(),
+                        "steel", 0.0, 10_000.0, 250_000.0, 0.0, 1.0, 0.0, 0.0,
+                        true, false)))
                 .build();
     }
 
@@ -37,9 +72,12 @@ class Phase1To5CommandsTest {
 
         assertTrue(cmd.validate(initialState));
         GameState updated = cmd.apply(initialState);
-        assertEquals(1, updated.orbitalStations().size());
-        assertEquals("Gateway Station", updated.orbitalStations().get(0).name());
-        assertTrue(updated.orbitalStations().get(0).isOperational());
+        assertTrue(updated.orbitalStations().isEmpty());
+        assertEquals(1, updated.constructionProjects().size());
+        for (int day = 0; day < 5; day++) updated = new MacroStructureProcessor()
+                .advanceConstructionProjects(updated);
+        assertEquals("Gateway Station", updated.orbitalStations().getFirst().name());
+        assertTrue(updated.orbitalStations().getFirst().isOperational());
     }
 
     @Test
@@ -48,9 +86,12 @@ class Phase1To5CommandsTest {
         assertTrue(cmd.validate(initialState));
 
         GameState updated = cmd.apply(initialState);
-        assertEquals(1, updated.spaceElevators().size());
-        assertEquals("earth", updated.spaceElevators().get(0).planetId());
-        assertEquals(0.95, updated.spaceElevators().get(0).surfaceToOrbitCostDiscount(), 0.001);
+        assertTrue(updated.spaceElevators().isEmpty());
+        assertEquals(1, updated.constructionProjects().size());
+        for (int day = 0; day < 10; day++) updated = new MacroStructureProcessor()
+                .advanceConstructionProjects(updated);
+        assertEquals("earth", updated.spaceElevators().getFirst().planetId());
+        assertEquals(0.95, updated.spaceElevators().getFirst().surfaceToOrbitCostDiscount(), 0.001);
 
         // Duplicate validation fails
         assertFalse(cmd.validate(updated));
@@ -63,7 +104,11 @@ class Phase1To5CommandsTest {
                 OrbitalStation.OWNERSHIP_PUBLIC_STATE, 50, "steel", 5.0
         );
         GameState stateWithStation = buildCmd.apply(initialState);
+        for (int day = 0; day < 5; day++) stateWithStation = new MacroStructureProcessor()
+                .advanceConstructionProjects(stateWithStation);
         String stationId = stateWithStation.orbitalStations().get(0).id();
+        stateWithStation = stateWithStation.withFleets(List.of(stateWithStation.fleets()
+                .getFirst().withLocation(FleetLocation.at(FleetLocation.Site.docked(stationId)))));
 
         AddStationModuleCommand modCmd = new AddStationModuleCommand(
                 stationId, "Hydroponics Ring", StationModule.TYPE_HYDROPONIC_FOOD,
@@ -72,6 +117,10 @@ class Phase1To5CommandsTest {
 
         assertTrue(modCmd.validate(stateWithStation));
         GameState updated = modCmd.apply(stateWithStation);
+        assertEquals(2, updated.orbitalStations().get(0).modules().size());
+        assertEquals(1, updated.constructionProjects().size());
+        for (int day = 0; day < 2; day++) updated = new MacroStructureProcessor()
+                .advanceConstructionProjects(updated);
         assertEquals(3, updated.orbitalStations().get(0).modules().size());
     }
 
@@ -80,9 +129,11 @@ class Phase1To5CommandsTest {
         DeployConstructionShipCommand cmd = new DeployConstructionShipCommand(
                 "const_ship_1", "sol", "mars", "ORBITAL_STATION", 3.0
         );
-        assertTrue(cmd.validate(initialState));
+        GameState atMars = initialState.withFleets(List.of(initialState.fleets().getFirst()
+                .withLocation(FleetLocation.at(FleetLocation.Site.orbit("mars")))));
+        assertTrue(cmd.validate(atMars));
 
-        GameState updated = cmd.apply(initialState);
+        GameState updated = cmd.apply(atMars);
         assertEquals(1, updated.constructionProjects().size());
         assertEquals("mars", updated.constructionProjects().get(0).targetCelestialId());
     }

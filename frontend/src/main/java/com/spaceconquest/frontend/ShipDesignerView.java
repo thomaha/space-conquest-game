@@ -3,15 +3,19 @@ package com.spaceconquest.frontend;
 import com.spaceconquest.control.HumanController;
 import com.spaceconquest.control.command.DesignShipCommand;
 import com.spaceconquest.engine.Material;
+import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.habitation.PassengerStasis;
 import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.ShipDesignValidator;
 import com.spaceconquest.engine.ship.ShipHullFrame;
 import com.spaceconquest.engine.ship.ShipModule;
 import com.spaceconquest.engine.ship.ShipRole;
+import com.spaceconquest.engine.ship.PropulsionCatalog;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ScrollPane;
@@ -25,6 +29,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.util.StringConverter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +49,7 @@ public class ShipDesignerView {
     private String playerEmpireId = "terran_confederation";
     private final ShipDesignValidator validator = new ShipDesignValidator();
     private final List<ShipDesign> registeredDesigns = new ArrayList<>();
+    private GameState snapshot;
 
     public ShipDesignerView(Menubar menubar) {
         this.menubar = menubar;
@@ -126,6 +132,11 @@ public class ShipDesignerView {
         }
     }
 
+    public void updateData(GameState state) {
+        snapshot = state;
+        updateDesigns(state == null ? List.of() : state.shipDesigns());
+    }
+
     private void renderContent() {
         content.getChildren().clear();
 
@@ -160,14 +171,39 @@ public class ShipDesignerView {
 
         Spinner<Double> armorSpinner = new Spinner<>(0.5, 10.0, 2.0, 0.5);
         armorSpinner.setPrefWidth(80);
+        ComboBox<ShipModule> engineCombo = new ComboBox<>();
+        engineCombo.setConverter(new StringConverter<>() {
+            @Override public String toString(ShipModule module) {
+                return module == null ? "" : module.name();
+            }
+            @Override public ShipModule fromString(String value) { return null; }
+        });
+        List<String> unlocked = snapshot == null ? List.of() : snapshot.empires().stream()
+                .filter(empire -> empire.id().equals(playerEmpireId))
+                .map(empire -> empire.unlockedTechIds()).findFirst().orElse(List.of());
+        for (String moduleId : PropulsionCatalog.MAIN_DRIVE_IDS) {
+            if (PropulsionCatalog.researched(List.of(moduleId), unlocked))
+                engineCombo.getItems().add(PropulsionCatalog.module(moduleId));
+        }
+        if (!engineCombo.getItems().isEmpty()) engineCombo.setValue(engineCombo.getItems().getFirst());
+        boolean stasisResearched = snapshot != null && snapshot.empires().stream()
+                .anyMatch(empire -> empire.id().equals(playerEmpireId)
+                        && empire.unlockedTechIds().contains(PassengerStasis.TECHNOLOGY_ID));
+        CheckBox stasisPod = new CheckBox("Cryogenic stasis pod (100 passengers)");
+        stasisPod.setDisable(!stasisResearched);
+        stasisPod.setTextFill(Color.LIGHTCYAN);
+        if (!stasisResearched) stasisPod.setText("Cryogenic stasis pod (research required)");
 
-        GridPane grid = createWorkbenchForm(nameField, roleCombo, matCombo, armorCombo, armorSpinner);
+        GridPane grid = createWorkbenchForm(nameField, roleCombo, matCombo, armorCombo,
+                armorSpinner, engineCombo);
 
-        ShipHullFrame demoFrame = new ShipHullFrame("frame_medium", "Medium hull starframe", 20, matCombo.getValue(), 15000.0, 60.0);
+        ShipHullFrame demoFrame = new ShipHullFrame("frame_medium", "Medium hull starframe", 30, matCombo.getValue(), 15000.0, 60.0);
         ShipModule reactor = new ShipModule("mod_fission_reactor", "Fission reactor tier 2", "MEDIUM", 4, 3000.0, 0.0, 500.0, 0.0, 2, Map.of(), Map.of());
-        ShipModule thruster = new ShipModule("mod_ion_drive", "High-impulse ion drive", "MEDIUM", 6, 4500.0, 120.0, 0.0, 450000.0, 2, Map.of(), Map.of());
+        ShipModule thruster = engineCombo.getValue() == null
+                ? PropulsionCatalog.module("mod_chemical_rocket") : engineCombo.getValue();
         ShipModule cargoVault = new ShipModule("mod_cargo_vault", "Pressurized cargo vault", "LARGE", 8, 2000.0, 30.0, 0.0, 0.0, 1, Map.of(), Map.of("cargoCapacityKg", 30000.0));
-        List<ShipModule> sampleModules = List.of(reactor, thruster, cargoVault);
+        ShipModule tank = PropulsionCatalog.fuelTankModule();
+        List<ShipModule> sampleModules = List.of(reactor, thruster, cargoVault, tank);
         Material hullMat = new Material("steel", "Steel", "Structural alloy", true, Map.of(), 7800.0, 60.0, 1);
 
         ShipDesignValidator.ValidationResult valRes = validator.validate(
@@ -175,15 +211,25 @@ public class ShipDesignerView {
         );
 
         VBox statsBox = createWorkbenchStatsBox(valRes);
-        Button saveBlueprintBtn = createSaveBlueprintButton(nameField, roleCombo, matCombo, armorCombo, armorSpinner, valRes);
+        engineCombo.valueProperty().addListener((observable, old, selected) -> {
+            if (selected == null) return;
+            ShipDesignValidator.ValidationResult refreshed = validator.validate(roleCombo.getValue(),
+                    demoFrame, List.of(reactor, selected, cargoVault, tank), hullMat, hullMat,
+                    armorSpinner.getValue(), 1.0, 1.0, Math.max(5, selected.complexityLevel()));
+            statsBox.getChildren().setAll(createWorkbenchStatsBox(refreshed).getChildren());
+        });
+        Button saveBlueprintBtn = createSaveBlueprintButton(nameField, roleCombo, matCombo,
+                armorCombo, armorSpinner, stasisPod, engineCombo);
+        saveBlueprintBtn.setDisable(engineCombo.getItems().isEmpty());
 
-        section.getChildren().addAll(header, grid, statsBox, saveBlueprintBtn);
+        section.getChildren().addAll(header, grid, stasisPod, statsBox, saveBlueprintBtn);
         return section;
     }
 
     private GridPane createWorkbenchForm(TextField nameField, ComboBox<String> roleCombo,
                                         ComboBox<String> matCombo, ComboBox<String> armorCombo,
-                                        Spinner<Double> armorSpinner) {
+                                        Spinner<Double> armorSpinner,
+                                        ComboBox<ShipModule> engineCombo) {
         GridPane grid = new GridPane();
         grid.setHgap(12);
         grid.setVgap(8);
@@ -196,6 +242,8 @@ public class ShipDesignerView {
         matLbl.setTextFill(Color.LIGHTCYAN);
         Label armorLbl = new Label("Armor material and thickness:");
         armorLbl.setTextFill(Color.LIGHTCYAN);
+        Label engineLbl = new Label("Propulsion drive:");
+        engineLbl.setTextFill(Color.LIGHTCYAN);
 
         grid.add(nameLbl, 0, 0);
         grid.add(nameField, 1, 0);
@@ -205,6 +253,8 @@ public class ShipDesignerView {
         grid.add(matCombo, 1, 1);
         grid.add(armorLbl, 2, 1);
         grid.add(new HBox(5, armorCombo, armorSpinner), 3, 1);
+        grid.add(engineLbl, 0, 2);
+        grid.add(engineCombo, 1, 2);
         return grid;
     }
 
@@ -232,16 +282,44 @@ public class ShipDesignerView {
 
     private Button createSaveBlueprintButton(TextField nameField, ComboBox<String> roleCombo,
                                             ComboBox<String> matCombo, ComboBox<String> armorCombo,
-                                            Spinner<Double> armorSpinner, ShipDesignValidator.ValidationResult valRes) {
+                                            Spinner<Double> armorSpinner, CheckBox stasisPod,
+                                            ComboBox<ShipModule> engineCombo) {
         Button saveBlueprintBtn = new Button("Register blueprint design");
         saveBlueprintBtn.setStyle("-fx-background-color: #00cec9; -fx-text-fill: black; -fx-font-weight: bold;");
         saveBlueprintBtn.setOnAction(e -> {
+            List<ShipModule> modules = new ArrayList<>();
+            modules.add(new ShipModule("mod_fission_reactor", "Fission reactor tier 2",
+                    "MEDIUM", 4, 3000, 0, 500, 0, 2, Map.of(), Map.of()));
+            if (engineCombo.getValue() == null) return;
+            modules.add(engineCombo.getValue());
+            modules.add(new ShipModule("mod_cargo_vault", "Pressurized cargo vault",
+                    "LARGE", 8, 2000, 30, 0, 0, 1, Map.of(),
+                    Map.of("cargoCapacityKg", 30000.0)));
+            modules.add(PropulsionCatalog.fuelTankModule());
+            if (stasisPod.isSelected()) modules.add(new ShipModule(PassengerStasis.MODULE_ID,
+                    "Cryogenic stasis pod", "MEDIUM", 2, 1200, 80, 0, 0, 7,
+                    Map.of("refined_aluminum", 100.0, "refined_copper", 50.0),
+                    Map.of("stasisCapacity", (double) PassengerStasis.PASSENGERS_PER_POD)));
+            ShipHullFrame frame = new ShipHullFrame("frame_medium", "Medium hull starframe",
+                    30, matCombo.getValue(), 15000, 60);
+            Material material = new Material(matCombo.getValue(), matCombo.getValue(),
+                    "Structural material", true, Map.of(), 7800, 60, 1);
+            ShipDesignValidator.ValidationResult valRes = validator.validate(roleCombo.getValue(),
+                    frame, modules, material, material, armorSpinner.getValue(), 1, 1,
+                    Math.max(stasisPod.isSelected() ? 7 : 5,
+                            engineCombo.getValue().complexityLevel()));
+            if (!valRes.isValid()) {
+                feedbackLabel.setText("Blueprint invalid: " + String.join(", ", valRes.validationErrors()));
+                feedbackLabel.setTextFill(Color.SALMON);
+                return;
+            }
             String id = "design_" + UUID.randomUUID().toString().substring(0, 8);
             ShipDesign newDesign = new ShipDesign(
                     id, nameField.getText(), playerEmpireId, roleCombo.getValue(), matCombo.getValue(),
-                    List.of("mod_fission_reactor", "mod_ion_drive", "mod_cargo_vault"),
+                    modules.stream().map(ShipModule::id).toList(),
                     armorCombo.getValue(), armorSpinner.getValue(),
-                    valRes.totalDryMassKg(), 30000.0, valRes.powerBalanceKw(),
+                    valRes.totalDryMassKg(), valRes.maxCargoMassKg(), valRes.fuelCapacityKg(),
+                    valRes.powerBalanceKw(),
                     valRes.structuralIntegrity(), valRes.minLaunchThrustRequiredN(),
                     valRes.totalThrustN(), valRes.isLaunchCapable(), false
             );

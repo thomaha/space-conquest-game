@@ -1,97 +1,74 @@
 package com.spaceconquest.control.command;
 
+import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
-import com.spaceconquest.engine.ship.Fleet;
+import com.spaceconquest.engine.habitation.PassengerStasis;
+import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
+import com.spaceconquest.engine.industry.ConstructionMaterials;
+import com.spaceconquest.engine.ship.ShipConstructionOrder;
 import com.spaceconquest.engine.ship.ShipDesign;
-import com.spaceconquest.engine.ship.ShipInstance;
+import com.spaceconquest.engine.ship.PropulsionCatalog;
+import com.spaceconquest.engine.macrostructure.StationModule;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Command to construct a starship from a blueprint and commission it into a fleet.
- */
-public record QueueShipBuildCommand(
-        String ownerEntityId,
-        String designId,
-        String systemId
-) implements GameCommand {
-
+/** Stages a ship build; daily work consumes local materials before commissioning a hull. */
+public record QueueShipBuildCommand(String ownerEntityId, String designId,
+                                    String systemId) implements GameCommand {
     @Override
     public boolean validate(GameState state) {
         if (state == null || ownerEntityId == null || designId == null || systemId == null) {
             return false;
         }
-        return state.shipDesigns().stream().anyMatch(d -> d.id().equals(designId));
+        Empire owner = state.empires().stream()
+                .filter(empire -> ownerEntityId.equals(empire.id())
+                        && empire.controlledSystemIds().contains(systemId))
+                .findFirst().orElse(null);
+        if (owner == null || yard(state) == null) return false;
+        return state.shipDesigns().stream().anyMatch(design -> design.id().equals(designId)
+                && ownerEntityId.equals(design.ownerEntityId())
+                && (!design.equippedModuleIds().contains(PassengerStasis.MODULE_ID)
+                || owner.unlockedTechIds().contains(PassengerStasis.TECHNOLOGY_ID))
+                && PropulsionCatalog.researched(design.equippedModuleIds(),
+                owner.unlockedTechIds())
+                && PropulsionCatalog.validConfiguration(design.equippedModuleIds(),
+                design.fuelCapacityKg())
+                && !design.isProprietaryCorporateDesign());
     }
 
     @Override
     public GameState apply(GameState state) {
-        if (!validate(state)) {
-            return state;
-        }
-
+        if (!validate(state)) return state;
         ShipDesign design = state.shipDesigns().stream()
-                .filter(d -> d.id().equals(designId))
-                .findFirst()
-                .orElse(null);
-        if (design == null) return state;
+                .filter(item -> designId.equals(item.id())).findFirst().orElseThrow();
+        String bodyId = yard(state);
+        double requiredHours = Math.max(200.0, design.totalDryMassKg() / 100.0);
+        List<ShipConstructionOrder> orders = new ArrayList<>(state.shipConstructionOrders());
+        orders.add(new ShipConstructionOrder("ship_order_" + UUID.randomUUID(),
+                ownerEntityId, designId, systemId, bodyId, 0.0, requiredHours,
+                ConstructionMaterialCatalog.ship(design), Map.of()));
+        return state.withShipConstructionOrders(orders);
+    }
 
-        String shipId = "ship_" + UUID.randomUUID().toString().substring(0, 8);
-        ShipInstance newShip = new ShipInstance(
-                shipId,
-                designId,
-                ownerEntityId,
-                1000.0,
-                500.0,
-                100.0,
-                Map.of()
-        );
-
-        List<Fleet> updatedFleets = new ArrayList<>(state.fleets());
-        Fleet existingFleet = updatedFleets.stream()
-                .filter(f -> f.ownerEntityId().equals(ownerEntityId) && f.currentSystemId().equals(systemId))
-                .findFirst()
-                .orElse(null);
-
-        if (existingFleet != null) {
-            List<ShipInstance> fleetShips = new ArrayList<>(existingFleet.ships());
-            fleetShips.add(newShip);
-            updatedFleets.remove(existingFleet);
-            updatedFleets.add(new Fleet(
-                    existingFleet.id(),
-                    existingFleet.name(),
-                    existingFleet.ownerEntityId(),
-                    existingFleet.currentSystemId(),
-                    existingFleet.targetSystemId(),
-                    existingFleet.coordinateX(),
-                    existingFleet.coordinateY(),
-                    existingFleet.transitProgress(),
-                    existingFleet.isInWarp(),
-                    existingFleet.fleetStance(),
-                    fleetShips
-            ));
-        } else {
-            String fleetId = "fleet_" + UUID.randomUUID().toString().substring(0, 8);
-            updatedFleets.add(new Fleet(
-                    fleetId,
-                    "Task Force " + systemId.toUpperCase(),
-                    ownerEntityId,
-                    systemId,
-                    "",
-                    0.0,
-                    0.0,
-                    0.0,
-                    false,
-                    "PASSIVE",
-                    List.of(newShip)
-            ));
-        }
-
-        return state.toBuilder()
-                .fleets(updatedFleets)
-                .build();
+    private String yard(GameState state) {
+        String orbital = state.orbitalStations().stream()
+                .filter(station -> systemId.equals(station.systemId())
+                        && ownerEntityId.equals(station.ownerEntityId())
+                        && (station.hasModuleType(StationModule.TYPE_SHIPYARD_GRID)
+                        || station.hasModuleType(StationModule.TYPE_CAPITAL_SLIPWAY))
+                        && ConstructionMaterials.orbitalHubEntity(state, systemId,
+                        station.id()) != null)
+                .map(station -> station.id()).findFirst().orElse(null);
+        if (orbital != null) return orbital;
+        return state.solarSystems().stream().filter(system -> systemId.equals(system.id()))
+                .flatMap(system -> system.planets().stream()
+                        .flatMap(planet -> java.util.stream.Stream.concat(
+                                java.util.stream.Stream.of(planet.id()),
+                                planet.moons().stream().map(moon -> moon.id()))))
+                .map(body -> ConstructionMaterials.bodyForSystem(state, systemId, body))
+                .filter(java.util.Objects::nonNull).findFirst().orElse(null);
     }
 }

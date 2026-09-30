@@ -152,6 +152,7 @@ public class CampaignManagerView {
 
     private VBox buildSaveCurrentSection() {
         VBox saveCurrentSection = new VBox(10);
+        saveCurrentSection.setDisable(mainApp == null || !mainApp.hasActiveCampaign());
         saveCurrentSection.setPadding(new Insets(12));
         saveCurrentSection.setStyle("-fx-background-color: rgba(30, 40, 75, 0.7); -fx-background-radius: 8; -fx-border-color: #2ecc71; -fx-border-width: 1; -fx-border-radius: 8;");
 

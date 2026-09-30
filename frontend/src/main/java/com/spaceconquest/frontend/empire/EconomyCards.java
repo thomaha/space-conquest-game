@@ -338,7 +338,7 @@ public class EconomyCards {
         taxLbl.setTextFill(Color.GOLD);
         taxLbl.setFont(Font.font("Verdana", 11));
 
-        Label budgetLbl = new Label(String.format("Public sector budget: %,.0f ₵", report.publicSectorFunding()));
+        Label budgetLbl = new Label(String.format("Non-payroll public spending: %,.0f ₵", report.publicSectorFunding()));
         budgetLbl.setTextFill(Color.LIGHTSKYBLUE);
         budgetLbl.setFont(Font.font("Verdana", 11));
 
@@ -398,7 +398,7 @@ public class EconomyCards {
         box.getChildren().add(header);
 
         VBox itemsBox = new VBox(6);
-        itemsBox.getChildren().add(createEconomyLineItem("Public sector funding budget", String.format("-%,.0f ₵", report.publicSectorFunding()), "Allocated budget distributed across education, law, health, infrastructure and militias.", Color.TOMATO));
+        itemsBox.getChildren().add(createEconomyLineItem("Non-payroll public spending", String.format("-%,.0f ₵", report.publicSectorFunding()), "Public budget after salaries, including selected industry support.", Color.TOMATO));
         itemsBox.getChildren().add(createEconomyLineItem(
                 report.fromBalanceSheets() ? "State workforce salaries" : "Governor & municipal administration",
                 String.format("-%,.0f ₵", report.governorAdministration()),

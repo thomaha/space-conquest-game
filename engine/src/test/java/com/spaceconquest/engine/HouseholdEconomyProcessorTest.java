@@ -1,12 +1,15 @@
 package com.spaceconquest.engine;
 
 import com.spaceconquest.engine.economy.HouseholdAccount;
+import com.spaceconquest.engine.economy.HouseholdEmployment;
+import com.spaceconquest.engine.economy.HouseholdWellbeing;
 import com.spaceconquest.engine.economy.HouseholdEconomyProcessor;
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.economy.PlanetaryMunicipalProcessor;
 import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.demographics.ColonyFocus;
 import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.industry.IndustryAccount;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -32,22 +35,83 @@ class HouseholdEconomyProcessorTest {
         double taxes = result.householdAccounts().stream().mapToDouble(HouseholdAccount::incomeTaxPaidCredits).sum();
         double spending = result.householdAccounts().stream().mapToDouble(HouseholdAccount::marketSpendingCredits).sum();
         double savings = result.householdAccounts().stream().mapToDouble(HouseholdAccount::savingsCredits).sum();
+        double welfare = result.householdAccounts().stream().mapToDouble(HouseholdAccount::welfareIncomeCredits).sum();
 
         assertTrue(wages > 0.0);
         assertEquals(wages * 0.10, taxes, 0.001);
-        assertEquals(wages - taxes - spending, savings, 0.001);
+        assertEquals(wages + welfare - taxes - spending, savings, 0.001);
         assertEquals(taxes, result.incomeTaxByBody().get("earth"), 0.001);
         assertEquals(spending, result.marketAccounts().getFirst().unsettledSalesCredits(), 0.001);
+        double stockSoldAtPostedPrices = state.commercialHubs().getFirst().activeOrders()
+                .entrySet().stream().mapToDouble(entry -> (entry.getValue().supplyKg()
+                        - result.commercialHubs().getFirst().activeOrders()
+                        .get(entry.getKey()).supplyKg()) * entry.getValue().pricePerKg()).sum();
+        assertEquals(spending, stockSoldAtPostedPrices, 0.001);
+        assertEquals(state.corporations().getFirst().liquidCapitalReserves()
+                        - result.corporations().getFirst().liquidCapitalReserves(),
+                result.wagesByFacility().values().stream().mapToDouble(Double::doubleValue).sum(), 0.001);
         assertTrue(result.commercialHubs().getFirst().activeOrders().get("food_matrix").supplyKg() < 100.0);
         assertTrue(result.commercialHubs().getFirst().activeOrders().get("food_matrix").supplyKg() >= 0.0);
         assertTrue(result.corporations().getFirst().liquidCapitalReserves() < 1_000.0);
-        assertTrue(result.householdAccounts().stream().anyMatch(account -> !account.unmetBasicKg().isEmpty()));
+        assertTrue(result.householdAccounts().stream().allMatch(account -> account.unmetBasicKg().isEmpty()));
 
         var municipal = new PlanetaryMunicipalProcessor().processMunicipalFinances(state, result);
         PlanetaryBalanceSheet sheet = municipal.balanceSheets().getFirst();
         assertEquals(taxes, sheet.incomeTaxRevenue(), 0.001);
         assertEquals(result.publicWagesByBody().get("earth"), sheet.workforceSalaries(), 0.001);
         assertEquals(wages, sheet.grossPlanetaryProduct(), 0.001);
+    }
+
+    @Test
+    void eachPublicProfessionIsPaidWithinItsSectorAllocation() {
+        GameState state = state(25);
+        SystemEconomy economy = state.systemEconomies().getFirst();
+        var accounts = processor.process(state, List.of(human())).householdAccounts();
+        double budget = economy.totalBudgetCredits();
+
+        assertTrue(publicWages(accounts, "teacher", "scientist")
+                <= budget * economy.educationAllocation() + 0.001);
+        assertTrue(publicWages(accounts, "police")
+                <= budget * economy.lawAndOrderAllocation() + 0.001);
+        assertTrue(publicWages(accounts, "medic")
+                <= budget * economy.healthAndWelfareAllocation() + 0.001);
+        assertTrue(publicWages(accounts, "engineer", "technician")
+                <= budget * economy.infrastructureAllocation() + 0.001);
+        assertTrue(publicWages(accounts, "soldier")
+                <= budget * economy.planetaryMilitiasAllocation() + 0.001);
+    }
+
+    @Test
+    void dailyAccountsRecordFilledJobsAndUnemployment() {
+        var accounts = processor.process(state(25), List.of(human())).householdAccounts();
+        assertTrue(accounts.stream().anyMatch(account -> account.employment().workingAge() > 0));
+        assertTrue(accounts.stream().anyMatch(account -> account.employment().unemployedWorkers() > 0));
+        assertTrue(accounts.stream().allMatch(account -> account.employment().workingAge()
+                == account.employment().publicWorkers() + account.employment().industryWorkers()
+                        + account.employment().unemployedWorkers()));
+    }
+
+    @Test
+    void stateIndustryPaysItsWorkersFromFacilityBalance() {
+        GameState initial = state(25);
+        IndustrialFacility farm = new IndustrialFacility("farm", "earth", "farming", "empire",
+                IndustrialFacility.PUBLIC_STATE, 1, 10, "farmer", false, 0.0);
+        GameState state = initial.toBuilder().industrialFacilities(List.of(farm))
+                .industryAccounts(List.of(IndustryAccount.empty("farm").withOperatingCash(100.0)))
+                .build();
+
+        var result = processor.process(state, List.of(human()));
+        double wages = result.wagesByFacility().get("farm");
+        assertTrue(wages > 0.0);
+        assertEquals(100.0 - wages, result.industryAccounts().getFirst().operatingCashCredits(), 0.001);
+        assertEquals(1_000.0, result.empires().getFirst().treasuryCredits(), 0.001);
+        assertEquals(processor.process(initial, List.of(human())).publicWagesByBody().get("earth"),
+                result.publicWagesByBody().get("earth"), 0.001);
+    }
+
+    private double publicWages(List<HouseholdAccount> accounts, String... professions) {
+        return accounts.stream().filter(account -> List.of(professions).contains(account.professionId()))
+                .mapToDouble(HouseholdAccount::wageIncomeCredits).sum();
     }
 
     @Test
@@ -72,22 +136,68 @@ class HouseholdEconomyProcessorTest {
     }
 
     @Test
-    void childrenWithoutIncomeCannotPurchaseGoodsOrPayTax() {
+    void childrenWithoutIncomeReceiveBasicWelfareWithoutPayingTax() {
         GameState state = state(10);
         var result = processor.process(state, List.of(human()));
 
         assertEquals(0.0, result.incomeTaxByBody().get("earth"), 0.001);
         assertTrue(result.householdAccounts().stream().allMatch(account -> account.wageIncomeCredits() == 0.0));
-        assertTrue(result.householdAccounts().stream().allMatch(account -> account.marketSpendingCredits() == 0.0));
-        assertTrue(result.householdAccounts().stream().allMatch(account -> !account.unmetBasicKg().isEmpty()));
-        assertEquals(100.0, result.commercialHubs().getFirst().activeOrders().get("food_matrix").supplyKg(), 0.001);
-        assertTrue(result.marketAccounts().isEmpty());
+        assertEquals(100.0, result.welfareByBody().get("earth"), 0.001);
+        assertEquals(100.0, result.householdAccounts().stream()
+                .mapToDouble(HouseholdAccount::marketSpendingCredits).sum(), 0.001);
+        assertTrue(result.householdAccounts().stream()
+                .allMatch(account -> account.unmetBasicKg().isEmpty()));
+        assertEquals(0.0, result.commercialHubs().getFirst().activeOrders().get("food_matrix").supplyKg(), 0.001);
+    }
+
+    @Test
+    void existingSavingsPayForBasicsBeforeWelfareIsGranted() {
+        GameState initial = state(10);
+        HouseholdAccount group = processor.process(initial, List.of(human())).householdAccounts().getFirst();
+        HouseholdAccount saved = new HouseholdAccount("earth", "sol", "empire", "human", group.professionId(),
+                group.headcount(), 200.0, 0.0, 0.0, 0.0, 0.0, Map.of(), 1.0, 1.0,
+                0.0, 0.0, HouseholdWellbeing.healthy(), HouseholdEmployment.none());
+
+        var result = processor.process(initial.withHouseholdAccounts(List.of(saved)), List.of(human()));
+        HouseholdAccount supported = result.householdAccounts().stream()
+                .filter(account -> group.key().equals(account.key())).findFirst().orElseThrow();
+        assertEquals(0.0, supported.welfareIncomeCredits(), 0.001);
+        assertTrue(supported.unmetBasicKg().isEmpty());
+        assertTrue(supported.savingsCredits() < 200.0);
+    }
+
+    @Test
+    void welfareBeyondHealthAllocationAccumulatesAsLocalDebt() {
+        GameState initial = state(10);
+        CommercialHub oldHub = initial.commercialHubs().getFirst();
+        CommercialHub costlyHub = new CommercialHub(oldHub.id(), oldHub.entityId(),
+                oldHub.transactionTariffRate(), oldHub.storageCapacityKg(),
+                oldHub.currentStoredWeightKg(), oldHub.logisticsRangeUnits(),
+                Map.of("food_matrix", new MarketOrder("food_matrix", 100.0, 100.0, 20.0, 0.0)));
+        GameState state = initial.withCommercialHubs(List.of(costlyHub));
+        var households = processor.process(state, List.of(human()));
+        PlanetaryMunicipalProcessor municipal = new PlanetaryMunicipalProcessor();
+        PlanetaryBalanceSheet first = municipal.processMunicipalFinances(state, households)
+                .balanceSheets().getFirst();
+        double healthBudget = state.systemEconomies().getFirst().totalBudgetCredits()
+                * state.systemEconomies().getFirst().healthAndWelfareAllocation();
+
+        assertEquals(2_000.0, households.welfareByBody().get("earth"), 0.001);
+        assertEquals(2_000.0, first.publicWelfareExpenditures(), 0.001);
+        assertEquals(state.systemEconomies().getFirst().totalBudgetCredits() - healthBudget,
+                first.publicSectorFundingCredits(), 0.001);
+        assertTrue(first.outstandingDebtCredits() > 0.0);
+        PlanetaryBalanceSheet second = municipal.processMunicipalFinances(
+                state.toBuilder().planetaryBalanceSheets(List.of(first)).build(), households)
+                .balanceSheets().getFirst();
+        assertTrue(second.outstandingDebtCredits() > first.outstandingDebtCredits());
     }
 
     @Test
     void savingsSurviveWhenAGroupTemporarilyDisappears() {
         HouseholdAccount old = new HouseholdAccount("earth", "sol", "empire", "human", "retired",
-                100, 75.0, 0.0, 0.0, 0.0, 0.0, Map.of(), 1.0, 1.0, 0.0, 0.0);
+                100, 75.0, 0.0, 0.0, 0.0, 0.0, Map.of(), 1.0, 1.0, 0.0, 0.0,
+                HouseholdWellbeing.healthy(), HouseholdEmployment.none());
         GameState state = state(25).withHouseholdAccounts(List.of(old));
 
         HouseholdAccount retained = processor.process(state, List.of(human())).householdAccounts().stream()
@@ -148,7 +258,7 @@ class HouseholdEconomyProcessorTest {
         double savings = result.householdAccounts().stream()
                 .mapToDouble(HouseholdAccount::savingsCredits).sum();
 
-        assertEquals(50.0, welfare, 0.001);
+        assertEquals(100.0, welfare, 0.001);
         assertEquals(0.0, result.incomeTaxByBody().get("earth"), 0.001);
         assertEquals(welfare, spending + savings, 0.001);
         PlanetaryBalanceSheet sheet = new PlanetaryMunicipalProcessor()

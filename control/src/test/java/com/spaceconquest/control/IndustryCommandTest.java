@@ -46,9 +46,10 @@ public class IndustryCommandTest {
         IndustrialFacility fac = stateWithFacility.industrialFacilities().getFirst();
         assertEquals("earth", fac.planetId());
         assertEquals("refining_blast_furnace", fac.applicationId());
-        assertEquals(1, fac.tier());
+        assertEquals(0, fac.tier());
         assertEquals(25, fac.allocatedWorkers());
-        assertFalse(fac.isUndergoingExpansion());
+        assertTrue(fac.isUndergoingExpansion());
+        assertEquals(1, stateWithFacility.expansionProjects().size());
     }
 
     @Test
@@ -57,7 +58,13 @@ public class IndustryCommandTest {
                 "earth", "refining_blast_furnace", "emp_terran",
                 IndustrialFacility.PUBLIC_STATE, 25, "industrial_worker"
         );
-        GameState stateWithFacility = buildCmd.apply(initialState);
+        GameState site = buildCmd.apply(initialState);
+        IndustrialFacility unfinished = site.industrialFacilities().getFirst();
+        IndustrialFacility operational = new IndustrialFacility(unfinished.id(), unfinished.planetId(),
+                unfinished.applicationId(), unfinished.ownerEntityId(), unfinished.ownershipType(),
+                1, unfinished.allocatedWorkers(), unfinished.workerProfessionId(), false, 0.0);
+        GameState stateWithFacility = site.toBuilder().industrialFacilities(List.of(operational))
+                .expansionProjects(List.of()).build();
         String facId = stateWithFacility.industrialFacilities().getFirst().id();
 
         ExpandFacilityCommand expandCmd = new ExpandFacilityCommand(facId, 2, 200.0, 4000.0);

@@ -1,5 +1,7 @@
 package com.spaceconquest.engine.industry;
 
+import java.util.Map;
+
 /**
  * Tracks an active industrial scaling expansion project for a facility.
  *
@@ -9,6 +11,8 @@ package com.spaceconquest.engine.industry;
  * @param accumulatedWorkHours   work hours completed
  * @param requiredWorkHours      total work hours needed
  * @param costCredits            monetary capital cost
+ * @param requiredMaterialsKg     physical construction bill
+ * @param consumedMaterialsKg     materials already incorporated into the project
  */
 public record FacilityExpansionProject(
         String projectId,
@@ -16,10 +20,26 @@ public record FacilityExpansionProject(
         int targetTier,
         double accumulatedWorkHours,
         double requiredWorkHours,
-        double costCredits
+        double costCredits,
+        Map<String, Double> requiredMaterialsKg,
+        Map<String, Double> consumedMaterialsKg
 ) {
+    public FacilityExpansionProject {
+        requiredMaterialsKg = requiredMaterialsKg == null ? Map.of() : Map.copyOf(requiredMaterialsKg);
+        consumedMaterialsKg = consumedMaterialsKg == null ? Map.of() : Map.copyOf(consumedMaterialsKg);
+    }
+
+    public FacilityExpansionProject(String projectId, String facilityId, int targetTier,
+                                    double accumulatedWorkHours, double requiredWorkHours,
+                                    double costCredits) {
+        this(projectId, facilityId, targetTier, accumulatedWorkHours, requiredWorkHours,
+                costCredits, Map.of(), Map.of());
+    }
+
     public boolean isComplete() {
-        return accumulatedWorkHours >= requiredWorkHours;
+        return accumulatedWorkHours >= requiredWorkHours && requiredMaterialsKg.entrySet().stream()
+                .allMatch(entry -> consumedMaterialsKg.getOrDefault(entry.getKey(), 0.0)
+                        + 0.000001 >= entry.getValue());
     }
 
     public double getProgressPercentage() {

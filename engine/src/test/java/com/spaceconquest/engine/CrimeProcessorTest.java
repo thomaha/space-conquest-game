@@ -1,6 +1,9 @@
 package com.spaceconquest.engine;
 
 import com.spaceconquest.engine.market.CrimeProcessor;
+import com.spaceconquest.engine.economy.HouseholdAccount;
+import com.spaceconquest.engine.economy.HouseholdEmployment;
+import com.spaceconquest.engine.economy.HouseholdWellbeing;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -95,6 +98,13 @@ public class CrimeProcessorTest {
                 .commercialHubs(List.of(hub))
                 .build();
 
+        assertEquals(0.0, crimeProcessor.processCrime(state).totalLeakedCredits(),
+                "Stock on shelves is not daily trade");
+        state = state.toBuilder().householdAccounts(List.of(new HouseholdAccount(
+                "earth", "sol", "terran", "human", "worker", 1000,
+                0.0, 0.0, 0.0, 0.0, 100_000.0, Map.of(), 1.0, 1.0,
+                0.0, 0.0, HouseholdWellbeing.healthy(), HouseholdEmployment.none()))).build();
+
         CrimeProcessor.CrimeResult result = crimeProcessor.processCrime(state);
         assertTrue(result.totalLeakedCredits() > 0.0, "Black market leakage should siphon credits from unpoliced hub");
         assertFalse(result.shadowSyndicates().isEmpty(), "Shadow syndicate should be spawned");
@@ -103,5 +113,7 @@ public class CrimeProcessorTest {
         assertEquals("terran", syndicate.empireId());
         // Since gross value was 100,000, leakage easily crosses 5000 credits threshold, triggering pirate raider build
         assertFalse(syndicate.rogueShipIds().isEmpty(), "Syndicate should have autonomously built rogue raider ship");
+        assertEquals(1, syndicate.rogueShipIds().size(),
+                "At most one raider is constructed per daily crime pass");
     }
 }

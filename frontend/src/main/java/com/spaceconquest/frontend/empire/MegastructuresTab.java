@@ -65,8 +65,16 @@ public class MegastructuresTab {
         name.setFill(Color.GOLD);
         name.setFont(Font.font("Verdana", FontWeight.BOLD, 14));
         
-        double progress = (mega.totalStages() > 0) ? (mega.currentStage() * 100.0 / mega.totalStages()) : 0.0;
-        Text details = new Text("System: " + mega.systemId() + " | Progress: " + String.format("%.1f%%", progress));
+        double stageShare = mega.requiredStageProgress() <= 0.0 ? 0.0
+                : Math.clamp(mega.currentStageProgress() / mega.requiredStageProgress(), 0.0, 1.0);
+        double progress = mega.totalStages() <= 0 ? 0.0
+                : (mega.currentStage() + stageShare) * 100.0 / mega.totalStages();
+        double requiredKg = mega.requiredMaterialsKg().values().stream()
+                .mapToDouble(Double::doubleValue).sum();
+        double usedKg = mega.consumedMaterialsKg().values().stream()
+                .mapToDouble(Double::doubleValue).sum();
+        Text details = new Text(String.format("System: %s | Progress: %.1f%% | Stage materials: %.0f / %.0f kg",
+                mega.systemId(), progress, usedKg, requiredKg));
         details.setFill(Color.WHITE);
         
         card.getChildren().addAll(name, details);

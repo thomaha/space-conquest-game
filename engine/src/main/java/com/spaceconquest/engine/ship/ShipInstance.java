@@ -33,7 +33,7 @@ public record ShipInstance(
 
     public ShipInstance {
         if (storedCargoKg == null) storedCargoKg = Map.of();
-        if (transitMode == null) transitMode = MODE_CRYOGENIC_STASIS;
+        if (transitMode == null) transitMode = MODE_CONSCIOUS;
         if (passengerRaceId == null) passengerRaceId = "";
     }
 
@@ -46,6 +46,6 @@ public record ShipInstance(
             double currentFuelKg,
             Map<String, Double> storedCargoKg
     ) {
-        this(id, designId, ownerEntityId, currentHullHealth, currentShieldHealth, currentFuelKg, storedCargoKg, 0, "", MODE_CRYOGENIC_STASIS);
+        this(id, designId, ownerEntityId, currentHullHealth, currentShieldHealth, currentFuelKg, storedCargoKg, 0, "", MODE_CONSCIOUS);
     }
 }

@@ -307,7 +307,7 @@ public class EmpireViewTest {
 
     @Test
     public void testClickingThroughTabsWhileVisibleWithLoadedData() {
-        SpaceConquestEngine engine = new SpaceConquestEngine();
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         GameState gameState = engine.getGameState();
 
         EmpireView view = new EmpireView(null);
@@ -431,7 +431,7 @@ public class EmpireViewTest {
 
     @Test
     public void testEmpireViewWithGameState() {
-        SpaceConquestEngine engine = new SpaceConquestEngine();
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         GameState gameState = engine.getGameState();
 
         EmpireView view = new EmpireView(null);
@@ -454,7 +454,7 @@ public class EmpireViewTest {
 
     @Test
     public void testEmpireEconomyReportCalculationAndLedgers() {
-        SpaceConquestEngine engine = new SpaceConquestEngine();
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         engine.stepTurn();
         GameState gameState = engine.getGameState();
 
@@ -579,7 +579,7 @@ public class EmpireViewTest {
         view.setPlayerEmpireId("terran_confederation");
 
         // Initially update with default scenario
-        SpaceConquestEngine engine = new SpaceConquestEngine();
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         view.updateData(engine.getGameState());
 
         boolean containsDefaultSol = view.getAllPlanetaryBodies().stream().anyMatch(b -> b.id().equals("earth"));
@@ -652,7 +652,7 @@ public class EmpireViewTest {
 
     @Test
     public void testMegastructureTechnologyGatingAtGameStart() {
-        SpaceConquestEngine engine = new SpaceConquestEngine();
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         GameState gameState = engine.getGameState();
 
         EmpireView view = new EmpireView(null);
@@ -700,7 +700,7 @@ public class EmpireViewTest {
 
     @Test
     public void testPlanetSidebarRowsUseTextHeightAndFullWidth() throws Exception {
-        GameState state = new SpaceConquestEngine().getGameState();
+        GameState state = SpaceConquestEngine.fromSolScenario().getGameState();
         java.util.concurrent.CompletableFuture<double[]> measurements = new java.util.concurrent.CompletableFuture<>();
         javafx.application.Platform.runLater(() -> {
             try {
@@ -779,7 +779,7 @@ public class EmpireViewTest {
     @Test
     public void testEmpireEconomyIsRenderedOnFirstOpen() {
         EmpireView view = new EmpireView(null);
-        view.updateData(new SpaceConquestEngine().getGameState());
+        view.updateData(SpaceConquestEngine.fromSolScenario().getGameState());
 
         view.show();
 
@@ -818,7 +818,7 @@ public class EmpireViewTest {
 
     @Test
     public void testSystemEconomyReportCalculation() {
-        SpaceConquestEngine engine = new SpaceConquestEngine();
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         engine.stepTurn();
         GameState initial = engine.getGameState();
         GameState state = initial.withPlanetaryBalanceSheets(initial.planetaryBalanceSheets().stream()
@@ -851,5 +851,36 @@ public class EmpireViewTest {
         assertNotNull(report.economy());
         assertEquals(0.20, report.economy().educationAllocation(), 0.001);
         assertEquals(0.20, report.economy().planetaryMilitiasAllocation(), 0.001);
+    }
+
+    @Test
+    public void testPlanetPagesShowHouseholdsAndIndustriesSeparately() {
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
+        engine.stepTurn();
+        EmpireView view = new EmpireView(null);
+        view.updateData(engine.getGameState());
+        view.show(Tab.PLANETS);
+
+        VBox overview = planetPageContent(view);
+        assertFalse(allText(overview).contains("Industries and facilities"));
+        HBox navigation = (HBox) overview.getChildren().get(1);
+        ((Button) navigation.getChildren().get(1)).fire();
+        VBox people = planetPageContent(view);
+        assertTrue(allText(people).contains("Household economy and wellbeing"));
+        assertTrue(allText(people).contains("Unemployed:"));
+        assertFalse(allText(people).contains("Industries and facilities"));
+
+        ((Button) ((HBox) people.getChildren().get(1)).getChildren().get(2)).fire();
+        VBox industries = planetPageContent(view);
+        assertTrue(allText(industries).contains("Industries and facilities"));
+        assertFalse(allText(industries).contains("Household economy and wellbeing"));
+    }
+
+    private static VBox planetPageContent(EmpireView view) {
+        VBox tabContent = (VBox) view.getRoot().getChildren().get(2);
+        HBox planets = (HBox) tabContent.getChildren().get(0);
+        VBox main = (VBox) planets.getChildren().get(1);
+        ScrollPane scroll = (ScrollPane) main.getChildren().get(0);
+        return (VBox) ((VBox) scroll.getContent()).getChildren().get(0);
     }
 }

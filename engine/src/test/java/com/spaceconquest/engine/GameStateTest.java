@@ -4,8 +4,16 @@ import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.economy.ImperialBalanceSheet;
 import com.spaceconquest.engine.economy.HouseholdAccount;
+import com.spaceconquest.engine.economy.HouseholdEmployment;
+import com.spaceconquest.engine.economy.HouseholdWellbeing;
 import com.spaceconquest.engine.economy.MarketAccount;
 import com.spaceconquest.engine.industry.IndustryAccount;
+import com.spaceconquest.engine.macrostructure.ConstructionDeploymentProject;
+import com.spaceconquest.engine.macrostructure.StationModule;
+import com.spaceconquest.engine.ship.ShipConstructionOrder;
+import com.spaceconquest.engine.ship.Fleet;
+import com.spaceconquest.engine.ship.FleetLocation;
+import com.spaceconquest.engine.logistics.TradeRoute;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -137,10 +145,13 @@ public class GameStateTest {
                 .imperialBalanceSheets(List.of(imperialSheet))
                 .householdAccounts(List.of(new HouseholdAccount("earth", "sol", "terran", "human",
                         "farmer", 1_000, 25.0, 10.0, 0.0, 1.0, 4.0,
-                        Map.of("food_matrix", 5.0), 0.5, 0.0, 2.0, 3.0)))
+                        Map.of("food_matrix", 5.0), 0.5, 0.0, 2.0, 3.0,
+                        HouseholdWellbeing.healthy(), HouseholdEmployment.none())))
                 .marketAccounts(List.of(new MarketAccount("hub_1", 90.0)))
                 .industryAccounts(List.of(new IndustryAccount("facility_1", Map.of("ore", 3.0),
-                        Map.of("ore", 5.0), Map.of("ore", 2.0), 4.0, 6.0, 12.0, 1.0, 24.0, 2.0)))
+                        Map.of("ore", 5.0), Map.of("ore", 2.0), 4.0, 6.0, 12.0, 1.0, 24.0, 2.0)
+                        .withOperatingCash(-10.0).withPublicSubsidy(true).withSubsidy(7.0)
+                        .withMaintenanceCost(5.0)))
                 .corporateTaxAccounts(List.of(new com.spaceconquest.engine.economy.CorporateTaxAccount(
                         "corp_1", 20.0, 5.0, 100.0, 20.0, 15.0)))
                 .build();
@@ -158,6 +169,7 @@ public class GameStateTest {
         assertEquals(1, loaded.empires().size());
         assertEquals("terran", loaded.empires().getFirst().id());
         assertEquals(1, loaded.corporations().size());
+        assertEquals(state.industryAccounts(), loaded.industryAccounts());
         assertEquals("corp_1", loaded.corporations().getFirst().id());
         assertEquals(1, loaded.commercialHubs().size());
         assertEquals("hub_1", loaded.commercialHubs().getFirst().id());
@@ -213,6 +225,28 @@ public class GameStateTest {
     }
 
     @Test
+    public void constructionProgressAndMaterialReceiptsSurviveSave() throws IOException {
+        ShipConstructionOrder ship = new ShipConstructionOrder("ship_order", "terran", "design",
+                "sol", "earth", 100.0, 500.0, Map.of("steel", 1_000.0),
+                Map.of("steel", 200.0));
+        StationModule module = new StationModule("module", "Hangar", StationModule.TYPE_CIVILIAN_HANGAR,
+                4, 1_000.0, 10.0, 0.0, Map.of(), "technician", 2, true);
+        ConstructionDeploymentProject stationWork = new ConstructionDeploymentProject(
+                "module_order", "", "sol", "earth",
+                ConstructionDeploymentProject.TYPE_STATION_MODULE, 1.0, 2.0,
+                "terran", Map.of("steel", 800.0), Map.of("steel", 400.0),
+                "Hangar", "PUBLIC_STATE", "station", module, 0, "steel", 5.0, 0.0, false);
+        GameState state = GameState.builder().shipConstructionOrders(List.of(ship))
+                .constructionProjects(List.of(stationWork)).build();
+        File file = tempDir.resolve("construction.scsave").toFile();
+        SaveGameManager manager = new SaveGameManager(tempDir);
+        manager.save(file, state, 1, "2027-01-01T00:00:00Z");
+        GameState restored = manager.load(file).toGameState(0, "INITIALIZING");
+        assertEquals(state.shipConstructionOrders(), restored.shipConstructionOrders());
+        assertEquals(state.constructionProjects(), restored.constructionProjects());
+    }
+
+    @Test
     public void scenarioDateSurvivesSaveAndEngineRestore() throws IOException {
         LocalDateTime start = GameStartScenario.ADVANCED_ROCKETRY.startTime();
         LocalDateTime savedTime = start.plusDays(4).plusHours(6);
@@ -226,5 +260,24 @@ public class GameStateTest {
         assertEquals(start, restored.getGameClock().getCampaignStartTime());
         assertEquals(savedTime, restored.getGameClock().getGameTime());
         assertEquals(4, restored.getGameClock().getCurrentTurn());
+    }
+
+    @Test
+    public void fleetTravelAndLoadedRouteSurviveSave() throws IOException {
+        FleetLocation location = FleetLocation.at(FleetLocation.Site.orbit("earth"))
+                .depart(FleetLocation.Site.orbit("luna"), 2.0).advanceDay();
+        Fleet fleet = new Fleet("fleet", "Freighter", "emp", "sol", "",
+                0, 0, 0, false, "PASSIVE", List.of(), location);
+        TradeRoute route = new TradeRoute("route", "Moon delivery", "emp", "earth_hub",
+                "luna_hub", "steel", 10, 0, 100, List.of("ship"), 0,
+                true, TradeRoute.DELIVERING, 10, 42, -2, 5);
+        GameState state = GameState.builder().fleets(List.of(fleet))
+                .tradeRoutes(List.of(route)).build();
+        File file = tempDir.resolve("travel.scsave").toFile();
+        SaveGameManager manager = new SaveGameManager(tempDir);
+        manager.save(file, state, 1, "2027-01-01T00:00:00Z");
+        GameState restored = manager.load(file).toGameState(0, "INITIALIZING");
+        assertEquals(location, restored.fleets().getFirst().location());
+        assertEquals(route, restored.tradeRoutes().getFirst());
     }
 }

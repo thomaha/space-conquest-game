@@ -77,8 +77,16 @@ public class MenubarClockController {
         }
         speedIndex = Math.max(0, Math.min(SPEEDS.length - 1, speed));
         savedSpeedIndex = speedIndex;
+        paused = false;
+        manuallyPaused = false;
         updateClockLabels();
         restartClock();
+    }
+
+    public void showNoCampaign() {
+        clock.stop();
+        clockLabel.setText("No active game");
+        speedLabel.setText("");
     }
 
     public void changeSpeed(int change) {

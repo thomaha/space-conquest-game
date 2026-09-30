@@ -2,6 +2,8 @@ package com.spaceconquest.control.command;
 
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
+import com.spaceconquest.engine.industry.ConstructionMaterials;
 import com.spaceconquest.engine.terraforming.GeoengineeringProject;
 
 import java.util.ArrayList;
@@ -30,8 +32,10 @@ public record StartTerraformingProjectCommand(
         if (state == null || empireId == null || planetId == null) {
             return false;
         }
-        return state.empires().stream()
-                .anyMatch(e -> e.id().equalsIgnoreCase(empireId) && e.treasuryCredits() >= 10000.0);
+        String systemId = ConstructionMaterials.systemForBody(state, planetId);
+        return systemId != null && ConstructionMaterials.bodyForSystem(state, systemId, planetId) != null
+                && state.empires().stream().anyMatch(e -> e.id().equalsIgnoreCase(empireId)
+                && e.controlledSystemIds().contains(systemId) && e.treasuryCredits() >= 10000.0);
     }
 
     @Override
@@ -64,6 +68,7 @@ public record StartTerraformingProjectCommand(
                 targetPressureAtm > 0 ? targetPressureAtm : 1.0,
                 targetTemperatureK > 0 ? targetTemperatureK : 288.0,
                 targetGasRatios,
+                ConstructionMaterialCatalog.terraforming(projectType), Map.of(),
                 false
         );
 

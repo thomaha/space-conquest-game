@@ -1,6 +1,8 @@
 package com.spaceconquest.control.command;
 
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
+import com.spaceconquest.engine.macrostructure.ConstructionDeploymentProject;
 import com.spaceconquest.engine.macrostructure.OrbitalStation;
 import com.spaceconquest.engine.macrostructure.StationModule;
 
@@ -9,76 +11,45 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Command to install a functional module onto an existing orbital space station.
- */
+/** Queues station module assembly against the station's available slots. */
 public record AddStationModuleCommand(
-        String stationId,
-        String moduleName,
-        String moduleType,
-        int slotSize,
-        double dryMassKg,
-        double powerDrawKw,
-        double powerOutputKw,
-        String professionId,
-        int requiredWorkers
+        String stationId, String moduleName, String moduleType, int slotSize,
+        double dryMassKg, double powerDrawKw, double powerOutputKw,
+        String professionId, int requiredWorkers
 ) implements GameCommand {
-
     @Override
     public boolean validate(GameState state) {
-        if (state == null || stationId == null || moduleType == null) {
-            return false;
-        }
+        if (state == null || stationId == null || moduleType == null) return false;
         OrbitalStation station = state.orbitalStations().stream()
-                .filter(s -> s.id().equals(stationId))
-                .findFirst()
-                .orElse(null);
+                .filter(item -> stationId.equals(item.id())).findFirst().orElse(null);
         if (station == null) return false;
-        return station.hasAvailableSlots(slotSize);
+        int reserved = state.constructionProjects().stream()
+                .filter(project -> stationId.equals(project.targetStationId())
+                        && project.plannedModule() != null)
+                .mapToInt(project -> project.plannedModule().slotSize()).sum();
+        return station.hasAvailableSlots(reserved + Math.max(1, slotSize));
     }
 
     @Override
     public GameState apply(GameState state) {
-        if (!validate(state)) {
-            return state;
-        }
-
-        String modId = "mod_" + UUID.randomUUID().toString().substring(0, 8);
-        StationModule newMod = new StationModule(
-                modId,
-                moduleName != null ? moduleName : moduleType,
-                moduleType,
-                slotSize > 0 ? slotSize : 6,
-                dryMassKg > 0.0 ? dryMassKg : 10000.0,
-                powerDrawKw,
-                powerOutputKw,
-                Map.of(),
-                professionId != null ? professionId : "technician",
-                requiredWorkers,
-                true
-        );
-
-        List<OrbitalStation> updatedStations = state.orbitalStations().stream().map(st -> {
-            if (st.id().equals(stationId)) {
-                List<StationModule> newMods = new ArrayList<>(st.modules());
-                newMods.add(newMod);
-                return new OrbitalStation(
-                        st.id(), st.name(), st.systemId(), st.planetOrbitId(),
-                        st.ownerEntityId(), st.ownershipType(), st.totalSlots(),
-                        newMods, st.storedCargoKg(),
-                        st.currentPowerGenerationKw() + powerOutputKw,
-                        st.currentPowerDemandKw() + powerDrawKw,
-                        st.currentShieldHealth(), st.maxShieldHealth(),
-                        st.currentHullHealth(), st.maxHullHealth(),
-                        st.armorMaterialId(), st.armorThicknessCm(),
-                        st.isOperational()
-                );
-            }
-            return st;
-        }).toList();
-
-        return state.toBuilder()
-                .orbitalStations(updatedStations)
-                .build();
+        if (!validate(state)) return state;
+        OrbitalStation station = state.orbitalStations().stream()
+                .filter(item -> stationId.equals(item.id())).findFirst().orElseThrow();
+        double mass = dryMassKg > 0.0 ? dryMassKg : 10_000.0;
+        StationModule module = new StationModule("mod_" + UUID.randomUUID(),
+                moduleName == null ? moduleType : moduleName, moduleType,
+                Math.max(1, slotSize), mass, powerDrawKw, powerOutputKw, Map.of(),
+                professionId == null ? "technician" : professionId,
+                Math.max(0, requiredWorkers), true);
+        ConstructionDeploymentProject project = new ConstructionDeploymentProject(
+                "module_" + UUID.randomUUID(), "", station.systemId(),
+                station.planetOrbitId(), ConstructionDeploymentProject.TYPE_STATION_MODULE,
+                0.0, Math.max(2.0, Math.ceil(mass / 10_000.0)), station.ownerEntityId(),
+                ConstructionMaterialCatalog.stationModule(mass), Map.of(),
+                module.name(), station.ownershipType(), station.id(), module,
+                0, station.armorMaterialId(), station.armorThicknessCm(), 0.0, false);
+        List<ConstructionDeploymentProject> projects = new ArrayList<>(state.constructionProjects());
+        projects.add(project);
+        return state.withConstructionProjects(projects);
     }
 }

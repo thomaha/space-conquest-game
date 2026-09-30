@@ -7,15 +7,23 @@ import com.spaceconquest.control.command.ProposeResolutionCommand;
 import com.spaceconquest.control.command.StartTerraformingProjectCommand;
 import com.spaceconquest.control.command.VoteResolutionCommand;
 import com.spaceconquest.engine.Empire;
+import com.spaceconquest.engine.CommercialHub;
+import com.spaceconquest.engine.MarketOrder;
 import com.spaceconquest.engine.SpaceConquestEngine;
 import com.spaceconquest.engine.community.GalacticResolution;
 import com.spaceconquest.engine.megastructure.Megastructure;
 import com.spaceconquest.engine.terraforming.GeoengineeringProject;
+import com.spaceconquest.engine.ship.Fleet;
+import com.spaceconquest.engine.ship.FleetLocation;
+import com.spaceconquest.engine.ship.ShipDesign;
+import com.spaceconquest.engine.ship.ShipInstance;
+import com.spaceconquest.engine.ship.ShipRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -26,7 +34,7 @@ public class NewPhasesIntegrationSimulationTest {
 
     @BeforeEach
     public void setup() {
-        engine = new SpaceConquestEngine();
+        engine = SpaceConquestEngine.fromSolScenario();
         commandQueue = new CommandQueue();
     }
 
@@ -39,7 +47,7 @@ public class NewPhasesIntegrationSimulationTest {
                 if (!techs.contains("stellar_megastructures")) techs.add("stellar_megastructures");
                 return new Empire(
                         e.id(), e.name(), e.raceId(), e.societyStructure(),
-                        200000.0, e.corporateTaxRate(), e.controlledSystemIds(),
+                        5_000_000.0, e.corporateTaxRate(), e.controlledSystemIds(),
                         e.ministries(), e.systemGovernorAssignments(),
                         techs, e.activeShipDesignIds()
                 );
@@ -47,7 +55,38 @@ public class NewPhasesIntegrationSimulationTest {
             return e;
         }).toList();
 
-        engine.applyGameState(engine.getGameState().withEmpires(updatedEmpires));
+        List<CommercialHub> stocked = new java.util.ArrayList<>(engine.getGameState().commercialHubs().stream().map(hub -> {
+            if (!"earth".equals(hub.entityId())) return hub;
+            Map<String, MarketOrder> orders = new HashMap<>(hub.activeOrders());
+            for (String material : List.of("refined_iron", "refined_aluminum",
+                    "refined_copper", "silicon")) {
+                orders.put(material, new MarketOrder(material, 1_000_000.0, 0, 1.0, 0.0));
+            }
+            return new CommercialHub(hub.id(), hub.entityId(), hub.transactionTariffRate(),
+                    5_000_000.0, 4_000_000.0, hub.logisticsRangeUnits(), Map.copyOf(orders));
+        }).toList());
+        stocked.add(new CommercialHub("hub_mars", "mars", 0.0, 100_000.0,
+                10_000.0, 10.0, Map.of("refined_iron", new MarketOrder("refined_iron",
+                10_000.0, 0.0, 1.0, 0.0), "refined_copper",
+                new MarketOrder("refined_copper", 5_000.0, 0.0, 1.0, 0.0),
+                "silicon", new MarketOrder("silicon", 1_000.0, 0.0, 1.0, 0.0))));
+        ShipDesign transport = new ShipDesign("test_mega_transport", "Mega transport",
+                "terran_confederation", ShipRole.CARGO_TRANSPORT, "steel", List.of(),
+                "steel", 0.0, 10_000.0, 10_000_000.0, 0.0, 1.0, 0.0, 0.0,
+                true, false);
+        Fleet supply = new Fleet("mega_supply", "Mega supply", "terran_confederation",
+                "sol", "", 0.0, 0.0, 0.0, false, "PASSIVE", List.of(
+                new ShipInstance("mega_transport", transport.id(), "terran_confederation",
+                        1_000.0, 100.0, 100.0, Map.of("refined_iron", 2_000_000.0,
+                        "refined_aluminum", 1_000_000.0, "refined_copper", 500_000.0,
+                        "silicon", 50_000.0))),
+                FleetLocation.at(FleetLocation.Site.deepSpace("sol_star")));
+        List<ShipDesign> designs = new java.util.ArrayList<>(engine.getGameState().shipDesigns());
+        designs.add(transport);
+        List<Fleet> fleets = new java.util.ArrayList<>(engine.getGameState().fleets());
+        fleets.add(supply);
+        engine.applyGameState(engine.getGameState().toBuilder().empires(updatedEmpires)
+                .commercialHubs(stocked).shipDesigns(designs).fleets(fleets).build());
 
         // 2. Submit Terraforming and Megastructure commands
         commandQueue.submit(new StartTerraformingProjectCommand(

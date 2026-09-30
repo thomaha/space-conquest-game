@@ -5,6 +5,7 @@ import com.spaceconquest.engine.economy.PlanetaryMunicipalProcessor;
 import com.spaceconquest.engine.economy.HouseholdEconomyProcessor;
 import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.industry.IndustryAccount;
 import com.spaceconquest.engine.industry.PowerGridState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -89,11 +90,12 @@ class PlanetaryMunicipalProcessorTest {
         assertTrue(sheet.totalRevenueCredits() > 0.0);
 
         assertTrue(sheet.workforceSalaries() > 0.0);
-        assertTrue(sheet.facilityMaintenanceCosts() > 0.0);
+        assertEquals(0.0, sheet.facilityMaintenanceCosts(), 0.001);
         assertEquals(households.welfareByBody().get("planet_sol_3"), sheet.publicWelfareExpenditures(), 0.001);
         assertTrue(sheet.infrastructureUpkeepCosts() > 0.0);
         assertTrue(sheet.totalExpenditureCredits() > 0.0);
-        assertEquals(sysEcon.totalBudgetCredits(), sheet.publicSectorFundingCredits(), 0.001);
+        assertEquals(sysEcon.totalBudgetCredits(),
+                sheet.workforceSalaries() + sheet.publicSectorFundingCredits(), 0.001);
         assertEquals(sheet.workforceSalaries() + sheet.facilityMaintenanceCosts()
                         + sheet.publicWelfareExpenditures() + sheet.infrastructureUpkeepCosts()
                         + sheet.publicSectorFundingCredits(),
@@ -374,5 +376,42 @@ class PlanetaryMunicipalProcessorTest {
         assertEquals(0.0, sheet.totalExpenditureCredits());
         assertEquals(0.0, sheet.netBalanceCredits());
         assertEquals(0.0, sheet.uncollectedLocalCredits());
+    }
+
+    @Test
+    void onlySelectedPublicFacilitiesShareUnspentInfrastructureAllocation() {
+        Planet planet = createPlanet("outpost", "Outpost",
+                List.of(new Population("race_human", Map.of(30, 100L))));
+        SolarSystem system = createSolarSystem("frontier", "Frontier", List.of(planet));
+        Empire empire = new Empire("empire", "Empire", "race_human", "Democracy",
+                0.0, 0.10, List.of("frontier"), List.of(), Map.of(), List.of(), List.of());
+        SystemEconomy economy = SystemEconomy.createDefault("frontier", "empire", 100L);
+        List<IndustrialFacility> facilities = List.of(
+                new IndustrialFacility("a", "outpost", "solar_power", "empire",
+                        IndustrialFacility.PUBLIC_STATE, 1, 0, "technician", false, 0.0),
+                new IndustrialFacility("b", "outpost", "solar_power", "empire",
+                        IndustrialFacility.PUBLIC_STATE, 1, 0, "technician", false, 0.0),
+                new IndustrialFacility("c", "outpost", "solar_power", "empire",
+                        IndustrialFacility.PUBLIC_STATE, 1, 0, "technician", false, 0.0));
+        List<IndustryAccount> accounts = List.of(
+                new IndustryAccount("a", Map.of(), Map.of(), Map.of(),
+                        100.0, 0.0, 0.0, 0.0, 0.0, 0.0).withPublicSubsidy(true),
+                new IndustryAccount("b", Map.of(), Map.of(), Map.of(),
+                        300.0, 0.0, 0.0, 0.0, 0.0, 0.0).withPublicSubsidy(true),
+                new IndustryAccount("c", Map.of(), Map.of(), Map.of(),
+                        100.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        GameState state = GameState.builder().solarSystems(List.of(system)).empires(List.of(empire))
+                .systemEconomies(List.of(economy)).industrialFacilities(facilities)
+                .industryAccounts(accounts).build();
+
+        var result = processor.processMunicipalFinances(state);
+        Map<String, IndustryAccount> settled = result.industryAccounts().stream()
+                .collect(java.util.stream.Collectors.toMap(IndustryAccount::facilityId, account -> account));
+        assertEquals(50.0, settled.get("a").subsidyCredits(), 0.001);
+        assertEquals(150.0, settled.get("b").subsidyCredits(), 0.001);
+        assertEquals(0.0, settled.get("c").subsidyCredits(), 0.001);
+        assertEquals(result.balanceSheets().getFirst().totalExpenditureCredits(),
+                processor.processMunicipalFinances(state.withIndustryAccounts(List.of())).balanceSheets()
+                        .getFirst().totalExpenditureCredits(), 0.001);
     }
 }

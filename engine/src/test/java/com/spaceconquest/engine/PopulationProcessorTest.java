@@ -44,4 +44,18 @@ public class PopulationProcessorTest {
         // At age 180 (more than 2x natural lifespan of 85 = 170), they should all be dead
         assertNull(futurePop.ageGroups().get(180));
     }
+
+    @Test
+    public void sustainedShortageReducesSurvivalAndBirths() {
+        PopulationProcessor processor = new PopulationProcessor();
+        Race human = new Race("human", "Human", "", 1.0, 1.0, "Individualist", 1.0,
+                288.0, "Carbon", "Oxygen", 15, 45, "Organic", "Diverse", 85);
+        Population population = new Population("human", Map.of(25, 1_000_000L));
+
+        Population healthy = processor.advanceYears(population, human, 1);
+        Population deprived = processor.advanceYears(population, human, 1, 1, java.util.List.of(), 1.0);
+
+        assertTrue(deprived.ageGroups().get(26) < healthy.ageGroups().get(26));
+        assertTrue(deprived.ageGroups().get(0) < healthy.ageGroups().get(0));
+    }
 }

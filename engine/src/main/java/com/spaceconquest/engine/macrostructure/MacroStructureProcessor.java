@@ -1,5 +1,10 @@
 package com.spaceconquest.engine.macrostructure;
 
+import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.CommercialHub;
+import com.spaceconquest.engine.industry.ConstructionMaterials;
+import com.spaceconquest.engine.industry.ConstructionProgress;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -177,34 +182,97 @@ public class MacroStructureProcessor {
             List<ConstructionDeploymentProject> projects,
             String ownerEntityId
     ) {
-        if (projects == null) {
-            return new ConstructionTurnResult(List.of(), List.of(), List.of());
-        }
+        List<ConstructionDeploymentProject> owned = projects == null ? List.of()
+                : projects.stream().map(project -> new ConstructionDeploymentProject(
+                project.projectId(), project.constructionShipId(), project.targetSystemId(),
+                project.targetCelestialId(), project.targetStructureType(),
+                project.accumulatedProgressTurns(), project.requiredProgressTurns(),
+                project.ownerEntityId() == null ? ownerEntityId : project.ownerEntityId(),
+                project.requiredMaterialsKg(), project.consumedMaterialsKg(),
+                project.structureName(), project.ownershipType(), project.targetStationId(),
+                project.plannedModule(), project.totalSlots(),
+                project.armorMaterialId(),
+                project.armorThicknessCm(), project.throughputCapacityKgPerTurn(),
+                project.isCompleted())).toList();
+        GameState updated = advanceConstructionProjects(GameState.builder()
+                .constructionProjects(owned).build());
+        return new ConstructionTurnResult(updated.constructionProjects(),
+                updated.orbitalStations(), updated.spaceElevators());
+    }
 
+    public GameState advanceConstructionProjects(GameState state) {
+        GameState current = state;
         List<ConstructionDeploymentProject> remaining = new ArrayList<>();
-        List<OrbitalStation> newStations = new ArrayList<>();
-        List<SpaceElevator> newElevators = new ArrayList<>();
-
-        for (ConstructionDeploymentProject proj : projects) {
-            double nextProgress = proj.accumulatedProgressTurns() + 1.0;
-            if (nextProgress >= proj.requiredProgressTurns()) {
-                if (ConstructionDeploymentProject.TYPE_ORBITAL_STATION.equalsIgnoreCase(proj.targetStructureType())) {
-                    newStations.add(createCompletedStation(proj, ownerEntityId));
-                } else if (ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR.equalsIgnoreCase(proj.targetStructureType())) {
-                    newElevators.add(new SpaceElevator("elevator_" + proj.targetCelestialId(), proj.targetCelestialId(), ownerEntityId, 100000.0, 0.95, 100.0, true));
+        List<OrbitalStation> stations = new ArrayList<>(state.orbitalStations());
+        List<SpaceElevator> elevators = new ArrayList<>(state.spaceElevators());
+        for (ConstructionDeploymentProject project : state.constructionProjects()) {
+            boolean ground = ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR.equalsIgnoreCase(
+                    project.targetStructureType());
+            ConstructionProgress.Step step = ground
+                    ? ConstructionProgress.advance(current, project.targetCelestialId(),
+                    project.ownerEntityId(), project.requiredMaterialsKg(),
+                    project.consumedMaterialsKg(), project.accumulatedProgressTurns(),
+                    project.requiredProgressTurns(), 1.0)
+                    : ConstructionProgress.advanceOrbital(current, project.targetSystemId(),
+                    project.targetStationId() == null ? project.targetCelestialId()
+                            : project.targetStationId(), project.ownerEntityId(),
+                    project.requiredMaterialsKg(), project.consumedMaterialsKg(),
+                    project.accumulatedProgressTurns(), project.requiredProgressTurns(), 1.0);
+            current = step.state();
+            if (step.complete() && (project.targetStationId() == null || stations.stream()
+                    .anyMatch(station -> station.id().equals(project.targetStationId())
+                            && project.plannedModule() != null
+                            && station.hasAvailableSlots(project.plannedModule().slotSize())))) {
+                if (ConstructionDeploymentProject.TYPE_ORBITAL_STATION.equalsIgnoreCase(
+                        project.targetStructureType())) {
+                    stations.add(createCompletedStation(project, project.ownerEntityId()));
+                } else if (ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR.equalsIgnoreCase(
+                        project.targetStructureType())) {
+                    elevators.add(new SpaceElevator("elevator_" + project.targetCelestialId(),
+                            project.targetCelestialId(), project.ownerEntityId(),
+                            project.throughputCapacityKgPerTurn(), 0.95, 100.0, true));
+                } else if (ConstructionDeploymentProject.TYPE_STATION_MODULE.equalsIgnoreCase(
+                        project.targetStructureType())) {
+                    for (int index = 0; index < stations.size(); index++) {
+                        OrbitalStation station = stations.get(index);
+                        if (!station.id().equals(project.targetStationId())) continue;
+                        List<StationModule> modules = new ArrayList<>(station.modules());
+                        modules.add(project.plannedModule());
+                        stations.set(index, new OrbitalStation(station.id(), station.name(),
+                                station.systemId(), station.planetOrbitId(), station.ownerEntityId(),
+                                station.ownershipType(), station.totalSlots(), modules,
+                                station.storedCargoKg(), station.currentPowerGenerationKw()
+                                + project.plannedModule().powerOutputKw(),
+                                station.currentPowerDemandKw() + project.plannedModule().powerDrawKw(),
+                                station.currentShieldHealth(), station.maxShieldHealth(),
+                                station.currentHullHealth(), station.maxHullHealth(),
+                                station.armorMaterialId(), station.armorThicknessCm(),
+                                station.isOperational()));
+                        if (StationModule.TYPE_COMMERCE.equalsIgnoreCase(
+                                project.plannedModule().type()) && current.commercialHubs().stream()
+                                .noneMatch(hub -> station.id().equals(hub.entityId()))) {
+                            List<CommercialHub> hubs = new ArrayList<>(current.commercialHubs());
+                            hubs.add(new CommercialHub("hub_" + station.id(), station.id(),
+                                    0.0, 500_000.0, 0.0, 10.0, Map.of()));
+                            current = current.withCommercialHubs(hubs);
+                        }
+                        break;
+                    }
                 }
             } else {
-                remaining.add(new ConstructionDeploymentProject(
-                        proj.projectId(), proj.constructionShipId(),
-                        proj.targetSystemId(), proj.targetCelestialId(),
-                        proj.targetStructureType(), nextProgress,
-                        proj.requiredProgressTurns(), proj.consumedMaterialsKg(),
-                        false
-                ));
+                remaining.add(new ConstructionDeploymentProject(project.projectId(),
+                        project.constructionShipId(), project.targetSystemId(),
+                        project.targetCelestialId(), project.targetStructureType(),
+                        step.workHours(), project.requiredProgressTurns(),
+                        project.ownerEntityId(), project.requiredMaterialsKg(),
+                        step.consumedKg(), project.structureName(), project.ownershipType(),
+                        project.targetStationId(), project.plannedModule(), project.totalSlots(),
+                        project.armorMaterialId(), project.armorThicknessCm(),
+                        project.throughputCapacityKgPerTurn(), false));
             }
         }
-
-        return new ConstructionTurnResult(remaining, newStations, newElevators);
+        return current.toBuilder().constructionProjects(remaining).orbitalStations(stations)
+                .spaceElevators(elevators).build();
     }
 
     private OrbitalStation createCompletedStation(ConstructionDeploymentProject proj, String ownerEntityId) {
@@ -218,18 +286,18 @@ public class MacroStructureProcessor {
         );
         return new OrbitalStation(
                 "station_" + proj.projectId(),
-                "Orbital Station " + proj.targetCelestialId(),
+                proj.structureName() == null ? "Orbital Station " + proj.targetCelestialId() : proj.structureName(),
                 proj.targetSystemId(),
                 proj.targetCelestialId(),
                 ownerEntityId,
-                OrbitalStation.OWNERSHIP_PUBLIC_STATE,
-                50,
+                proj.ownershipType() == null ? OrbitalStation.OWNERSHIP_PUBLIC_STATE : proj.ownershipType(),
+                proj.totalSlots(),
                 List.of(controlMod, powerMod),
                 Map.of(),
                 250.0, 50.0,
                 500.0, 500.0,
                 1000.0, 1000.0,
-                "steel", 5.0,
+                proj.armorMaterialId(), proj.armorThicknessCm(),
                 true
         );
     }

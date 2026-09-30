@@ -1,9 +1,9 @@
 package com.spaceconquest.engine;
 
-import com.spaceconquest.engine.macrostructure.SpaceElevator;
-import com.spaceconquest.engine.market.CorporateFleetProcessor;
 import com.spaceconquest.engine.market.CorporateInvestmentProcessor;
-import com.spaceconquest.engine.market.MarketProcessor;
+import com.spaceconquest.engine.industry.IndustryProcessor;
+import com.spaceconquest.engine.economy.CorporateTaxAccount;
+import com.spaceconquest.engine.economy.CorporateValuation;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -13,282 +13,120 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class CorporateProcessorTest {
 
-    private final MarketProcessor marketProcessor = new MarketProcessor();
     private final CorporateInvestmentProcessor investmentProcessor = new CorporateInvestmentProcessor();
-    private final CorporateFleetProcessor fleetProcessor = new CorporateFleetProcessor(marketProcessor);
 
     @Test
-    public void testCorporateInvestmentsTriggeredByShortcoming() {
-        // Create hub with severe deficit in silicon (high shortcoming)
-        MarketOrder siliconOrder = new MarketOrder("refined_silicon", 5.0, 200.0, 15.0, 0.85);
-        CommercialHub hub = new CommercialHub(
-                "hub_earth",
-                "earth",
-                0.05,
-                100000.0,
-                5000.0,
-                10.0,
-                Map.of("refined_silicon", siliconOrder)
-        );
+    public void corporateInvestmentBuildsAFactoryOverFiveDays() {
+        GameState state = investmentState("AGRICULTURE", 30_000.0, "food_matrix");
+        GameState invested = investmentProcessor.processCorporateInvestments(state, Map.of());
+        Corporation corporation = invested.corporations().getFirst();
+        assertEquals(22_000.0, corporation.liquidCapitalReserves());
+        assertEquals(1, invested.industrialFacilities().size());
+        assertEquals(invested.industrialFacilities().getFirst().id(), corporation.ownedFacilityIds().getFirst());
+        assertEquals("industrial_soil_cultivation", invested.industrialFacilities().getFirst().applicationId());
+        assertEquals(corporation.id(), invested.industrialFacilities().getFirst().ownerEntityId());
+        assertEquals(0, invested.industrialFacilities().getFirst().tier());
+        assertEquals(1, invested.expansionProjects().size());
+        assertEquals(1, investmentProcessor.processCorporateInvestments(invested, Map.of())
+                .industrialFacilities().size(), "A pending project must prevent duplicate construction");
 
-        Corporation metallurgyCorp = new Corporation(
-                "corp_sol_refining",
-                "Sol Metallurgy & Refining",
-                "terran",
-                "earth",
-                "METALLURGY",
-                30000.0,
-                List.of(),
-                List.of(),
-                List.of()
-        );
-
-        Corporation updated = investmentProcessor.evaluateAndInvest(metallurgyCorp, List.of(hub));
-        assertNotNull(updated);
-        assertTrue(updated.liquidCapitalReserves() < 30000.0, "Capital should be deducted for investments");
-        assertFalse(updated.ownedFacilityIds().isEmpty(), "Infrastructure should be expanded");
-        assertFalse(updated.ownedShipIds().isEmpty(), "Ship should be procured");
+        IndustryProcessor industry = new IndustryProcessor();
+        GameState current = invested;
+        for (int day = 1; day <= 5; day++) {
+            current = industry.processIndustrialProduction(current);
+            if (day < 5) {
+                assertEquals(0, current.industrialFacilities().getFirst().tier());
+                assertEquals(day / 5.0, current.industrialFacilities().getFirst().expansionProgress(), 0.001);
+            }
+        }
+        assertTrue(current.expansionProjects().isEmpty());
+        assertEquals(1, current.industrialFacilities().getFirst().tier());
+        assertFalse(current.industrialFacilities().getFirst().isUndergoingExpansion());
     }
 
     @Test
-    public void testDepletedCapitalCorporationIdlesSafely() {
-        MarketOrder siliconOrder = new MarketOrder("refined_silicon", 5.0, 200.0, 15.0, 0.85);
-        CommercialHub hub = new CommercialHub(
-                "hub_earth",
-                "earth",
-                0.05,
-                100000.0,
-                5000.0,
-                10.0,
-                Map.of("refined_silicon", siliconOrder)
-        );
-
-        Corporation brokeCorp = new Corporation(
-                "corp_broke",
-                "Bankrupt Holdings",
-                "terran",
-                "earth",
-                "METALLURGY",
-                100.0, // very low capital
-                List.of(),
-                List.of(),
-                List.of()
-        );
-
-        Corporation updated = investmentProcessor.evaluateAndInvest(brokeCorp, List.of(hub));
-        assertNotNull(updated);
-        assertEquals(100.0, updated.liquidCapitalReserves(), "Capital should remain untouched");
-        assertTrue(updated.ownedFacilityIds().isEmpty());
-        assertTrue(updated.ownedShipIds().isEmpty());
+    public void corporateFleetInvestmentQueuesAnOwnedBlueprint() {
+        GameState state = investmentState("TRANSPORT", 30_000.0, "food_matrix");
+        GameState invested = investmentProcessor.invest(state, "corp_test", "earth", "FLEET",
+                CorporateInvestmentProcessor.SHIP_PROCUREMENT_COST);
+        Corporation corporation = invested.corporations().getFirst();
+        assertEquals(18_000.0, corporation.liquidCapitalReserves());
+        assertTrue(invested.fleets().isEmpty());
+        assertEquals(1, invested.shipConstructionOrders().size());
+        assertEquals("sol", invested.shipConstructionOrders().getFirst().systemId());
+        assertEquals(corporation.id(), invested.shipDesigns().getFirst().ownerEntityId());
+        assertTrue(invested.shipDesigns().getFirst().isProprietaryCorporateDesign());
     }
 
     @Test
-    public void testTransportFleetArbitrageTradeExecution() {
-        // Planet A: Surplus (high supply 10000 kg, low price 5 credits/kg)
-        MarketOrder surplusOrder = new MarketOrder("refined_silicon", 10000.0, 100.0, 5.0, 0.0);
-        CommercialHub srcHub = new CommercialHub(
-                "hub_source",
-                "luna", // low gravity moon
-                0.02,
-                50000.0,
-                10000.0,
-                20.0,
-                Map.of("refined_silicon", surplusOrder)
-        );
-
-        // Planet B: Acute Shortage (low supply 0 kg, high demand 5000 kg, high price 50 credits/kg)
-        MarketOrder deficitOrder = new MarketOrder("refined_silicon", 0.0, 5000.0, 50.0, 0.95);
-        CommercialHub destHub = new CommercialHub(
-                "hub_dest",
-                "mars",
-                0.05,
-                50000.0,
-                0.0,
-                20.0,
-                Map.of("refined_silicon", deficitOrder)
-        );
-
-        Corporation transportCorp = new Corporation(
-                "corp_transport",
-                "Interstellar Freight",
-                "terran",
-                "luna",
-                "TRANSPORT",
-                10000.0,
-                List.of(),
-                List.of("cargo_transport_01"),
-                List.of()
-        );
-
-        Map<String, Double> gravityMap = Map.of("luna", 0.16, "mars", 0.38);
-        Map<String, Double> atmosphereMap = Map.of("luna", 0.0, "mars", 0.01);
-
-        CorporateFleetProcessor.CorporateFleetResult result = fleetProcessor.processFleetOperations(
-                List.of(transportCorp),
-                List.of(srcHub, destHub),
-                List.of(),
-                gravityMap,
-                atmosphereMap
-        );
-
-        Corporation updatedCorp = result.corporations().getFirst();
-        assertTrue(updatedCorp.liquidCapitalReserves() > 10000.0, "Corporation should have earned arbitrage net profit");
-
-        CommercialHub updatedSrc = result.commercialHubs().stream().filter(h -> h.id().equals("hub_source")).findFirst().orElseThrow();
-        CommercialHub updatedDest = result.commercialHubs().stream().filter(h -> h.id().equals("hub_dest")).findFirst().orElseThrow();
-
-        assertEquals(9000.0, updatedSrc.activeOrders().get("refined_silicon").supplyKg(), 0.1);
-        assertEquals(1000.0, updatedDest.activeOrders().get("refined_silicon").supplyKg(), 0.1);
+    public void insufficientCapitalCannotCreateAnAssetOrSpendMoney() {
+        GameState state = investmentState("AGRICULTURE", 100.0, "food_matrix");
+        assertSame(state, investmentProcessor.invest(state, "corp_test", "earth",
+                "INFRASTRUCTURE", CorporateInvestmentProcessor.INFRASTRUCTURE_COST));
+        assertEquals(100.0, state.corporations().getFirst().liquidCapitalReserves());
     }
 
     @Test
-    public void testExtremeGravityTaxRejectsUnprofitableTrade() {
-        // High surface gravity and thick atmosphere creating prohibitive launch cost
-        MarketOrder surplusOrder = new MarketOrder("iron_ore", 5000.0, 100.0, 10.0, 0.0);
-        CommercialHub hyperGravHub = new CommercialHub(
-                "hub_hyper",
-                "heavy_world",
-                0.10,
-                50000.0,
-                5000.0,
-                10.0,
-                Map.of("iron_ore", surplusOrder)
-        );
-
-        MarketOrder deficitOrder = new MarketOrder("iron_ore", 10.0, 500.0, 15.0, 0.50);
-        CommercialHub destHub = new CommercialHub(
-                "hub_orbital",
-                "orbital_station",
-                0.02,
-                50000.0,
-                100.0,
-                10.0,
-                Map.of("iron_ore", deficitOrder)
-        );
-
-        Corporation transportCorp = new Corporation(
-                "corp_transport",
-                "Freight Corp",
-                "terran",
-                "heavy_world",
-                "TRANSPORT",
-                5000.0,
-                List.of(),
-                List.of("cargo_transport_01"),
-                List.of()
-        );
-
-        // Hyper-gravity world: 5.0 G, 10.0 atm atmosphere -> massive launch tax
-        Map<String, Double> gravityMap = Map.of("heavy_world", 5.0, "orbital_station", 0.0);
-        Map<String, Double> atmosphereMap = Map.of("heavy_world", 10.0, "orbital_station", 0.0);
-
-        CorporateFleetProcessor.CorporateFleetResult result = fleetProcessor.processFleetOperations(
-                List.of(transportCorp),
-                List.of(hyperGravHub, destHub),
-                List.of(),
-                gravityMap,
-                atmosphereMap
-        );
-
-        Corporation updatedCorp = result.corporations().getFirst();
-        assertEquals(5000.0, updatedCorp.liquidCapitalReserves(), 0.001,
-                "Corporation should reject unprofitable trade due to launch tax and keep capital intact");
+    public void shortageWithoutProjectedOperatingProfitDoesNotTriggerAutomaticInvestment() {
+        GameState state = investmentState("AGRICULTURE", 30_000.0, "food_matrix");
+        CommercialHub hub = state.commercialHubs().getFirst();
+        Map<String, MarketOrder> orders = new java.util.HashMap<>(hub.activeOrders());
+        orders.put("food_matrix", new MarketOrder("food_matrix", 0.0, 200.0, 0.01, 0.95));
+        GameState unprofitable = state.withCommercialHubs(List.of(new CommercialHub(
+                hub.id(), hub.entityId(), hub.transactionTariffRate(), hub.storageCapacityKg(),
+                hub.currentStoredWeightKg(), hub.logisticsRangeUnits(), orders)));
+        GameState after = investmentProcessor.processCorporateInvestments(unprofitable, Map.of());
+        assertTrue(after.industrialFacilities().isEmpty());
+        assertEquals(30_000.0, after.corporations().getFirst().liquidCapitalReserves());
     }
 
     @Test
-    public void testMiningFleetHarvestRevenue() {
-        Corporation miningCorp = new Corporation(
-                "corp_mining",
-                "Belt Mining Corp",
-                "terran",
-                "ceres",
-                "EXTRACTION",
-                8000.0,
-                List.of(),
-                List.of("mine_ship_01", "mine_ship_02"),
-                List.of("vein_ceres_01")
-        );
-
-        CorporateFleetProcessor.CorporateFleetResult result = fleetProcessor.processFleetOperations(
-                List.of(miningCorp),
-                List.of(),
-                List.of(),
-                Map.of(),
-                Map.of()
-        );
-
-        Corporation updatedCorp = result.corporations().getFirst();
-        assertEquals(8000.0 + (2 * 500.0), updatedCorp.liquidCapitalReserves(), 0.001);
+    public void bookNetWorthCountsRealAssetsAndOutstandingTaxDebt() {
+        GameState state = investmentState("AGRICULTURE", 30_000.0, "food_matrix");
+        GameState invested = investmentProcessor.invest(state, "corp_test", "earth",
+                "INFRASTRUCTURE", CorporateInvestmentProcessor.INFRASTRUCTURE_COST);
+        assertEquals(30_000.0, CorporateValuation.value(invested,
+                invested.corporations().getFirst()).netWorthCredits(), 0.001);
+        GameState indebted = invested.toBuilder().corporateTaxAccounts(List.of(
+                new CorporateTaxAccount("corp_test", 0.0, 500.0, 0.0, 0.0, 0.0))).build();
+        assertEquals(29_500.0, CorporateValuation.value(indebted,
+                indebted.corporations().getFirst()).netWorthCredits(), 0.001);
     }
 
     @Test
-    public void testSpaceElevatorEnablesOtherwiseUnprofitableTrade() {
-        // Source world with 1.5 G and 2.0 atm where trade margin is ~2,000 credits
-        // With unassisted lift cost > 10,000 credits, trade would be rejected.
-        // With an operational space elevator, lift cost drops to ~500 credits, enabling arbitrage.
-        MarketOrder surplusOrder = new MarketOrder("refined_aluminum", 3000.0, 100.0, 20.0, 0.0);
-        CommercialHub earthHub = new CommercialHub(
-                "hub_earth",
-                "earth",
-                0.05,
-                50000.0,
-                3000.0,
-                15.0,
-                Map.of("refined_aluminum", surplusOrder)
-        );
+    public void waterShortageOnADryBodyBuildsIceTreatment() {
+        GameState wet = investmentState("AGRICULTURE", 30_000.0, "purified_water");
+        Planet dry = new Planet("earth", "Dry world", "", 1, 1, 1, 0, 0,
+                "terrestrial", "none", false, 1, List.of("water_ice"), List.of(), List.of());
+        SolarSystem system = new SolarSystem("sol", "Sol", "", 0, 0, 0, 1, 1,
+                "yellow", List.of(dry), List.of());
+        GameState state = wet.toBuilder().solarSystems(List.of(system)).build();
 
-        MarketOrder deficitOrder = new MarketOrder("refined_aluminum", 100.0, 1500.0, 25.0, 0.50);
-        CommercialHub orbitalHub = new CommercialHub(
-                "hub_station",
-                "station_alpha",
-                0.02,
-                50000.0,
-                100.0,
-                15.0,
-                Map.of("refined_aluminum", deficitOrder)
-        );
+        GameState invested = investmentProcessor.invest(state, "corp_test", "earth",
+                "INFRASTRUCTURE", CorporateInvestmentProcessor.INFRASTRUCTURE_COST);
 
-        Corporation transportCorp = new Corporation(
-                "corp_transport",
-                "Elevator Freight Inc",
-                "terran",
-                "earth",
-                "TRANSPORT",
-                10000.0,
-                List.of(),
-                List.of("cargo_transport_01"),
-                List.of()
-        );
-
-        Map<String, Double> gravityMap = Map.of("earth", 1.5, "station_alpha", 0.0);
-        Map<String, Double> atmosphereMap = Map.of("earth", 2.0, "station_alpha", 0.0);
-
-        // Without elevator: rejected
-        CorporateFleetProcessor.CorporateFleetResult rejectedResult = fleetProcessor.processFleetOperations(
-                List.of(transportCorp),
-                List.of(earthHub, orbitalHub),
-                List.of(),
-                gravityMap,
-                atmosphereMap,
-                null,
-                null
-        );
-        assertEquals(10000.0, rejectedResult.corporations().getFirst().liquidCapitalReserves(), 0.001);
-
-        // With operational space elevator on Earth: approved and profitable
-        SpaceElevator elevator = new SpaceElevator(
-                "se_earth_01", "earth", "terran", 50000.0, 0.95, 100.0, true
-        );
-        CorporateFleetProcessor.CorporateFleetResult enabledResult = fleetProcessor.processFleetOperations(
-                List.of(transportCorp),
-                List.of(earthHub, orbitalHub),
-                List.of(),
-                gravityMap,
-                atmosphereMap,
-                null,
-                List.of(elevator)
-        );
-        assertTrue(enabledResult.corporations().getFirst().liquidCapitalReserves() > 10000.0,
-                "Space elevator should enable profitable trade arbitrage by slashing orbital lift costs");
+        assertEquals("ice_water_treatment", invested.industrialFacilities().getFirst().applicationId());
     }
+
+    private GameState investmentState(String orientation, double cash, String resource) {
+        Corporation corporation = new Corporation("corp_test", "Test corporation", "terran", "earth",
+                orientation, cash, List.of(), List.of(), List.of());
+        Empire empire = new Empire("terran", "Terran", "human", "Individualist", 1000.0,
+                0.15, List.of("sol"), List.of(), Map.of(),
+                List.of("industrial_production", "rocketry", "computers"), List.of());
+        Planet earth = new Planet("earth", "Earth", "", 1, 1, 1, 0, 1,
+                "terrestrial", "breathable", true, 1, List.of(), List.of(), List.of());
+        SolarSystem sol = new SolarSystem("sol", "Sol", "", 0, 0, 0, 1, 1,
+                "yellow", List.of(earth), List.of());
+        Map<String, MarketOrder> orders = new java.util.HashMap<>();
+        orders.put(resource, new MarketOrder(resource, 5.0, 200.0, 15.0, 0.85));
+        for (String material : List.of("refined_iron", "refined_aluminum", "refined_copper", "silicon")) {
+            orders.put(material, new MarketOrder(material, 2_000.0, 0.0, 1.0, 0.0));
+        }
+        CommercialHub hub = new CommercialHub("hub_earth", "earth", 0.05, 100_000.0,
+                8_005.0, 10.0, Map.copyOf(orders));
+        return GameState.builder().corporations(List.of(corporation)).empires(List.of(empire))
+                .solarSystems(List.of(sol)).commercialHubs(List.of(hub)).build();
+    }
+
 }

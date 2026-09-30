@@ -6,8 +6,8 @@ import com.spaceconquest.frontend.components.SurfaceBiomeGridView;
 
 import com.spaceconquest.control.HumanController;
 import com.spaceconquest.control.command.PlaceFacilityOnTileCommand;
+import com.spaceconquest.control.command.SetPublicIndustrySubsidyCommand;
 import com.spaceconquest.engine.Corporation;
-import com.spaceconquest.engine.DataModelLoader;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.Moon;
@@ -46,10 +46,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -64,7 +61,6 @@ import java.util.Set;
  * and technology-gated contextual operations.
  */
 public class EmpireView {
-    private static final Logger logger = LogManager.getLogger(EmpireView.class);
 
     private VBox root;
     private HBox tabHeaderBar;
@@ -72,6 +68,7 @@ public class EmpireView {
     private VBox tabContentContainer;
     private Label feedbackLabel;
     private final Menubar menubar;
+    private GameState latestGameState;
 
     private Tab currentTab = Tab.ECONOMY;
     private EconomySubView currentEconomySubView = EconomySubView.IMPERIAL;
@@ -121,6 +118,7 @@ public class EmpireView {
     public List<OrbitalStation> getOrbitalStations() { return orbitalStations; }
     public List<SpaceElevator> getSpaceElevators() { return spaceElevators; }
     public List<Corporation> getCorporations() { return corporations; }
+    public GameState getLatestGameState() { return latestGameState; }
     public List<ResearchProject> getResearchProjects() { return researchProjects; }
     public List<Megastructure> getMegastructures() { return megastructures; }
     public List<SolarSystem> getSystems() { return solarSystems; }
@@ -250,7 +248,7 @@ public class EmpireView {
             return box;
         }
 
-        Label note = new Label("Production, sales and profit/loss show the last processed day. Unsold goods remain with their facility.");
+        Label note = new Label("Recipe quantities are kilograms per batch. Input costs are credits actually paid last day, not a fixed per-unit production cost. Unsold goods remain with their facility.");
         note.setTextFill(Color.LIGHTGRAY);
         note.setWrapText(true);
         box.getChildren().add(note);
@@ -272,12 +270,20 @@ public class EmpireView {
                 facility.getEffectiveThroughputMultiplier(),
                 facility.isUndergoingExpansion() ? " during expansion" : "");
         card.getChildren().add(createIndustryDetailRow("Size:", size));
+        if (facility.tier() == 0) {
+            card.getChildren().add(createIndustryDetailRow("Construction:",
+                    String.format("%.0f%% complete", facility.expansionProgress() * 100.0)));
+        }
         card.getChildren().add(createIndustryDetailRow("Workers:", String.format("%,d assigned %s", facility.allocatedWorkers(),
                 readableIndustryName(facility.workerProfessionId()))));
         card.getChildren().add(createIndustryDetailRow("Owner:", readableIndustryName(facility.ownerEntityId())));
         card.getChildren().add(createIndustryDetailRow("Configured products:", configuredProducts(facility.applicationId())));
         IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(facility.applicationId());
         PowerPlantCatalog.Plant plant = PowerPlantCatalog.find(facility.applicationId());
+        if (recipe != null) {
+            card.getChildren().add(createIndustryDetailRow("Recipe inputs:",
+                    recipe.inputsKg().isEmpty() ? "Local deposit" : formatIndustryQuantities(recipe.inputsKg())));
+        }
         card.getChildren().add(createIndustryDetailRow("Required technology:", recipe == null
                 ? (plant == null ? "No production recipe configured" : plant.requiredTechnology())
                 : String.join(", ", recipe.requiredTechnologies())));
@@ -306,6 +312,7 @@ public class EmpireView {
                     : String.format("%,.0f kWh", account.salesCredits() / PowerBillingProcessor.PRICE_PER_KWH)));
             card.getChildren().add(createIndustryDetailRow("Unsold stock:", formatIndustryQuantities(account.unsoldStockKg())));
             card.getChildren().add(createIndustryDetailRow("Input costs:", String.format("%,.2f credits", account.inputCostsCredits())));
+            card.getChildren().add(createIndustryDetailRow("Maintenance:", String.format("%,.2f credits", account.maintenanceCostsCredits())));
             card.getChildren().add(createIndustryDetailRow("Electricity:", String.format("%,.2f credits", account.powerCostsCredits())));
             card.getChildren().add(createIndustryDetailRow("Wages:", String.format("%,.2f credits", account.wageCostsCredits())));
             card.getChildren().add(createIndustryDetailRow("Sales:", String.format("%,.2f credits", account.salesCredits())));
@@ -313,6 +320,24 @@ public class EmpireView {
         } else {
             card.getChildren().add(createIndustryDetailRow("Sales:", "Unavailable before the first simulation day"));
             card.getChildren().add(createIndustryDetailRow("Pretax profit/loss:", "Unavailable before the first simulation day"));
+        }
+        if (IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())) {
+            double cash = account == null ? 0.0 : account.operatingCashCredits();
+            card.getChildren().add(createIndustryDetailRow("Operating balance:",
+                    String.format("%,.2f credits", cash)));
+            card.getChildren().add(createIndustryDetailRow("Local support:",
+                    account != null && account.publicSubsidyEnabled() ? "Enabled" : "Disabled"));
+            if (account != null && account.subsidyCredits() > 0.0) {
+                card.getChildren().add(createIndustryDetailRow("Local subsidy:",
+                        String.format("%,.2f credits last day", account.subsidyCredits())));
+            }
+            if (playerEmpireId.equals(facility.ownerEntityId()) && humanController != null) {
+                boolean enabled = account != null && account.publicSubsidyEnabled();
+                Button support = new Button(enabled ? "Stop local industry support" : "Support from infrastructure budget");
+                support.setOnAction(event -> humanController.stageCommand(
+                        new SetPublicIndustrySubsidyCommand(playerEmpireId, facility.id(), !enabled)));
+                card.getChildren().add(support);
+            }
         }
         return card;
     }
@@ -386,7 +411,7 @@ public class EmpireView {
                 setFeedback("Commissioned facility on surface tile #" + tileIdx + " of " + body.name(), true);
             }
         });
-        biomeGrid.setPrefHeight(400); // Increase height for better visibility in the main view
+        biomeGrid.setPrefHeight(520);
         box.getChildren().add(biomeGrid);
 
         return box;
@@ -544,6 +569,7 @@ public class EmpireView {
 
     public void updateData(GameState gameState) {
         if (gameState == null) return;
+        latestGameState = gameState;
         industryAccounts.clear();
         industryAccounts.addAll(gameState.industryAccounts());
         corporateTaxAccounts.clear();
@@ -709,7 +735,6 @@ public class EmpireView {
             this.currentTab = tab;
             updateTabButtonStyles();
         }
-        ensureDataLoaded();
         renderCurrentTab();
         if (root != null) {
             root.setVisible(true);
@@ -723,27 +748,6 @@ public class EmpireView {
         }
         if (menubar != null) {
             menubar.closePage();
-        }
-    }
-
-    private void ensureDataLoaded() {
-        if (menubar != null && menubar.getMainApp() != null && menubar.getMainApp().getEngine() != null) {
-            updateData(menubar.getMainApp().getEngine().getGameState());
-            return;
-        }
-        if (empires.isEmpty()) {
-            try {
-                empires.addAll(DataModelLoader.loadEmpires());
-            } catch (IOException e) {
-                logger.error("Failed to load empires fallback data", e);
-            }
-        }
-        if (corporations.isEmpty()) {
-            try {
-                corporations.addAll(DataModelLoader.loadCorporations());
-            } catch (IOException e) {
-                logger.error("Failed to load corporate registry fallback data", e);
-            }
         }
     }
 
@@ -799,13 +803,6 @@ public class EmpireView {
     }
 
     public List<Corporation> getCorporationsForPlayerEmpire() {
-        if (corporations.isEmpty()) {
-            try {
-                corporations.addAll(DataModelLoader.loadCorporations());
-            } catch (IOException e) {
-                logger.error("Failed to load corporate registry", e);
-            }
-        }
         return corporations.stream()
                 .filter(c -> c.empireId().equalsIgnoreCase(playerEmpireId))
                 .toList();

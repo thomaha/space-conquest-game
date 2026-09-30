@@ -1,7 +1,7 @@
 package com.spaceconquest.frontend;
 
-import com.spaceconquest.engine.DataModelLoader;
 import com.spaceconquest.engine.Empire;
+import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.governance.DiplomacyProcessor;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -14,20 +14,15 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import java.io.IOException;
 import java.util.List;
 
 /**
  * UI panel displaying galactic diplomatic relations, treaties, influence values, and bilateral stances.
  */
 public class DiplomacyView {
-    private static final Logger logger = LogManager.getLogger(DiplomacyView.class);
-
     private VBox root;
     private VBox content;
+    private List<Empire> empires = List.of();
     private final Menubar menubar;
     private final DiplomacyProcessor diplomacyProcessor = new DiplomacyProcessor();
 
@@ -81,6 +76,11 @@ public class DiplomacyView {
         root.toFront();
     }
 
+    public void updateData(GameState state) {
+        empires = state == null ? List.of() : state.empires();
+        if (root.isVisible()) loadData();
+    }
+
     public void hide() {
         root.setVisible(false);
         if (menubar != null) {
@@ -90,16 +90,8 @@ public class DiplomacyView {
 
     private void loadData() {
         content.getChildren().clear();
-        try {
-            List<Empire> empires = DataModelLoader.loadEmpires();
-            for (Empire empire : empires) {
-                content.getChildren().add(createDiplomacyBox(empire, empires));
-            }
-        } catch (IOException e) {
-            logger.error("Failed to load diplomacy data", e);
-            Text errorText = new Text("Error loading galactic diplomacy data.");
-            errorText.setFill(Color.RED);
-            content.getChildren().add(errorText);
+        for (Empire empire : empires) {
+            content.getChildren().add(createDiplomacyBox(empire, empires));
         }
     }
 

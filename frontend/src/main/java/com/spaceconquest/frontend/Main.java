@@ -3,7 +3,6 @@ package com.spaceconquest.frontend;
 import com.almasb.fxgl.app.GameApplication;
 import com.almasb.fxgl.app.GameSettings;
 import com.almasb.fxgl.entity.Entity;
-import com.spaceconquest.engine.DataModelLoader;
 import com.spaceconquest.engine.GalaxyGenerator;
 import com.spaceconquest.engine.GameClock;
 import com.spaceconquest.engine.GameState;
@@ -38,7 +37,8 @@ public class Main extends GameApplication {
     private final com.spaceconquest.engine.SpaceConquestEngine engine = new com.spaceconquest.engine.SpaceConquestEngine();
     private GameHud hud;
     private GalaxyGenerator generator;
-    private List<SolarSystem> currentSolarSystems;
+    private List<SolarSystem> currentSolarSystems = List.of();
+    private volatile boolean activeCampaign;
     private GameStartScenario currentScenario = GameStartScenario.PRE_SPACE_FLIGHT;
 
     public com.spaceconquest.engine.SpaceConquestEngine getEngine() {
@@ -51,6 +51,10 @@ public class Main extends GameApplication {
 
     public GameStartScenario getCurrentScenario() {
         return currentScenario;
+    }
+
+    public boolean hasActiveCampaign() {
+        return activeCampaign;
     }
 
     @Override
@@ -71,21 +75,6 @@ public class Main extends GameApplication {
     @Override
     protected void initGame() {
         getGameScene().setBackgroundColor(Color.BLACK);
-
-        try {
-            generator = new GalaxyGenerator();
-            currentSolarSystems = DataModelLoader.loadSolarSystems();
-            registry.clear();
-            for (SolarSystem solarSystem : currentSolarSystems) {
-                new SolarSystemRenderer(solarSystem, registry, engine.getMegastructures()).render();
-            }
-
-            // Start centered on Sol at the requested close-up zoom level.
-            camera.gotoEntity("Sol", 5);
-            camera.updateZoom();
-        } catch (IOException e) {
-            logger.error("Failed to load initial galaxy data", e);
-        }
     }
 
     public void createNewGalaxy(int numSystems) {
@@ -97,11 +86,20 @@ public class Main extends GameApplication {
     }
 
     public void createNewGalaxy(int numSystems, int numAIEmpires, GameStartScenario scenario) {
+        activeCampaign = false;
+        engine.stop();
         this.currentScenario = scenario != null ? scenario : GameStartScenario.PRE_SPACE_FLIGHT;
         GameStartScenario selectedScenario = this.currentScenario;
         if (hud != null && hud.getMenubar() != null) hud.getMenubar().invalidateWorldRefreshes();
         runSimulationTask(() -> {
-            GameState newGameState = generator.generateGameState(numSystems, numAIEmpires, selectedScenario);
+            GameState newGameState;
+            try {
+                if (generator == null) generator = new GalaxyGenerator();
+                newGameState = generator.generateGameState(numSystems, numAIEmpires, selectedScenario);
+            } catch (IOException e) {
+                logger.error("Failed to generate a new galaxy", e);
+                return;
+            }
             GameState activeState;
             LocalDateTime time;
             synchronized (engine) {
@@ -136,6 +134,8 @@ public class Main extends GameApplication {
                     if (savedTime.isBefore(save.resolvedCampaignStartTime())) {
                         savedTime = save.resolvedCampaignStartTime();
                     }
+                    activeCampaign = false;
+                    engine.stop();
                     GameState activeState;
                     synchronized (engine) {
                         engine.getGameClock().startNewCampaign(save.resolvedCampaignStartTime());
@@ -153,6 +153,7 @@ public class Main extends GameApplication {
     }
 
     public void saveGame(String saveName) {
+        if (!activeCampaign) return;
         int speed = hud != null && hud.getMenubar() != null ? hud.getMenubar().getSpeedIndex() : 1;
         runSimulationTask(() -> {
             try {
@@ -170,6 +171,7 @@ public class Main extends GameApplication {
     }
 
     public void quickSave() {
+        if (!activeCampaign) return;
         int speed = hud != null && hud.getMenubar() != null ? hud.getMenubar().getSpeedIndex() : 1;
         runSimulationTask(() -> {
             try {
@@ -201,7 +203,10 @@ public class Main extends GameApplication {
         for (SolarSystem system : currentSolarSystems) {
             new SolarSystemRenderer(system, registry, state.megastructures()).render();
         }
+        activeCampaign = true;
+        engine.start();
         if (hud != null && hud.getMenubar() != null) {
+            hud.getMenubar().setCampaignActive(true);
             hud.getMenubar().restoreTime(time, speed);
             hud.getMenubar().updateAllViews(state);
         }
@@ -257,9 +262,10 @@ public class Main extends GameApplication {
 
     @Override
     protected void initUI() {
-        engine.start();
         hud = new GameHud(camera, registry);
         hud.build(this);
+        hud.getMenubar().setCampaignActive(false);
+        hud.getMenubar().toggleGameMenu();
     }
 
     @Override

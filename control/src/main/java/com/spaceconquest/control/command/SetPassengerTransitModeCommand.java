@@ -1,6 +1,7 @@
 package com.spaceconquest.control.command;
 
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.habitation.PassengerStasis;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.ShipInstance;
 
@@ -28,7 +29,10 @@ public record SetPassengerTransitModeCommand(
         return state.fleets().stream()
                 .filter(f -> f.id().equals(fleetId))
                 .flatMap(f -> f.ships().stream())
-                .anyMatch(s -> s.id().equals(shipId));
+                .anyMatch(s -> s.id().equals(shipId)
+                        && (!ShipInstance.MODE_CRYOGENIC_STASIS.equalsIgnoreCase(transitMode)
+                        || PassengerStasis.availableFor(state, s,
+                        Math.max(1, s.passengerCount()))));
     }
 
     @Override
@@ -52,13 +56,7 @@ public record SetPassengerTransitModeCommand(
                         updatedShips.add(ship);
                     }
                 }
-                updatedFleets.add(new Fleet(
-                        fleet.id(), fleet.name(), fleet.ownerEntityId(),
-                        fleet.currentSystemId(), fleet.targetSystemId(),
-                        fleet.coordinateX(), fleet.coordinateY(),
-                        fleet.transitProgress(), fleet.isInWarp(), fleet.fleetStance(),
-                        updatedShips
-                ));
+                updatedFleets.add(fleet.withShips(updatedShips));
             } else {
                 updatedFleets.add(fleet);
             }

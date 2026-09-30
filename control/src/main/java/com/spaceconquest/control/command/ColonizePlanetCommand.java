@@ -8,6 +8,7 @@ import com.spaceconquest.engine.Race;
 import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.combat.ColonizationProcessor;
 import com.spaceconquest.engine.ship.Fleet;
+import com.spaceconquest.engine.ship.FleetLocation;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,7 +33,10 @@ public record ColonizePlanetCommand(
         if (state == null || empireId == null || targetSystemId == null || targetPlanetId == null || fleetId == null) {
             return false;
         }
-        return state.fleets().stream().anyMatch(f -> f.id().equals(fleetId));
+        return state.fleets().stream().anyMatch(f -> f.id().equals(fleetId)
+                && empireId.equals(f.ownerEntityId())
+                && targetSystemId.equals(f.currentSystemId()) && !f.hasInterstellarOrder()
+                && f.location().isAt(FleetLocation.Site.orbit(targetPlanetId)));
     }
 
     @Override

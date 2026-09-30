@@ -34,7 +34,9 @@ public record Megastructure(
         boolean isOperational,
         double energyYieldKw,
         Map<String, Double> materialHarvestYieldKgPerTurn,
-        int habitableCapacity
+        int habitableCapacity,
+        Map<String, Double> requiredMaterialsKg,
+        Map<String, Double> consumedMaterialsKg
 ) {
     public static final String TYPE_DYSON_SWARM = "DYSON_SWARM";
     public static final String TYPE_DYSON_SPHERE = "DYSON_SPHERE";
@@ -45,6 +47,19 @@ public record Megastructure(
 
     public Megastructure {
         if (materialHarvestYieldKgPerTurn == null) materialHarvestYieldKgPerTurn = Map.of();
+        if (requiredMaterialsKg == null) requiredMaterialsKg = Map.of();
+        if (consumedMaterialsKg == null) consumedMaterialsKg = Map.of();
+    }
+
+    public Megastructure(String id, String name, String type, String systemId,
+                         String targetCelestialId, String ownerEmpireId, int currentStage,
+                         int totalStages, double currentStageProgress, double requiredStageProgress,
+                         boolean isOperational, double energyYieldKw,
+                         Map<String, Double> materialHarvestYieldKgPerTurn, int habitableCapacity) {
+        this(id, name, type, systemId, targetCelestialId, ownerEmpireId, currentStage,
+                totalStages, currentStageProgress, requiredStageProgress, isOperational,
+                energyYieldKw, materialHarvestYieldKgPerTurn, habitableCapacity,
+                Map.of(), Map.of());
     }
 
     public boolean isFullyConstructed() {

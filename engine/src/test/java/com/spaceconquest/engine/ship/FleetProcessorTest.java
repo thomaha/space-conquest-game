@@ -29,12 +29,12 @@ public class FleetProcessorTest {
                 "sol", "alpha_centauri", 0.0, 0.0, 0.0, false, "PASSIVE", List.of(ship)
         );
 
-        // Turn 1: Enters warp and moves 0.25 progress, consumes fuel
+        // Turn 1: Enters warp and moves 0.25 progress without burning sublight propellant.
         List<Fleet> step1 = fleetProcessor.processFleetMovements(List.of(initialFleet), null, null);
         Fleet f1 = step1.getFirst();
         assertTrue(f1.isInWarp(), "Fleet should enter warp transit");
         assertEquals(0.25, f1.transitProgress(), 0.001);
-        assertEquals(45.0, f1.ships().getFirst().currentFuelKg(), 0.001);
+        assertEquals(50.0, f1.ships().getFirst().currentFuelKg(), 0.001);
 
         // Turn 2: Advances to 0.50
         List<Fleet> step2 = fleetProcessor.processFleetMovements(step1, null, null);
@@ -56,7 +56,7 @@ public class FleetProcessorTest {
     }
 
     @Test
-    public void testPatrolStanceCoordinateShift() {
+    public void patrolStanceDoesNotInventMovementWithoutAnOrder() {
         Fleet patrolFleet = new Fleet(
                 "fleet_patrol", "Patrol Wing", "emp_terran",
                 "sol", "", 10.0, 20.0, 0.0, false, "PATROL", List.of()
@@ -64,8 +64,52 @@ public class FleetProcessorTest {
 
         List<Fleet> updated = fleetProcessor.processFleetMovements(List.of(patrolFleet), null, null);
         Fleet f = updated.getFirst();
-        assertEquals(11.0, f.coordinateX(), 0.001);
-        assertEquals(21.0, f.coordinateY(), 0.001);
+        assertEquals(10.0, f.coordinateX(), 0.001);
+        assertEquals(20.0, f.coordinateY(), 0.001);
+        assertEquals(patrolFleet.location(), f.location());
+    }
+
+    @Test
+    void sublightCrossingKeepsItsModeProgressAndFuelUntilArrival() {
+        ShipInstance ship = new ShipInstance("ship", "design", "emp", 100, 0,
+                25, Map.of());
+        Fleet ordered = new Fleet("fleet", "Slow ship", "emp", "sol", "alpha",
+                0, 0, 0, false, "PASSIVE", List.of(ship),
+                FleetLocation.at(FleetLocation.Site.deepSpace()), Fleet.MODE_SUBLIGHT, 3.0);
+        Fleet first = fleetProcessor.processFleetMovements(List.of(ordered), null, null).getFirst();
+        assertFalse(first.isInWarp());
+        assertTrue(first.isInterstellarTransit());
+        assertEquals(1.0 / 3.0, first.transitProgress(), 0.000001);
+        assertEquals(25.0, first.ships().getFirst().currentFuelKg(), 0.000001);
+        Fleet second = fleetProcessor.processFleetMovements(List.of(first), null, null).getFirst();
+        assertEquals(2.0 / 3.0, second.transitProgress(), 0.000001);
+        Fleet arrived = fleetProcessor.processFleetMovements(List.of(second), null, null).getFirst();
+        assertEquals("alpha", arrived.currentSystemId());
+        assertFalse(arrived.hasInterstellarOrder());
+        assertEquals(0.0, arrived.interstellarTravelDays(), 0.000001);
+    }
+
+    @Test
+    void interstellarOrderLeavesOrbitBeforeWarpAndArrivesInDestinationSpace() {
+        Fleet ordered = new Fleet("fleet", "Courier", "emp", "sol", "alpha",
+                0, 0, 0, false, "PASSIVE", List.of(),
+                FleetLocation.at(FleetLocation.Site.orbit("earth")).depart(
+                        FleetLocation.Site.deepSpace(), 2.0));
+        Fleet first = fleetProcessor.processFleetMovements(List.of(ordered), null, null).getFirst();
+        assertTrue(first.location().inTransit());
+        assertEquals(FleetLocation.Site.deepSpace(), first.location().destination());
+        assertEquals(0.5, first.location().progress(), 0.001);
+        Fleet second = fleetProcessor.processFleetMovements(List.of(first), null, null).getFirst();
+        assertTrue(second.location().isAt(FleetLocation.Site.deepSpace()));
+        Fleet third = fleetProcessor.processFleetMovements(List.of(second), null, null).getFirst();
+        assertTrue(third.isInWarp());
+        assertEquals(0.25, third.transitProgress(), 0.001);
+        Fleet current = third;
+        for (int day = 0; day < 3; day++)
+            current = fleetProcessor.processFleetMovements(List.of(current), null, null).getFirst();
+        assertEquals("alpha", current.currentSystemId());
+        assertTrue(current.location().isAt(FleetLocation.Site.deepSpace()));
+        assertFalse(current.isInWarp());
     }
 
     @Test

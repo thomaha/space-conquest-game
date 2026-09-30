@@ -46,7 +46,11 @@ public record SetFleetStanceCommand(
                         fleet.transitProgress(),
                         fleet.isInWarp(),
                         newStance.toUpperCase(),
-                        fleet.ships()
+                        fleet.ships(),
+                        fleet.location(), fleet.interstellarMode(), fleet.interstellarTravelDays(),
+                        fleet.interstellarDistanceMeters(), fleet.interstellarAccelerationMps2(),
+                        fleet.interstellarElapsedDays(), fleet.interstellarPeakSpeedMps(),
+                        fleet.interstellarFuelBudgetKg()
                 ));
             } else {
                 updatedFleets.add(fleet);

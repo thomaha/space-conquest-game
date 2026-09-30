@@ -4,6 +4,8 @@ import com.spaceconquest.engine.Corporation;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.economy.HouseholdAccount;
+import com.spaceconquest.engine.economy.HouseholdEmployment;
+import com.spaceconquest.engine.economy.HouseholdWellbeing;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -14,6 +16,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PowerBillingProcessorTest {
     private final PowerBillingProcessor billing = new PowerBillingProcessor();
+
+    @Test
+    void generatorRevenueUsesEachPlantsShareOfLocalProduction() {
+        GameState base = state(1_000.0, 10.0);
+        IndustrialFacility second = new IndustrialFacility("second_plant", "earth",
+                "wind_power", "empire", IndustrialFacility.PUBLIC_STATE, 1, 100,
+                "technician", false, 0.0);
+        GameState state = base.toBuilder()
+                .industrialFacilities(List.of(base.industrialFacilities().get(0),
+                        base.industrialFacilities().get(1), second))
+                .industryAccounts(List.of(base.industryAccounts().getFirst(),
+                        IndustryAccount.empty(second.id()))).build();
+        var requested = new PowerProcessor().balanceDay(state, Map.of("earth", 100.0), Map.of());
+        IndustryAccount quarter = generation(25.0);
+        IndustryAccount threeQuarters = new IndustryAccount(second.id(), Map.of(), Map.of(),
+                Map.of(), 0, 0, 0, 0, 75.0, 0);
+        var result = billing.process(state, requested,
+                List.of(quarter, threeQuarters), Map.of());
+        assertEquals(2.0, result.households().getFirst().electricitySpendingCredits(), 0.001);
+        assertEquals(0.5, result.plantSales().get("plant"), 0.001);
+        assertEquals(1.5, result.plantSales().get("second_plant"), 0.001);
+    }
 
     @Test
     void industrialShiftsPayPlantAndStopWhenOwnerCannotAffordElectricity() {
@@ -30,8 +54,9 @@ class PowerBillingProcessorTest {
         assertEquals(0.0, result.households().getFirst().unmetBasicElectricityKwh(), 0.001);
         assertEquals(8.0, result.households().getFirst().savingsCredits(), 0.001);
         assertEquals(998.0, result.plantSales().get("plant"), 0.001);
-        assertEquals(1_998.0, result.empires().getFirst().treasuryCredits(), 0.001);
-        assertEquals(998.0, result.imperialReceipts().get("empire"), 0.001);
+        assertEquals(1_000.0, result.empires().getFirst().treasuryCredits(), 0.001);
+        assertEquals(1_998.0, result.industryAccounts().getFirst().operatingCashCredits(), 0.001);
+        assertTrue(result.imperialReceipts().isEmpty());
         assertEquals((100.0 + 60_000.0 * 0.83) / 24.0,
                 result.grids().getFirst().totalDemandKw(), 0.001);
     }
@@ -73,9 +98,11 @@ class PowerBillingProcessorTest {
         IndustrialFacility farm = new IndustrialFacility("farm", "earth", "industrial_soil_cultivation",
                 "corp", IndustrialFacility.PRIVATE_CORPORATE, 1, 100, "farmer", false, 0.0);
         HouseholdAccount household = new HouseholdAccount("earth", "sol", "empire", "human", "farmer",
-                100, householdCash, 0.0, 0.0, 0.0, 0.0, Map.of(), 1.0, 1.0, 0.0, 100.0);
+                100, householdCash, 0.0, 0.0, 0.0, 0.0, Map.of(), 1.0, 1.0, 0.0, 100.0,
+                HouseholdWellbeing.healthy(), HouseholdEmployment.none());
         return GameState.builder().empires(List.of(empire)).corporations(List.of(corporation))
                 .industrialFacilities(List.of(plant, farm)).householdAccounts(List.of(household))
+                .industryAccounts(List.of(IndustryAccount.empty("plant").withOperatingCash(1_000.0)))
                 .powerGrids(List.of(new PowerGridState("earth", 0.0, 100.0 / 24.0,
                         -100.0 / 24.0, 0.0, 0.0, false))).build();
     }

@@ -1,6 +1,6 @@
 package com.spaceconquest.engine.economy;
 
-/** Hub trading cash: retail receipts fund purchases from identified facility producers. */
+/** Hub trading cash: merchandise receipts and provisional launch-service fees fund stock purchases. */
 public record MarketAccount(String hubId, double unsettledSalesCredits) {
     public MarketAccount {
         if (hubId == null || hubId.isBlank() || !Double.isFinite(unsettledSalesCredits)

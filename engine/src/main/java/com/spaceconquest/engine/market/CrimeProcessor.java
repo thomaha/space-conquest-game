@@ -3,9 +3,10 @@ package com.spaceconquest.engine.market;
 import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
-import com.spaceconquest.engine.MarketOrder;
 import com.spaceconquest.engine.ShadowSyndicate;
 import com.spaceconquest.engine.SystemGovernor;
+import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.industry.IndustryAccount;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -129,6 +130,11 @@ public class CrimeProcessor {
             }
         }
 
+        Map<String, Double> dailyTradingByBody = dailyTradingByBody(state);
+        Map<String, Integer> hubsByBody = new HashMap<>();
+        for (CommercialHub hub : state.commercialHubs())
+            hubsByBody.merge(hub.entityId(), 1, Integer::sum);
+
         double totalGalaxyLeakage = 0.0;
 
         for (CommercialHub hub : state.commercialHubs()) {
@@ -144,44 +150,22 @@ public class CrimeProcessor {
                 continue;
             }
 
-            double governorBonus = 0.0;
-            // Check if governor exists for the system
-            for (SystemGovernor g : state.systemGovernors()) {
-                governorBonus = Math.max(governorBonus, g.crimeReductionBonus());
-            }
-
             String sysId = planetToSystemMap.get(hub.entityId());
+            SystemGovernor governor = governorMap.get(sysId);
+            double governorBonus = governor == null ? 0.0 : governor.crimeReductionBonus();
             double systemLawLevel = sysId != null ? systemLawMap.getOrDefault(sysId, 1.0) : 1.0;
 
             double policeEfficiency = 0.10; // baseline police
             double crimeMetric = calculateCrimeMetric(hub, isHiveMind, policeEfficiency, governorBonus, systemLawLevel);
 
-            double grossValue = calculateHubGrossTransactionValue(hub);
+            double grossValue = dailyTradingByBody.getOrDefault(hub.entityId(), 0.0)
+                    / hubsByBody.getOrDefault(hub.entityId(), 1);
             double leakage = calculateBlackMarketLeakage(grossValue, hub.transactionTariffRate(), crimeMetric, policeEfficiency);
             totalGalaxyLeakage += leakage;
 
             if (leakage > 0.0) {
-                ShadowSyndicate currentSyndicate = syndicateMap.get(empire.id());
-                double currentPool = currentSyndicate != null ? currentSyndicate.shadowCapitalPool() : 0.0;
-                List<String> rogueShips = currentSyndicate != null ? new ArrayList<>(currentSyndicate.rogueShipIds()) : new ArrayList<>();
-                String baseSys = currentSyndicate != null ? currentSyndicate.baseSystemId() : (empire.controlledSystemIds().isEmpty() ? "unknown" : empire.controlledSystemIds().getFirst());
-                String syndicateId = currentSyndicate != null ? currentSyndicate.id() : "syndicate_" + empire.id();
-                String syndicateName = currentSyndicate != null ? currentSyndicate.name() : empire.name() + " Shadow Syndicate";
-
-                double newPool = currentPool + leakage;
-                while (newPool >= ROGUE_SHIP_BUILD_COST) {
-                    newPool -= ROGUE_SHIP_BUILD_COST;
-                    rogueShips.add("rogue_raider_" + (rogueShips.size() + 1));
-                }
-
-                syndicateMap.put(empire.id(), new ShadowSyndicate(
-                        syndicateId,
-                        syndicateName,
-                        empire.id(),
-                        baseSys,
-                        newPool,
-                        rogueShips
-                ));
+                syndicateMap.put(empire.id(), advanceSyndicate(
+                        syndicateMap.get(empire.id()), empire, leakage));
             }
         }
 
@@ -192,12 +176,38 @@ public class CrimeProcessor {
         );
     }
 
-    private double calculateHubGrossTransactionValue(CommercialHub hub) {
-        double gross = 0.0;
-        for (MarketOrder order : hub.activeOrders().values()) {
-            gross += order.supplyKg() * order.pricePerKg();
+    private ShadowSyndicate advanceSyndicate(ShadowSyndicate current, Empire empire,
+                                             double leakage) {
+        double pool = (current == null ? 0.0 : current.shadowCapitalPool()) + leakage;
+        List<String> ships = current == null ? new ArrayList<>()
+                : new ArrayList<>(current.rogueShipIds());
+        // Ship construction takes time; at most one abstract raider can appear per day.
+        if (pool >= ROGUE_SHIP_BUILD_COST) {
+            pool -= ROGUE_SHIP_BUILD_COST;
+            ships.add("rogue_raider_" + (ships.size() + 1));
         }
-        return gross;
+        return new ShadowSyndicate(current == null ? "syndicate_" + empire.id() : current.id(),
+                current == null ? empire.name() + " Shadow Syndicate" : current.name(),
+                empire.id(), current == null
+                ? (empire.controlledSystemIds().isEmpty() ? "unknown"
+                    : empire.controlledSystemIds().getFirst()) : current.baseSystemId(),
+                pool, ships);
+    }
+
+    private Map<String, Double> dailyTradingByBody(GameState state) {
+        Map<String, Double> trading = new HashMap<>();
+        state.householdAccounts().forEach(account -> trading.merge(account.bodyId(),
+                account.marketSpendingCredits(), Double::sum));
+        Map<String, String> facilityBodies = new HashMap<>();
+        for (IndustrialFacility facility : state.industrialFacilities())
+            facilityBodies.put(facility.id(), facility.planetId());
+        for (IndustryAccount account : state.industryAccounts()) {
+            String bodyId = facilityBodies.get(account.facilityId());
+            if (bodyId != null && Double.isFinite(account.inputCostsCredits())
+                    && account.inputCostsCredits() > 0.0)
+                trading.merge(bodyId, account.inputCostsCredits(), Double::sum);
+        }
+        return trading;
     }
 
     private Empire findEmpireForHub(CommercialHub hub, List<Empire> empires) {

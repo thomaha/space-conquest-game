@@ -12,9 +12,12 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 /** Clears paid industrial production against physical hub stock and hub cash. */
 public class IndustryMarketProcessor {
+    public static final double WHOLESALE_SHARE = 0.80;
     public record TurnResult(List<Empire> empires, List<Corporation> corporations,
                              List<CommercialHub> hubs, List<MarketAccount> marketAccounts,
                              List<GeologicalDeposit> deposits, List<IndustryAccount> industryAccounts,
@@ -28,8 +31,15 @@ public class IndustryMarketProcessor {
         List<IndustryAccount> accounts = new ArrayList<>();
         for (IndustrialFacility facility : state.industrialFacilities()) {
             IndustryAccount old = previous.get(facility.id());
-            accounts.add(processFacility(facility, old, paidWorkers.getOrDefault(facility.id(), 0),
-                    paidWages.getOrDefault(facility.id(), 0.0), ledger));
+            IndustryAccount day = processFacility(facility, old,
+                    paidWorkers.getOrDefault(facility.id(), 0),
+                    paidWages.getOrDefault(facility.id(), 0.0), ledger);
+            for (var activity : state.launchActivities()) {
+                if (facility.id().equals(activity.providerId()))
+                    day = day.withPowerSale(activity.feeCredits())
+                            .withPowerCost(activity.powerCostCredits());
+            }
+            accounts.add(ledger.cash.withDay(day));
         }
         return new TurnResult(List.copyOf(ledger.empires.values()), List.copyOf(ledger.corporations.values()),
                 List.copyOf(ledger.hubs.values()), List.copyOf(ledger.marketAccounts.values()),
@@ -62,13 +72,18 @@ public class IndustryMarketProcessor {
             }
         }
         double sales = sellStock(facility, hub, stock, sold, ledger);
+        double maintenance = IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())
+                ? 80.0 * Math.max(0, facility.tier()) : 0.0;
+        if (maintenance > 0.0) ledger.cash.change(facility, -maintenance);
         return new IndustryAccount(facility.id(), stock, produced, sold, inputCosts,
-                wages, sales, 0.0, 0.0, 0.0);
+                wages, sales, 0.0, 0.0, 0.0).withMaintenanceCost(maintenance);
     }
 
     private double affordableBatches(IndustryRecipeCatalog.Recipe recipe, double requested,
                                       IndustrialFacility facility, CommercialHub hub, Ledger ledger) {
         double batches = Math.max(0.0, requested);
+        if ("surface_water_treatment".equals(recipe.applicationId())
+                && !ledger.liquidWaterBodies.contains(facility.planetId())) return 0.0;
         double costPerBatch = 0.0;
         for (var input : recipe.inputsKg().entrySet()) {
             MarketOrder order = hub.activeOrders().get(input.getKey());
@@ -76,7 +91,7 @@ public class IndustryMarketProcessor {
             batches = Math.min(batches, order.supplyKg() / input.getValue());
             costPerBatch += input.getValue() * Math.max(0.0, order.pricePerKg());
         }
-        if (costPerBatch > 0.0) {
+        if (costPerBatch > 0.0 && !IndustrialFacility.HIVE_GRID.equals(facility.ownershipType())) {
             batches = Math.min(batches, ledger.ownerBalance(facility) / costPerBatch);
         }
         if (recipe.extractsDeposit()) {
@@ -100,6 +115,7 @@ public class IndustryMarketProcessor {
             ledger.replaceOrder(hub, input.getKey(), order.supplyKg() - amount,
                     hub.currentStoredWeightKg() - amount);
         }
+        if (IndustrialFacility.HIVE_GRID.equals(facility.ownershipType())) return 0.0;
         ledger.changeOwnerBalance(facility, -cost);
         ledger.changeHubCash(initialHub.id(), cost);
         return cost;
@@ -127,17 +143,23 @@ public class IndustryMarketProcessor {
                                Map<String, Double> stock, Map<String, Double> sold, Ledger ledger) {
         double gross = 0.0;
         if (initialHub == null) return 0.0;
+        boolean hive = IndustrialFacility.HIVE_GRID.equals(facility.ownershipType());
         for (String resource : List.copyOf(stock.keySet())) {
             CommercialHub hub = ledger.hubs.get(initialHub.id());
             MarketOrder order = hub.activeOrders().get(resource);
-            double price = order == null ? 2.0 : Math.max(0.01, order.pricePerKg());
+            if (!hive && (order == null || order.demandKg() <= 0.0)) continue;
+            double price = (order == null ? 2.0 : Math.max(0.01, order.pricePerKg())) * WHOLESALE_SHARE;
             double freeSpace = Math.max(0.0, hub.storageCapacityKg() - hub.currentStoredWeightKg());
-            double amount = Math.min(stock.get(resource), Math.min(freeSpace,
-                    ledger.hubCash(hub.id()) / price));
+            double wantedKg = hive ? freeSpace
+                    : Math.max(0.0, order.demandKg() * 30.0 - order.supplyKg());
+            double amount = Math.min(stock.get(resource), Math.min(freeSpace, wantedKg));
+            if (!hive) amount = Math.min(amount, ledger.hubCash(hub.id()) / price);
             if (amount <= 0.0) continue;
-            double payment = amount * price;
-            ledger.changeHubCash(hub.id(), -payment);
-            ledger.changeOwnerBalance(facility, payment);
+            double payment = hive ? 0.0 : amount * price;
+            if (!hive) {
+                ledger.changeHubCash(hub.id(), -payment);
+                ledger.changeOwnerBalance(facility, payment);
+            }
             ledger.replaceOrder(hub, resource, (order == null ? 0.0 : order.supplyKg()) + amount,
                     hub.currentStoredWeightKg() + amount);
             stock.put(resource, Math.max(0.0, stock.get(resource) - amount));
@@ -154,19 +176,31 @@ public class IndustryMarketProcessor {
         private final Map<String, CommercialHub> hubs = new LinkedHashMap<>();
         private final Map<String, MarketAccount> marketAccounts = new LinkedHashMap<>();
         private final Map<String, GeologicalDeposit> deposits = new LinkedHashMap<>();
+        private final Set<String> liquidWaterBodies = new HashSet<>();
+        private final IndustryOperatingLedger cash;
         private final Map<String, Double> imperialReceipts = new HashMap<>();
         private final Map<String, Double> imperialExpenses = new HashMap<>();
 
         private Ledger(GameState state) {
+            cash = new IndustryOperatingLedger(state.industryAccounts());
             for (Empire item : state.empires()) empires.put(item.id(), item);
             for (Corporation item : state.corporations()) corporations.put(item.id(), item);
             for (CommercialHub item : state.commercialHubs()) hubs.put(item.id(), item);
             for (MarketAccount item : state.marketAccounts()) marketAccounts.put(item.hubId(), item);
             for (GeologicalDeposit item : state.geologicalDeposits()) deposits.put(item.id(), item);
+            for (var system : state.solarSystems()) {
+                for (var planet : system.planets()) {
+                    if (planet.hasLiquidWater()) liquidWaterBodies.add(planet.id());
+                    for (var moon : planet.moons()) {
+                        if (moon.hasLiquidWater()) liquidWaterBodies.add(moon.id());
+                    }
+                }
+            }
         }
 
         private Empire technologyOwner(IndustrialFacility facility) {
-            if (IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())) {
+            if (IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())
+                    || IndustrialFacility.HIVE_GRID.equals(facility.ownershipType())) {
                 return empires.get(facility.ownerEntityId());
             }
             Corporation owner = corporations.get(facility.ownerEntityId());
@@ -185,35 +219,25 @@ public class IndustryMarketProcessor {
 
         private double ownerBalance(IndustrialFacility facility) {
             if (IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())) {
-                Empire owner = empires.get(facility.ownerEntityId());
-                return owner == null ? 0.0 : owner.treasuryCredits();
+                return cash.balance(facility);
             }
+            if (!IndustrialFacility.PRIVATE_CORPORATE.equals(facility.ownershipType())) return 0.0;
             Corporation owner = corporations.get(facility.ownerEntityId());
             return owner == null ? 0.0 : owner.liquidCapitalReserves();
         }
 
         private void changeOwnerBalance(IndustrialFacility facility, double delta) {
             if (IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())) {
-                changeEmpireBalance(facility.ownerEntityId(), delta);
+                cash.change(facility, delta);
                 return;
             }
+            if (!IndustrialFacility.PRIVATE_CORPORATE.equals(facility.ownershipType())) return;
             Corporation owner = corporations.get(facility.ownerEntityId());
             if (owner == null) return;
             corporations.put(owner.id(), new Corporation(owner.id(), owner.name(), owner.empireId(),
                     owner.headquartersEntityId(), owner.marketOrientation(),
                     Math.max(0.0, owner.liquidCapitalReserves() + delta), owner.ownedFacilityIds(),
                     owner.ownedShipIds(), owner.claimedVeinIds()));
-        }
-
-        private void changeEmpireBalance(String empireId, double delta) {
-            Empire owner = empires.get(empireId);
-            if (owner == null) return;
-            if (delta > 0.0) imperialReceipts.merge(empireId, delta, Double::sum);
-            if (delta < 0.0) imperialExpenses.merge(empireId, -delta, Double::sum);
-            empires.put(owner.id(), new Empire(owner.id(), owner.name(), owner.raceId(),
-                    owner.societyStructure(), Math.max(0.0, owner.treasuryCredits() + delta),
-                    owner.corporateTaxRate(), owner.controlledSystemIds(), owner.ministries(),
-                    owner.systemGovernorAssignments(), owner.unlockedTechIds(), owner.activeShipDesignIds()));
         }
 
         private double hubCash(String hubId) {

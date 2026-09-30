@@ -45,6 +45,6 @@ public record CampaignSetup(
     }
 
     public static CampaignSetup createDefault() {
-        return new CampaignSetup("Sol & Alpha Centauri Expansion", 12, 0, 0.25, AI_BALANCED, 1, VICTORY_DOMINATION, 60);
+        return new CampaignSetup("Standard Galactic Campaign", 50, 3, 0.25, AI_BALANCED, 1, VICTORY_DOMINATION, 60);
     }
 }

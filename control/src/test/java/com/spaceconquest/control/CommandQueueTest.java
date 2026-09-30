@@ -42,7 +42,7 @@ public class CommandQueueTest {
                 List.of("sol"),
                 List.of(),
                 Map.of(),
-                List.of(),
+                List.of("rocketry", "industrial_production", "computers"),
                 List.of()
         );
 
@@ -88,6 +88,15 @@ public class CommandQueueTest {
                 .empires(List.of(empire, silicon))
                 .corporations(List.of(corp))
                 .commercialHubs(List.of(hub))
+                .industrialFacilities(List.of(new com.spaceconquest.engine.industry.IndustrialFacility(
+                        "facility_1", "earth", "mining_outpost", "corp_mining",
+                        com.spaceconquest.engine.industry.IndustrialFacility.PRIVATE_CORPORATE,
+                        1, 100, "miner", false, 0.0)))
+                .solarSystems(List.of(new com.spaceconquest.engine.SolarSystem("sol", "Sol", "",
+                        0, 0, 0, 1, 1, "yellow",
+                        List.of(new com.spaceconquest.engine.Planet("earth", "Earth", "",
+                                1, 1, 1, 0, 1, "terrestrial", "breathable", true, 1,
+                                List.of(), List.of(), List.of())), List.of())))
                 .build();
     }
 
@@ -132,7 +141,7 @@ public class CommandQueueTest {
 
     @Test
     public void testCommandSpendingAppearsInNextImperialBalanceSheet() {
-        SpaceConquestEngine engine = new SpaceConquestEngine();
+        SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         engine.reset(initialState);
         commandQueue.submit(new SubsidizeCorporationCommand("terran", "corp_mining", 10000.0));
         commandQueue.processCommands(engine);
@@ -172,13 +181,15 @@ public class CommandQueueTest {
 
     @Test
     public void testCorporateInvestAndNationalizeAssetCommands() {
-        // Corporate investment: purchase fleet ship
+        // Corporate investment: place a funded ship construction order
         commandQueue.submit(new CorporateInvestCommand("corp_mining", "earth", "FLEET", 12000.0));
         GameState postInvest = commandQueue.drainAndExecute(initialState);
 
         Corporation corpPostInvest = postInvest.corporations().getFirst();
         assertEquals(8000.0, corpPostInvest.liquidCapitalReserves(), 0.001);
-        assertEquals(2, corpPostInvest.ownedShipIds().size());
+        assertEquals(1, corpPostInvest.ownedShipIds().size());
+        assertEquals(1, postInvest.shipConstructionOrders().size());
+        assertTrue(postInvest.fleets().isEmpty());
 
         // State nationalization of the facility
         commandQueue.submit(new NationalizeAssetCommand("terran", "corp_mining", "facility_1"));
@@ -186,6 +197,25 @@ public class CommandQueueTest {
 
         Corporation corpPostNat = postNationalize.corporations().getFirst();
         assertTrue(corpPostNat.ownedFacilityIds().isEmpty());
+        assertEquals("terran", postNationalize.industrialFacilities().getFirst().ownerEntityId());
+        assertEquals(com.spaceconquest.engine.industry.IndustrialFacility.PUBLIC_STATE,
+                postNationalize.industrialFacilities().getFirst().ownershipType());
+    }
+
+    @Test
+    public void nationalizingShipTransfersThePhysicalVessel() {
+        String shipId = "ship_1";
+        var physicalShip = new com.spaceconquest.engine.ship.ShipInstance(shipId, "design_1",
+                "corp_mining", 1_000.0, 100.0, 100.0, Map.of());
+        var physicalFleet = new com.spaceconquest.engine.ship.Fleet("fleet_1", "Mining fleet",
+                "corp_mining", "sol", "", 0, 0, 0, false, "PASSIVE", List.of(physicalShip));
+        GameState invested = initialState.toBuilder().fleets(List.of(physicalFleet)).build();
+        GameState nationalized = new NationalizeAssetCommand("terran", "corp_mining", shipId)
+                .apply(invested);
+        assertFalse(nationalized.corporations().getFirst().ownedShipIds().contains(shipId));
+        assertTrue(nationalized.fleets().stream().anyMatch(fleet -> "terran".equals(fleet.ownerEntityId())
+                && fleet.ships().stream().anyMatch(ship -> shipId.equals(ship.id())
+                && "terran".equals(ship.ownerEntityId()))));
     }
 
     @Test

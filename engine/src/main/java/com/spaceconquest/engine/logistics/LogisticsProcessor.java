@@ -3,12 +3,27 @@ package com.spaceconquest.engine.logistics;
 import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.Corporation;
 import com.spaceconquest.engine.Empire;
+import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.MarketOrder;
+import com.spaceconquest.engine.economy.MarketAccount;
+import com.spaceconquest.engine.industry.IndustryMarketProcessor;
+import com.spaceconquest.engine.market.MarketProcessor;
+import com.spaceconquest.engine.ship.Fleet;
+import com.spaceconquest.engine.ship.FleetLocation;
+import com.spaceconquest.engine.ship.LocalTravel;
+import com.spaceconquest.engine.ship.FleetPositioning;
+import com.spaceconquest.engine.ship.ShipDesign;
+import com.spaceconquest.engine.ship.ShipInstance;
+import com.spaceconquest.engine.ship.ShipRole;
+import com.spaceconquest.engine.ship.ShipFueling;
+import com.spaceconquest.engine.ship.PropulsionCatalog;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 /**
  * Simulates automated cargo logistics routes between commercial hubs and planetary storehouses.
@@ -18,6 +33,65 @@ public class LogisticsProcessor {
     public static final double BASE_FREIGHTER_CAPACITY_KG = 2000.0;
     public static final double TARIFF_RATE_PERCENT = 0.02; // 2% imperial transit tariff
 
+    public record FreightResult(GameState state, double deliveredKg) {}
+
+    private record Carrier(Fleet fleet, ShipInstance ship, ShipDesign design) {}
+    private record RouteStep(GameState state, TradeRoute route, double deliveredKg) {}
+    private record Shipment(double massKg, LaunchService.Plan launch) {
+    }
+
+    /** Advances one physical shipment per assigned cargo ship on the daily tick. */
+    public FreightResult processTradeRoutes(GameState state) {
+        if (state == null || state.tradeRoutes().isEmpty())
+            return new FreightResult(state, 0.0);
+        GameState current = state;
+        List<TradeRoute> updated = new ArrayList<>();
+        Set<String> usedShips = new HashSet<>();
+        Set<String> usedFleets = new HashSet<>();
+        double delivered = 0.0;
+        for (TradeRoute previous : state.tradeRoutes()) {
+            TradeRoute route = previous.resetDailyResult();
+            Carrier carrier = findCarrier(current, route);
+            if ((!route.isActive() && TradeRoute.LOADING.equals(route.phase())) || carrier == null
+                    || !usedShips.add(carrier.ship().id())
+                    || !usedFleets.add(carrier.fleet().id())) {
+                updated.add(route);
+                continue;
+            }
+            RouteStep step = switch (route.phase()) {
+                case TradeRoute.LOADING -> load(current, route, carrier);
+                case TradeRoute.DELIVERING -> deliver(current, route, carrier);
+                case TradeRoute.RETURNING -> returnCarrier(current, route, carrier);
+                default -> new RouteStep(current, route, 0.0);
+            };
+            current = step.state();
+            updated.add(step.route());
+            delivered += step.deliveredKg();
+        }
+        return new FreightResult(current.withTradeRoutes(updated), delivered);
+    }
+
+    private Carrier findCarrier(GameState state, TradeRoute route) {
+        if (route.assignedFreighterIds().isEmpty()) return null;
+        if (state.corporations().stream().noneMatch(item ->
+                route.ownerEntityId().equals(item.id()))
+                && state.empires().stream().noneMatch(item ->
+                route.ownerEntityId().equals(item.id()))) return null;
+        String shipId = route.assignedFreighterIds().getFirst();
+        for (Fleet fleet : state.fleets()) {
+            if (!route.ownerEntityId().equals(fleet.ownerEntityId())) continue;
+            for (ShipInstance ship : fleet.ships()) {
+                if (!shipId.equals(ship.id()) || !route.ownerEntityId().equals(ship.ownerEntityId()))
+                    continue;
+                ShipDesign design = state.shipDesigns().stream()
+                        .filter(item -> item.id().equals(ship.designId())).findFirst().orElse(null);
+                if (design != null && ShipRole.CARGO_TRANSPORT.equalsIgnoreCase(design.role()))
+                    return new Carrier(fleet, ship, design);
+            }
+        }
+        return null;
+    }
+
     public record LogisticsResult(
             List<TradeRoute> updatedTradeRoutes,
             List<CommercialHub> updatedCommercialHubs,
@@ -26,6 +100,8 @@ public class LogisticsProcessor {
             double totalVolumeMovedThisTurnKg
     ) {}
 
+    /** Legacy list-only calculation retained for callers that lack fleet state. Not used by the game tick. */
+    @Deprecated(forRemoval = true)
     public LogisticsResult processTradeRoutes(
             List<TradeRoute> routes,
             List<CommercialHub> hubs,
@@ -69,13 +145,7 @@ public class LogisticsProcessor {
                 applyTransitTariffs(route, actualTransfer, empireMap);
 
                 totalVolumeMoved += actualTransfer;
-                updatedRoutes.add(new TradeRoute(
-                        route.id(), route.name(), route.ownerEntityId(), route.originEntityId(),
-                        route.destinationEntityId(), route.materialId(), route.transferAmountPerTurnKg(),
-                        route.minSourceInventoryThresholdKg(), route.maxDestinationCapacityKg(),
-                        route.assignedFreighterIds(), route.totalVolumeMovedKg() + actualTransfer,
-                        route.isActive()
-                ));
+                updatedRoutes.add(route.withTrip(route.phase(), route.onboardKg(), actualTransfer));
             } else {
                 updatedRoutes.add(route);
             }
@@ -194,5 +264,359 @@ public class LogisticsProcessor {
             );
             empireMap.put(updatedEmpire.id(), updatedEmpire);
         }
+    }
+
+    private RouteStep load(GameState state, TradeRoute route, Carrier carrier) {
+        CommercialHub origin = hub(state, route.originEntityId());
+        CommercialHub destination = hub(state, route.destinationEntityId());
+        if (origin == null || destination == null)
+            return new RouteStep(state, route, 0.0);
+        boolean surface = FleetPositioning.hubSite(state, origin).kind()
+                == FleetLocation.Kind.SURFACE;
+        boolean orbitalPickup = surface && carrier.fleet().location()
+                .isAt(FleetLocation.Site.orbit(origin.entityId()));
+        if (!FleetPositioning.atHub(state, carrier.fleet(), origin) && !orbitalPickup)
+            return moveRoute(state, route, carrier.fleet().id(), origin);
+        MarketOrder order = origin.activeOrders().get(route.materialId());
+        if (order == null || !Double.isFinite(order.pricePerKg())
+                || order.pricePerKg() < 0.0) return new RouteStep(state, route, 0.0);
+        double cargo = carrier.ship().storedCargoKg().values().stream()
+                .mapToDouble(Double::doubleValue).sum();
+        double available = Math.max(0.0,
+                order.supplyKg() - route.minSourceInventoryThresholdKg());
+        double quantity = Math.min(route.transferAmountPerTurnKg(),
+                Math.min(available, Math.min(room(destination, route),
+                        carrier.design().maxCargoMassKg() - cargo
+                                - carrier.ship().passengerCount() * 80.0)));
+        if (!Double.isFinite(quantity) || quantity <= 0.000001)
+            return new RouteStep(state, route, 0.0);
+        Shipment affordable = affordableShipment(state, route, origin, carrier.design(),
+                quantity, order.pricePerKg(), balance(state, route.ownerEntityId()),
+                orbitalPickup, cargo + carrier.ship().passengerCount() * 80.0,
+                carrier.ship().passengerCount() > 0);
+        quantity = affordable.massKg();
+        double lift = LaunchService.payerOperatingCost(state, affordable.launch(),
+                route.ownerEntityId());
+        double purchase = quantity * order.pricePerKg();
+        if (!Double.isFinite(lift) || !Double.isFinite(purchase)
+                || quantity <= 0.000001)
+            return new RouteStep(state, route, 0.0);
+        GameState current = settleHub(state, route.ownerEntityId(), origin.id(), -purchase);
+        if (affordable.launch() != null)
+            current = LaunchService.settle(current, route.ownerEntityId(), affordable.launch());
+        current = changeHubStock(current, origin.id(), route.materialId(), -quantity,
+                order.pricePerKg());
+        current = changeShipCargo(current, carrier.ship().id(), route.materialId(), quantity);
+        double beforeMove = balance(current, route.ownerEntityId());
+        current = surface && !orbitalPickup
+                ? departFromSurface(current, carrier.fleet().id(), origin.entityId())
+                : moveToward(current, carrier.fleet().id(), destination);
+        double fuelCost = Math.max(0.0, beforeMove - balance(current, route.ownerEntityId()));
+        return new RouteStep(current, route.withLoadedCargo(quantity, purchase + lift)
+                .withOperatingCost(fuelCost), 0.0);
+    }
+
+    private RouteStep deliver(GameState state, TradeRoute route, Carrier carrier) {
+        CommercialHub destination = hub(state, route.destinationEntityId());
+        if (destination == null) return new RouteStep(state, route, 0.0);
+        if (!FleetPositioning.atHub(state, carrier.fleet(), destination))
+            return moveRoute(state, route, carrier.fleet().id(), destination);
+        MarketOrder destinationOrder = destination.activeOrders().get(route.materialId());
+        double postedPrice = destinationOrder == null
+                ? MarketProcessor.basePricePerKg(route.materialId())
+                : destinationOrder.pricePerKg();
+        if (!Double.isFinite(postedPrice) || postedPrice < 0.0)
+            return new RouteStep(state, route, 0.0);
+        double bid = Math.max(0.01, postedPrice) * IndustryMarketProcessor.WHOLESALE_SHARE;
+        double quantity = Math.min(route.onboardKg(), Math.min(room(destination, route),
+                Math.min(carrier.ship().storedCargoKg().getOrDefault(route.materialId(), 0.0),
+                        hubCash(state, destination.id()) / bid)));
+        if (quantity <= 0.000001) return new RouteStep(state, route, 0.0);
+        double sale = quantity * bid;
+        String controller = controllingEmpire(state,
+                FleetPositioning.systemForHub(state, destination));
+        double tariff = controller == null ? 0.0
+                : sale * Math.clamp(destination.transactionTariffRate(), 0.0, 1.0);
+        GameState current = settleHub(state, route.ownerEntityId(), destination.id(), sale);
+        current = charge(current, route.ownerEntityId(), controller, 0.0, tariff);
+        current = changeHubStock(current, destination.id(), route.materialId(),
+                quantity, postedPrice);
+        current = changeShipCargo(current, carrier.ship().id(), route.materialId(), -quantity);
+        TradeRoute delivered = route.withDeliveredCargo(quantity, sale, tariff);
+        CommercialHub origin = hub(current, route.originEntityId());
+        double beforeMove = balance(current, route.ownerEntityId());
+        if (TradeRoute.RETURNING.equals(delivered.phase()) && origin != null)
+            current = moveToward(current, carrier.fleet().id(), origin);
+        double fuelCost = Math.max(0.0, beforeMove - balance(current, route.ownerEntityId()));
+        return new RouteStep(current, delivered.withOperatingCost(fuelCost), quantity);
+    }
+
+    private RouteStep returnCarrier(GameState state, TradeRoute route, Carrier carrier) {
+        CommercialHub origin = hub(state, route.originEntityId());
+        if (origin == null) return new RouteStep(state, route, 0.0);
+        if (FleetPositioning.atHub(state, carrier.fleet(), origin))
+            return new RouteStep(state, route.withTrip(TradeRoute.LOADING, 0.0, 0.0), 0.0);
+        return moveRoute(state, route, carrier.fleet().id(), origin);
+    }
+
+    private RouteStep moveRoute(GameState state, TradeRoute route, String fleetId,
+                               CommercialHub destination) {
+        double before = balance(state, route.ownerEntityId());
+        GameState moved = moveToward(state, fleetId, destination);
+        double fuelCost = Math.max(0.0, before - balance(moved, route.ownerEntityId()));
+        return new RouteStep(moved, route.withOperatingCost(fuelCost), 0.0);
+    }
+
+    private CommercialHub hub(GameState state, String hubId) {
+        return state.commercialHubs().stream().filter(item -> hubId.equals(item.id()))
+                .findFirst().orElse(null);
+    }
+
+    private double room(CommercialHub hub, TradeRoute route) {
+        double materialStock = hub.activeOrders().getOrDefault(route.materialId(),
+                new MarketOrder(route.materialId(), 0, 0, 10, 0)).supplyKg();
+        return Math.max(0.0, Math.min(route.maxDestinationCapacityKg() - materialStock,
+                hub.storageCapacityKg() - hub.currentStoredWeightKg()));
+    }
+
+    private GameState changeHubStock(GameState state, String hubId, String materialId,
+                                     double delta, double defaultPrice) {
+        List<CommercialHub> hubs = new ArrayList<>(state.commercialHubs());
+        for (int index = 0; index < hubs.size(); index++) {
+            CommercialHub hub = hubs.get(index);
+            if (!hubId.equals(hub.id())) continue;
+            Map<String, MarketOrder> orders = new HashMap<>(hub.activeOrders());
+            MarketOrder old = orders.get(materialId);
+            orders.put(materialId, new MarketOrder(materialId,
+                    Math.max(0.0, (old == null ? 0.0 : old.supplyKg()) + delta),
+                    old == null ? 0.0 : old.demandKg(),
+                    old == null ? defaultPrice : old.pricePerKg(),
+                    old == null ? 0.0 : old.shortcomingScore()));
+            hubs.set(index, new CommercialHub(hub.id(), hub.entityId(),
+                    hub.transactionTariffRate(), hub.storageCapacityKg(),
+                    Math.max(0.0, hub.currentStoredWeightKg() + delta),
+                    hub.logisticsRangeUnits(), Map.copyOf(orders)));
+            break;
+        }
+        return state.withCommercialHubs(hubs);
+    }
+
+    private GameState changeShipCargo(GameState state, String shipId, String materialId,
+                                      double delta) {
+        List<Fleet> fleets = new ArrayList<>(state.fleets());
+        for (int fleetIndex = 0; fleetIndex < fleets.size(); fleetIndex++) {
+            Fleet fleet = fleets.get(fleetIndex);
+            List<ShipInstance> ships = new ArrayList<>(fleet.ships());
+            for (int shipIndex = 0; shipIndex < ships.size(); shipIndex++) {
+                ShipInstance ship = ships.get(shipIndex);
+                if (!shipId.equals(ship.id())) continue;
+                Map<String, Double> cargo = new HashMap<>(ship.storedCargoKg());
+                cargo.put(materialId, Math.max(0.0,
+                        cargo.getOrDefault(materialId, 0.0) + delta));
+                ships.set(shipIndex, new ShipInstance(ship.id(), ship.designId(),
+                        ship.ownerEntityId(), ship.currentHullHealth(),
+                        ship.currentShieldHealth(), ship.currentFuelKg(), Map.copyOf(cargo),
+                        ship.passengerCount(), ship.passengerRaceId(), ship.transitMode()));
+                fleets.set(fleetIndex, fleet.withShips(ships));
+                return state.withFleets(fleets);
+            }
+        }
+        return state;
+    }
+
+    private GameState moveToward(GameState state, String fleetId, CommercialHub destination) {
+        String systemId = FleetPositioning.systemForHub(state, destination);
+        FleetLocation.Site site = FleetPositioning.hubSite(state, destination);
+        if (systemId == null || site == null) return state;
+        List<Fleet> fleets = new ArrayList<>(state.fleets());
+        for (int index = 0; index < fleets.size(); index++) {
+            Fleet fleet = fleets.get(index);
+            if (!fleetId.equals(fleet.id()) || fleet.hasInterstellarOrder()
+                    || fleet.location().inTransit()) continue;
+            Fleet moved = fleet;
+            if (!systemId.equals(fleet.currentSystemId())) {
+                if (!fleet.location().isAt(FleetLocation.Site.deepSpace())) {
+                    GameState ready = prepareLocalDeparture(state, fleet,
+                            FleetLocation.Site.deepSpace());
+                    if (ready == null) continue;
+                    state = ready;
+                    fleets = new ArrayList<>(state.fleets());
+                    fleet = fleets.get(index);
+                    LocalTravel.Plan local = LocalTravel.plan(state, fleet,
+                            FleetLocation.Site.deepSpace());
+                    fleet = LocalTravel.depart(fleet, FleetLocation.Site.deepSpace(), local);
+                }
+                com.spaceconquest.engine.ship.InterstellarTravel.Plan plan =
+                        com.spaceconquest.engine.ship.InterstellarTravel.plan(state, fleet, systemId);
+                if (plan == null) continue;
+                Fleet fueled = com.spaceconquest.engine.ship.InterstellarTravel
+                        .commitReactorFuel(fleet, plan);
+                moved = new Fleet(fleet.id(), fleet.name(), fleet.ownerEntityId(),
+                        fleet.currentSystemId(), systemId, fleet.coordinateX(),
+                        fleet.coordinateY(), 0.0, false, fleet.fleetStance(),
+                        fueled.ships(), fleet.location(), plan.mode(), plan.days(),
+                        plan.distanceMeters(), plan.accelerationMps2(), 0.0,
+                        plan.peakSpeedMps(), plan.fuelBudgetKg());
+            } else if (!fleet.location().isAt(site)) {
+                GameState ready = prepareLocalDeparture(state, fleet, site);
+                if (ready == null) continue;
+                state = ready;
+                fleets = new ArrayList<>(state.fleets());
+                fleet = fleets.get(index);
+                LocalTravel.Plan local = LocalTravel.plan(state, fleet, site);
+                moved = LocalTravel.depart(fleet, site, local);
+            }
+            fleets.set(index, moved);
+            break;
+        }
+        return state.withFleets(fleets);
+    }
+
+    private GameState prepareLocalDeparture(GameState state, Fleet fleet,
+                                            FleetLocation.Site destination) {
+        GameState ready = refuelForLocalLeg(state, fleet, destination);
+        Fleet updated = ready.fleets().stream().filter(item -> fleet.id().equals(item.id()))
+                .findFirst().orElse(null);
+        if (updated == null || LocalTravel.plan(ready, updated, destination) == null)
+            return null;
+        if (updated.location().current().kind() != FleetLocation.Kind.SURFACE)
+            return ready;
+        LaunchService.Plan launch = LocalTravel.surfaceLaunchPlan(ready, updated);
+        return launch == null ? null : LaunchService.settle(ready,
+                updated.ownerEntityId(), launch);
+    }
+
+    private GameState refuelForLocalLeg(GameState state, Fleet fleet,
+                                       FleetLocation.Site destination) {
+        if (LocalTravel.plan(state, fleet, destination) != null
+                || fleet.location().current().kind() == FleetLocation.Kind.DEEP_SPACE)
+            return state;
+        String hubBody = fleet.location().current().entityId();
+        GameState current = state;
+        for (ShipInstance original : fleet.ships()) {
+            ShipInstance ship = current.fleets().stream()
+                    .flatMap(item -> item.ships().stream())
+                    .filter(item -> original.id().equals(item.id())).findFirst().orElse(original);
+            ShipDesign design = current.shipDesigns().stream()
+                    .filter(item -> ship.designId().equals(item.id())).findFirst().orElse(null);
+            if (design == null || PropulsionCatalog.mainDrive(design.equippedModuleIds()) == null)
+                continue;
+            double needed = LocalTravel.requiredPropellantKg(design, ship,
+                    fleet.location().current(), destination);
+            if (!Double.isFinite(needed) || needed <= 0.0) continue;
+            double room = design.fuelCapacityKg() - ship.currentFuelKg();
+            double quantity = Math.min(room,
+                    Math.max(1.0, needed * 1.05 - ship.currentFuelKg()));
+            if (quantity > 0.0)
+                current = ShipFueling.refuel(current, ship.id(), hubBody, quantity);
+        }
+        return current;
+    }
+
+    private double balance(GameState state, String ownerId) {
+        return state.corporations().stream().filter(item -> ownerId.equals(item.id()))
+                .mapToDouble(Corporation::liquidCapitalReserves).findFirst().orElseGet(() ->
+                state.empires().stream().filter(item -> ownerId.equals(item.id()))
+                        .mapToDouble(Empire::treasuryCredits).findFirst().orElse(0.0));
+    }
+
+    private double hubCash(GameState state, String hubId) {
+        return state.marketAccounts().stream().filter(account -> hubId.equals(account.hubId()))
+                .mapToDouble(MarketAccount::unsettledSalesCredits).findFirst().orElse(0.0);
+    }
+
+    private Shipment affordableShipment(GameState state, TradeRoute route, CommercialHub origin,
+                                        ShipDesign design, double desiredKg, double pricePerKg,
+                                        double availableCredits, boolean orbitalPickup,
+                                        double onboardPayloadKg, boolean passengers) {
+        Shipment desired = affordableCandidate(state, route, origin, design, desiredKg,
+                pricePerKg, availableCredits, orbitalPickup, onboardPayloadKg, passengers);
+        if (desired != null) return desired;
+        double low = 0.0;
+        double high = desiredKg;
+        for (int attempt = 0; attempt < 36; attempt++) {
+            double trial = (low + high) * 0.5;
+            if (affordableCandidate(state, route, origin, design, trial, pricePerKg,
+                    availableCredits, orbitalPickup, onboardPayloadKg, passengers) != null) low = trial;
+            else high = trial;
+        }
+        if (low <= 0.000001) return new Shipment(0.0, null);
+        return affordableCandidate(state, route, origin, design, low, pricePerKg,
+                availableCredits, orbitalPickup, onboardPayloadKg, passengers);
+    }
+
+    private Shipment affordableCandidate(GameState state, TradeRoute route,
+                                          CommercialHub origin, ShipDesign design,
+                                          double quantity, double pricePerKg,
+                                          double availableCredits, boolean orbitalPickup,
+                                          double onboardPayloadKg, boolean passengers) {
+        if (quantity <= 0.0 || quantity * pricePerKg > availableCredits) return null;
+        if (FleetPositioning.hubSite(state, origin).kind() != FleetLocation.Kind.SURFACE)
+            return new Shipment(quantity, null);
+        GameState afterCargo = changeHubStock(state, origin.id(), route.materialId(),
+                -quantity, pricePerKg);
+        double launchPayload = orbitalPickup ? quantity : quantity + onboardPayloadKg;
+        LaunchService.Plan launch = LaunchService.choose(afterCargo, origin.entityId(),
+                route.ownerEntityId(), launchPayload, passengers, !orbitalPickup,
+                design.totalDryMassKg());
+        return launch != null && quantity * pricePerKg
+                + LaunchService.payerOperatingCost(state, launch, route.ownerEntityId())
+                <= availableCredits + 0.000001 ? new Shipment(quantity, launch) : null;
+    }
+
+    private GameState departFromSurface(GameState state, String fleetId, String bodyId) {
+        List<Fleet> fleets = state.fleets().stream().map(fleet ->
+                fleetId.equals(fleet.id()) ? LocalTravel.depart(fleet,
+                        FleetLocation.Site.orbit(bodyId), LocalTravel.plan(state, fleet,
+                                FleetLocation.Site.orbit(bodyId))) : fleet).toList();
+        return state.withFleets(fleets);
+    }
+
+    /** Positive ownerDelta sells to the hub; negative ownerDelta buys from it. */
+    private GameState settleHub(GameState state, String ownerId, String hubId,
+                                double ownerDelta) {
+        if (ownerDelta == 0.0) return state;
+        List<MarketAccount> accounts = new ArrayList<>(state.marketAccounts());
+        accounts.removeIf(account -> hubId.equals(account.hubId()));
+        accounts.add(new MarketAccount(hubId,
+                Math.max(0.0, hubCash(state, hubId) - ownerDelta)));
+        List<Corporation> corporations = state.corporations().stream().map(item ->
+                ownerId.equals(item.id()) ? new Corporation(item.id(), item.name(),
+                        item.empireId(), item.headquartersEntityId(), item.marketOrientation(),
+                        item.liquidCapitalReserves() + ownerDelta, item.ownedFacilityIds(),
+                        item.ownedShipIds(), item.claimedVeinIds()) : item).toList();
+        List<Empire> empires = state.empires().stream().map(item ->
+                ownerId.equals(item.id()) ? new Empire(item.id(), item.name(), item.raceId(),
+                        item.societyStructure(), item.treasuryCredits() + ownerDelta,
+                        item.corporateTaxRate(), item.controlledSystemIds(), item.ministries(),
+                        item.systemGovernorAssignments(), item.unlockedTechIds(),
+                        item.activeShipDesignIds()) : item).toList();
+        return state.toBuilder().marketAccounts(accounts).corporations(corporations)
+                .empires(empires).build();
+    }
+
+    private String controllingEmpire(GameState state, String systemId) {
+        return state.empires().stream().filter(empire ->
+                empire.controlledSystemIds().contains(systemId))
+                .map(Empire::id).findFirst().orElse(null);
+    }
+
+    private GameState charge(GameState state, String ownerId, String recipientId,
+                             double lift, double tariff) {
+        List<Corporation> corporations = state.corporations().stream().map(item ->
+                ownerId.equals(item.id()) ? new Corporation(item.id(), item.name(),
+                        item.empireId(), item.headquartersEntityId(), item.marketOrientation(),
+                        item.liquidCapitalReserves() - lift - tariff, item.ownedFacilityIds(),
+                        item.ownedShipIds(), item.claimedVeinIds()) : item).toList();
+        List<Empire> empires = state.empires().stream().map(item -> {
+            double delta = (recipientId != null && recipientId.equals(item.id()) ? tariff : 0.0)
+                    - (ownerId.equals(item.id()) ? lift + tariff : 0.0);
+            return delta == 0.0 ? item : new Empire(item.id(), item.name(), item.raceId(),
+                    item.societyStructure(), item.treasuryCredits() + delta,
+                    item.corporateTaxRate(), item.controlledSystemIds(), item.ministries(),
+                    item.systemGovernorAssignments(), item.unlockedTechIds(),
+                    item.activeShipDesignIds());
+        }).toList();
+        return state.toBuilder().corporations(corporations).empires(empires).build();
     }
 }

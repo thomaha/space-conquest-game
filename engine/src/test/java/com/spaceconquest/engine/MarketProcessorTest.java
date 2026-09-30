@@ -31,6 +31,18 @@ public class MarketProcessorTest {
     }
 
     @Test
+    public void finishedGoodsKeepAValueAddedPriceAboveRawInputs() {
+        assertTrue(MarketProcessor.basePricePerKg("consumer_goods")
+                > MarketProcessor.basePricePerKg("bio_polymers"));
+        assertTrue(MarketProcessor.basePricePerKg("bio_polymers")
+                > MarketProcessor.basePricePerKg("iron_ore"));
+        assertTrue(MarketProcessor.basePricePerKg("luxury_goods")
+                > MarketProcessor.basePricePerKg("consumer_goods"));
+        assertEquals(4.8, marketProcessor.calculateSpotPrice(
+                MarketProcessor.basePricePerKg("consumer_goods"), 1_000_000.0, 1.0), 0.01);
+    }
+
+    @Test
     public void testShortcomingScore() {
         // No shortage when supply >= demand
         double zeroShortcoming = marketProcessor.calculateShortcomingScore(100.0, 50.0, 1.0);

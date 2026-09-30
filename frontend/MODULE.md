@@ -8,22 +8,23 @@ All data presented must be tied to the actual data in the game world. Such that 
 All assignments made must be backed by actual data in the game world. Example: you cannot assign more scientists to perform research than available in the empire.
 
 ## Key components
-- `Main`: The main class that extends FXGL's `GameApplication` to initialize the game and UI.
+- `Main`: The FXGL entry point. It starts with an empty world and open game menu, then renders a generated or loaded campaign. Express Terran launch generates 50 systems with three distinct non-human starting empires on separate homeworlds.
 - `GameHud`: Builds and positions all UI overlays (menubar, zoom controls, goto, page overlays).
 - `Menubar`: Top bar with the sector buttons, the time view and the game pause/resume handling for pages.
 - `CameraController`: Zoom, focus and goto navigation on the galaxy map.
 - `SolarSystemRenderer` / `GalaxyRegistry`: Renders solar systems and keeps track of rendered entities.
 - `TechnologyView`, `GalaxyListView`, `GameMenuView`: The base page overlays opened from the menubar.
-- `EmpireView`: Modular tabbed management hub featuring Imperial economy, Imperial cabinet governance, unified planetary body explorer, sovereign orbital stations and shipyards, private corporation registry and imperial megastructures.
+- `EmpireView`: Modular tabbed management hub featuring Imperial economy, Imperial cabinet governance, a planetary body explorer with overview, people and industries pages, sovereign orbital stations and shipyards, private corporation registry and imperial megastructures.
 - `PlanetaryBodyEntry`: Adapter model encapsulating planetary and moon characteristics, colonization status, habitability and sorting attributes.
 - `CorporateView`: UI panel displaying registered private corporations, liquid capital, shortcomings and fleets.
 - `DiplomacyView`: UI panel displaying galactic diplomatic relations, treaties, influence values and bilateral stances.
-- `CommercialHubView`: UI panel displaying active commercial hubs, commodity spot prices, supply-demand bars, shortcoming scores and automated trade route logistics.
-- `ShipDesignerView`: UI panel providing interactive starframe layout, module slots and real-time physics validation warnings.
-- `FleetManagementView`: UI panel providing fleet command overviews, ship manifests, warp progress and operational stances.
+- `CommercialHubView`: UI panel displaying active commercial hubs, commodity spot prices, supply-demand bars, shortcoming scores and trade routes assigned to real available cargo ships with paid cargo cost and modeled trading results.
+- `FleetManagementView` and `GalaxyCanvasView`: Show exact fleet sites and travel progress; the canvas places markers at system, body, moon or station positions and interpolates journeys.
+- `ShipDesignerView`: UI panel providing interactive starframe layout, researched propulsion choices, a propellant tank, module slots and physics validation warnings.
+- `FleetManagementView`: UI panel showing live empire designs, controlled systems, ship construction work, material progress, paid cargo loading, drive-specific propellant and reactor-fuel choices and explicit offworld passenger bookings on surface ships.
 - `PlanetDetailView`: UI panel displaying celestial prospecting data, mineral veins, power grid balances and local megastructures.
-- `IndustryView`: UI panel displaying industrial processing facilities, tier scaling pipelines, active manufacturing recipes and the metallurgical alloy refinement catalog.
-- `ColonyManagementView`: UI panel displaying planetary demographics, species biochemical metabolism meters and surface mass drivers.
+- `IndustryView`: UI panel displaying facilities, tier scaling work and consumed construction materials, active recipes and the refinement catalog.
+- `ColonyManagementView`: UI panel displaying planetary demographics and a snapshot-backed mass-driver freight form for real orbital ships and local market stock.
 - `CampaignManagerView`: UI panel providing campaign initialization, galaxy size customization, live file saving, quick-saving and save/load management.
 - `CombatResolutionView`: UI panel displaying tactical space battle after-action reports, orbital bombardment logs and ground siege outcomes.
 - `OrbitalStationView`: UI panel displaying orbital space stations, modular station facilities, power grids and space elevator tethers.
@@ -112,10 +113,10 @@ Displays buttons with information about the different sectors of the game. Openi
 - Central imperial administration hub organized into an extensible tabbed structure.
 - On first open, the Economy tab selects Empire treasury and budget. Its sub-view switcher offers Empire treasury and budget and System budget and taxes.
 - Imperial economy displays liquid treasury credits, recorded central receipts and expenditures for the last processed day, net treasury flow, outstanding imperial debt and principal repayment. Colony ledgers show engine municipal figures and debt. Corporate tariff entries remain estimates and are labeled accordingly.
-- System economy provides a workbench for selecting controlled systems, inspecting local balance-sheet revenues, expenditures and aggregate local debt and adjusting five nonnegative public-budget shares plus a nonnegative tax rate. The final slider is signed from -100% to +100% of the public budget: positive requests an empire contribution and negative requests a system subsidy. Allocation shares, estimated taxes and the transfer target appear in credits per day; the last local transfer appears separately. Positive transfers may still be in courier transit. Commands take effect on the next simulation day.
+- System economy provides a workbench for selecting controlled systems, inspecting local balance-sheet revenues, expenditures and aggregate local debt and adjusting five nonnegative public-budget shares plus a nonnegative tax rate. The fourth share is labeled Municipal infrastructure and industry; it pays public engineer and technician wages and caps support for selected state-owned facilities. The final slider is signed from -100% to +100% of the public budget: positive requests an empire contribution and negative requests a system subsidy. Allocation shares, estimated taxes and the transfer target appear in credits per day; the last local transfer appears separately. Positive transfers may still be in courier transit. Commands take effect on the next simulation day.
 - Hovering over buttons, tab switches and interactive controls displays a responsive hand pointer cursor. Tab button styling maintains consistent font size and layout geometry on hover without shrinking.
 - Imperial cabinet tab displays sovereign empire governance, leader details, ministerial portfolios (Interior, Defense, Science, Treasury, Diplomacy), governor planetary assignments and public treasury metrics.
-- Planets tab unifies all planetary bodies (planets and moons) across all star systems in the galaxy owned by the player's empire.
+- Planets tab unifies all planetary bodies (planets and moons) across all star systems in the galaxy owned by the player's empire. Its overview shows terrain, resources and operations; its people page shows race and age groups, need coverage, wellbeing, employment and household finances; its industries page shows facility production and realized operating results. The page reads the latest immutable game-state snapshot on tick refresh.
   - Reactive filtering controls support Colonized (default), Uncolonized, Colonizable, All planetary bodies, Only planets, and Only moons.
   - Multi-attribute sorting controls support alphabetical name, star system name, population count, diameter/size, surface gravity, and resource vein count.
   - Contextual technology-gated operations matrix updates on selecting any celestial body to display and stage available actions unlocked by current imperial research:
@@ -126,9 +127,9 @@ Displays buttons with information about the different sectors of the game. Openi
   - Local megastructures under construction or operational in the system.
   - Orbital stations and shipyards tab displays orbital space stations, attached starframe modules, shipyard slipways, station power balances, and planetary space elevators filtered strictly for selected planet.
   - When a colonized planet is selected, a detailed display of the population should be shown, including population demographics, workforce specialization, resource consumption, production, and trade.
-  - The bottom of the selected planet or moon detail view lists every industrial facility hosted there with its application, tier, effective throughput, assigned worker count and profession, owner and configured recipe products. After the first daily turn, material facilities show actual production, sales, unsold stock, input costs, electricity bills, wages and pretax realized profit or loss. Power plants show measured daily generation, billed kWh, sales and costs. Cargo-terminal services and map locations remain future work.
+  - The industries page for the selected planet or moon lists every hosted facility with its application, tier, effective throughput, assigned worker count and profession, owner, recipe inputs and configured products. After the first daily turn, material facilities show actual production, sales, unsold stock, credits spent on inputs, electricity bills, wages and pretax realized profit or loss. Power plants show measured daily generation, billed kWh, sales and costs. Cargo-terminal services and map locations remain future work.
 - Orbital stations and shipyards tab displays orbital space stations, attached starframe modules, shipyard slipways, station power balances and planetary space elevators filtered strictly for the player's empire.
-- Corporation registry tab displays private commercial corporations, market orientations, liquid capital reserves, owned industrial facilities, commercial freighters and claimed mineral veins filtered strictly for the player's empire.
+- Corporation registry tab displays private commercial corporations, market orientations, cash reserves and estimated book net worth from the injected game-state snapshot, filtered to the player's empire. The estimate counts tracked facilities, ships, priced unsold facility stock and paid cargo aboard assigned routes and deducts unpaid corporate tax.
 - Megastructures tab displays all imperial megastructures (Dyson swarms, Dyson spheres, star lifters, ringworlds, orbital habitats and hyperlane gateways) under construction or complete, energy outputs and housing capacity with a commissioning workbench gated by the researched Stellar megastructures technology.
 - Consolidates separate planetary operations, orbital station, corporate registry, refinement and megastructure views to keep the top navigation menubar lean and focused.
 

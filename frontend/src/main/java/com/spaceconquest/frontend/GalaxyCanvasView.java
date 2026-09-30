@@ -9,11 +9,15 @@ import com.spaceconquest.control.command.MoveFleetCommand;
 import com.spaceconquest.control.command.ScanSystemCommand;
 import com.spaceconquest.control.command.StartProspectingMissionCommand;
 import com.spaceconquest.engine.Planet;
+import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.galaxy.FogOfWarState;
 import com.spaceconquest.engine.megastructure.Megastructure;
+import com.spaceconquest.engine.macrostructure.OrbitalStation;
 import com.spaceconquest.engine.ship.Fleet;
+import com.spaceconquest.engine.ship.FleetLocation;
 import javafx.geometry.Insets;
+import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -48,6 +52,7 @@ public class GalaxyCanvasView {
     private final List<SolarSystem> solarSystems = new ArrayList<>();
     private final List<Fleet> fleets = new ArrayList<>();
     private final List<Megastructure> megastructures = new ArrayList<>();
+    private final List<OrbitalStation> orbitalStations = new ArrayList<>();
     private final List<FogOfWarState> fogOfWarStates = new ArrayList<>();
 
     private double zoomFactor = 1.0;
@@ -213,9 +218,9 @@ public class GalaxyCanvasView {
 
     private Fleet findHitFleet(double cx, double cy, double mouseX, double mouseY) {
         for (Fleet f : fleets) {
-            double fx = cx + f.coordinateX() * 1.5 * zoomFactor;
-            double fy = cy + f.coordinateY() * 1.5 * zoomFactor;
-            if (Math.hypot(mouseX - fx, mouseY - fy) < 15.0 * zoomFactor) {
+            Point2D position = fleetPixel(f, cx, cy);
+            if (Math.hypot(mouseX - position.getX(), mouseY - position.getY())
+                    < 15.0 * zoomFactor) {
                 return f;
             }
         }
@@ -394,6 +399,17 @@ public class GalaxyCanvasView {
     }
 
     public void updateData(List<SolarSystem> newSystems, List<Fleet> newFleets, List<Megastructure> newMegastructures, List<FogOfWarState> newFOW) {
+        updateData(newSystems, newFleets, newMegastructures, newFOW, List.of());
+    }
+
+    public void updateData(GameState state) {
+        updateData(state.solarSystems(), state.fleets(), state.megastructures(),
+                state.fogOfWarStates(), state.orbitalStations());
+    }
+
+    private void updateData(List<SolarSystem> newSystems, List<Fleet> newFleets,
+                            List<Megastructure> newMegastructures, List<FogOfWarState> newFOW,
+                            List<OrbitalStation> newStations) {
         solarSystems.clear();
         if (newSystems != null) solarSystems.addAll(newSystems);
 
@@ -402,6 +418,9 @@ public class GalaxyCanvasView {
 
         megastructures.clear();
         if (newMegastructures != null) megastructures.addAll(newMegastructures);
+
+        orbitalStations.clear();
+        if (newStations != null) orbitalStations.addAll(newStations);
 
         fogOfWarStates.clear();
         if (newFOW != null) fogOfWarStates.addAll(newFOW);
@@ -533,10 +552,75 @@ public class GalaxyCanvasView {
         }
     }
 
+    private Point2D fleetPixel(Fleet fleet, double centerX, double centerY) {
+        SolarSystem system = solarSystems.stream().filter(item ->
+                item.id().equals(fleet.currentSystemId())).findFirst().orElse(null);
+        if (system == null) return new Point2D(centerX + fleet.coordinateX() * 1.5 * zoomFactor,
+                centerY + fleet.coordinateY() * 1.5 * zoomFactor);
+        Point2D origin = systemPixel(system, centerX, centerY);
+        if (fleet.isInterstellarTransit()) {
+            SolarSystem target = solarSystems.stream().filter(item ->
+                    item.id().equals(fleet.targetSystemId())).findFirst().orElse(null);
+            return target == null ? origin : between(origin,
+                    systemPixel(target, centerX, centerY), fleet.transitProgress());
+        }
+        FleetLocation location = fleet.location();
+        Point2D current = sitePixel(system, location.current(), centerX, centerY);
+        return location.inTransit() ? between(current,
+                sitePixel(system, location.destination(), centerX, centerY),
+                location.progress()) : current;
+    }
+
+    private Point2D systemPixel(SolarSystem system, double centerX, double centerY) {
+        return new Point2D(centerX + system.x() * 1.5 * zoomFactor,
+                centerY + system.y() * 1.5 * zoomFactor);
+    }
+
+    private Point2D sitePixel(SolarSystem system, FleetLocation.Site site,
+                              double centerX, double centerY) {
+        Point2D center = systemPixel(system, centerX, centerY);
+        String bodyId = site.entityId();
+        if (site.kind() == FleetLocation.Kind.DOCKED) {
+            OrbitalStation station = orbitalStations.stream().filter(item ->
+                    item.id().equals(site.entityId())).findFirst().orElse(null);
+            if (station == null || station.planetOrbitId() == null) return center.add(14 * zoomFactor, 0);
+            bodyId = station.planetOrbitId();
+        }
+        int index = 1;
+        for (Planet planet : system.planets()) {
+            double radius = (25.0 + index * 15.0) * zoomFactor;
+            Point2D planetPoint = center.add(Math.cos(index * 1.2) * radius,
+                    Math.sin(index * 1.2) * radius);
+            if (bodyId.equals(planet.id())) return siteOffset(planetPoint, site.kind());
+            int moonIndex = 1;
+            for (var moon : planet.moons()) {
+                if (bodyId.equals(moon.id())) {
+                    Point2D moonPoint = planetPoint.add(Math.cos(moonIndex * 1.4) * 10 * zoomFactor,
+                            Math.sin(moonIndex * 1.4) * 10 * zoomFactor);
+                    return siteOffset(moonPoint, site.kind());
+                }
+                moonIndex++;
+            }
+            index++;
+        }
+        return site.kind() == FleetLocation.Kind.DEEP_SPACE ? center : siteOffset(center, site.kind());
+    }
+
+    private Point2D siteOffset(Point2D point, FleetLocation.Kind kind) {
+        return kind == FleetLocation.Kind.SURFACE ? point
+                : point.add(kind == FleetLocation.Kind.DOCKED ? 14 * zoomFactor : 8 * zoomFactor, 0);
+    }
+
+    private Point2D between(Point2D from, Point2D to, double progress) {
+        return new Point2D(from.getX() + (to.getX() - from.getX()) * progress,
+                from.getY() + (to.getY() - from.getY()) * progress);
+    }
+
     private void drawFleets(GraphicsContext gc, double centerX, double centerY) {
         for (Fleet fleet : fleets) {
-            double fx = centerX + fleet.coordinateX() * 1.5 * zoomFactor;
-            double fy = centerY + fleet.coordinateY() * 1.5 * zoomFactor;
+            Point2D position = fleetPixel(fleet, centerX, centerY);
+            double fx = position.getX();
+            double fy = position.getY();
 
             boolean isFleetSelected = selectedFleet != null && selectedFleet.id().equals(fleet.id());
             if (isFleetSelected) {
@@ -545,14 +629,14 @@ public class GalaxyCanvasView {
                 gc.strokeOval(fx - 12 * zoomFactor, fy - 12 * zoomFactor, 24 * zoomFactor, 24 * zoomFactor);
             }
 
-            gc.setFill(fleet.isInWarp() ? Color.web("#9b59b6") : Color.web("#e74c3c"));
+            gc.setFill(fleet.isInterstellarTransit() ? Color.web("#9b59b6") : Color.web("#e74c3c"));
             gc.fillPolygon(
                     new double[]{fx, fx - 5 * zoomFactor, fx + 5 * zoomFactor},
                     new double[]{fy - 7 * zoomFactor, fy + 5 * zoomFactor, fy + 5 * zoomFactor},
                     3
             );
 
-            if (fleet.isInWarp() && fleet.targetSystemId() != null) {
+            if (fleet.isInterstellarTransit()) {
                 for (SolarSystem sys : solarSystems) {
                     if (sys.id().equalsIgnoreCase(fleet.targetSystemId())) {
                         double tx = centerX + sys.x() * 1.5 * zoomFactor;

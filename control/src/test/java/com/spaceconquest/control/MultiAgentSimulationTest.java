@@ -1,6 +1,5 @@
 package com.spaceconquest.control;
 
-import com.spaceconquest.control.ai.CorporationAIController;
 import com.spaceconquest.control.ai.EmpireAIController;
 import com.spaceconquest.control.ai.ShadowSyndicateAIController;
 import com.spaceconquest.control.command.CommandQueue;
@@ -30,10 +29,9 @@ public class MultiAgentSimulationTest {
 
         String playerEmpireId = state.empires().getFirst().id();
         EmpireAIController empireAI = new EmpireAIController(playerEmpireId, commandQueue);
-        CorporationAIController corpAI = new CorporationAIController(state.corporations().getFirst().id(), commandQueue);
         ShadowSyndicateAIController syndicateAI = new ShadowSyndicateAIController("syndicate_1", commandQueue);
 
-        List<Controller> agents = List.of(human, empireAI, corpAI, syndicateAI);
+        List<Controller> agents = List.of(human, empireAI, syndicateAI);
 
         // Run multi-turn loop
         for (int turn = 0; turn < 10; turn++) {

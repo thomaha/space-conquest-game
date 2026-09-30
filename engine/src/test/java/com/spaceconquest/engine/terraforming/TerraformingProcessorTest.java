@@ -1,5 +1,13 @@
 package com.spaceconquest.engine.terraforming;
 
+import com.spaceconquest.engine.CommercialHub;
+import com.spaceconquest.engine.Empire;
+import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.MarketOrder;
+import com.spaceconquest.engine.Planet;
+import com.spaceconquest.engine.SolarSystem;
+import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +23,33 @@ public class TerraformingProcessorTest {
     @BeforeEach
     public void setup() {
         processor = new TerraformingProcessor();
+    }
+
+    @Test
+    public void materialShortagePausesTerraformingAfterPartialWork() {
+        Map<String, Double> bill = ConstructionMaterialCatalog.terraforming(
+                GeoengineeringProject.TYPE_GREENHOUSE_FACTORY);
+        GeoengineeringProject project = new GeoengineeringProject("terra", "mars", "emp",
+                GeoengineeringProject.TYPE_GREENHOUSE_FACTORY, 0.0, 10.0,
+                1.0, 288.0, Map.of(), bill, Map.of(), false);
+        Planet mars = new Planet("mars", "Mars", "", 1, 1, 1, 0, 0,
+                "terrestrial", "none", false, 1, List.of(), List.of(), List.of());
+        SolarSystem sol = new SolarSystem("sol", "Sol", "", 0, 0, 0, 1, 1,
+                "yellow", List.of(mars), List.of());
+        Empire owner = new Empire("emp", "Empire", "human", "Individualist", 10_000.0,
+                0.1, List.of("sol"), List.of(), Map.of(), List.of(), List.of());
+        CommercialHub hub = new CommercialHub("hub", "mars", 0.0, 10_000.0, 260.0, 1.0,
+                Map.of("refined_iron", new MarketOrder("refined_iron", 260.0, 0, 1, 0)));
+        GameState state = GameState.builder().solarSystems(List.of(sol)).empires(List.of(owner))
+                .commercialHubs(List.of(hub)).terraformingProjects(List.of(project)).build();
+
+        GameState first = processor.processConstruction(state);
+        assertEquals(1.0, first.terraformingProjects().getFirst().accumulatedProgress(), 0.00001);
+        assertFalse(first.terraformingProjects().getFirst().isCompleted());
+        GameState stalled = processor.processConstruction(first);
+        assertEquals(1.0, stalled.terraformingProjects().getFirst().accumulatedProgress(), 0.00001);
+        assertEquals(260.0, stalled.terraformingProjects().getFirst().consumedMaterialsKg()
+                .get("refined_iron"), 0.00001);
     }
 
     @Test

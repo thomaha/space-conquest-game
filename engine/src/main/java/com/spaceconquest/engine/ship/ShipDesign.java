@@ -15,6 +15,7 @@ import java.util.List;
  * @param armorThicknessCm                 thickness of external armor plating in cm
  * @param totalDryMassKg                   aggregate dry mass of frame, modules and armor
  * @param maxCargoMassKg                   maximum capacity of internal cargo holds
+ * @param fuelCapacityKg                   maximum propulsion propellant stored in fuel tanks
  * @param powerBalanceKw                   net electrical output balance (generation - draw)
  * @param calculatedStructuralIntegrity   evaluated structural integrity score
  * @param minLaunchThrustRequiredN         required minimum thrust to blast off from planet surface
@@ -33,6 +34,7 @@ public record ShipDesign(
         double armorThicknessCm,
         double totalDryMassKg,
         double maxCargoMassKg,
+        double fuelCapacityKg,
         double powerBalanceKw,
         double calculatedStructuralIntegrity,
         double minLaunchThrustRequiredN,
@@ -42,5 +44,22 @@ public record ShipDesign(
 ) {
     public ShipDesign {
         if (equippedModuleIds == null) equippedModuleIds = List.of();
+        equippedModuleIds = List.copyOf(equippedModuleIds);
+        if (!Double.isFinite(fuelCapacityKg) || fuelCapacityKg < 0.0)
+            throw new IllegalArgumentException("Invalid fuel capacity");
+    }
+
+    public ShipDesign(String id, String name, String ownerEntityId, String role,
+                      String hullMaterialId, List<String> equippedModuleIds,
+                      String armorMaterialId, double armorThicknessCm,
+                      double totalDryMassKg, double maxCargoMassKg, double powerBalanceKw,
+                      double calculatedStructuralIntegrity, double minLaunchThrustRequiredN,
+                      double totalThrustN, boolean isValidForLaunch,
+                      boolean isProprietaryCorporateDesign) {
+        this(id, name, ownerEntityId, role, hullMaterialId, equippedModuleIds,
+                armorMaterialId, armorThicknessCm, totalDryMassKg, maxCargoMassKg,
+                Math.max(100.0, totalDryMassKg * 0.5), powerBalanceKw,
+                calculatedStructuralIntegrity, minLaunchThrustRequiredN, totalThrustN,
+                isValidForLaunch, isProprietaryCorporateDesign);
     }
 }

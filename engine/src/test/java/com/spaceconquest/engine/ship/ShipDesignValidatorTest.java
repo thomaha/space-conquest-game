@@ -47,6 +47,25 @@ public class ShipDesignValidatorTest {
     }
 
     @Test
+    void propellantTankAddsCapacityAndLoadedLaunchMass() {
+        ShipModule drive = PropulsionCatalog.module("mod_chemical_rocket");
+        ShipModule tank = PropulsionCatalog.fuelTankModule();
+        ShipHullFrame frame = new ShipHullFrame("tank_frame", "Tank frame", 20,
+                "steel", 10_000, 60);
+        ShipDesignValidator.ValidationResult result = validator.validate(
+                ShipRole.COMBAT_SHIP, frame, List.of(drive, tank), steel, steel,
+                0, 10, 0, 5);
+        assertEquals(15_000, result.fuelCapacityKg(), 0.001);
+        assertEquals((10_000 + drive.dryMassKg() + tank.dryMassKg() + 15_000) * 10,
+                result.minLaunchThrustRequiredN(), 0.001);
+        ShipDesignValidator.ValidationResult dry = validator.validate(
+                ShipRole.COMBAT_SHIP, frame, List.of(drive), steel, steel,
+                0, 10, 0, 5);
+        assertFalse(dry.isValid());
+        assertTrue(dry.validationErrors().stream().anyMatch(error -> error.contains("propellant tank")));
+    }
+
+    @Test
     public void testStructuralIntegrityCeilingFailure() {
         // Create 20 heavy modules on a weak frame with 0 armor strength
         ShipHullFrame fragileFrame = new ShipHullFrame("frame_fragile", "Fragile Frame", 50, "wood", 10000.0, 5.0);
