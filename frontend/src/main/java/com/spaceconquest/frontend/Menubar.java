@@ -52,6 +52,7 @@ public class Menubar {
     private final MenubarClockController clockController = new MenubarClockController();
     private final MenubarNavigation navigation = new MenubarNavigation();
     private final AtomicLong worldGeneration = new AtomicLong();
+    private volatile GameState publishedState;
     private final ExecutorService simulationExecutor = Executors.newSingleThreadExecutor(task -> {
         Thread thread = new Thread(task, "space-conquest-simulation");
         thread.setDaemon(true);
@@ -74,6 +75,11 @@ public class Menubar {
 
     public void invalidateWorldRefreshes() {
         worldGeneration.incrementAndGet();
+        publishedState = null;
+    }
+
+    GameState getPublishedState() {
+        return publishedState;
     }
 
     public String getPlayerEmpireId() {
@@ -88,7 +94,9 @@ public class Menubar {
     }
 
     public void updateAllViews(GameState state) {
-        viewRegistry.updateAllViews(state, mainApp, humanController,
+        if (state == null) return;
+        publishedState = state;
+        viewRegistry.updateAllViews(state, humanController,
                 empireAIController, shadowSyndicateAIController, playerEmpireId);
     }
 
@@ -253,9 +261,8 @@ public class Menubar {
 
     private void showGalaxyView() {
         hideAllPanels();
-        if (mainApp != null) {
-            getGalaxyListView().show(mainApp.getSolarSystems());
-        }
+        GameState state = publishedState;
+        getGalaxyListView().show(state == null ? List.of() : state.solarSystems());
     }
 
     private void showEmpireView() {
@@ -263,57 +270,59 @@ public class Menubar {
     }
 
     private void showTechView() {
-        if (mainApp != null && mainApp.getEngine() != null) {
-            getTechView().setResearchProjects(mainApp.getEngine().getGameState().researchProjects());
+        GameState state = publishedState;
+        if (state != null) {
+            getTechView().setResearchProjects(state.researchProjects());
         }
         getTechView().show();
     }
 
     private void showShipyardView() {
-        if (mainApp != null && mainApp.getEngine() != null) {
-            getShipDesignerView().updateData(mainApp.getEngine().getGameState());
+        GameState state = publishedState;
+        if (state != null) {
+            getShipDesignerView().updateData(state);
         }
         getShipDesignerView().show();
     }
 
     private void showFleetsView() {
-        if (mainApp != null && mainApp.getEngine() != null) {
-            getFleetManagementView().updateData(mainApp.getEngine().getGameState());
+        GameState state = publishedState;
+        if (state != null) {
+            getFleetManagementView().updateData(state);
         }
         getFleetManagementView().show();
     }
 
     private void showCommercialHubView() {
-        if (mainApp != null && mainApp.getEngine() != null) {
-            GameState st = mainApp.getEngine().getGameState();
-            getCommercialHubView().updateData(st);
-            getCommercialHubView().show(st.commercialHubs(), st.tradeRoutes());
+        GameState state = publishedState;
+        if (state != null) {
+            getCommercialHubView().updateData(state);
+            getCommercialHubView().show(state.commercialHubs(), state.tradeRoutes());
         } else {
             getCommercialHubView().show(List.of(), List.of());
         }
     }
 
     private void showEspionageView() {
-        if (mainApp != null && mainApp.getEngine() != null) {
-            GameState st = mainApp.getEngine().getGameState();
-            getEspionageView().updateData(st.sleeperAgents(), st.espionageOperations(), st.pirateBases());
+        GameState state = publishedState;
+        if (state != null) {
+            getEspionageView().updateData(state.sleeperAgents(), state.espionageOperations(), state.pirateBases());
         }
         getEspionageView().show();
     }
 
     private void showSenateView() {
-        if (mainApp != null && mainApp.getEngine() != null) {
-            getGalacticSenateView().updateData(mainApp.getEngine().getGalacticCommunity());
+        GameState state = publishedState;
+        if (state != null) {
+            getGalacticSenateView().updateData(state.galacticCommunity());
         }
         getGalacticSenateView().show();
     }
 
     private void showCanvasView() {
-        if (mainApp != null && mainApp.getSolarSystems() != null && mainApp.getEngine() != null) {
-            GameState gs = mainApp.getEngine().getGameState();
-            getGalaxyCanvasView().updateData(gs);
-        } else if (mainApp != null && mainApp.getSolarSystems() != null) {
-            getGalaxyCanvasView().updateData(mainApp.getSolarSystems(), List.of(), List.of(), List.of());
+        GameState state = publishedState;
+        if (state != null) {
+            getGalaxyCanvasView().updateData(state);
         }
         getGalaxyCanvasView().show();
     }
@@ -448,6 +457,7 @@ public class Menubar {
         long generation = worldGeneration.get();
         simulationExecutor.execute(() -> {
             GameState state = null;
+            VictoryConditionChecker.VictoryCheckResult victoryResult = null;
             LocalDateTime time;
             synchronized (mainApp.getEngine()) {
                 GameClock gameClock = mainApp.getEngine().getGameClock();
@@ -460,25 +470,32 @@ public class Menubar {
                     mainApp.getEngine().processScheduledTurn();
                 }
                 time = gameClock.getGameTime();
-                if (dueTurns > 0) state = mainApp.getEngine().getGameState();
+                if (dueTurns > 0) {
+                    state = mainApp.getEngine().getGameState();
+                    VictoryConditionChecker checker = mainApp.getEngine().getVictoryConditionChecker();
+                    if (checker != null) {
+                        victoryResult = checker.evaluateVictory(state, mainApp.getEngine().getCampaignSetup(),
+                                state.galacticCommunity(), state.megastructures());
+                    }
+                }
             }
-            GameState publishedState = state;
+            GameState stateForUi = state;
+            VictoryConditionChecker.VictoryCheckResult victoryForUi = victoryResult;
             Platform.runLater(() -> {
                 if (generation != worldGeneration.get()) return;
                 clockController.displayTime(time);
-                if (publishedState != null) refreshAfterTurn(publishedState);
+                if (stateForUi != null) refreshAfterTurn(stateForUi, victoryForUi);
             });
         });
     }
 
-    private void refreshAfterTurn(GameState state) {
+    private void refreshAfterTurn(GameState state, VictoryConditionChecker.VictoryCheckResult victoryResult) {
+        publishedState = state;
         humanController.onGameStateUpdate(state);
-        viewRegistry.refreshOnTick(state, mainApp);
-        if (getVictoryDefeatView() != null && !getVictoryDefeatView().isSandboxModeActive()
-                && mainApp.getEngine().getVictoryConditionChecker() != null) {
-            VictoryConditionChecker.VictoryCheckResult result = mainApp.getEngine().getVictoryConditionChecker().evaluateVictory(
-                    state, mainApp.getEngine().getCampaignSetup(), state.galacticCommunity(), state.megastructures());
-            if (result.isVictoryAchieved()) getVictoryDefeatView().showVictory(result, playerEmpireId);
+        viewRegistry.refreshOnTick(state);
+        if (victoryResult != null && victoryResult.isVictoryAchieved()
+                && getVictoryDefeatView() != null && !getVictoryDefeatView().isSandboxModeActive()) {
+            getVictoryDefeatView().showVictory(victoryResult, playerEmpireId);
         }
     }
 }

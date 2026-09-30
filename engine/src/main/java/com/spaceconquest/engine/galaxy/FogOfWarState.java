@@ -15,11 +15,12 @@ public record FogOfWarState(
         List<String> discoveredPirateBaseIds
 ) {
     public FogOfWarState {
-        if (exploredSystemIds == null) exploredSystemIds = List.of();
-        if (scannedPlanetIds == null) scannedPlanetIds = List.of();
-        if (detectedFleetIds == null) detectedFleetIds = List.of();
-        if (discoveredAnomalyIds == null) discoveredAnomalyIds = List.of();
-        if (discoveredPirateBaseIds == null) discoveredPirateBaseIds = List.of();
+        exploredSystemIds = exploredSystemIds == null ? List.of() : List.copyOf(exploredSystemIds);
+        scannedPlanetIds = scannedPlanetIds == null ? List.of() : List.copyOf(scannedPlanetIds);
+        detectedFleetIds = detectedFleetIds == null ? List.of() : List.copyOf(detectedFleetIds);
+        discoveredAnomalyIds = discoveredAnomalyIds == null ? List.of() : List.copyOf(discoveredAnomalyIds);
+        discoveredPirateBaseIds = discoveredPirateBaseIds == null
+                ? List.of() : List.copyOf(discoveredPirateBaseIds);
     }
 
     public boolean isSystemExplored(String systemId) {

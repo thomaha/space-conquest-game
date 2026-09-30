@@ -50,8 +50,8 @@ public record OrbitalStation(
     public static final String OWNERSHIP_HIVE_GRID = "HIVE_GRID";
 
     public OrbitalStation {
-        if (modules == null) modules = List.of();
-        if (storedCargoKg == null) storedCargoKg = Map.of();
+        modules = modules == null ? List.of() : List.copyOf(modules);
+        storedCargoKg = storedCargoKg == null ? Map.of() : Map.copyOf(storedCargoKg);
     }
 
     public int getAllocatedSlots() {

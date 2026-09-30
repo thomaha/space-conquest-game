@@ -25,10 +25,10 @@ public record GalacticCommunity(
         long nextSenateSessionTurn
 ) {
     public GalacticCommunity {
-        if (memberEmpireIds == null) memberEmpireIds = List.of();
-        if (activeResolutions == null) activeResolutions = List.of();
-        if (passedResolutions == null) passedResolutions = List.of();
-        if (activeSanctions == null) activeSanctions = List.of();
+        memberEmpireIds = memberEmpireIds == null ? List.of() : List.copyOf(memberEmpireIds);
+        activeResolutions = activeResolutions == null ? List.of() : List.copyOf(activeResolutions);
+        passedResolutions = passedResolutions == null ? List.of() : List.copyOf(passedResolutions);
+        activeSanctions = activeSanctions == null ? List.of() : List.copyOf(activeSanctions);
         if (senateSessionInterval <= 0) senateSessionInterval = 10;
     }
 

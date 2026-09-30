@@ -841,23 +841,7 @@ public class SpaceConquestEngine implements GameEngine {
     }
 
     public synchronized List<AtmosphericComposition> getAtmospheres() {
-        List<AtmosphericComposition> atmoList = new ArrayList<>();
-        for (SolarSystem sys : solarSystems) {
-            for (Planet p : sys.planets()) {
-                boolean isBreathable = PopulationProcessor.hasAmbientBreathableOxygen(p.atmosphere());
-                atmoList.add(new AtmosphericComposition(
-                        p.id(),
-                        isBreathable ? Map.of("oxygen_gas", 0.21, "nitrogen_gas", 0.78, "carbon_dioxide", 0.01)
-                                : Map.of("nitrogen_gas", 0.60, "carbon_dioxide", 0.30, "toxic_aerosols", 0.10),
-                        isBreathable ? 1.0 : 0.4,
-                        isBreathable ? 288.0 : 220.0,
-                        1.0, 10.0,
-                        isBreathable ? AtmosphericComposition.BIOME_BREATHABLE_TERRESTRIAL : AtmosphericComposition.BIOME_BARREN,
-                        isBreathable
-                ));
-            }
-        }
-        return atmoList;
+        return getGameState().atmosphericCompositions();
     }
 
     public synchronized void applyGameState(GameState state) {

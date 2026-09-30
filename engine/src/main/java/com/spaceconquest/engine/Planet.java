@@ -1,5 +1,7 @@
 package com.spaceconquest.engine;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public record Planet(
@@ -18,4 +20,14 @@ public record Planet(
     List<String> resources,
     List<Moon> moons,
     List<Population> populations
-) {}
+) {
+    public Planet {
+        resources = immutableList(resources);
+        moons = immutableList(moons);
+        populations = immutableList(populations);
+    }
+
+    private static <T> List<T> immutableList(List<T> values) {
+        return values == null ? List.of() : Collections.unmodifiableList(new ArrayList<>(values));
+    }
+}

@@ -43,8 +43,8 @@ public record ConstructionDeploymentProject(
     public static final String TYPE_STATION_MODULE = "STATION_MODULE";
 
     public ConstructionDeploymentProject {
-        if (requiredMaterialsKg == null) requiredMaterialsKg = Map.of();
-        if (consumedMaterialsKg == null) consumedMaterialsKg = Map.of();
+        requiredMaterialsKg = requiredMaterialsKg == null ? Map.of() : Map.copyOf(requiredMaterialsKg);
+        consumedMaterialsKg = consumedMaterialsKg == null ? Map.of() : Map.copyOf(consumedMaterialsKg);
     }
 
     public ConstructionDeploymentProject(String projectId, String constructionShipId,

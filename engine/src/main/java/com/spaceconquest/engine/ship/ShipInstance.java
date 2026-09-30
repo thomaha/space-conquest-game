@@ -32,7 +32,7 @@ public record ShipInstance(
     public static final String MODE_CRYOGENIC_STASIS = "CRYOGENIC_STASIS";
 
     public ShipInstance {
-        if (storedCargoKg == null) storedCargoKg = Map.of();
+        storedCargoKg = storedCargoKg == null ? Map.of() : Map.copyOf(storedCargoKg);
         if (transitMode == null) transitMode = MODE_CONSCIOUS;
         if (passengerRaceId == null) passengerRaceId = "";
     }

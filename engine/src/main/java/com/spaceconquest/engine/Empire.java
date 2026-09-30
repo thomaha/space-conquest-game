@@ -32,10 +32,11 @@ public record Empire(
         List<String> activeShipDesignIds
 ) {
     public Empire {
-        if (controlledSystemIds == null) controlledSystemIds = List.of();
-        if (ministries == null) ministries = List.of();
-        if (systemGovernorAssignments == null) systemGovernorAssignments = Map.of();
-        if (unlockedTechIds == null) unlockedTechIds = List.of();
-        if (activeShipDesignIds == null) activeShipDesignIds = List.of();
+        controlledSystemIds = controlledSystemIds == null ? List.of() : List.copyOf(controlledSystemIds);
+        ministries = ministries == null ? List.of() : List.copyOf(ministries);
+        systemGovernorAssignments = systemGovernorAssignments == null
+                ? Map.of() : Map.copyOf(systemGovernorAssignments);
+        unlockedTechIds = unlockedTechIds == null ? List.of() : List.copyOf(unlockedTechIds);
+        activeShipDesignIds = activeShipDesignIds == null ? List.of() : List.copyOf(activeShipDesignIds);
     }
 }

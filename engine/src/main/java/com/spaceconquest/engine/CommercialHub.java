@@ -23,6 +23,6 @@ public record CommercialHub(
         Map<String, MarketOrder> activeOrders
 ) {
     public CommercialHub {
-        if (activeOrders == null) activeOrders = Map.of();
+        activeOrders = activeOrders == null ? Map.of() : Map.copyOf(activeOrders);
     }
 }

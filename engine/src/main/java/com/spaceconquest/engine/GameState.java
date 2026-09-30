@@ -28,13 +28,18 @@ import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.ShipConstructionOrder;
 import com.spaceconquest.engine.technology.ResearchProject;
 import com.spaceconquest.engine.technology.TechnologyExchangeRoute;
+import com.spaceconquest.engine.terraforming.AtmosphericComposition;
 import com.spaceconquest.engine.terraforming.GeoengineeringProject;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Immutable snapshot of the complete simulation state at a specific turn.
+ * Snapshot of the complete simulation state at a specific turn. Collection components are
+ * immutable defensive copies; contained model objects may still be mutable.
  */
 public record GameState(
         long turn,
@@ -79,43 +84,51 @@ public record GameState(
         List<LaunchServiceActivity> launchActivities
 ) {
     public GameState {
-        if (solarSystems == null) solarSystems = List.of();
-        if (empires == null) empires = List.of();
-        if (corporations == null) corporations = List.of();
-        if (commercialHubs == null) commercialHubs = List.of();
-        if (shadowSyndicates == null) shadowSyndicates = List.of();
-        if (diplomaticRelations == null) diplomaticRelations = List.of();
-        if (systemGovernors == null) systemGovernors = List.of();
-        if (researchProjects == null) researchProjects = List.of();
-        if (technologyExchangeRoutes == null) technologyExchangeRoutes = List.of();
-        if (shipDesigns == null) shipDesigns = List.of();
-        if (shipConstructionOrders == null) shipConstructionOrders = List.of();
-        if (fleets == null) fleets = List.of();
-        if (passengerManifests == null) passengerManifests = List.of();
-        if (geologicalDeposits == null) geologicalDeposits = List.of();
-        if (powerGrids == null) powerGrids = List.of();
-        if (industrialFacilities == null) industrialFacilities = List.of();
-        if (expansionProjects == null) expansionProjects = List.of();
-        if (orbitalStations == null) orbitalStations = List.of();
-        if (spaceElevators == null) spaceElevators = List.of();
-        if (constructionProjects == null) constructionProjects = List.of();
-        if (sleeperAgents == null) sleeperAgents = List.of();
-        if (espionageOperations == null) espionageOperations = List.of();
-        if (pirateBases == null) pirateBases = List.of();
-        if (terraformingProjects == null) terraformingProjects = List.of();
-        if (megastructures == null) megastructures = List.of();
-        if (tradeRoutes == null) tradeRoutes = List.of();
-        if (fogOfWarStates == null) fogOfWarStates = List.of();
-        if (systemEconomies == null) systemEconomies = List.of();
-        if (courierShips == null) courierShips = List.of();
-        if (planetaryBalanceSheets == null) planetaryBalanceSheets = List.of();
-        if (imperialBalanceSheets == null) imperialBalanceSheets = List.of();
-        if (householdAccounts == null) householdAccounts = List.of();
-        if (marketAccounts == null) marketAccounts = List.of();
-        if (industryAccounts == null) industryAccounts = List.of();
-        if (corporateTaxAccounts == null) corporateTaxAccounts = List.of();
-        if (launchUsageKg == null) launchUsageKg = Map.of();
-        if (launchActivities == null) launchActivities = List.of();
+        solarSystems = immutableList(solarSystems);
+        empires = immutableList(empires);
+        corporations = immutableList(corporations);
+        commercialHubs = immutableList(commercialHubs);
+        shadowSyndicates = immutableList(shadowSyndicates);
+        diplomaticRelations = immutableList(diplomaticRelations);
+        systemGovernors = immutableList(systemGovernors);
+        researchProjects = immutableList(researchProjects);
+        technologyExchangeRoutes = immutableList(technologyExchangeRoutes);
+        shipDesigns = immutableList(shipDesigns);
+        shipConstructionOrders = immutableList(shipConstructionOrders);
+        fleets = immutableList(fleets);
+        passengerManifests = immutableList(passengerManifests);
+        geologicalDeposits = immutableList(geologicalDeposits);
+        powerGrids = immutableList(powerGrids);
+        industrialFacilities = immutableList(industrialFacilities);
+        expansionProjects = immutableList(expansionProjects);
+        orbitalStations = immutableList(orbitalStations);
+        spaceElevators = immutableList(spaceElevators);
+        constructionProjects = immutableList(constructionProjects);
+        sleeperAgents = immutableList(sleeperAgents);
+        espionageOperations = immutableList(espionageOperations);
+        pirateBases = immutableList(pirateBases);
+        terraformingProjects = immutableList(terraformingProjects);
+        megastructures = immutableList(megastructures);
+        tradeRoutes = immutableList(tradeRoutes);
+        fogOfWarStates = immutableList(fogOfWarStates);
+        systemEconomies = immutableList(systemEconomies);
+        courierShips = immutableList(courierShips);
+        planetaryBalanceSheets = immutableList(planetaryBalanceSheets);
+        imperialBalanceSheets = immutableList(imperialBalanceSheets);
+        householdAccounts = immutableList(householdAccounts);
+        marketAccounts = immutableList(marketAccounts);
+        industryAccounts = immutableList(industryAccounts);
+        corporateTaxAccounts = immutableList(corporateTaxAccounts);
+        launchUsageKg = immutableMap(launchUsageKg);
+        launchActivities = immutableList(launchActivities);
+    }
+
+    private static <T> List<T> immutableList(List<T> values) {
+        return values == null ? List.of() : Collections.unmodifiableList(new ArrayList<>(values));
+    }
+
+    private static <K, V> Map<K, V> immutableMap(Map<K, V> values) {
+        return values == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(values));
     }
 
     public GameState() {
@@ -425,5 +438,23 @@ public record GameState(
 
     public GameState withCorporateTaxAccounts(List<CorporateTaxAccount> value) {
         return toBuilder().corporateTaxAccounts(value).build();
+    }
+
+    public List<AtmosphericComposition> atmosphericCompositions() {
+        return solarSystems.stream()
+                .flatMap(system -> system.planets().stream())
+                .map(planet -> {
+                    boolean breathable = PopulationProcessor.hasAmbientBreathableOxygen(planet.atmosphere());
+                    Map<String, Double> gasRatios = breathable
+                            ? Map.of("oxygen_gas", 0.21, "nitrogen_gas", 0.78, "carbon_dioxide", 0.01)
+                            : Map.of("nitrogen_gas", 0.60, "carbon_dioxide", 0.30, "toxic_aerosols", 0.10);
+                    return new AtmosphericComposition(planet.id(), gasRatios,
+                            breathable ? 1.0 : 0.4, breathable ? 288.0 : 220.0,
+                            1.0, 10.0,
+                            breathable ? AtmosphericComposition.BIOME_BREATHABLE_TERRESTRIAL
+                                    : AtmosphericComposition.BIOME_BARREN,
+                            breathable);
+                })
+                .toList();
     }
 }

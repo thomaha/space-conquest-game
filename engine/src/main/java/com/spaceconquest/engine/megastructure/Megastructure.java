@@ -46,9 +46,10 @@ public record Megastructure(
     public static final String TYPE_HYPERLANE_GATEWAY = "HYPERLANE_GATEWAY";
 
     public Megastructure {
-        if (materialHarvestYieldKgPerTurn == null) materialHarvestYieldKgPerTurn = Map.of();
-        if (requiredMaterialsKg == null) requiredMaterialsKg = Map.of();
-        if (consumedMaterialsKg == null) consumedMaterialsKg = Map.of();
+        materialHarvestYieldKgPerTurn = materialHarvestYieldKgPerTurn == null
+                ? Map.of() : Map.copyOf(materialHarvestYieldKgPerTurn);
+        requiredMaterialsKg = requiredMaterialsKg == null ? Map.of() : Map.copyOf(requiredMaterialsKg);
+        consumedMaterialsKg = consumedMaterialsKg == null ? Map.of() : Map.copyOf(consumedMaterialsKg);
     }
 
     public Megastructure(String id, String name, String type, String systemId,

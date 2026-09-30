@@ -29,7 +29,7 @@ public record TradeRoute(
     public static final String RETURNING = "RETURNING";
 
     public TradeRoute {
-        if (assignedFreighterIds == null) assignedFreighterIds = List.of();
+        assignedFreighterIds = assignedFreighterIds == null ? List.of() : List.copyOf(assignedFreighterIds);
         if (phase == null || phase.isBlank()) phase = LOADING;
         if (!Double.isFinite(onboardKg) || onboardKg < 0.0)
             throw new IllegalArgumentException("Invalid route cargo mass");

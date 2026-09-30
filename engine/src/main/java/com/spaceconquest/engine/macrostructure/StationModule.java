@@ -60,6 +60,6 @@ public record StationModule(
     public static final String TYPE_HEAVY_ORBITAL_BATTERY = "HEAVY_ORBITAL_BATTERY";
 
     public StationModule {
-        if (materialInputs == null) materialInputs = Map.of();
+        materialInputs = materialInputs == null ? Map.of() : Map.copyOf(materialInputs);
     }
 }

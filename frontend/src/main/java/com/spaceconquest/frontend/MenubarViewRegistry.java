@@ -175,7 +175,7 @@ public class MenubarViewRegistry {
         if (screenSettingsView != null) screenSettingsView.hide();
     }
 
-    public void updateAllViews(GameState state, Main mainApp, HumanController humanController,
+    public void updateAllViews(GameState state, HumanController humanController,
                                EmpireAIController empireAIController,
                                ShadowSyndicateAIController shadowSyndicateAIController, String playerEmpireId) {
         if (state == null) return;
@@ -198,8 +198,8 @@ public class MenubarViewRegistry {
         if (commercialHubView != null) commercialHubView.updateData(state);
         if (galacticSenateView != null) galacticSenateView.updateData(state.galacticCommunity());
         if (megastructureView != null) megastructureView.updateData(state.megastructures());
-        if (terraformingView != null && mainApp != null && mainApp.getEngine() != null) {
-            terraformingView.updateData(mainApp.getEngine().getAtmospheres(), state.terraformingProjects());
+        if (terraformingView != null) {
+            terraformingView.updateData(state.atmosphericCompositions(), state.terraformingProjects());
         }
         if (planetDetailView != null) planetDetailView.updateData(state);
         if (colonyManagementView != null) colonyManagementView.updateData(state);
@@ -208,7 +208,7 @@ public class MenubarViewRegistry {
         if (galaxyCanvasView != null) galaxyCanvasView.updateData(state);
     }
 
-    public void refreshOnTick(GameState state, Main mainApp) {
+    public void refreshOnTick(GameState state) {
         if (state == null) return;
         if (empireView != null) empireView.updateData(state);
         if (corporateView != null) corporateView.updateData(state);
@@ -221,8 +221,9 @@ public class MenubarViewRegistry {
         if (galaxyCanvasView != null) galaxyCanvasView.updateData(state);
         if (galacticSenateView != null) galacticSenateView.updateData(state.galacticCommunity());
         if (megastructureView != null) megastructureView.updateData(state.megastructures());
-        if (terraformingView != null && mainApp != null && mainApp.getEngine() != null) {
-            terraformingView.updateData(mainApp.getEngine().getAtmospheres(), state.terraformingProjects());
+        if (planetDetailView != null) planetDetailView.updateData(state);
+        if (terraformingView != null) {
+            terraformingView.updateData(state.atmosphericCompositions(), state.terraformingProjects());
         }
     }
 

@@ -42,6 +42,6 @@ public record GalacticResolution(
     public static final String VOTE_ABSTAIN = "ABSTAIN";
 
     public GalacticResolution {
-        if (votes == null) votes = Map.of();
+        votes = votes == null ? Map.of() : Map.copyOf(votes);
     }
 }

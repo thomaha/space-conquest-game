@@ -51,7 +51,7 @@ public record Fleet(
     public static final String MODE_SUBLIGHT = "SUBLIGHT";
 
     public Fleet {
-        if (ships == null) ships = List.of();
+        ships = ships == null ? List.of() : List.copyOf(ships);
         if (location == null) location = FleetLocation.at(FleetLocation.Site.deepSpace());
         if (interstellarMode == null) interstellarMode = "";
         if (interstellarFuelBudgetKg == null) interstellarFuelBudgetKg = Map.of();

@@ -21,6 +21,6 @@ public record ShadowSyndicate(
         List<String> rogueShipIds
 ) {
     public ShadowSyndicate {
-        if (rogueShipIds == null) rogueShipIds = List.of();
+        rogueShipIds = rogueShipIds == null ? List.of() : List.copyOf(rogueShipIds);
     }
 }

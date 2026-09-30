@@ -37,6 +37,22 @@ public class MenubarViewTest {
     }
 
     @Test
+    public void testWorldReplacementClearsPublishedViewState() {
+        Menubar menubar = new Menubar();
+        com.spaceconquest.engine.GameState first = com.spaceconquest.engine.GameState.builder().turn(1).build();
+        com.spaceconquest.engine.GameState replacement = com.spaceconquest.engine.GameState.builder().turn(0).build();
+
+        menubar.updateAllViews(first);
+        assertSame(first, menubar.getPublishedState());
+
+        menubar.invalidateWorldRefreshes();
+        assertNull(menubar.getPublishedState());
+
+        menubar.updateAllViews(replacement);
+        assertSame(replacement, menubar.getPublishedState());
+    }
+
+    @Test
     public void testAudioPlaybackManagerAndSynthesizer() {
         com.spaceconquest.engine.audio.AudioSynthesizer synth = new com.spaceconquest.engine.audio.AudioSynthesizer();
         synth.setAudioHardwareEnabled(false); // test headless

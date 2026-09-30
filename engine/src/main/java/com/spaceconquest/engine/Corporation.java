@@ -27,8 +27,8 @@ public record Corporation(
         List<String> claimedVeinIds
 ) {
     public Corporation {
-        if (ownedFacilityIds == null) ownedFacilityIds = List.of();
-        if (ownedShipIds == null) ownedShipIds = List.of();
-        if (claimedVeinIds == null) claimedVeinIds = List.of();
+        ownedFacilityIds = ownedFacilityIds == null ? List.of() : List.copyOf(ownedFacilityIds);
+        ownedShipIds = ownedShipIds == null ? List.of() : List.copyOf(ownedShipIds);
+        claimedVeinIds = claimedVeinIds == null ? List.of() : List.copyOf(claimedVeinIds);
     }
 }

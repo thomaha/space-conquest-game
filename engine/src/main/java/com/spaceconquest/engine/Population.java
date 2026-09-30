@@ -4,12 +4,19 @@ import com.spaceconquest.engine.demographics.CohortFragmentationProcessor;
 import com.spaceconquest.engine.demographics.ColonyDemographics;
 import com.spaceconquest.engine.demographics.ColonyFocus;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public record Population(
     String raceId,
     Map<Integer, Long> ageGroups
 ) {
+    public Population {
+        ageGroups = ageGroups == null ? Map.of()
+                : Collections.unmodifiableMap(new LinkedHashMap<>(ageGroups));
+    }
+
     public long totalCount() {
         if (ageGroups == null) return 0L;
         return ageGroups.values().stream().mapToLong(Long::longValue).sum();

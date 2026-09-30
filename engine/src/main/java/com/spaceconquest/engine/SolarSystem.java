@@ -1,5 +1,7 @@
 package com.spaceconquest.engine;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public record SolarSystem(
@@ -14,4 +16,13 @@ public record SolarSystem(
     String sunColor,
     List<Planet> planets,
     List<AsteroidBelt> asteroidBelts
-) {}
+) {
+    public SolarSystem {
+        planets = immutableList(planets);
+        asteroidBelts = immutableList(asteroidBelts);
+    }
+
+    private static <T> List<T> immutableList(List<T> values) {
+        return values == null ? List.of() : Collections.unmodifiableList(new ArrayList<>(values));
+    }
+}

@@ -112,8 +112,9 @@ public class PlanetDetailView {
     }
 
     public void show() {
-        if (menubar != null && menubar.getMainApp() != null && menubar.getMainApp().getEngine() != null) {
-            updateData(menubar.getMainApp().getEngine().getGameState());
+        GameState state = menubar == null ? null : menubar.getPublishedState();
+        if (state != null) {
+            updateData(state);
         } else if (!root.isVisible()) {
             renderContent();
         }

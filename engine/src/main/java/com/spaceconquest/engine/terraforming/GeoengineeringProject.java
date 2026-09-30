@@ -42,9 +42,9 @@ public record GeoengineeringProject(
     public static final String TYPE_LICHEN_SOIL_SEEDING = "LICHEN_SOIL_SEEDING";
 
     public GeoengineeringProject {
-        if (targetGasRatios == null) targetGasRatios = Map.of();
-        if (requiredMaterialsKg == null) requiredMaterialsKg = Map.of();
-        if (consumedMaterialsKg == null) consumedMaterialsKg = Map.of();
+        targetGasRatios = targetGasRatios == null ? Map.of() : Map.copyOf(targetGasRatios);
+        requiredMaterialsKg = requiredMaterialsKg == null ? Map.of() : Map.copyOf(requiredMaterialsKg);
+        consumedMaterialsKg = consumedMaterialsKg == null ? Map.of() : Map.copyOf(consumedMaterialsKg);
     }
 
     public GeoengineeringProject(String id, String planetId, String ownerEmpireId,
