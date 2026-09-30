@@ -7,11 +7,15 @@ import com.spaceconquest.control.command.QueueShipBuildCommand;
 import com.spaceconquest.control.command.LoadOrbitalCargoCommand;
 import com.spaceconquest.control.command.LoadSurfaceCargoCommand;
 import com.spaceconquest.control.command.LoadPassengersCommand;
+import com.spaceconquest.control.command.LoadTroopsCommand;
+import com.spaceconquest.control.command.InvadePlanetCommand;
 import com.spaceconquest.control.command.RefuelShipCommand;
 import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.industry.ConstructionMaterials;
 import com.spaceconquest.engine.habitation.PassengerStasis;
+import com.spaceconquest.engine.habitation.PassengerManifest;
+import com.spaceconquest.engine.governance.DiplomacyProcessor;
 import com.spaceconquest.control.command.SetFleetStanceCommand;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.ship.ShipConstructionOrder;
@@ -20,6 +24,7 @@ import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.FleetLocation;
 import com.spaceconquest.engine.ship.ShipInstance;
 import com.spaceconquest.engine.ship.InterstellarTravel;
+import com.spaceconquest.engine.ship.ShipRole;
 import com.spaceconquest.engine.ship.PropulsionCatalog;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -491,7 +496,8 @@ public class FleetManagementView {
         }
 
         card.getChildren().addAll(topRow, orderRow, createLocalOrders(fleet),
-                createPassengerOrders(fleet), shipList);
+                createPassengerOrders(fleet), createTroopOrders(fleet),
+                createInvasionOrders(fleet), shipList);
         return card;
     }
 
@@ -615,6 +621,81 @@ public class FleetManagementView {
         });
         row.getChildren().addAll(new Label("Offworld passengers:"), ships, races,
                 destinations, count, mode, book);
+        return row;
+    }
+
+    private HBox createTroopOrders(Fleet fleet) {
+        HBox row = new HBox(8);
+        if (snapshot == null || fleet.location().inTransit() || fleet.hasInterstellarOrder()
+                || fleet.location().current().kind() != FleetLocation.Kind.SURFACE) return row;
+        String sourceBodyId = fleet.location().current().entityId();
+        ComboBox<String> ships = new ComboBox<>();
+        fleet.ships().stream().filter(ship -> ship.passengerCount() == 0)
+                .filter(ship -> snapshot.shipDesigns().stream().anyMatch(design ->
+                        design.id().equals(ship.designId())
+                                && ShipRole.TROOP_TRANSPORT.equalsIgnoreCase(design.role())))
+                .map(ShipInstance::id).forEach(ships.getItems()::add);
+        ships.setPromptText("Troop transport");
+        ComboBox<String> races = new ComboBox<>();
+        snapshot.householdAccounts().stream().filter(account -> sourceBodyId.equals(account.bodyId())
+                && fleet.ownerEntityId().equals(account.empireId())
+                && "soldier".equalsIgnoreCase(account.professionId())
+                && account.employment().publicWorkers() > 0)
+                .map(account -> account.raceId()).distinct().forEach(races.getItems()::add);
+        races.setPromptText("Soldier cohort");
+        ComboBox<String> destinations = new ComboBox<>();
+        snapshot.solarSystems().forEach(system -> {
+            String controllerId = snapshot.empires().stream()
+                    .filter(empire -> empire.controlledSystemIds().contains(system.id()))
+                    .map(empire -> empire.id()).findFirst().orElse(null);
+            if (controllerId == null || controllerId.equals(fleet.ownerEntityId())
+                    || !DiplomacyProcessor.TOTAL_WAR.equalsIgnoreCase(
+                    new DiplomacyProcessor().getDiplomaticTier(fleet.ownerEntityId(), controllerId,
+                            snapshot.diplomaticRelations()))) return;
+            system.planets().stream().map(planet -> planet.id()).forEach(destinations.getItems()::add);
+        });
+        destinations.setPromptText("Enemy planet");
+        Spinner<Integer> count = new Spinner<>(1, 1_000_000, 1, 1);
+        count.setEditable(true);
+        Button load = new Button("Load troops");
+        load.disableProperty().bind(ships.valueProperty().isNull().or(races.valueProperty().isNull())
+                .or(destinations.valueProperty().isNull()));
+        load.setOnAction(event -> {
+            if (humanController == null) return;
+            humanController.stageCommand(new LoadTroopsCommand(fleet.id(), ships.getValue(),
+                    races.getValue(), count.getValue(), destinations.getValue()));
+            feedbackLabel.setText("Troop deployment queued for " + destinations.getValue());
+            feedbackLabel.setTextFill(Color.LIGHTGREEN);
+        });
+        row.getChildren().addAll(new Label("Deploy soldiers:"), ships, races,
+                destinations, count, load);
+        return row;
+    }
+
+    private HBox createInvasionOrders(Fleet fleet) {
+        HBox row = new HBox(8);
+        if (snapshot == null || fleet.location().inTransit() || fleet.hasInterstellarOrder()
+                || fleet.location().current().kind() != FleetLocation.Kind.SURFACE) return row;
+        String bodyId = fleet.location().current().entityId();
+        snapshot.passengerManifests().stream().filter(PassengerManifest::combatDeployment)
+                .filter(manifest -> bodyId.equals(manifest.destinationBodyId()))
+                .filter(manifest -> fleet.ships().stream().anyMatch(ship ->
+                        ship.id().equals(manifest.shipId()) && ship.passengerCount() == manifest.headcount()))
+                .forEach(manifest -> {
+                    String systemId = snapshot.solarSystems().stream()
+                            .filter(system -> system.planets().stream().anyMatch(planet -> bodyId.equals(planet.id())))
+                            .map(system -> system.id()).findFirst().orElse(null);
+                    if (systemId == null) return;
+                    Button invade = new Button("Invade " + bodyId + " (" + manifest.headcount() + " troops)");
+                    invade.setOnAction(event -> {
+                        if (humanController == null) return;
+                        humanController.stageCommand(new InvadePlanetCommand(fleet.ownerEntityId(),
+                                systemId, bodyId, fleet.id(), manifest.shipId()));
+                        feedbackLabel.setText("Invasion queued for " + bodyId);
+                        feedbackLabel.setTextFill(Color.LIGHTGOLDENRODYELLOW);
+                    });
+                    row.getChildren().add(invade);
+                });
         return row;
     }
 }

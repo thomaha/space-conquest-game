@@ -3,6 +3,7 @@ package com.spaceconquest.control.command;
 import com.spaceconquest.engine.DiplomaticRelation;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.governance.DiplomacyProcessor;
+import com.spaceconquest.engine.governance.DiplomaticProposal;
 
 import java.util.List;
 
@@ -38,8 +39,23 @@ public record SetDiplomaticTierCommand(
                 state.diplomaticRelations()
         );
 
-        return state.toBuilder()
+        GameState updated = state.toBuilder()
                 .diplomaticRelations(updatedRelations)
                 .build();
+        if (!DiplomacyProcessor.TOTAL_WAR.equalsIgnoreCase(newTier)) return updated;
+
+        List<DiplomaticProposal> proposals = updated.diplomaticProposals().stream()
+                .map(proposal -> isPendingProposalBetween(proposal, empireAId, empireBId, updated.turn())
+                        ? proposal.withStatus(DiplomaticProposal.STATUS_REJECTED)
+                        : proposal)
+                .toList();
+        return updated.toBuilder().diplomaticProposals(proposals).build();
+    }
+
+    private boolean isPendingProposalBetween(DiplomaticProposal proposal, String empireAId, String empireBId,
+                                             long currentTurn) {
+        if (!proposal.isPendingAtTurn(currentTurn)) return false;
+        return (empireAId.equals(proposal.senderEmpireId()) && empireBId.equals(proposal.receiverEmpireId()))
+                || (empireBId.equals(proposal.senderEmpireId()) && empireAId.equals(proposal.receiverEmpireId()));
     }
 }

@@ -1,6 +1,7 @@
 package com.spaceconquest.engine;
 
 import com.spaceconquest.engine.community.GalacticCommunity;
+import com.spaceconquest.engine.combat.FleetEngagementRecord;
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.economy.ImperialBalanceSheet;
 import com.spaceconquest.engine.economy.HouseholdAccount;
@@ -11,6 +12,8 @@ import com.spaceconquest.engine.espionage.EspionageOperation;
 import com.spaceconquest.engine.espionage.PirateBase;
 import com.spaceconquest.engine.espionage.SleeperAgent;
 import com.spaceconquest.engine.galaxy.FogOfWarState;
+import com.spaceconquest.engine.governance.WarDeclarationRecord;
+import com.spaceconquest.engine.governance.DiplomaticProposal;
 import com.spaceconquest.engine.habitation.PassengerManifest;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
@@ -81,7 +84,10 @@ public record GameState(
         List<IndustryAccount> industryAccounts,
         List<CorporateTaxAccount> corporateTaxAccounts,
         Map<String, Double> launchUsageKg,
-        List<LaunchServiceActivity> launchActivities
+        List<LaunchServiceActivity> launchActivities,
+        List<WarDeclarationRecord> warDeclarations,
+        List<DiplomaticProposal> diplomaticProposals,
+        List<FleetEngagementRecord> fleetEngagements
 ) {
     public GameState {
         solarSystems = immutableList(solarSystems);
@@ -121,6 +127,9 @@ public record GameState(
         corporateTaxAccounts = immutableList(corporateTaxAccounts);
         launchUsageKg = immutableMap(launchUsageKg);
         launchActivities = immutableList(launchActivities);
+        warDeclarations = immutableList(warDeclarations);
+        diplomaticProposals = immutableList(diplomaticProposals);
+        fleetEngagements = immutableList(fleetEngagements);
     }
 
     private static <T> List<T> immutableList(List<T> values) {
@@ -147,7 +156,8 @@ public record GameState(
                 builder.megastructures, builder.galacticCommunity, builder.tradeRoutes, builder.fogOfWarStates,
                 builder.systemEconomies, builder.courierShips, builder.planetaryBalanceSheets, builder.imperialBalanceSheets,
                 builder.householdAccounts, builder.marketAccounts, builder.industryAccounts,
-                builder.corporateTaxAccounts, builder.launchUsageKg, builder.launchActivities
+                builder.corporateTaxAccounts, builder.launchUsageKg, builder.launchActivities,
+                builder.warDeclarations, builder.diplomaticProposals, builder.fleetEngagements
         );
     }
 
@@ -200,6 +210,9 @@ public record GameState(
         private List<CorporateTaxAccount> corporateTaxAccounts;
         private Map<String, Double> launchUsageKg;
         private List<LaunchServiceActivity> launchActivities;
+        private List<WarDeclarationRecord> warDeclarations;
+        private List<DiplomaticProposal> diplomaticProposals;
+        private List<FleetEngagementRecord> fleetEngagements;
 
         public Builder() {}
 
@@ -244,6 +257,9 @@ public record GameState(
             this.corporateTaxAccounts = state.corporateTaxAccounts();
             this.launchUsageKg = state.launchUsageKg();
             this.launchActivities = state.launchActivities();
+            this.warDeclarations = state.warDeclarations();
+            this.diplomaticProposals = state.diplomaticProposals();
+            this.fleetEngagements = state.fleetEngagements();
         }
 
         public Builder turn(long value) { this.turn = value; return this; }
@@ -286,6 +302,9 @@ public record GameState(
         public Builder corporateTaxAccounts(List<CorporateTaxAccount> value) { this.corporateTaxAccounts = value; return this; }
         public Builder launchUsageKg(Map<String, Double> value) { this.launchUsageKg = value; return this; }
         public Builder launchActivities(List<LaunchServiceActivity> value) { this.launchActivities = value; return this; }
+        public Builder warDeclarations(List<WarDeclarationRecord> value) { this.warDeclarations = value; return this; }
+        public Builder diplomaticProposals(List<DiplomaticProposal> value) { this.diplomaticProposals = value; return this; }
+        public Builder fleetEngagements(List<FleetEngagementRecord> value) { this.fleetEngagements = value; return this; }
 
         public GameState build() {
             return new GameState(this);

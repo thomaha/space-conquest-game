@@ -46,6 +46,21 @@ public class DiplomaticPactAndWarTest {
     }
 
     @Test
+    void expiresPendingProposalWithoutChangingTerminalHistory() {
+        DiplomaticProposal pending = new DiplomaticProposal("pending", "terran", "vulkan",
+                DiplomaticPact.MUTUAL_TRADE_AGREEMENT, 12, DiplomaticProposal.STATUS_PENDING);
+        DiplomaticProposal accepted = new DiplomaticProposal("accepted", "terran", "vulkan",
+                DiplomaticPact.MUTUAL_TRADE_AGREEMENT, 12, DiplomaticProposal.STATUS_ACCEPTED);
+
+        List<DiplomaticProposal> beforeExpiry = processor.expirePendingProposals(List.of(pending, accepted), 11);
+        List<DiplomaticProposal> afterExpiry = processor.expirePendingProposals(List.of(pending, accepted), 12);
+
+        assertEquals(DiplomaticProposal.STATUS_PENDING, beforeExpiry.getFirst().status());
+        assertEquals(DiplomaticProposal.STATUS_EXPIRED, afterExpiry.getFirst().status());
+        assertEquals(DiplomaticProposal.STATUS_ACCEPTED, afterExpiry.get(1).status());
+    }
+
+    @Test
     void testDemocraticWarPenaltyWithoutCasusBelli() {
         // Unprovoked war by democracy
         DiplomacyProcessor.WarDeclarationResult unprovoked = processor.evaluateWarDeclarationImpact(

@@ -1,8 +1,6 @@
 package com.spaceconquest.frontend;
 
 import com.spaceconquest.control.HumanController;
-import com.spaceconquest.control.ai.EmpireAIController;
-import com.spaceconquest.control.ai.ShadowSyndicateAIController;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.audio.AudioSynthesizer;
@@ -79,6 +77,7 @@ public class MenubarViewRegistry {
         empireView.setPlayerEmpireId(playerEmpireId);
         corporateView = new CorporateView(menubar);
         diplomacyView = new DiplomacyView(menubar);
+        diplomacyView.setHumanController(humanController);
         commercialHubView = new CommercialHubView(menubar);
         commercialHubView.setHumanController(humanController);
         commercialHubView.setPlayerEmpireId(playerEmpireId);
@@ -175,12 +174,8 @@ public class MenubarViewRegistry {
         if (screenSettingsView != null) screenSettingsView.hide();
     }
 
-    public void updateAllViews(GameState state, HumanController humanController,
-                               EmpireAIController empireAIController,
-                               ShadowSyndicateAIController shadowSyndicateAIController, String playerEmpireId) {
+    public void updateAllViews(GameState state, HumanController humanController, String playerEmpireId) {
         if (state == null) return;
-        if (empireAIController != null) empireAIController.onGameStateUpdate(state);
-        if (shadowSyndicateAIController != null) shadowSyndicateAIController.onGameStateUpdate(state);
         if (humanController != null) humanController.onGameStateUpdate(state);
 
         if (empireView != null) empireView.updateData(state);

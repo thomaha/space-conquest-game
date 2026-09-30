@@ -3,6 +3,7 @@ package com.spaceconquest.frontend;
 import com.spaceconquest.control.HumanController;
 import com.spaceconquest.control.ai.EmpireAIController;
 import com.spaceconquest.control.ai.ShadowSyndicateAIController;
+import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameClock;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.scenario.VictoryConditionChecker;
@@ -24,7 +25,12 @@ import javafx.scene.paint.Color;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
@@ -44,7 +50,7 @@ public class Menubar {
     private final List<VBox> overlayNodes = new ArrayList<>();
 
     private final HumanController humanController = new HumanController();
-    private EmpireAIController empireAIController;
+    private final Map<String, EmpireAIController> empireAIControllers = new LinkedHashMap<>();
     private ShadowSyndicateAIController shadowSyndicateAIController;
     private String playerEmpireId = "terran_confederation";
 
@@ -96,8 +102,7 @@ public class Menubar {
     public void updateAllViews(GameState state) {
         if (state == null) return;
         publishedState = state;
-        viewRegistry.updateAllViews(state, humanController,
-                empireAIController, shadowSyndicateAIController, playerEmpireId);
+        viewRegistry.updateAllViews(state, humanController, playerEmpireId);
     }
 
     public TechnologyView getTechView() { return viewRegistry.getTechView(); }
@@ -162,7 +167,6 @@ public class Menubar {
         this.mainApp = mainApp;
         root = new VBox(8);
 
-        empireAIController = new EmpireAIController("vulkan_forge", humanController.getCommandQueue());
         shadowSyndicateAIController = new ShadowSyndicateAIController("shadow_syndicate_sol", humanController.getCommandQueue());
 
         viewRegistry.initViews(this, mainApp, humanController, playerEmpireId);
@@ -464,7 +468,7 @@ public class Menubar {
                 int dueTurns = gameClock.update(realSeconds);
                 for (int i = 0; i < dueTurns; i++) {
                     GameState currentState = mainApp.getEngine().getGameState();
-                    if (empireAIController != null) empireAIController.onGameStateUpdate(currentState);
+                    updateEmpireAIControllers(currentState);
                     if (shadowSyndicateAIController != null) shadowSyndicateAIController.onGameStateUpdate(currentState);
                     humanController.getCommandQueue().processCommands(mainApp.getEngine());
                     mainApp.getEngine().processScheduledTurn();
@@ -487,6 +491,19 @@ public class Menubar {
                 if (stateForUi != null) refreshAfterTurn(stateForUi, victoryForUi);
             });
         });
+    }
+
+    private void updateEmpireAIControllers(GameState state) {
+        Set<String> activeEmpireIds = state.empires().stream()
+                .map(Empire::id)
+                .filter(empireId -> !empireId.equals(playerEmpireId))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        empireAIControllers.keySet().retainAll(activeEmpireIds);
+        for (String empireId : activeEmpireIds) {
+            empireAIControllers.computeIfAbsent(empireId,
+                    id -> new EmpireAIController(id, humanController.getCommandQueue()));
+        }
+        empireAIControllers.values().forEach(controller -> controller.onGameStateUpdate(state));
     }
 
     private void refreshAfterTurn(GameState state, VictoryConditionChecker.VictoryCheckResult victoryResult) {

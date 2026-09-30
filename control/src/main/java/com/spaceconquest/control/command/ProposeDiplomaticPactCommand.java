@@ -1,10 +1,12 @@
 package com.spaceconquest.control.command;
 
-import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.governance.DiplomacyProcessor;
 import com.spaceconquest.engine.governance.DiplomaticPact;
 import com.spaceconquest.engine.governance.DiplomaticProposal;
+
+import java.util.ArrayList;
+import java.util.UUID;
 
 /**
  * Command to dispatch an official diplomatic proposal seeking to ratify a bilateral treaty.
@@ -24,7 +26,19 @@ public record ProposeDiplomaticPactCommand(
 
         boolean senderExists = state.empires().stream().anyMatch(e -> e.id().equals(senderEmpireId));
         boolean receiverExists = state.empires().stream().anyMatch(e -> e.id().equals(receiverEmpireId));
-        return senderExists && receiverExists;
+        boolean supportedPact = DiplomaticPact.MUTUAL_TRADE_AGREEMENT.equalsIgnoreCase(pactType)
+                || DiplomaticPact.DEFENSIVE_PACT.equalsIgnoreCase(pactType)
+                || DiplomacyProcessor.INTEGRATED_FEDERATION.equalsIgnoreCase(pactType);
+        boolean atWar = DiplomacyProcessor.TOTAL_WAR.equalsIgnoreCase(
+                new DiplomacyProcessor().getDiplomaticTier(senderEmpireId, receiverEmpireId,
+                        state.diplomaticRelations()));
+        boolean alreadyPending = state.diplomaticProposals().stream().anyMatch(proposal ->
+                proposal.isPendingAtTurn(state.turn())
+                        && ((proposal.senderEmpireId().equals(senderEmpireId)
+                        && proposal.receiverEmpireId().equals(receiverEmpireId))
+                        || (proposal.senderEmpireId().equals(receiverEmpireId)
+                        && proposal.receiverEmpireId().equals(senderEmpireId))));
+        return senderExists && receiverExists && supportedPact && !atWar && !alreadyPending;
     }
 
     @Override
@@ -33,31 +47,16 @@ public record ProposeDiplomaticPactCommand(
             return state;
         }
 
-        Empire sender = state.empires().stream().filter(e -> e.id().equals(senderEmpireId)).findFirst().orElse(null);
-        Empire receiver = state.empires().stream().filter(e -> e.id().equals(receiverEmpireId)).findFirst().orElse(null);
-
-        DiplomacyProcessor processor = new DiplomacyProcessor();
         DiplomaticProposal proposal = new DiplomaticProposal(
-                "prop_" + senderEmpireId + "_" + receiverEmpireId,
+                "prop_" + UUID.randomUUID(),
                 senderEmpireId,
                 receiverEmpireId,
                 pactType,
+                state.turn() + DiplomaticProposal.DEFAULT_DURATION_TURNS,
                 DiplomaticProposal.STATUS_PENDING
         );
-
-        boolean accepted = processor.evaluateProposalAcceptance(
-                proposal, sender, receiver, state.diplomaticRelations(), 1.0
-        );
-
-        if (accepted) {
-            // If accepted, elevate relation tier if appropriate (e.g. mutual trade elevates to Commercial Alliance)
-            if (DiplomaticPact.MUTUAL_TRADE_AGREEMENT.equalsIgnoreCase(pactType)) {
-                return new SetDiplomaticTierCommand(senderEmpireId, receiverEmpireId, DiplomacyProcessor.COMMERCIAL_ALLIANCE).apply(state);
-            } else if (DiplomaticPact.DEFENSIVE_PACT.equalsIgnoreCase(pactType) || DiplomacyProcessor.INTEGRATED_FEDERATION.equalsIgnoreCase(pactType)) {
-                return new SetDiplomaticTierCommand(senderEmpireId, receiverEmpireId, DiplomacyProcessor.INTEGRATED_FEDERATION).apply(state);
-            }
-        }
-
-        return state;
+        ArrayList<DiplomaticProposal> proposals = new ArrayList<>(state.diplomaticProposals());
+        proposals.add(proposal);
+        return state.toBuilder().diplomaticProposals(proposals).build();
     }
 }

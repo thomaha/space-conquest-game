@@ -26,6 +26,25 @@ public class SpaceConquestEngineTest {
     }
 
     @Test
+    public void activeWarAppliesSavedCivilianAndCorporateTrustPenalties() {
+        Empire initiator = new Empire("terran", "Terran", "human", "Individualist",
+                1000.0, 0.1, List.of("sol"), List.of(), Map.of(), List.of(), List.of());
+        Empire target = new Empire("vulkan", "Vulkan", "vulkan", "Collectivist",
+                1000.0, 0.1, List.of("vulkan_sys"), List.of(), Map.of(), List.of(), List.of());
+        GameState state = GameState.builder().empires(List.of(initiator, target))
+                .diplomaticRelations(List.of(new DiplomaticRelation("terran", "vulkan", "TOTAL_WAR", 0.0)))
+                .warDeclarations(List.of(new com.spaceconquest.engine.governance.WarDeclarationRecord(
+                        1, "terran", "vulkan", null, false, -0.4, -50.0, "Unprovoked aggression")))
+                .build();
+        SpaceConquestEngine engine = new SpaceConquestEngine();
+        engine.applyGameState(state);
+
+        assertEquals(0.4, engine.activeCivilianWarStress("terran"), 0.0001);
+        assertEquals(-50.0, engine.activeCorporateTrustPenalties().get("terran"));
+        assertEquals(0.0, engine.activeCivilianWarStress("vulkan"));
+    }
+
+    @Test
     public void testNewCampaignHasNoUnprocessedMunicipalDay() {
         GameState opening = SpaceConquestEngine.fromSolScenario().getGameState();
         assertFalse(opening.planetaryBalanceSheets().isEmpty());

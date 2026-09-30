@@ -5,7 +5,7 @@ import com.spaceconquest.control.command.AppointMinisterCommand;
 import com.spaceconquest.control.command.AssignGovernorCommand;
 import com.spaceconquest.control.command.BuildMegastructureCommand;
 import com.spaceconquest.control.command.CommandQueue;
-import com.spaceconquest.control.command.SetDiplomaticTierCommand;
+import com.spaceconquest.control.command.ResolveDiplomaticProposalCommand;
 import com.spaceconquest.control.command.SetSystemEconomyBudgetCommand;
 import com.spaceconquest.control.command.StartResearchCommand;
 import com.spaceconquest.control.command.SubsidizeCorporationCommand;
@@ -17,6 +17,7 @@ import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.Technology;
 import com.spaceconquest.engine.community.GalacticResolution;
 import com.spaceconquest.engine.governance.DiplomacyProcessor;
+import com.spaceconquest.engine.governance.DiplomaticProposal;
 import com.spaceconquest.engine.megastructure.Megastructure;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -53,11 +54,12 @@ public class EmpireAIController implements Controller {
                 || "Hive mind".equalsIgnoreCase(empire.societyStructure());
 
         manageResearch(state, empire);
+        resolveDiplomaticProposals(state, empire);
 
         if (!isHiveMind) {
             manageCabinetAndGovernors(empire);
             manageCorporateSubsidies(state, empire);
-            manageDiplomacyAndSenate(state);
+            manageDiplomacyAndSenate(state, empire);
             manageMegastructuresAndEconomies(state, empire);
         }
     }
@@ -111,16 +113,7 @@ public class EmpireAIController implements Controller {
         }
     }
 
-    private void manageDiplomacyAndSenate(GameState state) {
-        for (Empire foreign : state.empires()) {
-            if (!foreign.id().equals(empireId)) {
-                String tier = new DiplomacyProcessor().getDiplomaticTier(empireId, foreign.id(), state.diplomaticRelations());
-                if (DiplomacyProcessor.NEUTRAL.equals(tier)) {
-                    commandQueue.submit(new SetDiplomaticTierCommand(empireId, foreign.id(), DiplomacyProcessor.COMMERCIAL_ALLIANCE));
-                }
-            }
-        }
-
+    private void manageDiplomacyAndSenate(GameState state, Empire empire) {
         if (state.galacticCommunity() != null) {
             for (GalacticResolution res : state.galacticCommunity().activeResolutions()) {
                 if (!res.votes().containsKey(empireId)) {
@@ -128,6 +121,21 @@ public class EmpireAIController implements Controller {
                     commandQueue.submit(new VoteResolutionCommand(empireId, res.id(), choice));
                 }
             }
+        }
+    }
+
+    private void resolveDiplomaticProposals(GameState state, Empire empire) {
+        DiplomacyProcessor diplomacy = new DiplomacyProcessor();
+        for (DiplomaticProposal proposal : state.diplomaticProposals()) {
+            if (!empireId.equals(proposal.receiverEmpireId())
+                    || !proposal.isPendingAtTurn(state.turn())) {
+                continue;
+            }
+            Empire sender = state.empires().stream()
+                    .filter(candidate -> candidate.id().equals(proposal.senderEmpireId())).findFirst().orElse(null);
+            boolean accepted = diplomacy.evaluateProposalAcceptance(
+                    proposal, sender, empire, state.diplomaticRelations(), 1.0);
+            commandQueue.submit(new ResolveDiplomaticProposalCommand(proposal.id(), empireId, accepted));
         }
     }
 

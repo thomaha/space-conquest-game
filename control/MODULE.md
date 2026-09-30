@@ -28,6 +28,7 @@ This module handles input, autonomous decision agents and game command execution
 - `StartProspectingMissionCommand`: Command initiating stochastic geological prospecting surveys.
 - `BombardPlanetCommand`: Command executing orbital bombardment using kinetic darts, nuclear fission or planet-crackers.
 - `InvadePlanetCommand`: Command launching planetary ground sieges and surface invasions.
+- `LoadTroopsCommand`: Command boarding available local soldier workers onto an owned troop transport for an enemy planet during total war.
 - `ColonizePlanetCommand`: Command deploying colony ships to seed virgin worlds.
 - `EnactMartialLawCommand`: Command enacting emergency planetary martial law.
 - `SetPassengerTransitModeCommand`: Command toggling conscious vs cryogenic stasis passenger transport.
@@ -37,7 +38,10 @@ This module handles input, autonomous decision agents and game command execution
 - `LoadSurfaceCargoCommand`: Purchases local hub stock into a ship already on the body's surface without an orbital lift fee.
 - `ScanAnomalyCommand`: Command directing science fleets to investigate deep-space anomalies.
 - `ProposeDiplomaticPactCommand`: Command dispatching bilateral treaty proposals to foreign states.
+- `ResolveDiplomaticProposalCommand`: Command accepting or rejecting a pending proposal on behalf of its receiver.
+- `WithdrawDiplomaticProposalCommand`: Command allowing a proposal's sender to withdraw it before it is resolved or expires.
 - `DeclareWarCommand`: Command formally declaring war with casus belli justification tracking.
+- `EndWarCommand`: Command ending an active bilateral war and restoring neutral relations.
 - `BuildOrbitalStationCommand`: Command deploying new orbital space stations with initial power and control modules.
 - `BuildSpaceElevatorCommand`: Command constructing planetary space elevator tethers to reduce launch costs to near zero.
 - `AddStationModuleCommand`: Command queuing material-backed module assembly for orbital stations.
@@ -67,7 +71,7 @@ This module handles input, autonomous decision agents and game command execution
 
 - `CommandQueue` stages commands for the next turn, but command validation is uneven. Ship build validation rejects corporation-owned blueprints and free corporate builds. Ship design registration rejects duplicate IDs and corporation-owned submissions through the player command. Registration and construction gate recognized propulsion modules on researched technology, including MPD ion drives on superconductors. `RefuelShipCommand` checks local access, tank capacity, reactor-fuel storage, market stock, owner funds and orbital launch availability before buying propellant and any selected reactor fuel. Full designer authorization and construction-time physics validation remain open.
 - Commands that change the world now use `GameState.toBuilder()` or a `with...` method to retain unrelated state fields. Validation and persistence behavior remain uneven across individual commands.
-- Some commands compute a result without persisting it: `SelectOptimizationPathCommand` returns the original state, `TargetSubsystemCommand` does not store the target and `DeclareWarCommand` discards its calculated diplomatic impact.
+- Some commands compute a result without persisting it: `SelectOptimizationPathCommand` returns the original state and `TargetSubsystemCommand` does not store the target. `DeclareWarCommand` records its calculated justification and penalties in the game snapshot and save file. While total war remains active, civilian penalties add demographic stress and corporate trust penalties can block corporate investment.
 - Autonomous corporate investment runs once inside the engine turn. The duplicate control-layer corporation AI was removed.
 - `QueueShipBuildCommand` now creates a material-backed work-hour order; ships appear only after it completes. Shipyard capacity, qualified labor and finished corporate-yard purchases described in [ShipDesign.md](../ShipDesign.md) remain open.
 - The frontend currently instantiates empire AI for a hard-coded ID; the shadow syndicate AI logs its decisions without staging corresponding commands.

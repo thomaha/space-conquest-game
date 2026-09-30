@@ -11,6 +11,12 @@ import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.FleetLocation;
 import com.spaceconquest.engine.ship.ShipInstance;
 import com.spaceconquest.engine.habitation.PassengerLogisticsResult;
+import com.spaceconquest.engine.DiplomaticRelation;
+import com.spaceconquest.engine.economy.HouseholdAccount;
+import com.spaceconquest.engine.economy.HouseholdEmployment;
+import com.spaceconquest.engine.governance.DiplomacyProcessor;
+import com.spaceconquest.engine.ship.ShipDesign;
+import com.spaceconquest.engine.ship.ShipRole;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -61,6 +67,70 @@ public final class PassengerTransitProcessor {
         return reduced.toBuilder().fleets(fleets).passengerManifests(manifests).build();
     }
 
+    public static boolean canBoardTroops(GameState state, String fleetId, String shipId,
+                                         String raceId, int count, String destinationBodyId) {
+        if (state == null || fleetId == null || shipId == null || raceId == null || count <= 0
+                || destinationBodyId == null || !bodyExists(state, destinationBodyId)) return false;
+        Fleet fleet = state.fleets().stream().filter(item -> fleetId.equals(item.id())).findFirst().orElse(null);
+        if (fleet == null || fleet.location().inTransit() || fleet.hasInterstellarOrder()
+                || fleet.location().current().kind() != FleetLocation.Kind.SURFACE) return false;
+        ShipInstance ship = fleet.ships().stream().filter(item -> shipId.equals(item.id())).findFirst().orElse(null);
+        ShipDesign design = ship == null ? null : state.shipDesigns().stream()
+                .filter(item -> ship.designId().equals(item.id())).findFirst().orElse(null);
+        if (ship == null || design == null || !ShipRole.TROOP_TRANSPORT.equalsIgnoreCase(design.role())
+                || ship.passengerCount() != 0 || state.passengerManifests().stream()
+                .anyMatch(manifest -> shipId.equals(manifest.shipId()))) return false;
+        if (ShipInstance.MODE_CRYOGENIC_STASIS.equalsIgnoreCase(ship.transitMode())
+                && !PassengerStasis.availableFor(state, ship, count)) return false;
+        String originBodyId = fleet.location().current().entityId();
+        if (originBodyId.equals(destinationBodyId)) return false;
+        HouseholdAccount soldiers = availableSoldierAccount(state, originBodyId, fleet.ownerEntityId(), raceId);
+        if (soldiers == null || soldiers.employment().publicWorkers() < count
+                || soldiers.headcount() < count || soldiers.employment().workingAge() < count
+                || adultResidents(population(state, originBodyId, raceId)) < count) return false;
+        double cargoKg = ship.storedCargoKg().values().stream().mapToDouble(Double::doubleValue).sum();
+        if (cargoKg + count * 80.0 > design.maxCargoMassKg()) return false;
+        String sourceSystemId = systemOfBody(state, originBodyId);
+        String destinationSystemId = systemOfBody(state, destinationBodyId);
+        String destinationOwner = ownerOfSystem(state, destinationSystemId);
+        return sourceSystemId != null && sourceSystemId.equals(fleet.currentSystemId())
+                && destinationSystemId != null && destinationOwner != null
+                && !destinationOwner.equals(fleet.ownerEntityId())
+                && atWar(fleet.ownerEntityId(), destinationOwner, state.diplomaticRelations());
+    }
+
+    public static GameState boardTroops(GameState state, String fleetId, String shipId,
+                                        String raceId, int count, String destinationBodyId) {
+        if (!canBoardTroops(state, fleetId, shipId, raceId, count, destinationBodyId)) return state;
+        Fleet fleet = state.fleets().stream().filter(item -> fleetId.equals(item.id())).findFirst().orElseThrow();
+        String sourceBodyId = fleet.location().current().entityId();
+        HouseholdAccount account = availableSoldierAccount(state, sourceBodyId, fleet.ownerEntityId(), raceId);
+        Map<Integer, Long> ages = selectAges(population(state, sourceBodyId, raceId), count);
+        List<PassengerManifest> manifests = new ArrayList<>(state.passengerManifests());
+        manifests.add(new PassengerManifest(shipId, sourceBodyId, destinationBodyId, raceId, ages, true));
+        List<Fleet> fleets = state.fleets().stream().map(item -> !fleetId.equals(item.id()) ? item
+                : item.withShips(item.ships().stream().map(ship -> !shipId.equals(ship.id()) ? ship
+                : new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(),
+                ship.currentShieldHealth(), ship.currentFuelKg(), ship.storedCargoKg(), count, raceId,
+                ship.transitMode())).toList())).toList();
+        List<HouseholdAccount> accounts = state.householdAccounts().stream().map(current -> {
+            if (!current.key().equals(account.key())) return current;
+            HouseholdEmployment employment = current.employment();
+            return new HouseholdAccount(current.bodyId(), current.systemId(), current.empireId(),
+                    current.raceId(), current.professionId(), current.headcount() - count,
+                    current.savingsCredits(), current.wageIncomeCredits(), current.welfareIncomeCredits(),
+                    current.incomeTaxPaidCredits(), current.marketSpendingCredits(), current.unmetBasicKg(),
+                    current.secondaryNeedsMetFraction(), current.luxuryNeedsMetFraction(),
+                    current.electricitySpendingCredits(), current.unmetBasicElectricityKwh(),
+                    current.wellbeing(), new HouseholdEmployment(employment.workingAge() - count,
+                    employment.publicWorkers() - count, employment.industryWorkers(),
+                    employment.unemploymentPressure()));
+        }).toList();
+        GameState reduced = changePopulation(state, sourceBodyId, raceId, ages, -1);
+        return reduced.toBuilder().fleets(fleets).passengerManifests(manifests)
+                .householdAccounts(accounts).build();
+    }
+
     public static GameState disembarkArrivals(GameState state) {
         GameState current = state;
         List<PassengerManifest> remaining = new ArrayList<>();
@@ -69,6 +139,10 @@ public final class PassengerTransitProcessor {
                     .anyMatch(ship -> manifest.shipId().equals(ship.id())))
                     .findFirst().orElse(null);
             if (arrived == null) continue;
+            if (manifest.combatDeployment()) {
+                remaining.add(manifest);
+                continue;
+            }
             if (!arrived.location().isAt(
                     FleetLocation.Site.surface(manifest.destinationBodyId()))) {
                 remaining.add(manifest);
@@ -127,7 +201,8 @@ public final class PassengerTransitProcessor {
                 }
                 survivors.entrySet().removeIf(entry -> entry.getValue() <= 0);
                 PassengerManifest remaining = new PassengerManifest(manifest.shipId(),
-                        manifest.sourceBodyId(), manifest.destinationBodyId(), manifest.raceId(), survivors);
+                        manifest.sourceBodyId(), manifest.destinationBodyId(), manifest.raceId(), survivors,
+                        manifest.combatDeployment());
                 if (remaining.headcount() > 0) updatedManifests.put(ship.id(), remaining);
                 updatedShips.add(new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(),
                         ship.currentHullHealth(), ship.currentShieldHealth(), ship.currentFuelKg(),
@@ -241,5 +316,37 @@ public final class PassengerTransitProcessor {
         }
         if (!found && sign > 0) groups.add(new Population(raceId, ages));
         return List.copyOf(groups);
+    }
+
+    private static HouseholdAccount availableSoldierAccount(GameState state, String bodyId,
+                                                             String empireId, String raceId) {
+        return state.householdAccounts().stream().filter(account -> bodyId.equals(account.bodyId())
+                && empireId.equals(account.empireId()) && raceId.equals(account.raceId())
+                && "soldier".equalsIgnoreCase(account.professionId())
+                && account.employment().publicWorkers() > 0).findFirst().orElse(null);
+    }
+
+    private static long adultResidents(Population population) {
+        if (population == null) return 0;
+        return population.ageGroups().entrySet().stream().filter(entry -> entry.getKey() >= 18
+                && entry.getKey() < 65).mapToLong(Map.Entry::getValue).sum();
+    }
+
+    private static String systemOfBody(GameState state, String bodyId) {
+        return state.solarSystems().stream().filter(system -> system.planets().stream()
+                .anyMatch(planet -> bodyId.equals(planet.id()) || planet.moons().stream()
+                        .anyMatch(moon -> bodyId.equals(moon.id()))))
+                .map(SolarSystem::id).findFirst().orElse(null);
+    }
+
+    private static String ownerOfSystem(GameState state, String systemId) {
+        if (systemId == null) return null;
+        return state.empires().stream().filter(empire -> empire.controlledSystemIds().contains(systemId))
+                .map(com.spaceconquest.engine.Empire::id).findFirst().orElse(null);
+    }
+
+    private static boolean atWar(String first, String second, List<DiplomaticRelation> relations) {
+        return first != null && second != null && DiplomacyProcessor.TOTAL_WAR.equalsIgnoreCase(
+                new DiplomacyProcessor().getDiplomaticTier(first, second, relations));
     }
 }

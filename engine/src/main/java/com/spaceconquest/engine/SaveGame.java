@@ -1,6 +1,7 @@
 package com.spaceconquest.engine;
 
 import com.spaceconquest.engine.community.GalacticCommunity;
+import com.spaceconquest.engine.combat.FleetEngagementRecord;
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.economy.ImperialBalanceSheet;
 import com.spaceconquest.engine.economy.HouseholdAccount;
@@ -11,6 +12,8 @@ import com.spaceconquest.engine.espionage.EspionageOperation;
 import com.spaceconquest.engine.espionage.PirateBase;
 import com.spaceconquest.engine.espionage.SleeperAgent;
 import com.spaceconquest.engine.galaxy.FogOfWarState;
+import com.spaceconquest.engine.governance.WarDeclarationRecord;
+import com.spaceconquest.engine.governance.DiplomaticProposal;
 import com.spaceconquest.engine.habitation.PassengerManifest;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.GeologicalDeposit;
@@ -78,9 +81,12 @@ public record SaveGame(
         List<HouseholdAccount> householdAccounts,
         List<MarketAccount> marketAccounts,
         List<IndustryAccount> industryAccounts,
-        List<CorporateTaxAccount> corporateTaxAccounts
+        List<CorporateTaxAccount> corporateTaxAccounts,
+        List<WarDeclarationRecord> warDeclarations,
+        List<DiplomaticProposal> diplomaticProposals,
+        List<FleetEngagementRecord> fleetEngagements
 ) {
-    public static final int CURRENT_VERSION = 17;
+    public static final int CURRENT_VERSION = 22;
 
     public SaveGame {
         if (solarSystems == null) solarSystems = List.of();
@@ -118,6 +124,9 @@ public record SaveGame(
         if (marketAccounts == null) marketAccounts = List.of();
         if (industryAccounts == null) industryAccounts = List.of();
         if (corporateTaxAccounts == null) corporateTaxAccounts = List.of();
+        if (warDeclarations == null) warDeclarations = List.of();
+        if (diplomaticProposals == null) diplomaticProposals = List.of();
+        if (fleetEngagements == null) fleetEngagements = List.of();
     }
 
     public static SaveGame fromGameState(GameState state, String savedAt, int gameSpeed, String gameTime) {
@@ -138,7 +147,8 @@ public record SaveGame(
                 state.tradeRoutes(), state.fogOfWarStates(), state.systemEconomies(), state.courierShips(),
                 state.planetaryBalanceSheets(), state.imperialBalanceSheets(),
                 state.householdAccounts(), state.marketAccounts(), state.industryAccounts(),
-                state.corporateTaxAccounts()
+                state.corporateTaxAccounts(), state.warDeclarations(), state.diplomaticProposals(),
+                state.fleetEngagements()
         );
     }
 
@@ -165,7 +175,7 @@ public record SaveGame(
                 megastructures, galacticCommunity, tradeRoutes, fogOfWarStates,
                 systemEconomies, courierShips, planetaryBalanceSheets, imperialBalanceSheets,
                 householdAccounts, marketAccounts, industryAccounts, corporateTaxAccounts,
-                Map.of(), List.of()
+                Map.of(), List.of(), warDeclarations, diplomaticProposals, fleetEngagements
         );
     }
 }

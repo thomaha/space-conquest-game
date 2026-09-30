@@ -14,6 +14,10 @@ import com.spaceconquest.engine.ship.ShipConstructionOrder;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.FleetLocation;
 import com.spaceconquest.engine.logistics.TradeRoute;
+import com.spaceconquest.engine.governance.WarDeclarationRecord;
+import com.spaceconquest.engine.governance.DiplomaticProposal;
+import com.spaceconquest.engine.combat.FleetEngagementRecord;
+import com.spaceconquest.engine.habitation.PassengerManifest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -129,6 +133,14 @@ public class GameStateTest {
         ).withOutstandingDebt(400.0);
         ImperialBalanceSheet imperialSheet = new ImperialBalanceSheet("terran", 5,
                 125.0, 200.0, 75.0, 0.0);
+        WarDeclarationRecord declaration = new WarDeclarationRecord(4, "terran", "silicon",
+                null, false, -0.40, 0.0, "Unprovoked aggression");
+        DiplomaticProposal proposal = new DiplomaticProposal("prop_1", "terran", "silicon",
+                "MUTUAL_TRADE_AGREEMENT", 35, DiplomaticProposal.STATUS_PENDING);
+        FleetEngagementRecord battle = new FleetEngagementRecord(4, "sol", "ORBIT", "earth",
+                "fleet_a", "terran", "fleet_b", "silicon", "terran", List.of("ship_b"), 3);
+        PassengerManifest troopDeployment = new PassengerManifest("troop_ship", "earth", "mars",
+                "human", Map.of(25, 50L), true);
 
         GameState state = GameState.builder()
                 .turn(5)
@@ -154,6 +166,10 @@ public class GameStateTest {
                         .withMaintenanceCost(5.0)))
                 .corporateTaxAccounts(List.of(new com.spaceconquest.engine.economy.CorporateTaxAccount(
                         "corp_1", 20.0, 5.0, 100.0, 20.0, 15.0)))
+                .warDeclarations(List.of(declaration))
+                .diplomaticProposals(List.of(proposal))
+                .fleetEngagements(List.of(battle))
+                .passengerManifests(List.of(troopDeployment))
                 .build();
 
         assertEquals(state, state.toBuilder().build());
@@ -193,8 +209,14 @@ public class GameStateTest {
         assertEquals(state.marketAccounts(), loaded.marketAccounts());
         assertEquals(state.industryAccounts(), loaded.industryAccounts());
         assertEquals(state.corporateTaxAccounts(), loaded.corporateTaxAccounts());
+        assertEquals(List.of(declaration), loaded.warDeclarations());
+        assertEquals(List.of(proposal), loaded.diplomaticProposals());
+        assertEquals(List.of(battle), loaded.fleetEngagements());
+        assertEquals(List.of(troopDeployment), loaded.passengerManifests());
         assertEquals(state, loaded.toGameState(5, "RUNNING"));
         GameState restored = new SpaceConquestEngine(loaded).getGameState();
+        assertEquals(List.of(declaration), restored.warDeclarations());
+        assertEquals(List.of(battle), restored.fleetEngagements());
         assertEquals(List.of(courier), restored.courierShips());
         assertEquals(750.0, restored.planetaryBalanceSheets().getFirst().uncollectedLocalCredits(), 0.001);
         assertEquals(400.0, restored.planetaryBalanceSheets().getFirst().outstandingDebtCredits(), 0.001);
@@ -222,6 +244,7 @@ public class GameStateTest {
         assertTrue(loaded.marketAccounts().isEmpty());
         assertTrue(loaded.industryAccounts().isEmpty());
         assertTrue(loaded.corporateTaxAccounts().isEmpty());
+        assertTrue(loaded.diplomaticProposals().isEmpty());
     }
 
     @Test

@@ -254,4 +254,13 @@ public class DiplomacyProcessor {
 
         return true;
     }
+
+    public List<DiplomaticProposal> expirePendingProposals(List<DiplomaticProposal> proposals, long turn) {
+        if (proposals == null || proposals.isEmpty()) return List.of();
+        return proposals.stream()
+                .map(proposal -> !DiplomaticProposal.STATUS_PENDING.equals(proposal.status())
+                        || turn < proposal.expiresOnTurn()
+                        ? proposal : proposal.withStatus(DiplomaticProposal.STATUS_EXPIRED))
+                .toList();
+    }
 }

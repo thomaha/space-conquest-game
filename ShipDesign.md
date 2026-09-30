@@ -63,6 +63,10 @@ For an interstellar sublight order, each ship's departure acceleration is its de
 
 Local journeys use provisional maneuver budgets of 10 m/s for docking, 30 m/s between orbital sites and 50 m/s for deep-space travel. The rocket equation turns each budget and the ship's loaded mass into a propellant requirement using its researched drive's exhaust velocity. The required propellant and any reactor fuel are committed at departure; journey progress still advances daily over the existing fixed duration. Surface-to-orbit ascent on the same body uses an external launch provider instead of ship propellant. Automated trade routes buy a local fuel shortfall from an accessible hub and book the cost against route profit. A route waits if fuel or money is unavailable. Ships with no recognized drive still retain the legacy free-movement behavior until their designs are migrated. Local travel times do not yet derive from thrust, body separation or orbital mechanics.
 
+#### Fleet encounters (provisional)
+
+After daily movement and passenger arrival, idle fleets sharing a physical site in the same system automatically fight when their empires are at `TOTAL_WAR`. A fleet can take part in one encounter per turn. The encounter resolver applies surviving ship instances to the game state, removes fleets with no surviving ships and records compact battle history. Battles in transit and encounters outside total war are skipped. The resolver currently delegates to `TacticalCombatProcessor` behind `FleetEncounterResolver`; this adapter is temporary because tactical combat is planned for a complete overhaul. Battle history is saved and retains the latest 1,000 encounters.
+
 #### Cost and work hour estimation profiles
 
 Once a design passes all physics and structural validations, the interface generates a dynamic manufacturing bill of materials (BOM) and production timeline:
