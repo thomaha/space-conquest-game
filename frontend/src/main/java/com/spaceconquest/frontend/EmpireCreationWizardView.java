@@ -58,11 +58,14 @@ public class EmpireCreationWizardView {
     public EmpireCreationWizardView(Menubar menubar, AudioSynthesizer audioSynthesizer) {
         this.menubar = menubar;
         this.audioSynthesizer = audioSynthesizer != null ? audioSynthesizer : new AudioSynthesizer();
-        build();
     }
 
     public void setHumanController(HumanController controller) {
         this.humanController = controller;
+    }
+
+    public void initializeAfterConstruction() {
+        build();
     }
 
     private void build() {

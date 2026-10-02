@@ -28,9 +28,24 @@ import java.util.function.BiConsumer;
  */
 public class SurfaceBiomeGridView extends VBox {
     private static final double TILE_WIDTH = 92;
+    private final PlanetaryBodyEntry body;
+    private final HumanController humanController;
+    private final String playerEmpireId;
+    private final BiConsumer<String, Integer> onBuildRequest;
 
     public SurfaceBiomeGridView(PlanetaryBodyEntry body, HumanController humanController, String playerEmpireId, BiConsumer<String, Integer> onBuildRequest) {
         super(8);
+        this.body = body;
+        this.humanController = humanController;
+        this.playerEmpireId = playerEmpireId;
+        this.onBuildRequest = onBuildRequest;
+    }
+
+    public void initializeAfterConstruction() {
+        build();
+    }
+
+    private void build() {
         setPadding(new Insets(10));
         setMinWidth(0);
         setStyle("-fx-background-color: rgba(20, 35, 60, 0.7); -fx-background-radius: 8; -fx-border-color: #3498db; -fx-border-width: 1; -fx-border-radius: 8;");

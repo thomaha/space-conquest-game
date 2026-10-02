@@ -46,7 +46,6 @@ public class CommercialHubView {
 
     public CommercialHubView(Menubar menubar) {
         this.menubar = menubar;
-        build();
     }
 
     public void setHumanController(HumanController controller) {
@@ -57,6 +56,10 @@ public class CommercialHubView {
         if (empireId != null && !empireId.isEmpty()) {
             this.playerEmpireId = empireId;
         }
+    }
+
+    public void initializeAfterConstruction() {
+        build();
     }
 
     private void build() {

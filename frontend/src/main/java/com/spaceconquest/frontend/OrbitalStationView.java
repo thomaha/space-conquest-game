@@ -38,6 +38,9 @@ public class OrbitalStationView {
 
     public OrbitalStationView(Menubar menubar) {
         this.menubar = menubar;
+    }
+
+    public void initializeAfterConstruction() {
         build();
     }
 

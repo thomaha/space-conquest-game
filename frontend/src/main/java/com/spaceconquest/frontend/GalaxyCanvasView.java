@@ -67,7 +67,6 @@ public class GalaxyCanvasView {
 
     public GalaxyCanvasView(Menubar menubar) {
         this.menubar = menubar;
-        build();
     }
 
     public void setHumanController(HumanController controller) {
@@ -78,6 +77,10 @@ public class GalaxyCanvasView {
         if (empireId != null && !empireId.isEmpty()) {
             this.playerEmpireId = empireId;
         }
+    }
+
+    public void initializeAfterConstruction() {
+        build();
     }
 
     private void build() {

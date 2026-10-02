@@ -1,6 +1,7 @@
 package com.spaceconquest.frontend.empire;
 
 import com.spaceconquest.frontend.Menubar;
+import com.spaceconquest.frontend.PostConstructionInitializer;
 import com.spaceconquest.frontend.PlanetaryBodyEntry;
 import com.spaceconquest.frontend.components.SurfaceBiomeGridView;
 
@@ -100,15 +101,24 @@ public class EmpireView {
     private final List<GeoengineeringProject> terraformingProjects = new ArrayList<>();
     private final List<ConstructionDeploymentProject> constructionProjects = new ArrayList<>();
 
-    private final EconomyTab economyTab = new EconomyTab(this);
-    private final CabinetTab cabinetTab = new CabinetTab(this);
-    private final PlanetsTab planetsTab = new PlanetsTab(this);
-    private final StationsTab stationsTab = new StationsTab(this);
-    private final CorporationsTab corporationsTab = new CorporationsTab(this);
-    private final MegastructuresTab megastructuresTab = new MegastructuresTab(this);
+    private EconomyTab economyTab;
+    private CabinetTab cabinetTab;
+    private PlanetsTab planetsTab;
+    private StationsTab stationsTab;
+    private CorporationsTab corporationsTab;
+    private MegastructuresTab megastructuresTab;
 
     public EmpireView(Menubar menubar) {
         this.menubar = menubar;
+    }
+
+    public void initializeAfterConstruction() {
+        economyTab = new EconomyTab(this);
+        cabinetTab = new CabinetTab(this);
+        planetsTab = new PlanetsTab(this);
+        stationsTab = new StationsTab(this);
+        corporationsTab = new CorporationsTab(this);
+        megastructuresTab = new MegastructuresTab(this);
         build();
     }
 
@@ -403,14 +413,15 @@ public class EmpireView {
         box.getChildren().add(createDetailRow("Atmosphere:", body.getAtmosphere()));
         box.getChildren().add(createDetailRow("Liquid water:", body.hasLiquidWater() ? "Present" : "None"));
 
-        SurfaceBiomeGridView biomeGrid = new SurfaceBiomeGridView(body, humanController, playerEmpireId, (id, tileIdx) -> {
+        SurfaceBiomeGridView biomeGrid = PostConstructionInitializer.initialize(
+                new SurfaceBiomeGridView(body, humanController, playerEmpireId, (id, tileIdx) -> {
             if (humanController != null) {
                 humanController.stageCommand(new PlaceFacilityOnTileCommand(
                         id, tileIdx, "solar_power_array", playerEmpireId, "PUBLIC_STATE", 50, "technician"
                 ));
                 setFeedback("Commissioned facility on surface tile #" + tileIdx + " of " + body.name(), true);
             }
-        });
+        }), SurfaceBiomeGridView::initializeAfterConstruction);
         biomeGrid.setPrefHeight(520);
         box.getChildren().add(biomeGrid);
 

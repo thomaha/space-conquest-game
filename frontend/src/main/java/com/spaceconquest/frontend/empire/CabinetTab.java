@@ -88,11 +88,11 @@ public class CabinetTab {
 
             int row = 0;
             for (MinistryAssignment assignment : empire.ministries()) {
-                Label portLabel = new Label("• " + parent.formatTitle(assignment.portfolioId()) + ":");
+                Label portLabel = new Label("• " + EmpireView.formatTitle(assignment.portfolioId()) + ":");
                 portLabel.setTextFill(Color.GOLD);
                 portLabel.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
 
-                Label appointeeLabel = new Label(parent.formatTitle(assignment.assignedCitizenProfessionId()));
+                Label appointeeLabel = new Label(EmpireView.formatTitle(assignment.assignedCitizenProfessionId()));
                 appointeeLabel.setTextFill(Color.WHITE);
                 appointeeLabel.setFont(Font.font("Verdana", 12));
 
@@ -159,7 +159,7 @@ public class CabinetTab {
         VBox box = new VBox(5);
         box.setPadding(new Insets(10));
         box.setStyle("-fx-background-color: rgba(45, 55, 80, 0.7); -fx-background-radius: 6; -fx-border-color: #3498db; -fx-border-width: 1; -fx-border-radius: 6;");
-        Text nameText = new Text(parent.formatTitle(other.id()));
+        Text nameText = new Text(EmpireView.formatTitle(other.id()));
         nameText.setFill(Color.WHITE);
         nameText.setFont(Font.font("Verdana", FontWeight.BOLD, 13));
         Text detail = new Text("Controlled systems: " + other.controlledSystemIds().size() + " | Treasury: " + String.format("%.0f", other.treasuryCredits()) + " ₵");

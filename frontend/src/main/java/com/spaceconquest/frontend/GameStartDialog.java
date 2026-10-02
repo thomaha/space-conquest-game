@@ -18,7 +18,15 @@ public class GameStartDialog extends Dialog<GameStartDialog.GameStartResult> {
 
     public record GameStartResult(int numSolarSystems, GameStartScenario scenario) {}
 
+    private final GameStartScenario defaultScenario;
+    private final int defaultSystems;
+
     public GameStartDialog(GameStartScenario defaultScenario, int defaultSystems) {
+        this.defaultScenario = defaultScenario;
+        this.defaultSystems = defaultSystems;
+    }
+
+    public void initializeAfterConstruction() {
         setTitle("Game start setup");
         setHeaderText("Configure galaxy generation and starting conditions");
 

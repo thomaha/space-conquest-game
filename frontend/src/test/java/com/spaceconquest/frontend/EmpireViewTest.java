@@ -162,7 +162,7 @@ public class EmpireViewTest {
                 List.of()
         );
 
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.updateData(List.of(sol), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
 
         // Default: Colonized
@@ -209,7 +209,7 @@ public class EmpireViewTest {
         SolarSystem sysB = new SolarSystem("sys_b", "Zeta System", "", 0, 0, 0, 1, 1000, "#fff", List.of(p1), List.of());
         SolarSystem sysA = new SolarSystem("sys_a", "Alpha System", "", 0, 0, 0, 1, 1000, "#fff", List.of(p2), List.of());
 
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.updateData(List.of(sysB, sysA), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
         view.setCurrentFilter(FilterCategory.ALL_BODIES);
 
@@ -266,7 +266,7 @@ public class EmpireViewTest {
                 false, 5000.0, 5000.0, 10, 1.0
         );
 
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.setPlayerEmpireId("terran_confederation");
         view.updateData(List.of(), List.of(playerEmpire), List.of(), List.of(projectDone), List.of(), List.of(), List.of(), List.of(), List.of());
 
@@ -279,7 +279,7 @@ public class EmpireViewTest {
 
     @Test
     public void testTabSwitchingAndRoot() {
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         assertNotNull(view.getRoot());
         assertEquals(Tab.ECONOMY, view.getCurrentTab());
 
@@ -307,7 +307,7 @@ public class EmpireViewTest {
         SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         GameState gameState = engine.getGameState();
 
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.setPlayerEmpireId("terran_confederation");
         view.updateData(gameState);
         view.show();
@@ -358,7 +358,7 @@ public class EmpireViewTest {
                 "ORBITAL_STATION", 2.0, 5.0, Map.of(), false
         );
 
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.setPlayerEmpireId("terran_confederation");
         view.updateData(
                 List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
@@ -399,7 +399,7 @@ public class EmpireViewTest {
                 "COMPUTING", 50000.0, List.of("fac_core"), List.of("freighter_1"), List.of()
         );
 
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.setPlayerEmpireId("terran_confederation");
         view.updateData(
                 List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
@@ -431,7 +431,7 @@ public class EmpireViewTest {
         SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         GameState gameState = engine.getGameState();
 
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.setPlayerEmpireId("terran_confederation");
         assertDoesNotThrow(() -> view.updateData(gameState));
 
@@ -455,7 +455,7 @@ public class EmpireViewTest {
         engine.stepTurn();
         GameState gameState = engine.getGameState();
 
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.setPlayerEmpireId("terran_confederation");
         view.updateData(gameState);
 
@@ -509,7 +509,7 @@ public class EmpireViewTest {
     @Test
     public void testHumanControllerCommandStaging() {
         HumanController controller = new HumanController();
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.setHumanController(controller);
         view.setPlayerEmpireId("terran_confederation");
 
@@ -535,7 +535,7 @@ public class EmpireViewTest {
 
         SolarSystem sol = new SolarSystem("sol", "Sol", "", 0, 0, 0, 1, 1000, "#fff", List.of(jupiter, earth), List.of());
 
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.updateData(List.of(sol), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
 
         PlanetaryBodyEntry jupiterEntry = PlanetaryBodyEntry.fromPlanet(jupiter, sol, List.of());
@@ -572,7 +572,7 @@ public class EmpireViewTest {
         com.spaceconquest.engine.GalaxyGenerator generator = new com.spaceconquest.engine.GalaxyGenerator();
         GameState newGalaxyState = generator.generateGameState(6, com.spaceconquest.engine.GameStartScenario.PRE_SPACE_FLIGHT);
 
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.setPlayerEmpireId("terran_confederation");
 
         // Initially update with default scenario
@@ -625,7 +625,7 @@ public class EmpireViewTest {
                 3, 3, 20.0, 20.0, true, 10000000.0, Map.of(), 50000000
         );
 
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.setPlayerEmpireId("terran_confederation");
         view.updateData(
                 List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
@@ -652,7 +652,7 @@ public class EmpireViewTest {
         SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         GameState gameState = engine.getGameState();
 
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.setPlayerEmpireId("terran_confederation");
         view.updateData(gameState);
 
@@ -682,8 +682,8 @@ public class EmpireViewTest {
 
     @Test
     public void testTutorialOnboardingDualTabSupport() {
-        TacticalCombatArenaView arenaView = new TacticalCombatArenaView(null, new com.spaceconquest.engine.audio.AudioSynthesizer());
-        TutorialOnboardingView tutorialView = new TutorialOnboardingView(null, arenaView);
+        TacticalCombatArenaView arenaView = PostConstructionInitializer.initialize(new TacticalCombatArenaView(null, new com.spaceconquest.engine.audio.AudioSynthesizer()), TacticalCombatArenaView::initializeAfterConstruction);
+        TutorialOnboardingView tutorialView = PostConstructionInitializer.initialize(new TutorialOnboardingView(null, arenaView), TutorialOnboardingView::initializeAfterConstruction);
 
         assertNotNull(tutorialView.getRoot());
         assertEquals(TutorialOnboardingView.Tab.TUTORIAL, tutorialView.getCurrentTab());
@@ -701,7 +701,7 @@ public class EmpireViewTest {
         java.util.concurrent.CompletableFuture<double[]> measurements = new java.util.concurrent.CompletableFuture<>();
         javafx.application.Platform.runLater(() -> {
             try {
-                EmpireView view = new EmpireView(null);
+                EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
                 view.updateData(state);
                 view.selectTab(Tab.PLANETS);
                 view.show();
@@ -734,7 +734,7 @@ public class EmpireViewTest {
                 "terran_confederation", IndustrialFacility.PUBLIC_STATE, 1, 50, "smelter_operator", true, 0.5);
         IndustrialFacility otherBody = new IndustrialFacility("fac_mars", "mars", "mining_outpost",
                 "terran_confederation", IndustrialFacility.PUBLIC_STATE, 1, 25, "miner", false, 0.0);
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.updateData(GameState.builder().industrialFacilities(List.of(goods, smelter, otherBody))
                 .industryAccounts(List.of(new com.spaceconquest.engine.industry.IndustryAccount(
                         "fac_goods", Map.of("consumer_goods", 25.0), Map.of("consumer_goods", 100.0),
@@ -775,7 +775,7 @@ public class EmpireViewTest {
 
     @Test
     public void testEmpireEconomyIsRenderedOnFirstOpen() {
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.updateData(SpaceConquestEngine.fromSolScenario().getGameState());
 
         view.show();
@@ -798,7 +798,7 @@ public class EmpireViewTest {
 
     @Test
     public void testEconomySubViewSwitchingAndSystemSelection() {
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.setPlayerEmpireId("terran_confederation");
 
         assertEquals(EconomySubView.IMPERIAL, view.getEconomySubView());
@@ -822,7 +822,7 @@ public class EmpireViewTest {
                 .map(sheet -> "sol".equals(sheet.systemId()) ? sheet.withOutstandingDebt(1234.0) : sheet)
                 .toList());
 
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.setPlayerEmpireId("terran_confederation");
         view.updateData(state);
 
@@ -854,7 +854,7 @@ public class EmpireViewTest {
     public void testPlanetPagesShowHouseholdsAndIndustriesSeparately() {
         SpaceConquestEngine engine = SpaceConquestEngine.fromSolScenario();
         engine.stepTurn();
-        EmpireView view = new EmpireView(null);
+        EmpireView view = PostConstructionInitializer.initialize(new EmpireView(null), EmpireView::initializeAfterConstruction);
         view.updateData(engine.getGameState());
         view.show(Tab.PLANETS);
 

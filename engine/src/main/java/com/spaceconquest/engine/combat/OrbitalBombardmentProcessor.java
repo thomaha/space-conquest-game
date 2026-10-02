@@ -82,7 +82,7 @@ public class OrbitalBombardmentProcessor {
             List<Population> decimatedPop = targetPlanet.populations().stream().map(pop -> {
                 Map<Integer, Long> reducedAges = new HashMap<>();
                 for (Map.Entry<Integer, Long> entry : pop.ageGroups().entrySet()) {
-                    long surviving = (long) Math.round(entry.getValue() * 0.30);
+                    long surviving = Math.round(entry.getValue() * 0.30);
                     if (surviving > 0) {
                         reducedAges.put(entry.getKey(), surviving);
                     }

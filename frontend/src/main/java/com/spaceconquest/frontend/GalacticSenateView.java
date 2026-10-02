@@ -39,7 +39,6 @@ public class GalacticSenateView {
 
     public GalacticSenateView(Menubar menubar) {
         this.menubar = menubar;
-        build();
     }
 
     public void setHumanController(HumanController controller) {
@@ -50,6 +49,10 @@ public class GalacticSenateView {
         if (empireId != null && !empireId.isEmpty()) {
             this.playerEmpireId = empireId;
         }
+    }
+
+    public void initializeAfterConstruction() {
+        build();
     }
 
     private void build() {

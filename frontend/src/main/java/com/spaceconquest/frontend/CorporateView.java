@@ -26,6 +26,9 @@ public class CorporateView {
 
     public CorporateView(Menubar menubar) {
         this.menubar = menubar;
+    }
+
+    public void initializeAfterConstruction() {
         build();
     }
 

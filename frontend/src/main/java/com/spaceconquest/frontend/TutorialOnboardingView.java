@@ -67,7 +67,6 @@ public class TutorialOnboardingView {
         this.menubar = menubar;
         this.combatArenaView = combatArenaView;
         initDefaultMissions();
-        build();
     }
 
     public void setCombatArenaView(TacticalCombatArenaView arenaView) {
@@ -126,6 +125,10 @@ public class TutorialOnboardingView {
                 "Hint: Click 'Colonies' or 'Galactic Senate' in the top menu to exercise sovereign leadership.",
                 false
         ));
+    }
+
+    public void initializeAfterConstruction() {
+        build();
     }
 
     private void build() {

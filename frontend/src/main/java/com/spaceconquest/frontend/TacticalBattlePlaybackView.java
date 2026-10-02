@@ -27,6 +27,9 @@ public class TacticalBattlePlaybackView {
 
     public TacticalBattlePlaybackView(Menubar menubar) {
         this.menubar = menubar;
+    }
+
+    public void initializeAfterConstruction() {
         build();
     }
 

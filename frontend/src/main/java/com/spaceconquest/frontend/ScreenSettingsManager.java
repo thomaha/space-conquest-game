@@ -34,7 +34,7 @@ public class ScreenSettingsManager {
 
     public ScreenSettingsManager(Path settingsPath) {
         this.settingsPath = settingsPath != null ? settingsPath : DEFAULT_SETTINGS_PATH;
-        this.currentSettings = loadSettings();
+        this.currentSettings = loadInitialSettings();
     }
 
     public static synchronized ScreenSettingsManager getInstance() {
@@ -64,6 +64,10 @@ public class ScreenSettingsManager {
     }
 
     public ScreenSettings loadSettings() {
+        return loadInitialSettings();
+    }
+
+    private ScreenSettings loadInitialSettings() {
         File file = settingsPath.toFile();
         if (file.exists() && file.isFile()) {
             try {

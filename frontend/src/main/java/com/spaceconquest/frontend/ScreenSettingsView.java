@@ -55,6 +55,9 @@ public class ScreenSettingsView {
     public ScreenSettingsView(Menubar menubar, ScreenSettingsManager settingsManager) {
         this.menubar = menubar;
         this.settingsManager = settingsManager != null ? settingsManager : ScreenSettingsManager.getInstance();
+    }
+
+    public void initializeAfterConstruction() {
         build();
     }
 

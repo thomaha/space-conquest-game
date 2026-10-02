@@ -50,81 +50,109 @@ public class MenubarViewRegistry {
         techView.setHumanController(humanController);
         techView.setPlayerEmpireId(playerEmpireId);
 
-        industryView = new IndustryView(menubar);
+        industryView = PostConstructionInitializer.initialize(
+                new IndustryView(menubar), IndustryView::initializeAfterConstruction);
         industryView.setHumanController(humanController);
         industryView.setPlayerEmpireId(playerEmpireId);
 
-        shipDesignerView = new ShipDesignerView(menubar);
+        shipDesignerView = PostConstructionInitializer.initialize(
+                new ShipDesignerView(menubar), ShipDesignerView::initializeAfterConstruction);
         shipDesignerView.setHumanController(humanController);
         shipDesignerView.setPlayerEmpireId(playerEmpireId);
 
-        fleetManagementView = new FleetManagementView(menubar);
+        fleetManagementView = PostConstructionInitializer.initialize(
+                new FleetManagementView(menubar), FleetManagementView::initializeAfterConstruction);
         fleetManagementView.setHumanController(humanController);
         fleetManagementView.setPlayerEmpireId(playerEmpireId);
 
-        colonyManagementView = new ColonyManagementView(menubar);
+        colonyManagementView = PostConstructionInitializer.initialize(
+                new ColonyManagementView(menubar), ColonyManagementView::initializeAfterConstruction);
         colonyManagementView.setHumanController(humanController);
         colonyManagementView.setPlayerEmpireId(playerEmpireId);
 
-        planetDetailView = new PlanetDetailView(menubar);
+        planetDetailView = PostConstructionInitializer.initialize(
+                new PlanetDetailView(menubar), PlanetDetailView::initializeAfterConstruction);
         planetDetailView.setHumanController(humanController);
         planetDetailView.setPlayerEmpireId(playerEmpireId);
 
-        gameMenuView = new GameMenuView(menubar);
-        galaxyListView = new GalaxyListView(menubar, mainApp);
-        empireView = new EmpireView(menubar);
+        gameMenuView = PostConstructionInitializer.initialize(
+                new GameMenuView(menubar), GameMenuView::initializeAfterConstruction);
+        galaxyListView = PostConstructionInitializer.initialize(
+                new GalaxyListView(menubar, mainApp), GalaxyListView::initializeAfterConstruction);
+        empireView = PostConstructionInitializer.initialize(
+                new EmpireView(menubar), EmpireView::initializeAfterConstruction);
         empireView.setHumanController(humanController);
         empireView.setPlayerEmpireId(playerEmpireId);
-        corporateView = new CorporateView(menubar);
-        diplomacyView = new DiplomacyView(menubar);
+        corporateView = PostConstructionInitializer.initialize(
+                new CorporateView(menubar), CorporateView::initializeAfterConstruction);
+        diplomacyView = PostConstructionInitializer.initialize(
+                new DiplomacyView(menubar), DiplomacyView::initializeAfterConstruction);
         diplomacyView.setHumanController(humanController);
-        commercialHubView = new CommercialHubView(menubar);
+        commercialHubView = PostConstructionInitializer.initialize(
+                new CommercialHubView(menubar), CommercialHubView::initializeAfterConstruction);
         commercialHubView.setHumanController(humanController);
         commercialHubView.setPlayerEmpireId(playerEmpireId);
 
-        campaignManagerView = new CampaignManagerView(menubar);
+        campaignManagerView = PostConstructionInitializer.initialize(
+                new CampaignManagerView(menubar), CampaignManagerView::initializeAfterConstruction);
         campaignManagerView.setMainApp(mainApp);
 
-        orbitalStationView = new OrbitalStationView(menubar);
-        espionageView = new EspionageView(menubar);
-        refinementView = new RefinementView(menubar);
-        battlePlaybackView = new TacticalBattlePlaybackView(menubar);
+        orbitalStationView = PostConstructionInitializer.initialize(
+                new OrbitalStationView(menubar), OrbitalStationView::initializeAfterConstruction);
+        espionageView = PostConstructionInitializer.initialize(
+                new EspionageView(menubar), EspionageView::initializeAfterConstruction);
+        refinementView = PostConstructionInitializer.initialize(
+                new RefinementView(menubar), RefinementView::initializeAfterConstruction);
+        battlePlaybackView = PostConstructionInitializer.initialize(
+                new TacticalBattlePlaybackView(menubar), TacticalBattlePlaybackView::initializeAfterConstruction);
 
-        terraformingView = new TerraformingView(menubar);
+        terraformingView = PostConstructionInitializer.initialize(
+                new TerraformingView(menubar), TerraformingView::initializeAfterConstruction);
         terraformingView.setHumanController(humanController);
         terraformingView.setPlayerEmpireId(playerEmpireId);
 
-        megastructureView = new MegastructureView(menubar);
+        megastructureView = PostConstructionInitializer.initialize(
+                new MegastructureView(menubar), MegastructureView::initializeAfterConstruction);
         megastructureView.setHumanController(humanController);
         megastructureView.setPlayerEmpireId(playerEmpireId);
 
-        galacticSenateView = new GalacticSenateView(menubar);
+        galacticSenateView = PostConstructionInitializer.initialize(
+                new GalacticSenateView(menubar), GalacticSenateView::initializeAfterConstruction);
         galacticSenateView.setHumanController(humanController);
         galacticSenateView.setPlayerEmpireId(playerEmpireId);
 
-        galaxyCanvasView = new GalaxyCanvasView(menubar);
+        galaxyCanvasView = PostConstructionInitializer.initialize(
+                new GalaxyCanvasView(menubar), GalaxyCanvasView::initializeAfterConstruction);
         galaxyCanvasView.setHumanController(humanController);
         galaxyCanvasView.setPlayerEmpireId(playerEmpireId);
 
         AudioSynthesizer audioSynth = mainApp != null && mainApp.getEngine() != null 
                 ? mainApp.getEngine().getAudioSynthesizer() 
                 : new AudioSynthesizer();
-        audioPlaybackManager = new AudioPlaybackManager(audioSynth);
+        audioPlaybackManager = PostConstructionInitializer.initialize(
+                new AudioPlaybackManager(audioSynth), AudioPlaybackManager::initializeAfterConstruction);
 
-        scenarioEditorView = new ScenarioEditorView(menubar, audioSynth);
-        victoryDefeatView = new VictoryDefeatView(menubar);
+        scenarioEditorView = PostConstructionInitializer.initialize(
+                new ScenarioEditorView(menubar, audioSynth), ScenarioEditorView::initializeAfterConstruction);
+        victoryDefeatView = PostConstructionInitializer.initialize(
+                new VictoryDefeatView(menubar), VictoryDefeatView::initializeAfterConstruction);
 
-        combatArenaView = new TacticalCombatArenaView(menubar, audioSynth);
+        combatArenaView = PostConstructionInitializer.initialize(
+                new TacticalCombatArenaView(menubar, audioSynth), TacticalCombatArenaView::initializeAfterConstruction);
         combatArenaView.setHumanController(humanController);
 
-        tutorialView = new TutorialOnboardingView(menubar, combatArenaView);
+        tutorialView = PostConstructionInitializer.initialize(
+                new TutorialOnboardingView(menubar, combatArenaView), TutorialOnboardingView::initializeAfterConstruction);
         tutorialView.setHumanController(humanController);
 
-        empireWizardView = new EmpireCreationWizardView(menubar, audioSynth);
+        empireWizardView = PostConstructionInitializer.initialize(
+                new EmpireCreationWizardView(menubar, audioSynth), EmpireCreationWizardView::initializeAfterConstruction);
         empireWizardView.setHumanController(humanController);
 
-        audioSettingsView = new AudioSettingsView(menubar, audioSynth);
-        screenSettingsView = new ScreenSettingsView(menubar, ScreenSettingsManager.getInstance());
+        audioSettingsView = PostConstructionInitializer.initialize(
+                new AudioSettingsView(menubar, audioSynth), AudioSettingsView::initializeAfterConstruction);
+        screenSettingsView = PostConstructionInitializer.initialize(
+                new ScreenSettingsView(menubar, ScreenSettingsManager.getInstance()), ScreenSettingsView::initializeAfterConstruction);
     }
 
     public void setPlayerEmpireId(String empireId) {

@@ -31,6 +31,9 @@ public class GalaxyListView {
     public GalaxyListView(Menubar menubar, Main mainApp) {
         this.menubar = menubar;
         this.mainApp = mainApp;
+    }
+
+    public void initializeAfterConstruction() {
         build();
     }
 

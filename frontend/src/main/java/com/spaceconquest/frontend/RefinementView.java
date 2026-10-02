@@ -30,6 +30,9 @@ public class RefinementView {
 
     public RefinementView(Menubar menubar) {
         this.menubar = menubar;
+    }
+
+    public void initializeAfterConstruction() {
         build();
     }
 

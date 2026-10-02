@@ -26,6 +26,9 @@ public class VictoryDefeatView {
 
     public VictoryDefeatView(Menubar menubar) {
         this.menubar = menubar;
+    }
+
+    public void initializeAfterConstruction() {
         build();
     }
 

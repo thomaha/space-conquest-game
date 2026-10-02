@@ -24,6 +24,9 @@ public class GameMenuView {
 
     public GameMenuView(Menubar menubar) {
         this.menubar = menubar;
+    }
+
+    public void initializeAfterConstruction() {
         build();
     }
 

@@ -35,6 +35,9 @@ public class AudioSettingsView {
     public AudioSettingsView(Menubar menubar, AudioSynthesizer audioSynthesizer) {
         this.menubar = menubar;
         this.audioSynthesizer = audioSynthesizer != null ? audioSynthesizer : new AudioSynthesizer();
+    }
+
+    public void initializeAfterConstruction() {
         build();
     }
 

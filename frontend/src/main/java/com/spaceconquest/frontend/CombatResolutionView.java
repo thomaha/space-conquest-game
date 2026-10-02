@@ -29,6 +29,9 @@ public class CombatResolutionView {
 
     public CombatResolutionView(Menubar menubar) {
         this.menubar = menubar;
+    }
+
+    public void initializeAfterConstruction() {
         build();
     }
 

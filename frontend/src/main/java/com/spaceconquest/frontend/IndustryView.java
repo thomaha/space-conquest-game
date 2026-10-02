@@ -51,7 +51,6 @@ public class IndustryView {
 
     public IndustryView(Menubar menubar) {
         this.menubar = menubar;
-        build();
     }
 
     public void setHumanController(HumanController controller) {
@@ -62,6 +61,10 @@ public class IndustryView {
         if (empireId != null && !empireId.isEmpty()) {
             this.playerEmpireId = empireId;
         }
+    }
+
+    public void initializeAfterConstruction() {
+        build();
     }
 
     private void build() {

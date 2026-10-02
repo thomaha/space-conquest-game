@@ -13,10 +13,16 @@ public class AudioPlaybackManager implements AudioSynthesizer.AudioListener {
     private final AudioSynthesizer synthesizer;
     private final List<String> recentAudioLog = new ArrayList<>();
     private boolean soundEnabled = true;
+    private boolean registered;
 
     public AudioPlaybackManager(AudioSynthesizer synthesizer) {
         this.synthesizer = synthesizer != null ? synthesizer : new AudioSynthesizer();
-        this.synthesizer.addListener(this);
+    }
+
+    public void initializeAfterConstruction() {
+        if (registered) return;
+        synthesizer.addListener(this);
+        registered = true;
     }
 
     public AudioSynthesizer getSynthesizer() {

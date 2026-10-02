@@ -220,7 +220,7 @@ public class SpaceConquestEngine implements GameEngine {
             ministryPortfolios = DataModelLoader.loadMinistries();
             GalaxyGenerator generator = new GalaxyGenerator();
             GameState generated = generator.generateGameState(10, scenario);
-            applyGameState(generated);
+            applyGameStateInternal(generated);
         } catch (java.io.IOException e) {
             logger.error("Failed to load scenario data", e);
         }
@@ -237,7 +237,7 @@ public class SpaceConquestEngine implements GameEngine {
             races = DataModelLoader.loadRaces();
             materials = DataModelLoader.loadMaterials();
             ministryPortfolios = DataModelLoader.loadMinistries();
-            applyGameState(saveGame.toGameState(gameClock.getCurrentTurn(), "STOPPED"));
+            applyGameStateInternal(saveGame.toGameState(gameClock.getCurrentTurn(), "STOPPED"));
         } catch (java.io.IOException e) {
             logger.error("Failed to load save data", e);
         }
@@ -942,6 +942,10 @@ public class SpaceConquestEngine implements GameEngine {
     }
 
     public synchronized void applyGameState(GameState state) {
+        applyGameStateInternal(state);
+    }
+
+    private void applyGameStateInternal(GameState state) {
         if (state == null) return;
         this.turn = state.turn();
         this.solarSystems = new ArrayList<>(state.solarSystems());

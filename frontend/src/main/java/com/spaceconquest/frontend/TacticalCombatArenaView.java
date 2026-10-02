@@ -47,7 +47,6 @@ public class TacticalCombatArenaView {
     public TacticalCombatArenaView(Menubar menubar, AudioSynthesizer audioSynthesizer) {
         this.menubar = menubar;
         this.audioSynthesizer = audioSynthesizer != null ? audioSynthesizer : new AudioSynthesizer();
-        build();
     }
 
     public void setHumanController(HumanController controller) {
@@ -58,6 +57,10 @@ public class TacticalCombatArenaView {
         if (fleetId != null && !fleetId.isEmpty()) {
             this.activeFleetId = fleetId;
         }
+    }
+
+    public void initializeAfterConstruction() {
+        build();
     }
 
     private void build() {

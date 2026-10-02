@@ -33,6 +33,9 @@ public class EspionageView {
 
     public EspionageView(Menubar menubar) {
         this.menubar = menubar;
+    }
+
+    public void initializeAfterConstruction() {
         build();
     }
 

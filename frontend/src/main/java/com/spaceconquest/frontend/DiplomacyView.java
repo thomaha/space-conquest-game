@@ -42,6 +42,9 @@ public class DiplomacyView {
 
     public DiplomacyView(Menubar menubar) {
         this.menubar = menubar;
+    }
+
+    public void initializeAfterConstruction() {
         build();
     }
 

@@ -39,7 +39,6 @@ public class PlanetDetailView {
 
     public PlanetDetailView(Menubar menubar) {
         this.menubar = menubar;
-        build();
     }
 
     public void setHumanController(HumanController controller) {
@@ -63,6 +62,10 @@ public class PlanetDetailView {
 
     public List<Megastructure> getMegastructures() {
         return megastructures;
+    }
+
+    public void initializeAfterConstruction() {
+        build();
     }
 
     private void build() {
@@ -190,7 +193,8 @@ public class PlanetDetailView {
             return placeholder;
         }
 
-        SurfaceBiomeGridView gridView = new SurfaceBiomeGridView(selectedBody, humanController, playerEmpireId, (id, tileIdx) -> {
+        SurfaceBiomeGridView gridView = PostConstructionInitializer.initialize(
+                new SurfaceBiomeGridView(selectedBody, humanController, playerEmpireId, (id, tileIdx) -> {
             if (humanController != null) {
                 humanController.stageCommand(new PlaceFacilityOnTileCommand(
                         id, tileIdx, "solar_power_array", playerEmpireId, "PUBLIC_STATE", 50, "technician"
@@ -198,7 +202,7 @@ public class PlanetDetailView {
                 feedbackLabel.setText("Commissioned facility on surface tile #" + tileIdx + " (" + selectedBody.name() + ")");
                 feedbackLabel.setTextFill(Color.LIGHTGREEN);
             }
-        });
+        }), SurfaceBiomeGridView::initializeAfterConstruction);
 
         return gridView;
     }

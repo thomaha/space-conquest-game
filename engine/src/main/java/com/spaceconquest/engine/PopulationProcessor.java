@@ -379,7 +379,7 @@ public class PopulationProcessor {
         if ("Hive mind".equalsIgnoreCase(race.societyStructure())
                 || "Hive Mind".equalsIgnoreCase(race.societyStructure())) {
             int queens = Math.max(1, activeQueens);
-            return (long) (queens * 1000L * years);
+            return queens * 1000L * years;
         } else if ("synthetic_machine".equalsIgnoreCase(race.id())) {
             return 0L; // Synthetics require industrial manufacturing commands
         } else {

@@ -45,6 +45,9 @@ public class ScenarioEditorView {
     public ScenarioEditorView(Menubar menubar, AudioSynthesizer audioSynthesizer) {
         this.menubar = menubar;
         this.audioSynthesizer = audioSynthesizer != null ? audioSynthesizer : new AudioSynthesizer();
+    }
+
+    public void initializeAfterConstruction() {
         build();
     }
 

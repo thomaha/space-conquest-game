@@ -28,11 +28,14 @@ public class CampaignManagerView {
 
     public CampaignManagerView(Menubar menubar) {
         this.menubar = menubar;
-        build();
     }
 
     public void setMainApp(Main mainApp) {
         this.mainApp = mainApp;
+    }
+
+    public void initializeAfterConstruction() {
+        build();
     }
 
     private void build() {

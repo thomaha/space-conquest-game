@@ -55,7 +55,7 @@ public class MenubarViewTest {
         com.spaceconquest.engine.audio.AudioSynthesizer synth = new com.spaceconquest.engine.audio.AudioSynthesizer();
         synth.setAudioHardwareEnabled(false); // test headless
 
-        AudioPlaybackManager manager = new AudioPlaybackManager(synth);
+        AudioPlaybackManager manager = PostConstructionInitializer.initialize(new AudioPlaybackManager(synth), AudioPlaybackManager::initializeAfterConstruction);
         assertTrue(manager.isSoundEnabled());
 
         synth.setMasterVolume(0.5);
@@ -225,7 +225,7 @@ public class MenubarViewTest {
 
     @Test
     public void testPlanetDetailViewMegastructureDataIngestion() {
-        PlanetDetailView view = new PlanetDetailView(null);
+        PlanetDetailView view = PostConstructionInitializer.initialize(new PlanetDetailView(null), PlanetDetailView::initializeAfterConstruction);
         com.spaceconquest.engine.megastructure.Megastructure dyson = new com.spaceconquest.engine.megastructure.Megastructure(
                 "mega_dyson_sol", "Sol Dyson Swarm", com.spaceconquest.engine.megastructure.Megastructure.TYPE_DYSON_SWARM,
                 "sol", "earth", "terran_confederation",
