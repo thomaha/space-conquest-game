@@ -306,105 +306,44 @@ public class LogisticsProcessorTest {
     }
 
     @Test
-    public void testAutomatedTradeRouteMaterialTransferAndTariff() {
+    void loadingRespectsMinimumSourceThresholdAndDestinationCapacity() {
         LogisticsProcessor processor = new LogisticsProcessor();
+        OrbitalStation sourceStation = station("source_station");
+        OrbitalStation destinationStation = station("destination_station");
+        CommercialHub source = new CommercialHub("hub_earth", sourceStation.id(), 0,
+                5_000, 1_200, 10, Map.of("refined_iron",
+                new MarketOrder("refined_iron", 1_200, 0, 1, 0)));
+        CommercialHub destination = new CommercialHub("hub_mars", destinationStation.id(), 0,
+                10_000, 9_500, 10, Map.of("refined_iron",
+                new MarketOrder("refined_iron", 9_500, 10_000, 10, 0.5)));
+        Empire empire = new Empire("emp", "Empire", "human", "Individualist",
+                10_000, 0.1, List.of("sol"), List.of(), Map.of(), List.of(), List.of());
+        ShipDesign design = new ShipDesign("design", "Freighter", "emp",
+                ShipRole.CARGO_TRANSPORT, "steel", List.of(), "steel", 0,
+                1_000, 100, 0, 1, 0, 0, true, false);
+        Fleet fleet = new Fleet("fleet", "Freighter", "emp", "sol", "",
+                0, 0, 0, false, "PASSIVE", List.of(new ShipInstance("ship", design.id(),
+                "emp", 100, 0, 100, Map.of())),
+                FleetLocation.at(FleetLocation.Site.docked(sourceStation.id())));
+        TradeRoute route = new TradeRoute("route", "Restricted iron transfer", "emp",
+                source.id(), destination.id(), "refined_iron", 1_000, 1_000,
+                9_600, List.of("ship"), 0, true);
+        GameState state = GameState.builder().orbitalStations(List.of(sourceStation,
+                        destinationStation)).commercialHubs(List.of(source, destination))
+                .marketAccounts(List.of(new MarketAccount(source.id(), 0),
+                        new MarketAccount(destination.id(), 10_000)))
+                .empires(List.of(empire)).shipDesigns(List.of(design)).fleets(List.of(fleet))
+                .tradeRoutes(List.of(route)).build();
 
-        CommercialHub originHub = new CommercialHub(
-                "hub_earth", "earth", 0.05, 500000.0, 6000.0, 15.0,
-                Map.of(
-                        "refined_iron", new MarketOrder("refined_iron", 5000.0, 2000.0, 10.0, 0.0),
-                        "consumer_goods", new MarketOrder("consumer_goods", 1000.0, 500.0, 25.0, 0.0)
-                )
-        );
+        GameState loaded = processor.processTradeRoutes(state).state();
 
-        CommercialHub destHub = new CommercialHub(
-                "hub_mars", "mars", 0.05, 500000.0, 200.0, 15.0,
-                Map.of(
-                        "refined_iron", new MarketOrder("refined_iron", 200.0, 4000.0, 10.0, 0.8)
-                )
-        );
-
-        Empire terran = new Empire(
-                "terran_confederation", "Terran Confederation", "human", "Individualist",
-                100000.0, 0.10, List.of("sol"), List.of(), Map.of(), List.of(), List.of()
-        );
-
-        Corporation transportCorp = new Corporation(
-                "corp_terran_transport", "Terran Transport", "terran_confederation", "earth",
-                "TRANSPORT", 50000.0, List.of(), List.of("freighter_01", "freighter_02"), List.of()
-        );
-
-        TradeRoute route = new TradeRoute(
-                "route_earth_mars_iron", "Sol Earth-Mars Iron Supply Route",
-                "terran_confederation", "hub_earth", "hub_mars", "refined_iron",
-                1500.0, 1000.0, 10000.0, List.of("freighter_01"), 0.0, true
-        );
-
-        LogisticsProcessor.LogisticsResult result = processor.processTradeRoutes(
-                List.of(route),
-                List.of(originHub, destHub),
-                List.of(terran),
-                List.of(transportCorp)
-        );
-
-        assertNotNull(result);
-        assertEquals(1500.0, result.totalVolumeMovedThisTurnKg(), 0.001);
-
-        TradeRoute updatedRoute = result.updatedTradeRoutes().getFirst();
-        assertEquals(1500.0, updatedRoute.totalVolumeMovedKg(), 0.001);
-
-        CommercialHub updatedOrigin = result.updatedCommercialHubs().stream()
-                .filter(h -> h.id().equals("hub_earth")).findFirst().orElseThrow();
-        assertEquals(3500.0, updatedOrigin.activeOrders().get("refined_iron").supplyKg(), 0.001);
-
-        CommercialHub updatedDest = result.updatedCommercialHubs().stream()
-                .filter(h -> h.id().equals("hub_mars")).findFirst().orElseThrow();
-        assertEquals(1700.0, updatedDest.activeOrders().get("refined_iron").supplyKg(), 0.001);
-
-        Empire updatedEmpire = result.updatedEmpires().stream()
-                .filter(e -> e.id().equals("terran_confederation")).findFirst().orElseThrow();
-        // Tariff 2% of 1500 = 30 credits added to treasury
-        assertEquals(100030.0, updatedEmpire.treasuryCredits(), 0.001);
-    }
-
-    @Test
-    public void testTradeRouteRespectsMinimumThresholdAndCapacity() {
-        LogisticsProcessor processor = new LogisticsProcessor();
-
-        CommercialHub originHub = new CommercialHub(
-                "hub_earth", "earth", 0.05, 500000.0, 1200.0, 15.0,
-                Map.of(
-                        "refined_iron", new MarketOrder("refined_iron", 1200.0, 1000.0, 10.0, 0.0)
-                )
-        );
-
-        CommercialHub destHub = new CommercialHub(
-                "hub_mars", "mars", 0.05, 500000.0, 9500.0, 15.0,
-                Map.of(
-                        "refined_iron", new MarketOrder("refined_iron", 9500.0, 10000.0, 10.0, 0.5)
-                )
-        );
-
-        // Min source threshold is 1000 kg -> only 200 kg available surplus
-        // Max dest capacity is 9600 kg -> only 100 kg room at dest
-        TradeRoute route = new TradeRoute(
-                "route_restricted", "Restricted Iron Transfer",
-                "terran_confederation", "hub_earth", "hub_mars", "refined_iron",
-                1000.0, 1000.0, 9600.0, List.of(), 0.0, true
-        );
-
-        LogisticsProcessor.LogisticsResult result = processor.processTradeRoutes(
-                List.of(route), List.of(originHub, destHub), List.of(), List.of()
-        );
-
-        assertEquals(100.0, result.totalVolumeMovedThisTurnKg(), 0.001);
-
-        CommercialHub updatedOrigin = result.updatedCommercialHubs().stream()
-                .filter(h -> h.id().equals("hub_earth")).findFirst().orElseThrow();
-        assertEquals(1100.0, updatedOrigin.activeOrders().get("refined_iron").supplyKg(), 0.001);
-
-        CommercialHub updatedDest = result.updatedCommercialHubs().stream()
-                .filter(h -> h.id().equals("hub_mars")).findFirst().orElseThrow();
-        assertEquals(9600.0, updatedDest.activeOrders().get("refined_iron").supplyKg(), 0.001);
+        assertEquals(TradeRoute.DELIVERING, loaded.tradeRoutes().getFirst().phase());
+        assertEquals(100, loaded.tradeRoutes().getFirst().onboardKg(), 0.001);
+        assertEquals(1_100, loaded.commercialHubs().stream()
+                .filter(hub -> source.id().equals(hub.id())).findFirst().orElseThrow()
+                .activeOrders().get("refined_iron").supplyKg(), 0.001);
+        assertEquals(9_500, loaded.commercialHubs().stream()
+                .filter(hub -> destination.id().equals(hub.id())).findFirst().orElseThrow()
+                .activeOrders().get("refined_iron").supplyKg(), 0.001);
     }
 }

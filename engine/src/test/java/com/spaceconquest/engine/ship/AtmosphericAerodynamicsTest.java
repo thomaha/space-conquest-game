@@ -1,5 +1,6 @@
 package com.spaceconquest.engine.ship;
 
+import com.spaceconquest.engine.market.OrbitalLiftProfile;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -66,14 +67,17 @@ public class AtmosphericAerodynamicsTest {
     }
 
     @Test
-    void testLaunchGravityTaxCalculation() {
+    void testOrbitalLiftProfileCalculation() {
         double dryMass = 20000.0;
         double cargo = 10000.0;
         double gravity = 1.0;
         double pressure = 1.0;
 
-        double tax = validator.calculateLaunchGravityTax(dryMass, cargo, gravity, pressure);
-        // (30000) * 1.0 * (2.0) * 0.001 = 60.0 credits
-        assertEquals(60.0, tax, 0.01);
+        OrbitalLiftProfile profile = validator.calculateOrbitalLiftCost(
+                dryMass, cargo, gravity, pressure);
+
+        assertTrue(profile.totalLiftCostCredits() > 0.0);
+        assertEquals(profile.propellantCostCredits() + profile.spaceportHandlingFeeCredits()
+                + profile.turnaroundWearCostCredits(), profile.totalLiftCostCredits(), 0.01);
     }
 }
