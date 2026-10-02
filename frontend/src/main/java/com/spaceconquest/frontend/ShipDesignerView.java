@@ -55,7 +55,7 @@ public class ShipDesignerView {
     private GameState snapshot;
     private String editingDesignId;
 
-    private record PendingDesign(ShipDesign design, long queuedAtTurn) {}
+    private record PendingDesign(ShipDesign design, long queuedAtTurn, boolean updating) {}
 
     public ShipDesignerView(Menubar menubar) {
         this.menubar = menubar;
@@ -144,18 +144,28 @@ public class ShipDesignerView {
     public void updateData(GameState state) {
         snapshot = state;
         if (state != null) {
-            List<String> confirmed = new ArrayList<>();
-            List<String> rejected = new ArrayList<>();
-            pendingDesigns.forEach((id, pending) -> {
+            List<PendingDesign> confirmed = new ArrayList<>();
+            List<PendingDesign> rejected = new ArrayList<>();
+            pendingDesigns.values().forEach(pending -> {
                 boolean applied = state.shipDesigns().stream()
                         .anyMatch(design -> pending.design().equals(design));
-                if (applied) confirmed.add(id);
-                else if (state.turn() > pending.queuedAtTurn()) rejected.add(id);
+                if (applied) confirmed.add(pending);
+                else if (state.turn() != pending.queuedAtTurn()) rejected.add(pending);
             });
-            confirmed.forEach(pendingDesigns::remove);
-            rejected.forEach(pendingDesigns::remove);
+            confirmed.forEach(pending -> pendingDesigns.remove(pending.design().id()));
+            rejected.forEach(pending -> pendingDesigns.remove(pending.design().id()));
+            if (!confirmed.isEmpty()) {
+                PendingDesign latest = confirmed.getLast();
+                feedbackLabel.setText(latest.updating()
+                        ? "Blueprint " + latest.design().name() + " was updated."
+                        : "Blueprint " + latest.design().name() + " is registered and ready to build.");
+                feedbackLabel.setTextFill(Color.LIGHTGREEN);
+            }
             if (!rejected.isEmpty()) {
-                feedbackLabel.setText("The ship design command was rejected. Check its technology and blueprint settings.");
+                PendingDesign latest = rejected.getLast();
+                feedbackLabel.setText(latest.updating()
+                        ? "Changes to " + latest.design().name() + " were rejected. Check its technology and design settings."
+                        : "Blueprint " + latest.design().name() + " was rejected. Check its technology and design settings.");
                 feedbackLabel.setTextFill(Color.SALMON);
             }
         }
@@ -427,31 +437,26 @@ public class ShipDesignerView {
                     valRes.totalThrustN(), valRes.isLaunchCapable(), false
             );
 
-            if (menubar != null) {
+            if (humanController != null) {
                 GameCommand command;
-                if (editingDesign == null) {
+                boolean updating = editingDesign != null;
+                if (!updating) {
                     command = new DesignShipCommand(newDesign);
-                    feedbackLabel.setText("Registering " + nameField.getText() + "...");
                 } else {
                     command = new UpdateShipDesignCommand(newDesign);
-                    feedbackLabel.setText("Saving changes to " + nameField.getText() + "...");
                     editingDesignId = null;
                 }
+                feedbackLabel.setText(updating
+                        ? "Blueprint changes queued for the next simulation tick."
+                        : "Blueprint queued for the next simulation tick.");
                 pendingDesigns.put(newDesign.id(), new PendingDesign(newDesign,
-                        snapshot == null ? -1 : snapshot.turn()));
+                        snapshot == null ? -1 : snapshot.turn(), updating));
                 feedbackLabel.setTextFill(Color.LIGHTGREEN);
                 renderContent();
-                menubar.submitImmediateCommand(command, accepted -> {
-                    pendingDesigns.remove(newDesign.id());
-                    if (accepted) {
-                        feedbackLabel.setText("Blueprint " + newDesign.name() + " is registered and ready to build.");
-                        feedbackLabel.setTextFill(Color.LIGHTGREEN);
-                    } else {
-                        feedbackLabel.setText("Blueprint was rejected. Check its technology and design settings.");
-                        feedbackLabel.setTextFill(Color.SALMON);
-                    }
-                    renderContent();
-                });
+                humanController.stageCommand(command);
+            } else {
+                feedbackLabel.setText("The command queue is unavailable. Blueprint changes were not submitted.");
+                feedbackLabel.setTextFill(Color.SALMON);
             }
         });
         return saveBlueprintBtn;
