@@ -24,11 +24,8 @@ import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.SpaceConquestEngine;
-import com.spaceconquest.engine.SystemGovernor;
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
-import com.spaceconquest.engine.industry.GeologicalDeposit;
 import com.spaceconquest.engine.industry.IndustrialFacility;
-import com.spaceconquest.engine.industry.PowerGridState;
 import com.spaceconquest.engine.macrostructure.ConstructionDeploymentProject;
 import com.spaceconquest.engine.macrostructure.OrbitalStation;
 import com.spaceconquest.engine.macrostructure.SpaceElevator;
@@ -172,7 +169,7 @@ public class EmpireViewTest {
         view.setCurrentFilter(FilterCategory.COLONIZED);
         List<PlanetaryBodyEntry> colonized = view.getFilteredAndSortedPlanetaryBodies();
         assertEquals(1, colonized.size());
-        assertEquals("earth", colonized.get(0).id());
+        assertEquals("earth", colonized.getFirst().id());
 
         // Uncolonized: mars, jupiter, europa
         view.setCurrentFilter(FilterCategory.UNCOLONIZED);
@@ -201,7 +198,7 @@ public class EmpireViewTest {
         view.setCurrentFilter(FilterCategory.ONLY_MOONS);
         List<PlanetaryBodyEntry> moonsOnly = view.getFilteredAndSortedPlanetaryBodies();
         assertEquals(1, moonsOnly.size());
-        assertEquals("europa", moonsOnly.get(0).id());
+        assertEquals("europa", moonsOnly.getFirst().id());
     }
 
     @Test
@@ -219,37 +216,37 @@ public class EmpireViewTest {
         // Name A-Z
         view.setCurrentSort(SortOption.NAME_AZ);
         List<PlanetaryBodyEntry> sortByName = view.getFilteredAndSortedPlanetaryBodies();
-        assertEquals("Alpha Planet", sortByName.get(0).name());
+        assertEquals("Alpha Planet", sortByName.getFirst().name());
         assertEquals("Beta Planet", sortByName.get(1).name());
 
         // System name
         view.setCurrentSort(SortOption.SYSTEM_NAME);
         List<PlanetaryBodyEntry> sortBySystem = view.getFilteredAndSortedPlanetaryBodies();
-        assertEquals("Alpha System", sortBySystem.get(0).systemName());
+        assertEquals("Alpha System", sortBySystem.getFirst().systemName());
         assertEquals("Zeta System", sortBySystem.get(1).systemName());
 
         // Population Descending
         view.setCurrentSort(SortOption.POPULATION_DESC);
         List<PlanetaryBodyEntry> sortByPop = view.getFilteredAndSortedPlanetaryBodies();
-        assertEquals(500L, sortByPop.get(0).totalPopulation());
+        assertEquals(500L, sortByPop.getFirst().totalPopulation());
         assertEquals(100L, sortByPop.get(1).totalPopulation());
 
         // Size Descending
         view.setCurrentSort(SortOption.SIZE_DESC);
         List<PlanetaryBodyEntry> sortBySize = view.getFilteredAndSortedPlanetaryBodies();
-        assertEquals(15000.0, sortBySize.get(0).diameter());
+        assertEquals(15000.0, sortBySize.getFirst().diameter());
         assertEquals(5000.0, sortBySize.get(1).diameter());
 
         // Gravity Descending
         view.setCurrentSort(SortOption.GRAVITY_DESC);
         List<PlanetaryBodyEntry> sortByGrav = view.getFilteredAndSortedPlanetaryBodies();
-        assertEquals(15.0, sortByGrav.get(0).gravity());
+        assertEquals(15.0, sortByGrav.getFirst().gravity());
         assertEquals(5.0, sortByGrav.get(1).gravity());
 
         // Resources Descending
         view.setCurrentSort(SortOption.RESOURCES_DESC);
         List<PlanetaryBodyEntry> sortByRes = view.getFilteredAndSortedPlanetaryBodies();
-        assertEquals(3, sortByRes.get(0).resourceCount());
+        assertEquals(3, sortByRes.getFirst().resourceCount());
         assertEquals(1, sortByRes.get(1).resourceCount());
     }
 
@@ -374,21 +371,21 @@ public class EmpireViewTest {
         // When player is terran_confederation: only Terran stations & elevators returned
         List<OrbitalStation> terranStations = view.getOrbitalStationsForPlayerEmpire();
         assertEquals(1, terranStations.size());
-        assertEquals("station_terran", terranStations.get(0).id());
+        assertEquals("station_terran", terranStations.getFirst().id());
 
         List<SpaceElevator> terranElevators = view.getSpaceElevatorsForPlayerEmpire();
         assertEquals(1, terranElevators.size());
-        assertEquals("elev_earth", terranElevators.get(0).id());
+        assertEquals("elev_earth", terranElevators.getFirst().id());
 
         // Switch player empire to vulkan_forge
         view.setPlayerEmpireId("vulkan_forge");
         List<OrbitalStation> vulkanStations = view.getOrbitalStationsForPlayerEmpire();
         assertEquals(1, vulkanStations.size());
-        assertEquals("station_vulkan", vulkanStations.get(0).id());
+        assertEquals("station_vulkan", vulkanStations.getFirst().id());
 
         List<SpaceElevator> vulkanElevators = view.getSpaceElevatorsForPlayerEmpire();
         assertEquals(1, vulkanElevators.size());
-        assertEquals("elev_vulcan", vulkanElevators.get(0).id());
+        assertEquals("elev_vulcan", vulkanElevators.getFirst().id());
     }
 
     @Test
@@ -413,15 +410,15 @@ public class EmpireViewTest {
         // Terran player sees only Terran corporations
         List<Corporation> terranCorps = view.getCorporationsForPlayerEmpire();
         assertEquals(1, terranCorps.size());
-        assertEquals("corp_terran_mining", terranCorps.get(0).id());
-        assertEquals("Asteroid Mining Syndicate", terranCorps.get(0).name());
-        assertEquals(25000.0, terranCorps.get(0).liquidCapitalReserves());
+        assertEquals("corp_terran_mining", terranCorps.getFirst().id());
+        assertEquals("Asteroid Mining Syndicate", terranCorps.getFirst().name());
+        assertEquals(25000.0, terranCorps.getFirst().liquidCapitalReserves());
 
         // Switch to silicon hegemony
         view.setPlayerEmpireId("silicon_hegemony");
         List<Corporation> siliconCorps = view.getCorporationsForPlayerEmpire();
         assertEquals(1, siliconCorps.size());
-        assertEquals("corp_silicon_logic", siliconCorps.get(0).id());
+        assertEquals("corp_silicon_logic", siliconCorps.getFirst().id());
 
         // Switch to an empire with no corporations
         view.setPlayerEmpireId("vulkan_forge");
@@ -647,7 +644,7 @@ public class EmpireViewTest {
         view.setPlayerEmpireId("vulkan_forge");
         List<com.spaceconquest.engine.megastructure.Megastructure> vulkanMegas = view.getMegastructuresForPlayerEmpire();
         assertEquals(1, vulkanMegas.size());
-        assertEquals("mega_ring_vulcan", vulkanMegas.get(0).id());
+        assertEquals("mega_ring_vulcan", vulkanMegas.getFirst().id());
     }
 
     @Test
@@ -714,11 +711,11 @@ public class EmpireViewTest {
                 root.applyCss();
                 root.layout();
                 javafx.scene.layout.VBox tabContent = (javafx.scene.layout.VBox) root.getChildren().get(2);
-                javafx.scene.layout.HBox planets = (javafx.scene.layout.HBox) tabContent.getChildren().get(0);
-                javafx.scene.layout.VBox sidebar = (javafx.scene.layout.VBox) planets.getChildren().get(0);
+                javafx.scene.layout.HBox planets = (javafx.scene.layout.HBox) tabContent.getChildren().getFirst();
+                javafx.scene.layout.VBox sidebar = (javafx.scene.layout.VBox) planets.getChildren().getFirst();
                 javafx.scene.control.ScrollPane scroll = (javafx.scene.control.ScrollPane) sidebar.getChildren().get(2);
                 javafx.scene.layout.VBox list = (javafx.scene.layout.VBox) scroll.getContent();
-                javafx.scene.control.Button first = (javafx.scene.control.Button) list.getChildren().get(0);
+                javafx.scene.control.Button first = (javafx.scene.control.Button) list.getChildren().getFirst();
                 measurements.complete(new double[]{first.getHeight(), first.getWidth(), list.getWidth()});
             } catch (Throwable error) {
                 measurements.completeExceptionally(error);
@@ -789,14 +786,14 @@ public class EmpireViewTest {
 
         VBox tabContent = (VBox) view.getRoot().getChildren().get(2);
         assertEquals(1, tabContent.getChildren().size());
-        VBox economyContent = (VBox) tabContent.getChildren().get(0);
-        HBox subNavigation = (HBox) economyContent.getChildren().get(0);
-        Button empireFinancesButton = (Button) subNavigation.getChildren().get(0);
+        VBox economyContent = (VBox) tabContent.getChildren().getFirst();
+        HBox subNavigation = (HBox) economyContent.getChildren().getFirst();
+        Button empireFinancesButton = (Button) subNavigation.getChildren().getFirst();
         assertEquals(EconomySubView.IMPERIAL.getDisplayName(), empireFinancesButton.getText());
         assertTrue(empireFinancesButton.getStyle().contains("#27ae60"));
 
-        ScrollPane treasury = (ScrollPane) ((VBox) economyContent.getChildren().get(1)).getChildren().get(0);
-        assertTrue(((VBox) treasury.getContent()).getChildren().get(0) instanceof VBox);
+        ScrollPane treasury = (ScrollPane) ((VBox) economyContent.getChildren().get(1)).getChildren().getFirst();
+        assertTrue(((VBox) treasury.getContent()).getChildren().getFirst() instanceof VBox);
     }
 
     @Test
@@ -878,9 +875,9 @@ public class EmpireViewTest {
 
     private static VBox planetPageContent(EmpireView view) {
         VBox tabContent = (VBox) view.getRoot().getChildren().get(2);
-        HBox planets = (HBox) tabContent.getChildren().get(0);
+        HBox planets = (HBox) tabContent.getChildren().getFirst();
         VBox main = (VBox) planets.getChildren().get(1);
-        ScrollPane scroll = (ScrollPane) main.getChildren().get(0);
-        return (VBox) ((VBox) scroll.getContent()).getChildren().get(0);
+        ScrollPane scroll = (ScrollPane) main.getChildren().getFirst();
+        return (VBox) ((VBox) scroll.getContent()).getChildren().getFirst();
     }
 }

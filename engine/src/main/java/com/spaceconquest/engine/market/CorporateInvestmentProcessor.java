@@ -1,7 +1,6 @@
 package com.spaceconquest.engine.market;
 
 import com.spaceconquest.engine.*;
-import com.spaceconquest.engine.industry.GeologicalDeposit;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
 import com.spaceconquest.engine.industry.IndustrialFacility;

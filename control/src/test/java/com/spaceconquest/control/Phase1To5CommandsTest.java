@@ -120,7 +120,7 @@ class Phase1To5CommandsTest {
         GameState stateWithStation = buildCmd.apply(initialState);
         for (int day = 0; day < 5; day++) stateWithStation = new MacroStructureProcessor()
                 .advanceConstructionProjects(stateWithStation);
-        String stationId = stateWithStation.orbitalStations().get(0).id();
+        String stationId = stateWithStation.orbitalStations().getFirst().id();
         stateWithStation = stateWithStation.withFleets(List.of(stateWithStation.fleets()
                 .getFirst().withLocation(FleetLocation.at(FleetLocation.Site.docked(stationId)))));
 
@@ -131,11 +131,11 @@ class Phase1To5CommandsTest {
 
         assertTrue(modCmd.validate(stateWithStation));
         GameState updated = modCmd.apply(stateWithStation);
-        assertEquals(2, updated.orbitalStations().get(0).modules().size());
+        assertEquals(2, updated.orbitalStations().getFirst().modules().size());
         assertEquals(1, updated.constructionProjects().size());
         for (int day = 0; day < 2; day++) updated = new MacroStructureProcessor()
                 .advanceConstructionProjects(updated);
-        assertEquals(3, updated.orbitalStations().get(0).modules().size());
+        assertEquals(3, updated.orbitalStations().getFirst().modules().size());
     }
 
     @Test
@@ -149,7 +149,7 @@ class Phase1To5CommandsTest {
 
         GameState updated = cmd.apply(atMars);
         assertEquals(1, updated.constructionProjects().size());
-        assertEquals("mars", updated.constructionProjects().get(0).targetCelestialId());
+        assertEquals("mars", updated.constructionProjects().getFirst().targetCelestialId());
     }
 
     @Test
@@ -160,7 +160,7 @@ class Phase1To5CommandsTest {
         assertTrue(infCmd.validate(initialState));
         GameState stateWithAgent = infCmd.apply(initialState);
         assertEquals(1, stateWithAgent.sleeperAgents().size());
-        String agentId = stateWithAgent.sleeperAgents().get(0).id();
+        String agentId = stateWithAgent.sleeperAgents().getFirst().id();
 
         LaunchCovertOperationCommand opCmd = new LaunchCovertOperationCommand(
                 "POWER_GRID_SABOTAGE", "terran_confederation", "centauri_dominion", "grid_sol", agentId
@@ -176,12 +176,12 @@ class Phase1To5CommandsTest {
                 "earth", "pyro_iron_smelting", "terran_confederation", "PUBLIC_STATE", 50, "industrial_worker"
         );
         GameState stateWithFac = facCmd.apply(initialState);
-        String facId = stateWithFac.industrialFacilities().get(0).id();
+        String facId = stateWithFac.industrialFacilities().getFirst().id();
 
         SetFacilityRecipeCommand recipeCmd = new SetFacilityRecipeCommand(facId, "alloy_steel");
         assertTrue(recipeCmd.validate(stateWithFac));
 
         GameState updated = recipeCmd.apply(stateWithFac);
-        assertEquals("alloy_steel", updated.industrialFacilities().get(0).applicationId());
+        assertEquals("alloy_steel", updated.industrialFacilities().getFirst().applicationId());
     }
 }

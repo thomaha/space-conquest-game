@@ -72,8 +72,8 @@ public class MarketDemandProcessor {
                             && owner.unlockedTechIds().contains("electricity")
                             && owner.unlockedTechIds().contains(plant.requiredTechnology())
                             && plant.fuelMaterialId() != null) {
-                        double staffing = Math.min(1.0,
-                                (double) facility.allocatedWorkers() / plant.requiredWorkers());
+                        double staffing = Math.clamp(
+                                (double) facility.allocatedWorkers() / plant.requiredWorkers(), 0.0, 1.0);
                         double scale = facility.tier() * staffing
                                 * facility.getEffectiveThroughputMultiplier()
                                 / Math.pow(1.5, Math.max(0, facility.tier() - 1));

@@ -112,8 +112,8 @@ public class GalaxyGenerator {
         Set<String> claimedSystems = new HashSet<>();
 
         // 1. Setup Player Empire
-        Race humanRace = races.stream().filter(r -> r.id().equals("human")).findFirst().orElse(races.get(0));
-        SolarSystem playerHome = prepareHomeSystem(rawSystems.get(0), humanRace, activeScenario);
+        Race humanRace = races.stream().filter(r -> r.id().equals("human")).findFirst().orElse(races.getFirst());
+        SolarSystem playerHome = prepareHomeSystem(rawSystems.getFirst(), humanRace, activeScenario);
         
         // Replace raw home with configured home in systems list
         List<SolarSystem> systems = new ArrayList<>(rawSystems);
@@ -213,7 +213,7 @@ public class GalaxyGenerator {
             for (int index = 0; index < empires.size(); index++) {
                 Empire owner = empires.get(index);
                 if (!owner.id().equals(facility.ownerEntityId())) continue;
-                double capital = Math.min(50_000.0, Math.max(0.0, owner.treasuryCredits()));
+                double capital = Math.clamp(owner.treasuryCredits(), 0.0, 50_000.0);
                 accounts.add(IndustryAccount.empty(facility.id()).withOperatingCash(capital));
                 empires.set(index, new Empire(owner.id(), owner.name(), owner.raceId(),
                         owner.societyStructure(), owner.treasuryCredits() - capital,
@@ -287,7 +287,7 @@ public class GalaxyGenerator {
                 .filter(p -> !p.populations().isEmpty())
                 .max(Comparator.comparingLong(p -> p.populations().stream()
                         .mapToLong(Population::totalCount).sum()))
-                .orElse(homeSystem.planets().isEmpty() ? null : homeSystem.planets().get(0));
+                .orElse(homeSystem.planets().isEmpty() ? null : homeSystem.planets().getFirst());
 
         if (homePlanet != null) {
             CommercialHub openingHub = economySeeder.createOpeningHub("hub_" + homePlanet.id(),
@@ -661,8 +661,8 @@ public class GalaxyGenerator {
             return systems;
         }
 
-        Race primaryRace = races.stream().filter(r -> r.id().equals("human")).findFirst().orElse(races.get(0));
-        SolarSystem rawHome = systems.get(0);
+        Race primaryRace = races.stream().filter(r -> r.id().equals("human")).findFirst().orElse(races.getFirst());
+        SolarSystem rawHome = systems.getFirst();
         SolarSystem configuredHome = prepareHomeSystem(rawHome, primaryRace, scenario);
 
         List<SolarSystem> result = new ArrayList<>();
@@ -724,7 +724,7 @@ public class GalaxyGenerator {
             }
         }
 
-        Planet first = planets.get(0);
+        Planet first = planets.getFirst();
         planets.set(0, new Planet(
                 first.id(), first.name(), "The cradle world of civilization.",
                 5.97e24, 9.81, first.distance(), first.inclination(), 12742.0,
@@ -854,7 +854,7 @@ public class GalaxyGenerator {
                 }
             }
             if (!outpostPlaced) {
-                Planet first = system.planets().get(0);
+                Planet first = system.planets().getFirst();
                 planets.set(0, new Planet(
                         first.id(), first.name(), first.description(), first.mass(), first.gravity(), first.distance(),
                         first.inclination(), first.diameter(), first.type(), first.atmosphere(), first.hasLiquidWater(),

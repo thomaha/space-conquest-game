@@ -225,8 +225,8 @@ public class TacticalCombatProcessor {
         List<ShipInstance> updatedDefenders = applyDamageToFleet(defenders, attFirepower, designs, targetedSubsystem);
         List<ShipInstance> updatedAttackers = applyDamageToFleet(attackers, defFirepower, designs, TARGET_SUBSYSTEM_ALL);
 
-        int attFightersLost = (!attWings.isEmpty() && defFirepower > 50.0) ? Math.min(2, attWings.get(0).activeCraftCount()) : 0;
-        int defFightersLost = (!defWings.isEmpty() && attFirepower > 50.0) ? Math.min(2, defWings.get(0).activeCraftCount()) : 0;
+        int attFightersLost = (!attWings.isEmpty() && defFirepower > 50.0) ? Math.min(2, attWings.getFirst().activeCraftCount()) : 0;
+        int defFightersLost = (!defWings.isEmpty() && attFirepower > 50.0) ? Math.min(2, defWings.getFirst().activeCraftCount()) : 0;
 
         int attackersLost = prevAttCount - updatedAttackers.size();
         int defendersLost = prevDefCount - updatedDefenders.size();
@@ -324,8 +324,8 @@ public class TacticalCombatProcessor {
             double maxHull = d != null ? d.calculatedStructuralIntegrity() * 100.0 : 500.0;
             double maxShield = 200.0;
 
-            double hullPct = Math.max(0.0, Math.min(1.0, s.currentHullHealth() / Math.max(1.0, maxHull)));
-            double shieldPct = Math.max(0.0, Math.min(1.0, s.currentShieldHealth() / Math.max(1.0, maxShield)));
+            double hullPct = Math.clamp(s.currentHullHealth() / Math.max(1.0, maxHull), 0.0, 1.0);
+            double shieldPct = Math.clamp(s.currentShieldHealth() / Math.max(1.0, maxShield), 0.0, 1.0);
             double y = 140.0 + (i * 70.0);
 
             states.add(new ShipVisualState(

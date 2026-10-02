@@ -103,7 +103,7 @@ public class PowerProcessor {
                 if (workers <= 0 || recipe == null) continue;
                 double requested = requestedIndustryKw(facility, workers);
                 demandKw += requested;
-                double fraction = requested <= 0.0 ? 1.0 : Math.min(1.0, availableKw / requested);
+                double fraction = requested <= 0.0 ? 1.0 : Math.clamp(availableKw / requested, 0.0, 1.0);
                 powered.put(facility.id(), (int) Math.floor(workers * fraction));
                 availableKw = Math.max(0.0, availableKw - requested * fraction);
             }
@@ -120,7 +120,7 @@ public class PowerProcessor {
         IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(facility.applicationId());
         return recipe == null || workers <= 0 ? 0.0 : recipe.powerDrawKw()
                 * Math.max(1, facility.tier())
-                * Math.min(1.0, workers / (double) recipe.workersPerBatch());
+                * Math.clamp((double) workers / recipe.workersPerBatch(), 0.0, 1.0);
     }
 
     private double baselineDemandKw(GameState state, String bodyId, double fallback) {

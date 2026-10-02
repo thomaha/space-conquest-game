@@ -1,7 +1,6 @@
 package com.spaceconquest.engine.megastructure;
 
 import com.spaceconquest.engine.GameState;
-import com.spaceconquest.engine.industry.ConstructionMaterials;
 import com.spaceconquest.engine.industry.ConstructionProgress;
 
 import java.util.ArrayList;

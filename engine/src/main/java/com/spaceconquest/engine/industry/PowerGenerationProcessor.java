@@ -40,7 +40,7 @@ public class PowerGenerationProcessor {
             if (technologyOwner != null && technologyOwner.unlockedTechIds().contains("electricity")
                     && technologyOwner.unlockedTechIds().contains(plant.requiredTechnology())
                     && staffed > 0 && facility.tier() > 0) {
-                double staffing = Math.min(1.0, (double) staffed / plant.requiredWorkers());
+                double staffing = Math.clamp((double) staffed / plant.requiredWorkers(), 0.0, 1.0);
                 double environment = environmentFactor(state.solarSystems(), facility);
                 double scale = facility.tier() * staffing * facility.getEffectiveThroughputMultiplier()
                         / Math.pow(1.5, Math.max(0, facility.tier() - 1));

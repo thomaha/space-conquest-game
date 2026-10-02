@@ -74,7 +74,7 @@ class PlanetaryMunicipalProcessorTest {
         assertNotNull(result);
         assertEquals(1, result.balanceSheets().size());
 
-        PlanetaryBalanceSheet sheet = result.balanceSheets().get(0);
+        PlanetaryBalanceSheet sheet = result.balanceSheets().getFirst();
         assertEquals("planet_sol_3", sheet.planetId());
         assertEquals("sys_sol", sheet.systemId());
         assertEquals("terran_confederation", sheet.empireId());
@@ -145,8 +145,8 @@ class PlanetaryMunicipalProcessorTest {
                 .industrialFacilities(List.of(corpFacility))
                 .build();
 
-        PlanetaryBalanceSheet standardSheet = processor.processMunicipalFinances(standardState).balanceSheets().get(0);
-        PlanetaryBalanceSheet boostedSheet = processor.processMunicipalFinances(boostedState).balanceSheets().get(0);
+        PlanetaryBalanceSheet standardSheet = processor.processMunicipalFinances(standardState).balanceSheets().getFirst();
+        PlanetaryBalanceSheet boostedSheet = processor.processMunicipalFinances(boostedState).balanceSheets().getFirst();
 
         assertEquals(0.0, standardSheet.corporateProfitTaxRevenue(), 0.001);
         assertEquals(0.0, boostedSheet.corporateProfitTaxRevenue(), 0.001);
@@ -179,11 +179,11 @@ class PlanetaryMunicipalProcessorTest {
                         "planet_alpha", "sys_alpha", "emp_tech").withUncollectedLocalCredits(100_000.0)));
         var households = new HouseholdEconomyProcessor().process(state, List.of());
         PlanetaryMunicipalProcessor.MunicipalTurnResult result = processor.processMunicipalFinances(state, households);
-        PlanetaryBalanceSheet sheet = result.balanceSheets().get(0);
+        PlanetaryBalanceSheet sheet = result.balanceSheets().getFirst();
 
         assertEquals(households.incomeTaxByBody().get("planet_alpha"), sheet.incomeTaxRevenue(), 0.001);
         assertEquals(1000.0, sheet.empireTransferCredits(), 0.001);
-        assertEquals(51_000.0, result.updatedEmpires().get(0).treasuryCredits(), 0.001);
+        assertEquals(51_000.0, result.updatedEmpires().getFirst().treasuryCredits(), 0.001);
         assertTrue(result.dispatchedCouriers().isEmpty(), "No physical courier ships should be dispatched when subspace banking is active");
     }
 
@@ -217,11 +217,11 @@ class PlanetaryMunicipalProcessorTest {
         state = state.withSystemEconomies(List.of(SystemEconomy.createDefault(
                 "sys_frontier", "emp_frontier", 200_000L).withEmpireContributionRate(1.0)));
         PlanetaryMunicipalProcessor.MunicipalTurnResult result = processor.processMunicipalFinances(state);
-        PlanetaryBalanceSheet newSheet = result.balanceSheets().get(0);
+        PlanetaryBalanceSheet newSheet = result.balanceSheets().getFirst();
 
         assertTrue(newSheet.uncollectedLocalCredits() > 0.0, "Credits outside the transfer target stay local");
         assertEquals(1, result.dispatchedCouriers().size(), "A courier ship should be dispatched");
-        CourierShip courier = result.dispatchedCouriers().get(0);
+        CourierShip courier = result.dispatchedCouriers().getFirst();
         assertEquals(1000.0, courier.credits(), 0.001);
         assertEquals(1000.0, newSheet.empireTransferCredits(), 0.001);
         assertEquals("sys_frontier", courier.originSystemId());
@@ -254,7 +254,7 @@ class PlanetaryMunicipalProcessorTest {
         state = state.withSystemEconomies(List.of(SystemEconomy.createDefault(
                 "sys_rim", "emp_rich", 100L).withEmpireContributionRate(-1.0)));
         PlanetaryMunicipalProcessor.MunicipalTurnResult result = processor.processMunicipalFinances(state);
-        PlanetaryBalanceSheet sheet = result.balanceSheets().get(0);
+        PlanetaryBalanceSheet sheet = result.balanceSheets().getFirst();
 
         assertTrue(sheet.isDeficit(), "Should run a deficit due to heavy facility maintenance");
         assertFalse(sheet.isSelfSufficient());
@@ -262,7 +262,7 @@ class PlanetaryMunicipalProcessorTest {
         assertEquals(-1000.0, sheet.empireTransferCredits(), 0.001);
         assertEquals(0.0, sheet.uncollectedLocalCredits());
 
-        Empire updatedEmpire = result.updatedEmpires().get(0);
+        Empire updatedEmpire = result.updatedEmpires().getFirst();
         assertEquals(50_000.0 - sheet.centralSubsidyReceivedCredits(), updatedEmpire.treasuryCredits(), 0.001);
     }
 
@@ -370,7 +370,7 @@ class PlanetaryMunicipalProcessorTest {
 
         PlanetaryMunicipalProcessor.MunicipalTurnResult result = processor.processMunicipalFinances(state);
         assertEquals(1, result.balanceSheets().size());
-        PlanetaryBalanceSheet sheet = result.balanceSheets().get(0);
+        PlanetaryBalanceSheet sheet = result.balanceSheets().getFirst();
 
         assertEquals(0.0, sheet.totalRevenueCredits());
         assertEquals(0.0, sheet.totalExpenditureCredits());

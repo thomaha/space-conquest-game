@@ -1,7 +1,6 @@
 package com.spaceconquest.engine.demographics;
 
 import com.spaceconquest.engine.Population;
-import com.spaceconquest.engine.Profession;
 import com.spaceconquest.engine.economy.SystemEconomy;
 
 import java.util.ArrayList;
@@ -164,7 +163,7 @@ public class CohortFragmentationProcessor {
             }
         }
 
-        double operationalEfficiency = Math.min(1.0, Math.max(0.0, minRatio));
+        double operationalEfficiency = Math.clamp(minRatio, 0.0, 1.0);
         return new FacilityStaffingResult(
                 operationalEfficiency,
                 Collections.unmodifiableMap(requiredProfessions),
@@ -232,7 +231,8 @@ public class CohortFragmentationProcessor {
                 secAssigned = 0L;
             }
 
-            double ratio = secDemand > 0 ? Math.min(1.0, (double) secAssigned / (double) secDemand) : 1.0;
+            double ratio = secDemand > 0
+                    ? Math.clamp((double) secAssigned / secDemand, 0.0, 1.0) : 1.0;
             double baseEff = baseLevels.getOrDefault(sector, 1.0);
             double effectiveEff = baseEff * (0.35 + 0.65 * ratio);
 
@@ -271,7 +271,7 @@ public class CohortFragmentationProcessor {
             return demographics;
         }
 
-        double rate = Math.min(0.20, Math.max(0.0, baseMobilityRate * educationEfficiency));
+        double rate = Math.clamp(baseMobilityRate * educationEfficiency, 0.0, 0.20);
         List<CitizenCohort> updatedCohorts = new ArrayList<>();
         List<CitizenCohort> newlyTrained = new ArrayList<>();
 

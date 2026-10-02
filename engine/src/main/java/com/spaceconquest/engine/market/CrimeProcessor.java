@@ -83,7 +83,7 @@ public class CrimeProcessor {
             return 0.0;
         }
         double ratio = crimeMetric / (policeEfficiency + EPSILON);
-        return grossTransactionValue * tariffRate * Math.min(1.0, ratio);
+        return grossTransactionValue * tariffRate * Math.clamp(ratio, 0.0, 1.0);
     }
 
     /**

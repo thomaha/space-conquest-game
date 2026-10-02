@@ -28,6 +28,6 @@ public record ResearchProject(
 
     public double getProgressPercentage() {
         if (requiredPoints <= 0.0) return 100.0;
-        return Math.min(100.0, (accumulatedPoints / requiredPoints) * 100.0);
+        return Math.clamp((accumulatedPoints / requiredPoints) * 100.0, 0.0, 100.0);
     }
 }

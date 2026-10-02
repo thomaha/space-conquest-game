@@ -85,7 +85,7 @@ class PowerGenerationProcessorTest {
 
         var result = generator.process(state, Map.of("solar", 100, "burner", 100, "fusion", 100), Map.of());
         assertEquals(35_500.0, result.generationKw().get("earth"), 0.001);
-        assertEquals(0.0, result.accounts().get(0).inputCostsCredits(), 0.001);
+        assertEquals(0.0, result.accounts().getFirst().inputCostsCredits(), 0.001);
         assertEquals(200.0, result.accounts().get(1).inputCostsCredits(), 0.001);
         assertEquals(10.0, result.accounts().get(2).inputCostsCredits(), 0.001);
         assertEquals(0.0, result.hubs().getFirst().activeOrders().get("hydrocarbons").supplyKg(), 0.001);

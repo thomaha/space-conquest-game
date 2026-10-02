@@ -38,7 +38,6 @@ import com.spaceconquest.engine.habitation.PassengerStasis;
 import com.spaceconquest.engine.industry.IndustrialFacility;
 import com.spaceconquest.engine.industry.IndustryAccount;
 import com.spaceconquest.engine.industry.IndustryMarketProcessor;
-import com.spaceconquest.engine.industry.ConstructionMaterials;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -259,7 +258,7 @@ public class ShipCommandTest {
                 ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID, "emp_terran",
                 IndustrialFacility.PUBLIC_STATE, 1, 0, "industrial_worker", false, 0.0);
         GameState sharedWorkforce = initialState.toBuilder().industrialFacilities(List.of(
-                initialState.industrialFacilities().get(0),
+                initialState.industrialFacilities().getFirst(),
                 initialState.industrialFacilities().get(1), secondYard)).build();
         assertEquals(0, ShipyardWorkCapacity.assignableWorkers(sharedWorkforce, secondYard));
         assertFalse(new SetSurfaceShipyardStaffingCommand(
@@ -432,7 +431,7 @@ public class ShipCommandTest {
         GameState twoOrders = command.apply(command.apply(initialState));
 
         GameState afterOneDay = new ShipConstructionProcessor().process(twoOrders);
-        assertEquals(100.0, afterOneDay.shipConstructionOrders().get(0).accumulatedWorkHours());
+        assertEquals(100.0, afterOneDay.shipConstructionOrders().getFirst().accumulatedWorkHours());
         assertEquals(0.0, afterOneDay.shipConstructionOrders().get(1).accumulatedWorkHours());
     }
 

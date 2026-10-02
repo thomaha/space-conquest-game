@@ -4,7 +4,6 @@ import com.spaceconquest.engine.Corporation;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.espionage.PirateBase;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**

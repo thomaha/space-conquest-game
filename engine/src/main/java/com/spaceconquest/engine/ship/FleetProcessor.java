@@ -160,8 +160,8 @@ public class FleetProcessor {
             if (!allied) continue;
             return fleet.ships().stream().map(ship -> new ShipInstance(ship.id(),
                     ship.designId(), ship.ownerEntityId(),
-                    Math.min(100.0, ship.currentHullHealth() + 5.0),
-                    Math.min(100.0, ship.currentShieldHealth() + 10.0),
+                    Math.clamp(ship.currentHullHealth() + 5.0, 0.0, 100.0),
+                    Math.clamp(ship.currentShieldHealth() + 10.0, 0.0, 100.0),
                     ship.currentFuelKg(), ship.storedCargoKg(), ship.passengerCount(),
                     ship.passengerRaceId(), ship.transitMode())).toList();
         }

@@ -1,6 +1,5 @@
 package com.spaceconquest.frontend.empire;
 
-import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.frontend.PlanetaryBodyEntry;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -11,8 +10,6 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 public class PlanetsTab {
@@ -84,7 +81,7 @@ public class PlanetsTab {
 
         // Auto-select first item if none selected and list not empty
         if (parent.getSelectedBody() == null && !bodies.isEmpty()) {
-            parent.setSelectedBody(bodies.get(0), false);
+            parent.setSelectedBody(bodies.getFirst(), false);
         }
 
         if (parent.getSelectedBody() != null) {

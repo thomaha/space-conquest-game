@@ -1,7 +1,6 @@
 package com.spaceconquest.frontend.empire;
 
 import com.spaceconquest.engine.economy.SystemEconomy;
-import java.util.List;
 
 public record SystemEconomyReport(
         String systemId,

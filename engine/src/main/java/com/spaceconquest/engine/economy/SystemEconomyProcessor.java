@@ -38,7 +38,7 @@ public class SystemEconomyProcessor {
         double sectorBudget = Math.max(0.0, totalBudgetCredits) * Math.max(0.0, sectorAllocation);
         double perCapita = sectorBudget / (double) systemPopulation;
         double index = perCapita / BASELINE_SECTOR_PER_CAPITA;
-        return Math.min(3.0, Math.max(0.0, index));
+        return Math.clamp(index, 0.0, 3.0);
     }
 
     /**
@@ -48,7 +48,8 @@ public class SystemEconomyProcessor {
      * @return militia combat power factor (0.30 to 0.90)
      */
     public double calculateMilitiaCombatEfficiency(double accumulatedMilitiaInvestment) {
-        double ratio = Math.min(1.0, Math.max(0.0, accumulatedMilitiaInvestment / STANDARD_MILITIA_INVESTMENT_CAP));
+        double ratio = Math.clamp(accumulatedMilitiaInvestment / STANDARD_MILITIA_INVESTMENT_CAP,
+                0.0, 1.0);
         return 0.30 + (ratio * 0.60);
     }
 
@@ -120,11 +121,16 @@ public class SystemEconomyProcessor {
             long totalD = dEdu + dLaw + dHealth + dInfra + dMil;
 
             if (totalD > 0 && availableBureaucrats < totalD) {
-                double aEdu = Math.min(1.0, (double) Math.round(availableBureaucrats * ((double) dEdu / totalD)) / Math.max(1, dEdu));
-                double aLaw = Math.min(1.0, (double) Math.round(availableBureaucrats * ((double) dLaw / totalD)) / Math.max(1, dLaw));
-                double aHealth = Math.min(1.0, (double) Math.round(availableBureaucrats * ((double) dHealth / totalD)) / Math.max(1, dHealth));
-                double aInfra = Math.min(1.0, (double) Math.round(availableBureaucrats * ((double) dInfra / totalD)) / Math.max(1, dInfra));
-                double aMil = Math.min(1.0, (double) Math.round(availableBureaucrats * ((double) dMil / totalD)) / Math.max(1, dMil));
+                double aEdu = Math.clamp((double) Math.round(availableBureaucrats
+                        * ((double) dEdu / totalD)) / Math.max(1, dEdu), 0.0, 1.0);
+                double aLaw = Math.clamp((double) Math.round(availableBureaucrats
+                        * ((double) dLaw / totalD)) / Math.max(1, dLaw), 0.0, 1.0);
+                double aHealth = Math.clamp((double) Math.round(availableBureaucrats
+                        * ((double) dHealth / totalD)) / Math.max(1, dHealth), 0.0, 1.0);
+                double aInfra = Math.clamp((double) Math.round(availableBureaucrats
+                        * ((double) dInfra / totalD)) / Math.max(1, dInfra), 0.0, 1.0);
+                double aMil = Math.clamp((double) Math.round(availableBureaucrats
+                        * ((double) dMil / totalD)) / Math.max(1, dMil), 0.0, 1.0);
 
                 eduIndex *= (0.35 + 0.65 * aEdu);
                 lawIndex *= (0.35 + 0.65 * aLaw);

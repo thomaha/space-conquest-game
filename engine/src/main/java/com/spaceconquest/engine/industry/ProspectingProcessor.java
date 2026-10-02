@@ -34,7 +34,7 @@ public class ProspectingProcessor {
             double totalPlanetVolumeKg,
             double alpha
     ) {
-        double techEff = Math.max(0.05, Math.min(1.0, baseTechEfficiency));
+        double techEff = Math.clamp(baseTechEfficiency, 0.05, 1.0);
         double staffMod = Math.max(0.1, staffTrainingModifier);
         double planetVolume = (totalPlanetVolumeKg <= 0.0) ? DEFAULT_PLANET_ESTIMATED_VOLUME_KG : totalPlanetVolumeKg;
         double expAlpha = (alpha <= 0.0) ? DEFAULT_SCARCITY_EXPONENT_ALPHA : alpha;
@@ -51,7 +51,7 @@ public class ProspectingProcessor {
         double depletionRatio = Math.min(0.99, sumDiscoveredVolumes / planetVolume);
         double scarcityFactor = Math.pow(Math.max(0.01, 1.0 - depletionRatio), expAlpha);
 
-        return Math.max(0.01, Math.min(1.0, techEff * staffMod * scarcityFactor));
+        return Math.clamp(techEff * staffMod * scarcityFactor, 0.01, 1.0);
     }
 
     /**

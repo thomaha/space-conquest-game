@@ -161,7 +161,7 @@ public class EconomyTab {
         if (exists) {
             return selectedSysId;
         } else {
-            String defaultSysId = availableSystems.get(0).id();
+            String defaultSysId = availableSystems.getFirst().id();
             parent.setSelectedEconomySystemId(defaultSysId, false);
             return defaultSysId;
         }
@@ -182,7 +182,7 @@ public class EconomyTab {
             systemCombo.getItems().add(sys.name() + " [" + sys.id() + "]");
         }
 
-        SolarSystem activeSys = availableSystems.stream().filter(s -> s.id().equals(currentSysId)).findFirst().orElse(availableSystems.get(0));
+        SolarSystem activeSys = availableSystems.stream().filter(s -> s.id().equals(currentSysId)).findFirst().orElse(availableSystems.getFirst());
         systemCombo.setValue(activeSys.name() + " [" + activeSys.id() + "]");
 
         systemCombo.setOnAction(e -> {

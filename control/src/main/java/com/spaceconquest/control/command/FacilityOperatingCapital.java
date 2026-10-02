@@ -20,7 +20,7 @@ final class FacilityOperatingCapital {
         Empire owner = state.empires().stream().filter(empire -> empire.id().equals(facility.ownerEntityId()))
                 .findFirst().orElse(null);
         if (owner == null) return next;
-        double capital = Math.min(50_000.0, Math.max(0.0, owner.treasuryCredits()));
+        double capital = Math.clamp(owner.treasuryCredits(), 0.0, 50_000.0);
         List<Empire> empires = new ArrayList<>(state.empires());
         empires.remove(owner);
         empires.add(new Empire(owner.id(), owner.name(), owner.raceId(), owner.societyStructure(),

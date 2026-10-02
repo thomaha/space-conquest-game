@@ -97,7 +97,7 @@ public record PlanetBiomeGrid(
             int northCols = columnsInRow(r - 1);
             if (northCols > 0) {
                 int northCol = (int) Math.floor(((c + 0.5) / Math.max(1, currentCols)) * northCols);
-                northCol = Math.min(northCols - 1, Math.max(0, northCol));
+                northCol = Math.clamp(northCol, 0, northCols - 1);
                 SurfaceTile north = getTile(r - 1, northCol);
                 if (north != null) neighbors.add(north);
             }
@@ -108,7 +108,7 @@ public record PlanetBiomeGrid(
             int southCols = columnsInRow(r + 1);
             if (southCols > 0) {
                 int southCol = (int) Math.floor(((c + 0.5) / Math.max(1, currentCols)) * southCols);
-                southCol = Math.min(southCols - 1, Math.max(0, southCol));
+                southCol = Math.clamp(southCol, 0, southCols - 1);
                 SurfaceTile south = getTile(r + 1, southCol);
                 if (south != null) neighbors.add(south);
             }

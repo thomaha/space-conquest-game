@@ -86,7 +86,7 @@ public class PassengerCommandTest {
         GameState nextState = new LoadPassengersCommand("fleet_sol_transport",
                 "transport_alpha", "human", 250, null, "mars").apply(initialState);
 
-        ShipInstance updatedShip = nextState.fleets().get(0).ships().get(0);
+        ShipInstance updatedShip = nextState.fleets().getFirst().ships().getFirst();
         assertEquals(250, updatedShip.passengerCount());
         assertEquals("human", updatedShip.passengerRaceId());
         assertEquals(ShipInstance.MODE_CONSCIOUS, updatedShip.transitMode());
@@ -150,7 +150,7 @@ public class PassengerCommandTest {
         assertTrue(modeCmd.validate(capable));
         GameState updatedState = modeCmd.apply(capable);
 
-        ShipInstance updatedShip = updatedState.fleets().get(0).ships().get(0);
+        ShipInstance updatedShip = updatedState.fleets().getFirst().ships().getFirst();
         assertEquals(100, updatedShip.passengerCount());
         assertEquals(ShipInstance.MODE_CRYOGENIC_STASIS, updatedShip.transitMode());
     }

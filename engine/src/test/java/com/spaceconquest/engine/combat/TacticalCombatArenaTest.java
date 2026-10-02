@@ -56,7 +56,7 @@ class TacticalCombatArenaTest {
         assertNotNull(result.visualRounds());
         assertFalse(result.visualRounds().isEmpty());
 
-        TacticalCombatProcessor.CombatVisualRound r1 = result.visualRounds().get(0);
+        TacticalCombatProcessor.CombatVisualRound r1 = result.visualRounds().getFirst();
         assertEquals(1, r1.roundNumber());
         assertNotNull(r1.attackerShipStates());
         assertNotNull(r1.defenderShipStates());
@@ -65,8 +65,8 @@ class TacticalCombatArenaTest {
 
         // Verify telemetry positions & projectile types
         assertFalse(r1.attackerShipStates().isEmpty());
-        assertEquals(180.0, r1.attackerShipStates().get(0).posX(), 0.1);
-        assertEquals(640.0, r1.defenderShipStates().get(0).posX(), 0.1);
+        assertEquals(180.0, r1.attackerShipStates().getFirst().posX(), 0.1);
+        assertEquals(640.0, r1.defenderShipStates().getFirst().posX(), 0.1);
 
         assertTrue(r1.activeProjectiles().stream().anyMatch(p -> p.weaponType().equals("LASER") || p.weaponType().equals("TORPEDO") || p.weaponType().equals("MASS_DRIVER")));
     }

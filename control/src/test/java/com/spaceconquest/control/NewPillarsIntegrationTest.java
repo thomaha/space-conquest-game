@@ -52,8 +52,8 @@ class NewPillarsIntegrationTest {
 
         assertNotNull(nextState);
         assertEquals(1, nextState.industrialFacilities().size());
-        assertEquals("earth", nextState.industrialFacilities().get(0).planetId());
-        assertEquals("solar_power_array", nextState.industrialFacilities().get(0).applicationId());
+        assertEquals("earth", nextState.industrialFacilities().getFirst().planetId());
+        assertEquals("solar_power_array", nextState.industrialFacilities().getFirst().applicationId());
     }
 
     @Test

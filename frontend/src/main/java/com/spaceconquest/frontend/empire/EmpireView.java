@@ -787,7 +787,7 @@ public class EmpireView {
         return empires.stream()
                 .filter(e -> e.id().equalsIgnoreCase(playerEmpireId))
                 .findFirst()
-                .orElse(empires.isEmpty() ? null : empires.get(0));
+                .orElse(empires.isEmpty() ? null : empires.getFirst());
     }
 
     public List<OrbitalStation> getOrbitalStationsForPlayerEmpire() {

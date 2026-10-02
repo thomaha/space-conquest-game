@@ -119,7 +119,7 @@ class MultiPhaseIntegrationSimulationTest {
         assertEquals(1, advancedState.orbitalStations().size());
         assertEquals(1, advancedState.spaceElevators().size());
         assertEquals(1, advancedState.sleeperAgents().size());
-        assertTrue(advancedState.orbitalStations().get(0).isOperational());
+        assertTrue(advancedState.orbitalStations().getFirst().isOperational());
         assertTrue(advancedState.commercialHubs().stream()
                 .anyMatch(hub -> stationId.equals(hub.entityId())));
 

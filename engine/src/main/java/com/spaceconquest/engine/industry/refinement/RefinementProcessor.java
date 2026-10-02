@@ -3,7 +3,6 @@ package com.spaceconquest.engine.industry.refinement;
 import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.Race;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -249,7 +248,7 @@ public class RefinementProcessor {
         }
 
         double demandKg = (totalPop / 1000.0) * 50.0; // 50 kg consumer goods per 1,000 citizens
-        double satisfaction = Math.min(2.0, suppliedConsumerGoodsKg / Math.max(1.0, demandKg));
+        double satisfaction = Math.clamp(suppliedConsumerGoodsKg / Math.max(1.0, demandKg), 0.0, 2.0);
 
         double happinessMod;
         double crimeMod;

@@ -1,6 +1,5 @@
 package com.spaceconquest.frontend.empire;
 
-import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.SystemGovernor;
 import com.spaceconquest.engine.MinistryAssignment;
@@ -14,7 +13,6 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
-import java.util.List;
 
 public class CabinetTab {
     private final EmpireView parent;
@@ -40,7 +38,7 @@ public class CabinetTab {
         Empire playerEmpire = parent.getEmpires().stream()
                 .filter(e -> e.id().equalsIgnoreCase(parent.getPlayerEmpireId()))
                 .findFirst()
-                .orElse(parent.getEmpires().isEmpty() ? null : parent.getEmpires().get(0));
+                .orElse(parent.getEmpires().isEmpty() ? null : parent.getEmpires().getFirst());
 
         if (playerEmpire != null) {
             content.getChildren().add(EconomyCards.createSovereignEmpireCard(playerEmpire));

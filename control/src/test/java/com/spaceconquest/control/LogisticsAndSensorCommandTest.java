@@ -54,7 +54,7 @@ public class LogisticsAndSensorCommandTest {
         GameState afterCreate = createCmd.apply(state);
 
         assertEquals(1, afterCreate.tradeRoutes().size());
-        TradeRoute route = afterCreate.tradeRoutes().get(0);
+        TradeRoute route = afterCreate.tradeRoutes().getFirst();
         assertEquals("Earth-Mars Iron Line", route.name());
         assertEquals("refined_iron", route.materialId());
         assertTrue(route.isActive());
@@ -66,7 +66,7 @@ public class LogisticsAndSensorCommandTest {
         GameState afterCancel = cancelCmd.apply(afterCreate);
 
         assertEquals(1, afterCancel.tradeRoutes().size());
-        assertFalse(afterCancel.tradeRoutes().get(0).isActive());
+        assertFalse(afterCancel.tradeRoutes().getFirst().isActive());
         assertTrue(new MoveFleetCommand(freighter.id(), "alpha").validate(afterCancel));
     }
 
@@ -99,7 +99,7 @@ public class LogisticsAndSensorCommandTest {
         GameState afterScan = scanCmd.apply(state);
 
         assertEquals(1, afterScan.fogOfWarStates().size());
-        FogOfWarState fow = afterScan.fogOfWarStates().get(0);
+        FogOfWarState fow = afterScan.fogOfWarStates().getFirst();
         assertTrue(fow.isSystemExplored("sol"));
         assertTrue(fow.isPlanetScanned("mars"));
     }

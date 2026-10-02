@@ -66,7 +66,7 @@ class TacticalCombatCarrierTest {
 
         assertNotNull(result);
         assertFalse(result.roundReports().isEmpty());
-        assertTrue(result.roundReports().get(0).detailedActions().stream()
+        assertTrue(result.roundReports().getFirst().detailedActions().stream()
                 .anyMatch(a -> a.phase().equals("STRIKE_WING")));
     }
 
@@ -113,7 +113,7 @@ class TacticalCombatCarrierTest {
         );
 
         assertNotNull(result);
-        assertTrue(result.roundReports().get(0).detailedActions().stream()
+        assertTrue(result.roundReports().getFirst().detailedActions().stream()
                 .anyMatch(a -> a.phase().equals("SURFACE_BATTERY")));
     }
 }

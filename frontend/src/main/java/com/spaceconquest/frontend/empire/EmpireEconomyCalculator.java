@@ -6,7 +6,6 @@ import com.spaceconquest.engine.Moon;
 import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.SolarSystem;
-import com.spaceconquest.engine.SystemGovernor;
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.economy.ImperialBalanceSheet;
 import com.spaceconquest.engine.economy.SystemEconomy;

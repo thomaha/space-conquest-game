@@ -210,6 +210,6 @@ public final class InterstellarTravel {
         if (burnSeconds <= 0.0) return 0.0;
         double first = Math.min(Math.max(0.0, elapsedSeconds), burnSeconds);
         double last = Math.max(0.0, Math.min(burnSeconds, elapsedSeconds - (total - burnSeconds)));
-        return Math.min(1.0, (first + last) / (2.0 * burnSeconds));
+        return Math.clamp((first + last) / (2.0 * burnSeconds), 0.0, 1.0);
     }
 }

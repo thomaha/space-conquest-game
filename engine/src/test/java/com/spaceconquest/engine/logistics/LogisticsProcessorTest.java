@@ -350,7 +350,7 @@ public class LogisticsProcessorTest {
         assertNotNull(result);
         assertEquals(1500.0, result.totalVolumeMovedThisTurnKg(), 0.001);
 
-        TradeRoute updatedRoute = result.updatedTradeRoutes().get(0);
+        TradeRoute updatedRoute = result.updatedTradeRoutes().getFirst();
         assertEquals(1500.0, updatedRoute.totalVolumeMovedKg(), 0.001);
 
         CommercialHub updatedOrigin = result.updatedCommercialHubs().stream()

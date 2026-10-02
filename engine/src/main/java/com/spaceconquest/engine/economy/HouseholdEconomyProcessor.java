@@ -388,7 +388,7 @@ public class HouseholdEconomyProcessor {
         double requested = professions.stream()
                 .mapToDouble(profession -> jobs.getOrDefault(profession, 0L)
                         * Profession.getBaseWageForProfession(profession)).sum();
-        double fundedShare = requested <= 0.0 ? 0.0 : Math.min(1.0, Math.max(0.0, credits) / requested);
+        double fundedShare = requested <= 0.0 ? 0.0 : Math.clamp(credits / requested, 0.0, 1.0);
         for (String profession : professions) {
             jobs.put(profession, (long) Math.floor(jobs.getOrDefault(profession, 0L) * fundedShare));
         }

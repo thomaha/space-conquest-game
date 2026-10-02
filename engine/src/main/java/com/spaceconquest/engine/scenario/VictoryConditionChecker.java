@@ -56,7 +56,7 @@ public class VictoryConditionChecker {
             for (Planet p : sys.planets()) {
                 if (!p.populations().isEmpty()) {
                     totalPopulated++;
-                    String race = p.populations().get(0).raceId();
+                    String race = p.populations().getFirst().raceId();
                     String owner = state.empires().stream()
                             .filter(e -> e.raceId().equalsIgnoreCase(race) || e.controlledSystemIds().contains(sys.id()))
                             .map(Empire::id)
@@ -128,7 +128,7 @@ public class VictoryConditionChecker {
         double memberShare = ((double) community.memberEmpireIds().size() / state.empires().size()) * 100.0;
 
         if (passedCount >= 3 && memberShare >= 70.0) {
-            String leader = community.memberEmpireIds().get(0);
+            String leader = community.memberEmpireIds().getFirst();
             return new VictoryCheckResult(
                     true, leader, CampaignSetup.VICTORY_DIPLOMATIC_FEDERATION,
                     "Galactic Senate unified " + Math.round(memberShare) + "% of interstellar civilizations with " + passedCount + " enacted charters."

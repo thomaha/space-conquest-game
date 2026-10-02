@@ -116,7 +116,6 @@ public class PlanetaryMunicipalProcessor {
                 sysEconomy = null;
             }
             double financeMinistrySynergy = calculateFinanceMinistrySynergy(systemEmpire);
-            double governorSynergy = calculateGovernorSynergy(sys.id(), systemEmpire);
 
             long totalSystemPopulation = calculateSystemPopulation(sys);
             double remainingPublicBudget = sysEconomy == null ? 0.0
@@ -138,7 +137,7 @@ public class PlanetaryMunicipalProcessor {
                 if (planetPop > 0) {
                     processBodyFinances(
                             planet.id(), sys.id(), systemEmpire, isHiveMind, planetPop, totalSystemPopulation,
-                            financeMinistrySynergy, governorSynergy,
+                            financeMinistrySynergy,
                             sysEconomy, systemSubsidy, remainingPublicBudget, state, previousSheetMap, treasuryDeltas, balanceSheets,
                             dispatchedCouriers, incomeTaxByBody, grossWagesByBody, publicWagesByBody,
                             welfareByBody, publicHealthWagesByBody, corporateTaxByBody
@@ -151,7 +150,7 @@ public class PlanetaryMunicipalProcessor {
                         if (moonPop > 0) {
                             processBodyFinances(
                                     moon.id(), sys.id(), systemEmpire, isHiveMind, moonPop, totalSystemPopulation,
-                                    financeMinistrySynergy, governorSynergy,
+                                    financeMinistrySynergy,
                                     sysEconomy, systemSubsidy, remainingPublicBudget, state, previousSheetMap, treasuryDeltas, balanceSheets,
                                     dispatchedCouriers, incomeTaxByBody, grossWagesByBody, publicWagesByBody,
                                     welfareByBody, publicHealthWagesByBody, corporateTaxByBody
@@ -203,7 +202,7 @@ public class PlanetaryMunicipalProcessor {
             if (request > 0.0) requests.put(facility.id(), request);
         }
         double requested = requests.values().stream().mapToDouble(Double::doubleValue).sum();
-        double fraction = requested <= 0.0 ? 0.0 : Math.min(1.0, available / requested);
+        double fraction = requested <= 0.0 ? 0.0 : Math.clamp(available / requested, 0.0, 1.0);
         requests.forEach((id, credits) -> accounts.put(id, accounts.get(id).withSubsidy(credits * fraction)));
     }
 
@@ -215,7 +214,6 @@ public class PlanetaryMunicipalProcessor {
             long bodyPopulation,
             long systemPopulation,
             double financeMinistrySynergy,
-            double governorSynergy,
             SystemEconomy sysEconomy,
             double systemSubsidy,
             double remainingPublicBudget,
@@ -317,7 +315,7 @@ public class PlanetaryMunicipalProcessor {
             treasuryDeltas.merge(empire.id(), credits, Double::sum);
             return;
         }
-        String destination = empire.controlledSystemIds().isEmpty() ? systemId : empire.controlledSystemIds().get(0);
+        String destination = empire.controlledSystemIds().isEmpty() ? systemId : empire.controlledSystemIds().getFirst();
         couriers.add(new CourierShip("courier_tax_" + bodyId + "_" + java.util.UUID.randomUUID(),
                 empire.id(), credits, systemId, destination, 2, false));
     }
@@ -364,11 +362,6 @@ public class PlanetaryMunicipalProcessor {
             }
         }
         return 1.0;
-    }
-
-    private double calculateGovernorSynergy(String systemId, Empire empire) {
-        if (empire.systemGovernorAssignments() == null) return 0.90;
-        return empire.systemGovernorAssignments().containsKey(systemId) ? 1.0 : 0.90;
     }
 
     private boolean isHiveMindSociety(Empire empire) {

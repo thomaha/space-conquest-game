@@ -107,7 +107,7 @@ public class AudioSynthesizer {
                 byte[] buffer = new byte[numSamples];
                 double freqStart = cue.baseFrequencyHz();
                 double freqEnd = cue.endFrequencyHz();
-                double vol = Math.max(0.0, Math.min(1.0, cue.volume()));
+                double vol = Math.clamp(cue.volume(), 0.0, 1.0);
 
                 for (int i = 0; i < numSamples; i++) {
                     double progress = (double) i / numSamples;
@@ -165,7 +165,7 @@ public class AudioSynthesizer {
     }
 
     public void setMasterVolume(double masterVolume) {
-        this.masterVolume = Math.max(0.0, Math.min(1.0, masterVolume));
+        this.masterVolume = Math.clamp(masterVolume, 0.0, 1.0);
     }
 
     public double getSfxVolume() {
@@ -173,7 +173,7 @@ public class AudioSynthesizer {
     }
 
     public void setSfxVolume(double sfxVolume) {
-        this.sfxVolume = Math.max(0.0, Math.min(1.0, sfxVolume));
+        this.sfxVolume = Math.clamp(sfxVolume, 0.0, 1.0);
     }
 
     public double getMusicVolume() {
@@ -181,7 +181,7 @@ public class AudioSynthesizer {
     }
 
     public void setMusicVolume(double musicVolume) {
-        this.musicVolume = Math.max(0.0, Math.min(1.0, musicVolume));
+        this.musicVolume = Math.clamp(musicVolume, 0.0, 1.0);
     }
 
     public boolean isMuted() {

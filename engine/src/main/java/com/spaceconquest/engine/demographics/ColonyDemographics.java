@@ -111,7 +111,7 @@ public record ColonyDemographics(
             return 1.0;
         }
         long available = getHeadcount(professionId);
-        return Math.min(1.0, (double) available / (double) requiredHeadcount);
+        return Math.clamp((double) available / requiredHeadcount, 0.0, 1.0);
     }
 
     /**
@@ -136,7 +136,7 @@ public record ColonyDemographics(
                 minRatio = ratio;
             }
         }
-        return Math.min(1.0, Math.max(0.0, minRatio));
+        return Math.clamp(minRatio, 0.0, 1.0);
     }
 
     /**

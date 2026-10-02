@@ -44,7 +44,8 @@ public class AnomalyProcessor {
 
         double roll = deterministicRoll != null ? deterministicRoll : random.nextDouble();
         double scanPower = (fleetSensorRange * 2.5) + (assignedScientists * 8.0);
-        double successThreshold = Math.min(0.95, Math.max(0.10, scanPower / Math.max(10.0, anomaly.scanDifficulty())));
+        double successThreshold = Math.clamp(
+                scanPower / Math.max(10.0, anomaly.scanDifficulty()), 0.10, 0.95);
 
         boolean success = roll <= successThreshold;
 

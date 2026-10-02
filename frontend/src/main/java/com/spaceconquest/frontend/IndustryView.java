@@ -283,7 +283,7 @@ public class IndustryView {
                     for (RefinementRecipe rec : RefinementProcessor.STANDARD_RECIPES) {
                         recipeCombo.getItems().add(rec.id());
                     }
-                    recipeCombo.setValue(RefinementProcessor.STANDARD_RECIPES.get(0).id());
+                    recipeCombo.setValue(RefinementProcessor.STANDARD_RECIPES.getFirst().id());
                     recipeCombo.setStyle("-fx-font-size: 10px;");
 
                     Button recipeBtn = new Button("Set recipe");
@@ -409,8 +409,8 @@ public class IndustryView {
 
     private HBox createShipyardStaffingControls(IndustrialFacility facility) {
         long assignable = ShipyardWorkCapacity.assignableWorkers(snapshot, facility);
-        int maximum = (int) Math.min(Integer.MAX_VALUE,
-                Math.max(facility.allocatedWorkers(), assignable));
+        int maximum = (int) Math.clamp(assignable,
+                (long) facility.allocatedWorkers(), (long) Integer.MAX_VALUE);
         Spinner<Integer> workers = new Spinner<>(0, maximum, facility.allocatedWorkers());
         workers.setEditable(true);
         workers.setPrefWidth(105);

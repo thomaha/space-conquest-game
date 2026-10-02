@@ -11,12 +11,10 @@ import com.spaceconquest.engine.megastructure.Megastructure;
 import com.spaceconquest.engine.scenario.CampaignSetup;
 import com.spaceconquest.engine.scenario.VictoryConditionChecker;
 import com.spaceconquest.engine.ship.ShipDesign;
-import com.spaceconquest.engine.terraforming.GeoengineeringProject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 

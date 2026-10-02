@@ -57,7 +57,7 @@ public class ScanAnomalyCommandTest {
         assertTrue(cmd.validate(initialState));
 
         GameState nextState = cmd.apply(initialState);
-        Empire updatedEmpire = nextState.empires().get(0);
+        Empire updatedEmpire = nextState.empires().getFirst();
 
         assertTrue(updatedEmpire.unlockedTechIds().contains("quantum_communication"));
     }

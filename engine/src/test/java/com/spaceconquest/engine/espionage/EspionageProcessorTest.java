@@ -42,7 +42,7 @@ class EspionageProcessorTest {
 
         assertNotNull(result);
         assertEquals(1, result.updatedOperations().size());
-        assertTrue(result.updatedOperations().get(0).isCompleted());
+        assertTrue(result.updatedOperations().getFirst().isCompleted());
     }
 
     @Test

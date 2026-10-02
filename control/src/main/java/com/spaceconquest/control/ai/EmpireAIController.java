@@ -144,7 +144,7 @@ public class EmpireAIController implements Controller {
             boolean hasMegastructure = state.megastructures().stream()
                     .anyMatch(m -> m.ownerEmpireId().equalsIgnoreCase(empireId));
             if (!hasMegastructure && !empire.controlledSystemIds().isEmpty()) {
-                String targetSys = empire.controlledSystemIds().get(0);
+                String targetSys = empire.controlledSystemIds().getFirst();
                 commandQueue.submit(new BuildMegastructureCommand(
                         empireId, Megastructure.TYPE_DYSON_SWARM, targetSys, targetSys, "Imperial Dyson Swarm"
                 ));

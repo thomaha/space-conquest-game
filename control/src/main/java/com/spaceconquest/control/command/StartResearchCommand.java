@@ -1,6 +1,5 @@
 package com.spaceconquest.control.command;
 
-import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.technology.ResearchProject;
 

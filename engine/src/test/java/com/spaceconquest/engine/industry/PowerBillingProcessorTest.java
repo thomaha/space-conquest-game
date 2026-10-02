@@ -24,7 +24,7 @@ class PowerBillingProcessorTest {
                 "wind_power", "empire", IndustrialFacility.PUBLIC_STATE, 1, 100,
                 "technician", false, 0.0);
         GameState state = base.toBuilder()
-                .industrialFacilities(List.of(base.industrialFacilities().get(0),
+                .industrialFacilities(List.of(base.industrialFacilities().getFirst(),
                         base.industrialFacilities().get(1), second))
                 .industryAccounts(List.of(base.industryAccounts().getFirst(),
                         IndustryAccount.empty(second.id()))).build();

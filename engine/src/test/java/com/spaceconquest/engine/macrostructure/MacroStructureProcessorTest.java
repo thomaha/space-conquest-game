@@ -140,7 +140,7 @@ class MacroStructureProcessorTest {
 
         assertEquals(0, result.remainingProjects().size());
         assertEquals(1, result.newlyCompletedStations().size());
-        assertEquals("mars", result.newlyCompletedStations().get(0).planetOrbitId());
+        assertEquals("mars", result.newlyCompletedStations().getFirst().planetOrbitId());
     }
 
     @Test

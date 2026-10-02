@@ -44,6 +44,6 @@ public record FacilityExpansionProject(
 
     public double getProgressPercentage() {
         if (requiredWorkHours <= 0.0) return 100.0;
-        return Math.min(100.0, (accumulatedWorkHours / requiredWorkHours) * 100.0);
+        return Math.clamp((accumulatedWorkHours / requiredWorkHours) * 100.0, 0.0, 100.0);
     }
 }

@@ -42,7 +42,7 @@ public class WarpNetworkTest {
 
         assertNotNull(path);
         assertFalse(path.isEmpty());
-        assertEquals("sol", path.get(0));
+        assertEquals("sol", path.getFirst());
         assertEquals("vega", path.get(path.size() - 1));
     }
 }

@@ -75,7 +75,7 @@ public class TerraformingProcessorTest {
 
         assertNotNull(result);
         assertTrue(result.updatedAtmosphere().surfaceTemperatureK() > 220.0);
-        assertEquals(1.0, result.updatedProjects().get(0).accumulatedProgress(), 0.01);
+        assertEquals(1.0, result.updatedProjects().getFirst().accumulatedProgress(), 0.01);
     }
 
     @Test

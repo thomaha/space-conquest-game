@@ -8,8 +8,6 @@ import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.VBox;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashSet;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -236,7 +234,7 @@ public class MenubarViewTest {
 
         view.updateData(java.util.List.of(), java.util.List.of(), java.util.List.of(dyson));
         assertEquals(1, view.getMegastructures().size());
-        assertEquals("mega_dyson_sol", view.getMegastructures().get(0).id());
-        assertTrue(view.getMegastructures().get(0).isOperational());
+        assertEquals("mega_dyson_sol", view.getMegastructures().getFirst().id());
+        assertTrue(view.getMegastructures().getFirst().isOperational());
     }
 }

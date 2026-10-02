@@ -2,9 +2,6 @@ package com.spaceconquest.engine.scenario;
 
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
-import com.spaceconquest.engine.Planet;
-import com.spaceconquest.engine.Population;
-import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.community.GalacticCommunity;
 import com.spaceconquest.engine.community.GalacticResolution;
 import com.spaceconquest.engine.megastructure.Megastructure;

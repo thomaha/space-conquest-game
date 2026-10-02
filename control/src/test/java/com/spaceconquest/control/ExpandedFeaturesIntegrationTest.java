@@ -1,8 +1,5 @@
 package com.spaceconquest.control;
 
-import com.spaceconquest.control.command.CancelTradeRouteCommand;
-import com.spaceconquest.control.command.CreateTradeRouteCommand;
-import com.spaceconquest.control.command.ScanSystemCommand;
 import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.DataModelLoader;
 import com.spaceconquest.engine.Empire;
@@ -30,7 +27,6 @@ import com.spaceconquest.engine.ship.ShipRole;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
@@ -116,7 +112,7 @@ public class ExpandedFeaturesIntegrationTest {
 
         GameState stateAfterTurn = engine.getGameState();
         assertEquals(1, stateAfterTurn.tradeRoutes().size());
-        TradeRoute updatedRoute = stateAfterTurn.tradeRoutes().get(0);
+        TradeRoute updatedRoute = stateAfterTurn.tradeRoutes().getFirst();
         assertEquals(0.0, updatedRoute.totalVolumeMovedKg(), 0.001);
         assertEquals(1500.0, stateAfterTurn.fleets().getFirst().ships().getFirst()
                 .storedCargoKg().get("refined_iron"), 0.001);
@@ -210,7 +206,7 @@ public class ExpandedFeaturesIntegrationTest {
 
         GameState simulatedState = engine.getGameState();
         assertFalse(simulatedState.fogOfWarStates().isEmpty());
-        FogOfWarState terranFOW = simulatedState.fogOfWarStates().get(0);
+        FogOfWarState terranFOW = simulatedState.fogOfWarStates().getFirst();
         assertTrue(terranFOW.isSystemExplored("sol"));
         assertTrue(terranFOW.isSystemExplored("alpha_centauri"));
         assertTrue(terranFOW.isPlanetScanned("earth"));
@@ -226,9 +222,9 @@ public class ExpandedFeaturesIntegrationTest {
         assertNotNull(loadedSave);
         assertEquals(SaveGame.CURRENT_VERSION, loadedSave.version());
         assertEquals(1, loadedSave.tradeRoutes().size());
-        assertEquals("route_01", loadedSave.tradeRoutes().get(0).id());
+        assertEquals("route_01", loadedSave.tradeRoutes().getFirst().id());
         assertEquals(1, loadedSave.fogOfWarStates().size());
-        assertTrue(loadedSave.fogOfWarStates().get(0).isSystemExplored("alpha_centauri"));
+        assertTrue(loadedSave.fogOfWarStates().getFirst().isSystemExplored("alpha_centauri"));
 
         // Test QuickSave and Delete
         Path qsPath = saveMgr.quickSave(simulatedState, 1, "Day 5");

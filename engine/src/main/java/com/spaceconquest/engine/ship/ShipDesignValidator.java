@@ -241,7 +241,7 @@ public class ShipDesignValidator {
      * Resolves sensor detection range and stealth signature observability.
      */
     public double calculateSensorObservability(double baseRadarCrossSectionM2, double stealthCoatingAbsorptivity) {
-        double absorptivity = Math.max(0.0, Math.min(0.95, stealthCoatingAbsorptivity));
+        double absorptivity = Math.clamp(stealthCoatingAbsorptivity, 0.0, 0.95);
         return baseRadarCrossSectionM2 * (1.0 - absorptivity);
     }
 
@@ -294,7 +294,7 @@ public class ShipDesignValidator {
         double damage = 0.0;
         if (suffersFailure) {
             double excessK = entryTempK - meltingPointK;
-            damage = Math.min(100.0, (excessK / meltingPointK) * 100.0);
+            damage = Math.clamp((excessK / meltingPointK) * 100.0, 0.0, 100.0);
         }
 
         return new ThermalStressResult(entryTempK, meltingPointK, hasHeatShield, suffersFailure, damage);

@@ -83,7 +83,7 @@ public class SensorProcessorTest {
         assertNotNull(states);
         assertEquals(1, states.size());
 
-        FogOfWarState terranFOW = states.get(0);
+        FogOfWarState terranFOW = states.getFirst();
         assertTrue(terranFOW.isSystemExplored("sol"));
         assertTrue(terranFOW.isSystemExplored("alpha_centauri"));
         assertTrue(terranFOW.isPlanetScanned("earth"));

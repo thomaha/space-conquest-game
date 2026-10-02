@@ -45,7 +45,7 @@ class AudioSynthesizerTest {
         synthesizer.triggerCue(AudioSynthesizer.EVENT_TECH_BREAKTHROUGH);
 
         assertEquals(2, receivedCues.size());
-        assertEquals(AudioSynthesizer.EVENT_COMBAT_FIRE, receivedCues.get(0).eventName());
+        assertEquals(AudioSynthesizer.EVENT_COMBAT_FIRE, receivedCues.getFirst().eventName());
         assertEquals(AudioSynthesizer.EVENT_TECH_BREAKTHROUGH, receivedCues.get(1).eventName());
     }
 

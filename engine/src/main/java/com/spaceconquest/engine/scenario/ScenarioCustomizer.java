@@ -65,7 +65,7 @@ public class ScenarioCustomizer {
                                 "res_anti_piracy_init",
                                 "Pan-Galactic Anti-Piracy Treaty",
                                 GalacticResolution.TYPE_ANTI_PIRACY,
-                                memberIds.isEmpty() ? "terran_confederation" : memberIds.get(0),
+                                memberIds.isEmpty() ? "terran_confederation" : memberIds.getFirst(),
                                 "",
                                 5,
                                 GalacticResolution.STATUS_PROPOSED,

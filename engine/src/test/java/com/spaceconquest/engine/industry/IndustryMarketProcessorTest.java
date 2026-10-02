@@ -244,7 +244,7 @@ class IndustryMarketProcessorTest {
 
         var result = processor.process(state,
                 Map.of("farm", 250, "biomass", 10, "consumer", 10, "luxury", 10), Map.of());
-        assertEquals(1000.0, result.industryAccounts().get(0).producedKg().get("agricultural_biomass"), 0.001);
+        assertEquals(1000.0, result.industryAccounts().getFirst().producedKg().get("agricultural_biomass"), 0.001);
         assertEquals(1000.0, result.industryAccounts().get(1).producedKg().get("bio_polymers"), 0.001);
         assertEquals(1000.0, result.industryAccounts().get(2).producedKg().get("consumer_goods"), 0.001);
         assertEquals(800.0, result.industryAccounts().get(3).producedKg().get("luxury_goods"), 0.001);

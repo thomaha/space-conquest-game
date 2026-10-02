@@ -1,6 +1,5 @@
 package com.spaceconquest.engine.combat;
 
-import com.spaceconquest.engine.AsteroidBelt;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.Population;

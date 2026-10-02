@@ -59,7 +59,7 @@ public record CitizenCohort(
         if (requiredHeadcount <= 0) {
             return 1.0;
         }
-        return Math.min(1.0, (double) headcount / (double) requiredHeadcount);
+        return Math.clamp((double) headcount / requiredHeadcount, 0.0, 1.0);
     }
 
     /**
@@ -72,7 +72,7 @@ public record CitizenCohort(
         if (requiredCohortUnits <= 0.0) {
             return 1.0;
         }
-        return Math.min(1.0, toCohortUnits() / requiredCohortUnits);
+        return Math.clamp(toCohortUnits() / requiredCohortUnits, 0.0, 1.0);
     }
 
     /**

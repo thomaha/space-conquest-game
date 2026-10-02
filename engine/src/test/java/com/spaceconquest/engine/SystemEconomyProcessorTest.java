@@ -172,7 +172,7 @@ public class SystemEconomyProcessorTest {
         assertEquals(1, result.updatedEconomies().size());
         assertEquals(1, result.updatedEmpires().size());
 
-        Empire updatedEmpire = result.updatedEmpires().get(0);
+        Empire updatedEmpire = result.updatedEmpires().getFirst();
         assertEquals(50_000.0, updatedEmpire.treasuryCredits(), 0.001,
                 "Budget spending is recorded by municipal balance sheets, not deducted from the empire here");
     }

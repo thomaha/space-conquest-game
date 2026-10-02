@@ -64,7 +64,7 @@ public class MenubarClockController {
     }
 
     public static GameClock.ClockSpeed speedForIndex(int index) {
-        return SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, index))];
+        return SPEEDS[Math.clamp(index, 0, SPEEDS.length - 1)];
     }
 
     public boolean isPaused() {
@@ -75,7 +75,7 @@ public class MenubarClockController {
         if (time != null) {
             displayedTime = time;
         }
-        speedIndex = Math.max(0, Math.min(SPEEDS.length - 1, speed));
+        speedIndex = Math.clamp(speed, 0, SPEEDS.length - 1);
         savedSpeedIndex = speedIndex;
         paused = false;
         manuallyPaused = false;
@@ -90,7 +90,7 @@ public class MenubarClockController {
     }
 
     public void changeSpeed(int change) {
-        speedIndex = Math.max(0, Math.min(SPEEDS.length - 1, speedIndex + change));
+        speedIndex = Math.clamp(speedIndex + change, 0, SPEEDS.length - 1);
         updateClockLabels();
         restartClock();
     }

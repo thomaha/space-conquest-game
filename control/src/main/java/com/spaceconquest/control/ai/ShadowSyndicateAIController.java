@@ -2,7 +2,6 @@ package com.spaceconquest.control.ai;
 
 import com.spaceconquest.control.Controller;
 import com.spaceconquest.control.command.CommandQueue;
-import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.ShadowSyndicate;
 import org.apache.logging.log4j.LogManager;

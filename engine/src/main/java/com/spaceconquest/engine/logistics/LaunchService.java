@@ -12,7 +12,6 @@ import com.spaceconquest.engine.industry.PowerGridState;
 import com.spaceconquest.engine.industry.PowerBillingProcessor;
 import com.spaceconquest.engine.industry.PowerPlantCatalog;
 import com.spaceconquest.engine.macrostructure.SpaceElevator;
-import com.spaceconquest.engine.market.MarketProcessor;
 import com.spaceconquest.engine.market.OrbitalLiftProfile;
 import com.spaceconquest.engine.ship.PropulsionCatalog;
 

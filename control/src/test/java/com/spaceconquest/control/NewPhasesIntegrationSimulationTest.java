@@ -5,7 +5,6 @@ import com.spaceconquest.control.command.BuildMegastructureCommand;
 import com.spaceconquest.control.command.CommandQueue;
 import com.spaceconquest.control.command.ProposeResolutionCommand;
 import com.spaceconquest.control.command.StartTerraformingProjectCommand;
-import com.spaceconquest.control.command.VoteResolutionCommand;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.MarketOrder;
@@ -123,7 +122,7 @@ public class NewPhasesIntegrationSimulationTest {
         }
 
         assertTrue(engine.getGameState().turn() >= 10);
-        assertNotNull(engine.getMegastructures().get(0));
-        assertTrue(engine.getMegastructures().get(0).currentStageProgress() > 0 || engine.getMegastructures().get(0).isOperational());
+        assertNotNull(engine.getMegastructures().getFirst());
+        assertTrue(engine.getMegastructures().getFirst().currentStageProgress() > 0 || engine.getMegastructures().getFirst().isOperational());
     }
 }

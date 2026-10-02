@@ -216,7 +216,7 @@ public class Menubar {
                 + " -fx-border-color: rgba(120, 170, 255, 0.55); -fx-border-radius: 6;");
         root.setPrefWidth((getAppWidth() - 20) / scale);
 
-        HBox navigationBox = buildToolbar(scale);
+        HBox navigationBox = buildToolbar();
         root.getChildren().add(navigationBox);
 
         buildDetailPanel(scale);
@@ -237,7 +237,7 @@ public class Menubar {
         clockController.init(this::handleSimulationPulse, this::submitSpeedChange);
     }
 
-    private HBox buildToolbar(double scale) {
+    private HBox buildToolbar() {
         HBox toolbar = new HBox(6);
         campaignToolbar = toolbar;
         toolbar.setAlignment(Pos.CENTER_LEFT);

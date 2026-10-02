@@ -29,7 +29,7 @@ public class MegastructureProcessorTest {
 
         assertNotNull(result);
         assertEquals(1, result.updatedMegastructures().size());
-        Megastructure updated = result.updatedMegastructures().get(0);
+        Megastructure updated = result.updatedMegastructures().getFirst();
         assertEquals(1, updated.currentStage());
         assertTrue(updated.isOperational());
         assertEquals(25000.0, updated.energyYieldKw(), 0.01);

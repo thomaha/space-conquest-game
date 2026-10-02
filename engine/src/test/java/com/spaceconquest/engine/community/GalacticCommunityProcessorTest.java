@@ -62,9 +62,9 @@ public class GalacticCommunityProcessorTest {
 
         assertNotNull(result);
         assertEquals(1, result.newlyPassedResolutions().size());
-        assertEquals(GalacticResolution.STATUS_PASSED, result.newlyPassedResolutions().get(0).status());
+        assertEquals(GalacticResolution.STATUS_PASSED, result.newlyPassedResolutions().getFirst().status());
         assertEquals(1, result.newlyEnactedSanctions().size());
-        assertEquals("emp_rogue", result.newlyEnactedSanctions().get(0).targetEmpireId());
-        assertEquals(0.50, result.newlyEnactedSanctions().get(0).tradeTariffPenaltyRate(), 0.01);
+        assertEquals("emp_rogue", result.newlyEnactedSanctions().getFirst().targetEmpireId());
+        assertEquals(0.50, result.newlyEnactedSanctions().getFirst().tradeTariffPenaltyRate(), 0.01);
     }
 }

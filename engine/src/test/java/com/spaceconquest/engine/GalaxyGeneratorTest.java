@@ -152,7 +152,7 @@ public class GalaxyGeneratorTest {
             String aiHomeSystemId = state.empires().stream()
                     .filter(e -> e.id().equals(aiId))
                     .findFirst().orElseThrow()
-                    .controlledSystemIds().get(0);
+                    .controlledSystemIds().getFirst();
             
             SolarSystem sys = state.solarSystems().stream()
                     .filter(s -> s.id().equals(aiHomeSystemId))
