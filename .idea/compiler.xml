@@ -12,4 +12,12 @@
       </profile>
     </annotationProcessing>
   </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="space-conquest-control" options="-Xlint:all" />
+      <module name="space-conquest-engine" options="-Xlint:all" />
+      <module name="space-conquest-frontend" options="-Xlint:all" />
+      <module name="space-conquest-parent" options="-Xlint:all" />
+    </option>
+  </component>
 </project>
