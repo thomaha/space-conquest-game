@@ -44,8 +44,12 @@ public class MenubarViewRegistry {
     private AudioSettingsView audioSettingsView;
     private ScreenSettingsView screenSettingsView;
     private AudioPlaybackManager audioPlaybackManager;
+    private String playerEmpireId = "terran_confederation";
 
     public void initViews(Menubar menubar, Main mainApp, HumanController humanController, String playerEmpireId) {
+        if (playerEmpireId != null && !playerEmpireId.isEmpty()) {
+            this.playerEmpireId = playerEmpireId;
+        }
         techView = new TechnologyView(menubar);
         techView.setHumanController(humanController);
         techView.setPlayerEmpireId(playerEmpireId);
@@ -157,6 +161,7 @@ public class MenubarViewRegistry {
 
     public void setPlayerEmpireId(String empireId) {
         if (empireId == null || empireId.isEmpty()) return;
+        this.playerEmpireId = empireId;
         if (empireView != null) empireView.setPlayerEmpireId(empireId);
         if (techView != null) techView.setPlayerEmpireId(empireId);
         if (industryView != null) industryView.setPlayerEmpireId(empireId);
@@ -205,7 +210,16 @@ public class MenubarViewRegistry {
     public void updateAllViews(GameState state, HumanController humanController, String playerEmpireId) {
         if (state == null) return;
         if (humanController != null) humanController.onGameStateUpdate(state);
+        setPlayerEmpireId(playerEmpireId);
+        refreshSnapshotViews(state);
+    }
 
+    public void refreshOnTick(GameState state) {
+        if (state == null) return;
+        refreshSnapshotViews(state);
+    }
+
+    private void refreshSnapshotViews(GameState state) {
         if (empireView != null) empireView.updateData(state);
         if (corporateView != null) corporateView.updateData(state);
         if (diplomacyView != null) diplomacyView.updateData(state);
@@ -221,34 +235,12 @@ public class MenubarViewRegistry {
         if (commercialHubView != null) commercialHubView.updateData(state);
         if (galacticSenateView != null) galacticSenateView.updateData(state.galacticCommunity());
         if (megastructureView != null) megastructureView.updateData(state.megastructures());
-        if (terraformingView != null) {
-            terraformingView.updateData(state.atmosphericCompositions(), state.terraformingProjects());
-        }
+        if (terraformingView != null) terraformingView.updateData(state.atmosphericCompositions(), state.terraformingProjects());
         if (planetDetailView != null) planetDetailView.updateData(state);
         if (colonyManagementView != null) colonyManagementView.updateData(state);
         if (espionageView != null) espionageView.updateData(state.sleeperAgents(), state.espionageOperations(), state.pirateBases());
         if (orbitalStationView != null) orbitalStationView.updateData(state, playerEmpireId);
         if (galaxyCanvasView != null) galaxyCanvasView.updateData(state);
-        if (orbitalStationView != null) orbitalStationView.updateData(state);
-    }
-
-    public void refreshOnTick(GameState state) {
-        if (state == null) return;
-        if (empireView != null) empireView.updateData(state);
-        if (corporateView != null) corporateView.updateData(state);
-        if (diplomacyView != null) diplomacyView.updateData(state);
-        if (techView != null) techView.setResearchProjects(state.researchProjects());
-        if (industryView != null) industryView.updateData(state);
-        if (shipDesignerView != null) shipDesignerView.updateData(state);
-        if (fleetManagementView != null) fleetManagementView.updateData(state);
-        if (commercialHubView != null) commercialHubView.updateData(state);
-        if (galaxyCanvasView != null) galaxyCanvasView.updateData(state);
-        if (galacticSenateView != null) galacticSenateView.updateData(state.galacticCommunity());
-        if (megastructureView != null) megastructureView.updateData(state.megastructures());
-        if (planetDetailView != null) planetDetailView.updateData(state);
-        if (terraformingView != null) {
-            terraformingView.updateData(state.atmosphericCompositions(), state.terraformingProjects());
-        }
     }
 
     public List<VBox> getAllOverlayRoots() {

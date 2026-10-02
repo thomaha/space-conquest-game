@@ -30,6 +30,7 @@ public class PlanetDetailView {
     private ScrollPane scrollPane;
     private Label feedbackLabel;
     private final Menubar menubar;
+    private GameState snapshot;
     private HumanController humanController;
     private String playerEmpireId = "terran_confederation";
     private PlanetaryBodyEntry selectedBody;
@@ -112,9 +113,8 @@ public class PlanetDetailView {
     }
 
     public void show() {
-        GameState state = menubar == null ? null : menubar.getPublishedState();
-        if (state != null) {
-            updateData(state);
+        if (snapshot != null) {
+            renderContent();
         } else if (!root.isVisible()) {
             renderContent();
         }
@@ -133,6 +133,7 @@ public class PlanetDetailView {
 
     public void updateData(GameState state) {
         if (state == null) return;
+        snapshot = state;
         updateData(state.geologicalDeposits(), state.powerGrids(), state.megastructures());
     }
 

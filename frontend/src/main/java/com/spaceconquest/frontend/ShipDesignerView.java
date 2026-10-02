@@ -119,7 +119,6 @@ public class ShipDesignerView {
     }
 
     public void show() {
-        if (snapshot == null && menubar != null) updateData(menubar.getPublishedState());
         renderContent();
         root.setVisible(true);
         root.toFront();

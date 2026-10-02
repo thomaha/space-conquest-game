@@ -41,8 +41,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Snapshot of the complete simulation state at a specific turn. Collection components are
- * immutable defensive copies; contained model objects may still be mutable.
+ * Snapshot of the complete simulation state at a specific turn. Its collection components and
+ * collection-valued model components are immutable defensive copies.
  */
 public record GameState(
         long turn,
