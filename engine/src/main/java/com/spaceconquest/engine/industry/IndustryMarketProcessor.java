@@ -25,6 +25,12 @@ public class IndustryMarketProcessor {
 
     public TurnResult process(GameState state, Map<String, Integer> paidWorkers,
                               Map<String, Double> paidWages) {
+        return process(state, paidWorkers, paidWages, paidWorkers);
+    }
+
+    public TurnResult process(GameState state, Map<String, Integer> poweredWorkers,
+                              Map<String, Double> paidWages,
+                              Map<String, Integer> actualPaidWorkers) {
         Ledger ledger = new Ledger(state);
         Map<String, IndustryAccount> previous = new HashMap<>();
         for (IndustryAccount account : state.industryAccounts()) previous.put(account.facilityId(), account);
@@ -32,8 +38,9 @@ public class IndustryMarketProcessor {
         for (IndustrialFacility facility : state.industrialFacilities()) {
             IndustryAccount old = previous.get(facility.id());
             IndustryAccount day = processFacility(facility, old,
-                    paidWorkers.getOrDefault(facility.id(), 0),
-                    paidWages.getOrDefault(facility.id(), 0.0), ledger);
+                    poweredWorkers.getOrDefault(facility.id(), 0),
+                    paidWages.getOrDefault(facility.id(), 0.0),
+                    actualPaidWorkers.getOrDefault(facility.id(), 0), ledger);
             for (var activity : state.launchActivities()) {
                 if (facility.id().equals(activity.providerId()))
                     day = day.withPowerSale(activity.feeCredits())
@@ -48,21 +55,23 @@ public class IndustryMarketProcessor {
     }
 
     private IndustryAccount processFacility(IndustrialFacility facility, IndustryAccount previous,
-                                             int paidWorkers, double wages, Ledger ledger) {
+                                             int poweredWorkers, double wages,
+                                             int actualPaidWorkers, Ledger ledger) {
         Map<String, Double> stock = new HashMap<>(previous == null ? Map.of() : previous.unsoldStockKg());
         Map<String, Double> produced = new HashMap<>();
         Map<String, Double> sold = new HashMap<>();
         IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(facility.applicationId());
         Empire technologyOwner = ledger.technologyOwner(facility);
         if (technologyOwner == null) {
-            return new IndustryAccount(facility.id(), stock, produced, sold, 0.0, wages, 0.0, 0.0, 0.0, 0.0);
+            return new IndustryAccount(facility.id(), stock, produced, sold,
+                    0.0, wages, 0.0, 0.0, 0.0, 0.0).withPaidWorkers(actualPaidWorkers);
         }
         CommercialHub hub = ledger.hubOn(facility.planetId());
         double inputCosts = 0.0;
-        if (hub != null && paidWorkers > 0 && facility.allocatedWorkers() > 0
+        if (hub != null && poweredWorkers > 0 && facility.allocatedWorkers() > 0
                 && IndustryRecipeCatalog.isUnlocked(recipe, technologyOwner)
                 && facility.tier() >= recipe.minTier()) {
-            double batches = Math.min(paidWorkers, facility.allocatedWorkers())
+            double batches = Math.min(poweredWorkers, facility.allocatedWorkers())
                     * facility.getEffectiveThroughputMultiplier()
                     * recipe.technologyMultiplier(technologyOwner) / recipe.workersPerBatch();
             batches = affordableBatches(recipe, batches, facility, hub, ledger);
@@ -76,7 +85,8 @@ public class IndustryMarketProcessor {
                 ? 80.0 * Math.max(0, facility.tier()) : 0.0;
         if (maintenance > 0.0) ledger.cash.change(facility, -maintenance);
         return new IndustryAccount(facility.id(), stock, produced, sold, inputCosts,
-                wages, sales, 0.0, 0.0, 0.0).withMaintenanceCost(maintenance);
+                wages, sales, 0.0, 0.0, 0.0).withMaintenanceCost(maintenance)
+                .withPaidWorkers(actualPaidWorkers);
     }
 
     private double affordableBatches(IndustryRecipeCatalog.Recipe recipe, double requested,

@@ -28,7 +28,9 @@ public record StationModule(
         Map<String, Double> materialInputs,
         String workforceProfessionId,
         int requiredWorkers,
-        boolean isOnline
+        boolean isOnline,
+        int paidWorkers,
+        double dailyWageCostsCredits
 ) {
     public static final String TYPE_CONTROL = "CONTROL";
     public static final String TYPE_HABITATION = "HABITATION";
@@ -61,5 +63,22 @@ public record StationModule(
 
     public StationModule {
         materialInputs = materialInputs == null ? Map.of() : Map.copyOf(materialInputs);
+        paidWorkers = Math.max(0, paidWorkers);
+        dailyWageCostsCredits = Double.isFinite(dailyWageCostsCredits)
+                ? Math.max(0.0, dailyWageCostsCredits) : 0.0;
+    }
+
+    public StationModule(String id, String name, String type, int slotSize,
+                         double dryMassKg, double powerDrawKw, double powerOutputKw,
+                         Map<String, Double> materialInputs, String workforceProfessionId,
+                         int requiredWorkers, boolean isOnline) {
+        this(id, name, type, slotSize, dryMassKg, powerDrawKw, powerOutputKw, materialInputs,
+                workforceProfessionId, requiredWorkers, isOnline, 0, 0.0);
+    }
+
+    public StationModule withPayroll(int workers, double wageCostsCredits) {
+        return new StationModule(id, name, type, slotSize, dryMassKg, powerDrawKw,
+                powerOutputKw, materialInputs, workforceProfessionId, requiredWorkers,
+                isOnline, workers, wageCostsCredits);
     }
 }

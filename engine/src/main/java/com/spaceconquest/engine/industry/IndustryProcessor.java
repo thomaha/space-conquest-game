@@ -60,6 +60,12 @@ public class IndustryProcessor {
 
     /** Advances only the work supported by materials actually bought this day. */
     public GameState processIndustrialProduction(GameState state) {
+        return processIndustrialProduction(state, null);
+    }
+
+    /** Advances construction using workers actually hired and paid during the current payroll. */
+    public GameState processIndustrialProduction(GameState state,
+                                                 Map<String, Integer> paidWorkersByFacility) {
         GameState current = state;
         List<FacilityExpansionProject> remaining = new ArrayList<>();
         Map<String, Integer> completedUpgrades = new HashMap<>();
@@ -85,7 +91,7 @@ public class IndustryProcessor {
         GameState completed = current.toBuilder().expansionProjects(remaining)
                 .industrialFacilities(applyCompletedUpgrades(current.industrialFacilities(),
                         completedUpgrades, remaining)).build();
-        return new ShipConstructionProcessor().process(completed);
+        return new ShipConstructionProcessor().process(completed, paidWorkersByFacility);
     }
 
     private List<IndustrialFacility> applyCompletedUpgrades(

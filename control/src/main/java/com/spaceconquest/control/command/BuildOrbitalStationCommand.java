@@ -19,18 +19,22 @@ public record BuildOrbitalStationCommand(
 ) implements GameCommand {
     public BuildOrbitalStationCommand(String ownerEntityId, String systemId, String name) {
         this(name, systemId, "low_orbit", ownerEntityId,
-                OrbitalStation.OWNERSHIP_PUBLIC_STATE, 20, "steel", 5.0);
+                OrbitalStation.OWNERSHIP_PUBLIC_STATE, 40, "steel", 5.0);
     }
 
     @Override
     public boolean validate(GameState state) {
         if (state == null || systemId == null || ownerEntityId == null || totalSlots <= 0) return false;
         boolean stateOwned = state.empires().stream().anyMatch(empire -> empire.id().equals(ownerEntityId)
-                && empire.controlledSystemIds().contains(systemId));
+                && empire.controlledSystemIds().contains(systemId)
+                && empire.unlockedTechIds().contains("space_stations")
+                && empire.unlockedTechIds().contains("rocketry"));
         boolean corporateOwned = state.corporations().stream().anyMatch(corporation ->
                 ownerEntityId.equals(corporation.id()) && state.empires().stream()
                         .anyMatch(empire -> corporation.empireId().equals(empire.id())
-                                && empire.controlledSystemIds().contains(systemId)));
+                                && empire.controlledSystemIds().contains(systemId)
+                                && empire.unlockedTechIds().contains("space_stations")
+                                && empire.unlockedTechIds().contains("rocketry")));
         boolean ownershipMatches = corporateOwned
                 ? OrbitalStation.OWNERSHIP_PRIVATE_CORPORATE.equals(ownershipType)
                 : ownershipType == null || OrbitalStation.OWNERSHIP_PUBLIC_STATE.equals(ownershipType)

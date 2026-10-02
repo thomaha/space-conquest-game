@@ -23,6 +23,14 @@ public record AddStationModuleCommand(
         OrbitalStation station = state.orbitalStations().stream()
                 .filter(item -> stationId.equals(item.id())).findFirst().orElse(null);
         if (station == null) return false;
+        boolean researched = state.empires().stream().anyMatch(empire ->
+                empire.controlledSystemIds().contains(station.systemId())
+                        && empire.unlockedTechIds().contains("space_stations")
+                        && (empire.id().equals(station.ownerEntityId())
+                        || state.corporations().stream().anyMatch(corporation ->
+                        corporation.id().equals(station.ownerEntityId())
+                                && corporation.empireId().equals(empire.id()))));
+        if (!researched) return false;
         int reserved = state.constructionProjects().stream()
                 .filter(project -> stationId.equals(project.targetStationId())
                         && project.plannedModule() != null)

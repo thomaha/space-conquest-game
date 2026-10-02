@@ -12,10 +12,13 @@ import com.spaceconquest.engine.PopulationProcessor;
 import com.spaceconquest.engine.Profession;
 import com.spaceconquest.engine.Race;
 import com.spaceconquest.engine.SolarSystem;
+import com.spaceconquest.engine.macrostructure.OrbitalStation;
+import com.spaceconquest.engine.macrostructure.StationModule;
 import com.spaceconquest.engine.demographics.CitizenCohort;
 import com.spaceconquest.engine.industry.IndustrialFacility;
 import com.spaceconquest.engine.industry.IndustryAccount;
 import com.spaceconquest.engine.industry.PowerBillingProcessor;
+import com.spaceconquest.engine.ship.ShipyardWorkCapacity;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -29,6 +32,7 @@ import java.util.TreeMap;
 
 /** Pays funded jobs, collects personal tax and clears daily household demand against local stock. */
 public class HouseholdEconomyProcessor {
+    private static final String ORBITAL_MODULE_PAYROLL_APPLICATION = "orbital_yard_module_payroll";
     private static final int WORKING_AGE = 18;
     private static final int RETIREMENT_AGE = 65;
     private static final double PENSION_CREDITS_PER_RETIREE = 0.05;
@@ -55,6 +59,11 @@ public class HouseholdEconomyProcessor {
         Map<String, Integer> industryJobs = new HashMap<>();
         for (IndustrialFacility facility : state.industrialFacilities()) {
             industryJobs.put(facility.id(), Math.max(0, facility.allocatedWorkers()));
+        }
+        for (OrbitalStation station : state.orbitalStations()) {
+            for (IndustrialFacility job : orbitalYardJobs(state, station)) {
+                industryJobs.put(job.id(), job.allocatedWorkers());
+            }
         }
         Map<String, Integer> paidWorkersByFacility = new HashMap<>();
         Map<String, Double> wagesByFacility = new HashMap<>();
@@ -91,6 +100,24 @@ public class HouseholdEconomyProcessor {
                             welfareByBody, accounts);
                 }
             }
+            for (var station : state.orbitalStations()) {
+                if (!system.id().equals(station.systemId()) || station.populations().isEmpty()) continue;
+                List<IndustrialFacility> stationJobs = new ArrayList<>(state.industrialFacilities());
+                stationJobs.addAll(orbitalYardJobs(state, station));
+                processBody(station.id(), "none", system.id(), empire, station.populations(), economy,
+                        stationJobs, raceById, previous, publicJobs, industryJobs,
+                        corporations, empires, industryAccounts, paidWorkersByFacility,
+                        wagesByFacility, hubs, marketAccounts, taxByBody, grossWagesByBody,
+                        publicWagesByBody, infrastructureWagesBySystem, welfareByBody, accounts);
+            }
+            for (var belt : system.asteroidBelts()) {
+                if (belt.populations().isEmpty()) continue;
+                processBody(belt.id(), "none", system.id(), empire, belt.populations(), economy,
+                        state.industrialFacilities(), raceById, previous, publicJobs, industryJobs,
+                        corporations, empires, industryAccounts, paidWorkersByFacility,
+                        wagesByFacility, hubs, marketAccounts, taxByBody, grossWagesByBody,
+                        publicWagesByBody, infrastructureWagesBySystem, welfareByBody, accounts);
+            }
         }
         Set<String> activeKeys = new HashSet<>();
         for (HouseholdAccount account : accounts) activeKeys.add(account.key());
@@ -101,7 +128,8 @@ public class HouseholdEconomyProcessor {
                         Map.of(), 1.0, 1.0, 0.0, 0.0, old.wellbeing(), HouseholdEmployment.none()));
             }
         }
-        return new TurnResult(List.copyOf(accounts), List.copyOf(hubs.values()),
+        return new TurnResult(List.copyOf(accounts), updateStationPayroll(state.orbitalStations(),
+                paidWorkersByFacility, wagesByFacility), List.copyOf(hubs.values()),
                 List.copyOf(corporations.values()), List.copyOf(empires.values()),
                 marketAccounts.values().stream()
                         .sorted(Comparator.comparing(MarketAccount::hubId)).toList(),
@@ -201,6 +229,38 @@ public class HouseholdEconomyProcessor {
 
     private record IndustryHire(long workers, double wages) {}
 
+    private List<IndustrialFacility> orbitalYardJobs(GameState state, OrbitalStation station) {
+        List<IndustrialFacility> jobs = new ArrayList<>();
+        for (StationModule module : station.modules()) {
+            if (!module.isOnline() || !ShipyardWorkCapacity.isYardWorkforceModule(module)) continue;
+            jobs.add(new IndustrialFacility(module.id(), station.id(),
+                    ORBITAL_MODULE_PAYROLL_APPLICATION, station.ownerEntityId(),
+                    station.ownershipType(), 1, ShipyardWorkCapacity.requiredWorkers(
+                    state, station.ownerEntityId(), module),
+                    ShipyardWorkCapacity.moduleProfession(module), false, 0.0));
+        }
+        return jobs;
+    }
+
+    private List<OrbitalStation> updateStationPayroll(List<OrbitalStation> stations,
+                                                       Map<String, Integer> paidWorkers,
+                                                       Map<String, Double> wageCosts) {
+        return stations.stream().map(station -> {
+            List<StationModule> modules = station.modules().stream().map(module ->
+                    ShipyardWorkCapacity.isYardWorkforceModule(module)
+                            ? module.withPayroll(paidWorkers.getOrDefault(module.id(), 0),
+                            wageCosts.getOrDefault(module.id(), 0.0)) : module).toList();
+            return new OrbitalStation(station.id(), station.name(), station.systemId(),
+                    station.planetOrbitId(), station.ownerEntityId(), station.ownershipType(),
+                    station.totalSlots(), modules, station.storedCargoKg(),
+                    station.currentPowerGenerationKw(), station.currentPowerDemandKw(),
+                    station.currentShieldHealth(), station.maxShieldHealth(),
+                    station.currentHullHealth(), station.maxHullHealth(),
+                    station.armorMaterialId(), station.armorThicknessCm(),
+                    station.isOperational(), station.populations());
+        }).toList();
+    }
+
     private IndustryHire payIndustryWorkers(String bodyId, String empireId, String professionId, long available,
                                       double wage, List<IndustrialFacility> facilities,
                                       Map<String, Integer> industryJobs, Map<String, Corporation> corporations,
@@ -220,10 +280,13 @@ public class HouseholdEconomyProcessor {
             boolean publicOwner = IndustrialFacility.PUBLIC_STATE.equals(facility.ownershipType())
                     && stateOwner != null && empireId.equals(stateOwner.id());
             if (!privateOwner && !publicOwner) continue;
+            boolean orbitalModule = ORBITAL_MODULE_PAYROLL_APPLICATION.equals(facility.applicationId());
             IndustryAccount account = industryAccounts.getOrDefault(facility.id(), IndustryAccount.empty(facility.id()));
-            double funds = privateOwner ? corporation.liquidCapitalReserves() : account.operatingCashCredits();
+            double funds = privateOwner ? corporation.liquidCapitalReserves()
+                    : orbitalModule ? stateOwner.treasuryCredits() : account.operatingCashCredits();
             long hired = Math.min(available, Math.min(industryJobs.getOrDefault(facility.id(), 0),
-                    (long) Math.floor(Math.max(0.0, funds) / wage)));
+                    wage <= 0.0 ? industryJobs.getOrDefault(facility.id(), 0)
+                            : (long) Math.floor(Math.max(0.0, funds) / wage)));
             if (hired <= 0) continue;
             double payment = hired * wage;
             if (privateOwner) {
@@ -231,6 +294,12 @@ public class HouseholdEconomyProcessor {
                         corporation.empireId(), corporation.headquartersEntityId(), corporation.marketOrientation(),
                         funds - payment, corporation.ownedFacilityIds(), corporation.ownedShipIds(),
                         corporation.claimedVeinIds()));
+            } else if (orbitalModule) {
+                empires.put(stateOwner.id(), new Empire(stateOwner.id(), stateOwner.name(),
+                        stateOwner.raceId(), stateOwner.societyStructure(), funds - payment,
+                        stateOwner.corporateTaxRate(), stateOwner.controlledSystemIds(),
+                        stateOwner.ministries(), stateOwner.systemGovernorAssignments(),
+                        stateOwner.unlockedTechIds(), stateOwner.activeShipDesignIds()));
             } else {
                 industryAccounts.put(facility.id(), account.withOperatingCash(funds - payment));
             }
@@ -338,7 +407,9 @@ public class HouseholdEconomyProcessor {
         }
     }
 
-    public record TurnResult(List<HouseholdAccount> householdAccounts, List<CommercialHub> commercialHubs,
+    public record TurnResult(List<HouseholdAccount> householdAccounts,
+                             List<OrbitalStation> orbitalStations,
+                             List<CommercialHub> commercialHubs,
                              List<Corporation> corporations, List<Empire> empires,
                              List<MarketAccount> marketAccounts,
                              Map<String, Double> incomeTaxByBody, Map<String, Double> grossWagesByBody,

@@ -11,6 +11,8 @@ import com.spaceconquest.control.command.LoadTroopsCommand;
 import com.spaceconquest.control.command.InvadePlanetCommand;
 import com.spaceconquest.control.command.RefuelShipCommand;
 import com.spaceconquest.engine.CommercialHub;
+import com.spaceconquest.engine.Empire;
+import com.spaceconquest.engine.MarketOrder;
 import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.industry.ConstructionMaterials;
 import com.spaceconquest.engine.habitation.PassengerStasis;
@@ -19,6 +21,8 @@ import com.spaceconquest.engine.governance.DiplomacyProcessor;
 import com.spaceconquest.control.command.SetFleetStanceCommand;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.ship.ShipConstructionOrder;
+import com.spaceconquest.engine.ship.ShipConstructionRequirements;
+import com.spaceconquest.engine.ship.ShipyardWorkCapacity;
 import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.FleetLocation;
@@ -41,14 +45,19 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.util.StringConverter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Interactive UI panel for monitoring fleet dispositions, warp transits, fuel reserves, shipyard commissioning and fleet stances.
  */
 public class FleetManagementView {
+    private record MaterialReadiness(boolean fullyAvailable, boolean completePrice,
+                                     double estimatedCost) {}
+
     private VBox root;
     private VBox content;
     private ScrollPane scrollPane;
@@ -59,7 +68,7 @@ public class FleetManagementView {
     private final List<Fleet> activeFleets = new ArrayList<>();
     private final List<ShipConstructionOrder> constructionOrders = new ArrayList<>();
     private final List<String> buildSystemIds = new ArrayList<>();
-    private final List<String> buildDesignIds = new ArrayList<>();
+    private final List<ShipDesign> buildDesigns = new ArrayList<>();
     private GameState snapshot;
 
     public FleetManagementView(Menubar menubar) {
@@ -154,11 +163,10 @@ public class FleetManagementView {
         buildSystemIds.clear();
         state.empires().stream().filter(empire -> playerEmpireId.equals(empire.id()))
                 .findFirst().ifPresent(empire -> buildSystemIds.addAll(empire.controlledSystemIds()));
-        buildDesignIds.clear();
-        buildDesignIds.addAll(state.shipDesigns().stream()
+        buildDesigns.clear();
+        buildDesigns.addAll(state.shipDesigns().stream()
                 .filter(design -> playerEmpireId.equals(design.ownerEntityId())
-                        && !design.isProprietaryCorporateDesign())
-                .map(ShipDesign::id).toList());
+                        && !design.isProprietaryCorporateDesign()).toList());
         if (root.isVisible()) renderContent();
     }
 
@@ -194,19 +202,44 @@ public class FleetManagementView {
 
         Label designLbl = new Label("Blueprint design:");
         designLbl.setTextFill(Color.LIGHTCYAN);
-        ComboBox<String> designCombo = new ComboBox<>();
-        designCombo.getItems().addAll(buildDesignIds);
-        if (!buildDesignIds.isEmpty()) designCombo.setValue(buildDesignIds.getFirst());
+        ComboBox<ShipDesign> designCombo = new ComboBox<>();
+        designCombo.getItems().addAll(buildDesigns);
+        designCombo.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(ShipDesign design) {
+                return design == null ? "" : design.name() + " [" + design.role() + "]";
+            }
+
+            @Override
+            public ShipDesign fromString(String value) {
+                return null;
+            }
+        });
+        if (!buildDesigns.isEmpty()) designCombo.setValue(buildDesigns.getFirst());
 
         Button queueBtn = new Button("Queue ship construction");
-        queueBtn.setDisable(buildSystemIds.isEmpty() || buildDesignIds.isEmpty());
         queueBtn.setStyle("-fx-background-color: #e17055; -fx-text-fill: white; -fx-font-weight: bold;");
+        VBox readinessPreview = new VBox(5);
+        Runnable refreshReadiness = () -> {
+            readinessPreview.getChildren().setAll(buildReadinessPreview(
+                    sysCombo.getValue(), designCombo.getValue()));
+            QueueShipBuildCommand command = new QueueShipBuildCommand(playerEmpireId,
+                    designCombo.getValue() == null ? null : designCombo.getValue().id(),
+                    sysCombo.getValue());
+            queueBtn.setDisable(snapshot == null || !command.validate(snapshot));
+        };
+        sysCombo.valueProperty().addListener((observable, old, selected) -> refreshReadiness.run());
+        designCombo.valueProperty().addListener((observable, old, selected) -> refreshReadiness.run());
+
         queueBtn.setOnAction(e -> {
-            if (humanController != null) {
+            if (humanController != null && designCombo.getValue() != null
+                    && sysCombo.getValue() != null) {
+                ShipDesign selectedDesign = designCombo.getValue();
                 humanController.stageCommand(new QueueShipBuildCommand(
-                        playerEmpireId, designCombo.getValue(), sysCombo.getValue()
+                        playerEmpireId, selectedDesign.id(), sysCombo.getValue()
                 ));
-                feedbackLabel.setText("Queued ship construction for " + designCombo.getValue() + " in " + sysCombo.getValue().toUpperCase());
+                feedbackLabel.setText("Queued ship construction for " + selectedDesign.name()
+                        + " in " + sysCombo.getValue().toUpperCase());
                 feedbackLabel.setTextFill(Color.LIGHTGREEN);
             }
         });
@@ -216,7 +249,8 @@ public class FleetManagementView {
         grid.add(designLbl, 2, 0);
         grid.add(designCombo, 3, 0);
 
-        section.getChildren().addAll(title, grid, queueBtn);
+        refreshReadiness.run();
+        section.getChildren().addAll(title, grid, readinessPreview, queueBtn);
         if (constructionOrders.isEmpty()) {
             section.getChildren().add(new Label("No ship construction orders in progress."));
         } else {
@@ -235,6 +269,189 @@ public class FleetManagementView {
             }
         }
         return section;
+    }
+
+    private List<javafx.scene.Node> buildReadinessPreview(String systemId,
+                                                          ShipDesign design) {
+        List<javafx.scene.Node> lines = new ArrayList<>();
+        Text heading = new Text("Build readiness");
+        heading.setFill(Color.LIGHTBLUE);
+        heading.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
+        lines.add(heading);
+        if (snapshot == null || systemId == null || design == null) {
+            lines.add(readinessText("Select a controlled system and blueprint to see requirements.",
+                    Color.LIGHTGRAY));
+            return lines;
+        }
+
+        QueueShipBuildCommand command = new QueueShipBuildCommand(playerEmpireId,
+                design.id(), systemId);
+        ShipConstructionRequirements.Estimate estimate =
+                ShipConstructionRequirements.estimate(design);
+        String yardEntityId = command.resolveYardEntity(snapshot);
+        if (yardEntityId == null) {
+            lines.add(readinessText("No completed shipyard with a local commercial hub was found in this system. Build a surface_shipyard facility or commission an orbital shipyard module.",
+                    Color.SALMON));
+        }
+        CommercialHub hub = yardEntityId == null ? null : snapshot.commercialHubs().stream()
+                .filter(item -> yardEntityId.equals(item.entityId())).findFirst().orElse(null);
+        if (yardEntityId != null && hub == null) {
+            lines.add(readinessText("The selected shipyard has no commercial hub for construction supplies.",
+                    Color.SALMON));
+        }
+
+        if (yardEntityId != null) lines.add(readinessText("Build site: " + yardEntityId, Color.GAINSBORO));
+        ShipyardWorkCapacity.Profile profile = yardEntityId == null
+                ? null : ShipyardWorkCapacity.forYard(snapshot, playerEmpireId,
+                systemId, yardEntityId);
+        if (profile == null) {
+            lines.add(readinessText(String.format("Production work: %.0f standardized labor-hours.",
+                    estimate.workUnits()), Color.LIGHTCYAN));
+        } else {
+            appendWorkProfile(lines, profile, estimate, systemId, yardEntityId);
+        }
+
+        MaterialReadiness materials = appendMaterialReadiness(lines, hub, estimate);
+        appendCostReadiness(lines, materials, snapshot.empires().stream()
+                .filter(item -> playerEmpireId.equals(item.id())).findFirst().orElse(null));
+        if (!command.validate(snapshot)) {
+            lines.add(readinessText("This design or shipyard is not currently eligible for construction.",
+                    Color.SALMON));
+        }
+        return lines;
+    }
+
+    private void appendWorkProfile(List<javafx.scene.Node> lines,
+                                   ShipyardWorkCapacity.Profile profile,
+                                   ShipConstructionRequirements.Estimate estimate,
+                                   String systemId, String yardEntityId) {
+        lines.add(readinessText(String.format("Yard type: %s | Base capacity: %.0f work-hours/day",
+                profile.yardType(), profile.baseWorkPerDay()), Color.LIGHTCYAN));
+        snapshot.industrialFacilities().stream()
+                .filter(facility -> yardEntityId.equals(facility.planetId())
+                        && playerEmpireId.equals(facility.ownerEntityId())
+                        && ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID
+                        .equals(facility.applicationId()))
+                .findFirst().ifPresent(facility -> lines.add(readinessText(String.format(
+                        "Surface shipyard tier: %d%s", facility.tier(),
+                        facility.isUndergoingExpansion() ? " (upgrading; 50% capacity throttle)" : ""),
+                        Color.GAINSBORO)));
+        snapshot.orbitalStations().stream()
+                .filter(station -> yardEntityId.equals(station.id()))
+                .findFirst().ifPresent(station -> station.modules().stream()
+                        .filter(ShipyardWorkCapacity::isYardWorkforceModule)
+                        .forEach(module -> lines.add(readinessText(String.format(
+                                "Module payroll (%s): %,d / %,d workers | %.2f credits/day | %s",
+                                module.name(), module.paidWorkers(),
+                                ShipyardWorkCapacity.requiredWorkers(snapshot,
+                                        station.ownerEntityId(), module),
+                                module.dailyWageCostsCredits(),
+                                module.isOnline() ? "online" : "offline"),
+                                module.isOnline() ? Color.GAINSBORO : Color.LIGHTYELLOW))));
+        if (!profile.installedYardModules().isEmpty()) {
+            String installed = profile.installedYardModules().entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .map(entry -> entry.getKey().replace('_', ' ') + " × " + entry.getValue())
+                    .collect(java.util.stream.Collectors.joining(", "));
+            lines.add(readinessText("Production modules: " + installed, Color.GAINSBORO));
+        }
+        lines.add(readinessText(String.format(
+                "Technology modifiers: output ×%.2f | staffing requirement ×%.2f",
+                profile.technologyMultiplier(), profile.workerRequirementMultiplier()), Color.GAINSBORO));
+        boolean surfaceYard = "Surface shipyard".equals(profile.yardType());
+        profile.staffingByProfession().values().stream()
+                .sorted(java.util.Comparator.comparing(ShipyardWorkCapacity.Staffing::professionId))
+                .forEach(staff -> lines.add(readinessText(String.format(
+                        "Staffing (%s): %,d / %,d %s (%.0f%%)",
+                        staff.professionId().replace('_', ' '), staff.filledWorkers(),
+                        staff.requiredWorkers(), surfaceYard ? "paid" : "available",
+                        staff.filledFraction() * 100.0),
+                        staff.filledFraction() >= 0.999 ? Color.LIGHTGREEN : Color.LIGHTYELLOW)));
+        if (!profile.staffingByProfession().isEmpty()) {
+            lines.add(readinessText(profile.isFullyStaffed()
+                            ? "Overall staffing: fully staffed"
+                            : String.format("Overall staffing: understaffed (%.0f%%)",
+                            profile.staffingFraction() * 100.0),
+                    profile.isFullyStaffed() ? Color.LIGHTGREEN : Color.LIGHTYELLOW));
+        }
+        lines.add(readinessText(String.format("Effective work capacity: %.1f work-hours/day",
+                profile.workPerDay()), profile.workPerDay() > 0.0 ? Color.LIGHTCYAN : Color.SALMON));
+        if (profile.workPerDay() > 0.0) {
+            double queuedAhead = snapshot.shipConstructionOrders().stream()
+                    .filter(order -> systemId.equals(order.systemId())
+                            && yardEntityId.equals(order.yardBodyId()))
+                    .mapToDouble(order -> Math.max(0.0,
+                            order.requiredWorkHours() - order.accumulatedWorkHours())).sum();
+            long minimumDays = (long) Math.ceil((queuedAhead + estimate.workUnits())
+                    / profile.workPerDay());
+            lines.add(readinessText(String.format(
+                    "Production work: %.0f standardized labor-hours; %.0f hours queued ahead; estimated minimum %d days.",
+                    estimate.workUnits(), queuedAhead, minimumDays), Color.LIGHTCYAN));
+        } else {
+            lines.add(readinessText("No completion time until the yard is operational and staffed.",
+                    Color.SALMON));
+        }
+    }
+
+    private MaterialReadiness appendMaterialReadiness(List<javafx.scene.Node> lines,
+                                                       CommercialHub hub,
+                                                       ShipConstructionRequirements.Estimate estimate) {
+        boolean fullyAvailable = true;
+        boolean completePrice = true;
+        double estimatedCost = 0.0;
+        for (Map.Entry<String, Double> entry : new java.util.TreeMap<>(estimate.materialsKg()).entrySet()) {
+            double requiredKg = entry.getValue();
+            MarketOrder quote = hub == null ? null : hub.activeOrders().get(entry.getKey());
+            double availableKg = quote == null || !Double.isFinite(quote.supplyKg())
+                    ? 0.0 : Math.max(0.0, quote.supplyKg());
+            double shortfallKg = Math.max(0.0, requiredKg - availableKg);
+            if (shortfallKg > 0.000001) fullyAvailable = false;
+            String priceText = "price unavailable";
+            if (quote != null && Double.isFinite(quote.pricePerKg()) && quote.pricePerKg() >= 0.0) {
+                estimatedCost += requiredKg * quote.pricePerKg();
+                priceText = String.format("%.2f cr/kg", quote.pricePerKg());
+            } else {
+                completePrice = false;
+            }
+            String stockText = String.format("%s: %.0f kg required / %.0f kg available",
+                    entry.getKey().replace('_', ' '), requiredKg, availableKg);
+            if (shortfallKg > 0.000001) stockText += String.format(" (%.0f kg short)", shortfallKg);
+            lines.add(readinessText(stockText + " | " + priceText,
+                    shortfallKg > 0.000001 ? Color.LIGHTYELLOW : Color.GAINSBORO));
+        }
+        return new MaterialReadiness(fullyAvailable, completePrice, estimatedCost);
+    }
+
+    private void appendCostReadiness(List<javafx.scene.Node> lines, MaterialReadiness materials,
+                                     Empire empire) {
+        double treasury = empire == null ? 0.0 : empire.treasuryCredits();
+        lines.add(readinessText(materials.completePrice()
+                        ? String.format("Estimated full-bill cost: %.2f credits | Treasury: %.2f",
+                        materials.estimatedCost(), treasury)
+                        : String.format("Full-bill cost unavailable for one or more materials | Treasury: %.2f",
+                        treasury), Color.LIGHTCYAN));
+        if (materials.completePrice() && materials.estimatedCost() > treasury) {
+            lines.add(readinessText(String.format("Treasury is short by %.2f credits at current prices.",
+                    materials.estimatedCost() - treasury), Color.SALMON));
+        }
+        if (materials.fullyAvailable() && materials.completePrice()
+                && materials.estimatedCost() <= treasury) {
+            lines.add(readinessText("Current hub stock can cover the bill at the listed prices.",
+                    Color.LIGHTGREEN));
+        } else if (materials.fullyAvailable() && !materials.completePrice()) {
+            lines.add(readinessText("Hub stock covers the bill, but missing market prices prevent a full cost estimate.",
+                    Color.LIGHTYELLOW));
+        } else {
+            lines.add(readinessText("The order may still be queued, but construction can pause until missing materials or funds are available.",
+                    Color.LIGHTYELLOW));
+        }
+    }
+
+    private Text readinessText(String value, Color color) {
+        Text text = new Text(value);
+        text.setFill(color);
+        text.setFont(Font.font("Verdana", 11));
+        return text;
     }
 
     private VBox createOrbitalCargoSection() {
@@ -570,9 +787,13 @@ public class FleetManagementView {
 
     private HBox createPassengerOrders(Fleet fleet) {
         HBox row = new HBox(8);
-        if (snapshot == null || fleet.location().inTransit() || fleet.hasInterstellarOrder()
-                || fleet.location().current().kind() != FleetLocation.Kind.SURFACE) return row;
+        if (snapshot == null || fleet.location().inTransit() || fleet.hasInterstellarOrder()) return row;
         String source = fleet.location().current().entityId();
+        boolean surfaceSource = fleet.location().current().kind() == FleetLocation.Kind.SURFACE;
+        boolean stationSource = fleet.location().current().kind() == FleetLocation.Kind.DOCKED
+                && snapshot.orbitalStations().stream().anyMatch(station -> station.id().equals(source)
+                && station.hasModuleType(com.spaceconquest.engine.macrostructure.StationModule.TYPE_HABITATION));
+        if (!surfaceSource && !stationSource) return row;
         ComboBox<String> ships = new ComboBox<>();
         fleet.ships().stream().filter(ship -> ship.passengerCount() == 0)
                 .forEach(ship -> ships.getItems().add(ship.id()));
@@ -585,6 +806,9 @@ public class FleetManagementView {
             sourceGroups.stream().filter(group -> group.totalCount() > 0)
                     .forEach(group -> races.getItems().add(group.raceId()));
         }));
+        snapshot.orbitalStations().stream().filter(station -> source.equals(station.id()))
+                .flatMap(station -> station.populations().stream())
+                .filter(group -> group.totalCount() > 0).forEach(group -> races.getItems().add(group.raceId()));
         races.setPromptText("Residents");
         ComboBox<String> destinations = new ComboBox<>();
         snapshot.solarSystems().forEach(system -> system.planets().forEach(planet -> {
@@ -593,6 +817,9 @@ public class FleetManagementView {
                 if (!source.equals(moon.id())) destinations.getItems().add(moon.id());
             });
         }));
+        snapshot.orbitalStations().stream().filter(station -> !source.equals(station.id())
+                && station.hasModuleType(com.spaceconquest.engine.macrostructure.StationModule.TYPE_HABITATION))
+                .forEach(station -> destinations.getItems().add(station.id()));
         destinations.setPromptText("Offworld destination");
         Spinner<Integer> count = new Spinner<>(1, 100_000, 1, 1);
         count.setEditable(true);

@@ -437,7 +437,8 @@ public class SpaceConquestEngine implements GameEngine {
 
     private void updateIndustryAndPower(HouseholdEconomyProcessor.TurnResult payroll) {
         List<Empire> beforeConstruction = empires;
-        GameState construction = industryProcessor.processIndustrialProduction(getGameState());
+        GameState construction = industryProcessor.processIndustrialProduction(getGameState(),
+                payroll.paidWorkersByFacility());
         industrialFacilities = construction.industrialFacilities();
         expansionProjects = construction.expansionProjects();
         shipConstructionOrders = construction.shipConstructionOrders(); fleets = construction.fleets();
@@ -469,7 +470,8 @@ public class SpaceConquestEngine implements GameEngine {
         imperialFinance.recordTreasuryChanges(beforeLaunchPowerSettlement, empires);
         imperialFinance.recordIndustryFlows(billing.imperialReceipts(), billing.imperialExpenses());
         IndustryMarketProcessor.TurnResult marketResult = industryMarketProcessor.process(
-                getGameState(), billing.poweredWorkers(), payroll.wagesByFacility());
+                getGameState(), billing.poweredWorkers(), payroll.wagesByFacility(),
+                payroll.paidWorkersByFacility());
         empires = marketResult.empires();
         corporations = marketResult.corporations();
         commercialHubs = marketResult.hubs();
@@ -605,6 +607,14 @@ public class SpaceConquestEngine implements GameEngine {
                 );
             })
             .toList();
+        orbitalStations = orbitalStations.stream().map(station -> {
+            String empireId = empires.stream().filter(empire ->
+                    empire.controlledSystemIds().contains(station.systemId()))
+                    .map(Empire::id).findFirst().orElse(null);
+            List<Population> grown = station.populations().stream()
+                    .map(population -> updatePopulation(population, station.id(), empireId)).toList();
+            return station.withPopulations(fitOrbitalCapacity(grown, station.habitationCapacity()));
+        }).toList();
         householdAccounts = householdAccounts.stream()
                 .map(HouseholdAccount::withResetAnnualShortfall).toList();
     }
@@ -612,6 +622,7 @@ public class SpaceConquestEngine implements GameEngine {
     private void updateMarketsAndEconomy() {
         commercialHubs = marketProcessor.updateCommercialHubs(
                 marketDemandProcessor.refresh(getGameState(), races));
+        ensureMarketAccounts();
         Map<String, Double> trustPenalties = activeCorporateTrustPenalties();
         GameState invested = corporateInvestmentProcessor.processCorporateInvestments(getGameState(), trustPenalties);
         corporations = invested.corporations();
@@ -641,6 +652,7 @@ public class SpaceConquestEngine implements GameEngine {
 
         HouseholdEconomyProcessor.TurnResult householdResult = householdEconomyProcessor.process(getGameState(), races);
         householdAccounts = householdResult.householdAccounts();
+        orbitalStations = householdResult.orbitalStations();
         marketAccounts = householdResult.marketAccounts();
         commercialHubs = householdResult.commercialHubs();
         corporations = householdResult.corporations();
@@ -680,6 +692,17 @@ public class SpaceConquestEngine implements GameEngine {
             p.populations().stream().map(pop -> updatePopulation(pop, p.id(), empireId)).toList()
         );
     }
+
+    private void ensureMarketAccounts() {
+        java.util.Set<String> funded = marketAccounts.stream()
+                .map(MarketAccount::hubId).collect(java.util.stream.Collectors.toSet());
+        List<MarketAccount> updated = new ArrayList<>(marketAccounts);
+        for (CommercialHub hub : commercialHubs) {
+            if (!funded.add(hub.id())) continue;
+            updated.add(new MarketAccount(hub.id(), 100_000.0));
+        }
+        marketAccounts = updated;
+    }
     private Moon updateMoon(Moon m, String empireId) {
         return new Moon(
             m.id(), m.name(), m.description(), m.mass(), m.gravity(), m.distance(),
@@ -709,6 +732,32 @@ public class SpaceConquestEngine implements GameEngine {
         double averageStress = countedPeople == 0L ? 0.0 : weightedStress / countedPeople;
         double warStress = activeCivilianWarStress(empireId);
         return populationProcessor.advanceYears(pop, race, 1, 1, List.of(), averageStress + warStress);
+    }
+
+    private List<Population> fitOrbitalCapacity(List<Population> populations, long capacity) {
+        long total = populations.stream().mapToLong(Population::totalCount).sum();
+        if (total <= capacity || total == 0) return populations;
+        double ratio = (double) capacity / total;
+        List<Population> fitted = new ArrayList<>();
+        long assigned = 0;
+        for (Population population : populations) {
+            Map<Integer, Long> ages = new HashMap<>();
+            for (var age : population.ageGroups().entrySet()) {
+                long count = (long) Math.floor(age.getValue() * ratio);
+                if (count > 0) ages.put(age.getKey(), count);
+                assigned += count;
+            }
+            fitted.add(new Population(population.raceId(), ages));
+        }
+        long remainder = capacity - assigned;
+        for (int index = 0; index < fitted.size() && remainder > 0; index++, remainder--) {
+            Population population = fitted.get(index);
+            Map<Integer, Long> ages = new HashMap<>(population.ageGroups());
+            int age = ages.keySet().stream().findFirst().orElse(18);
+            ages.merge(age, 1L, Long::sum);
+            fitted.set(index, new Population(population.raceId(), ages));
+        }
+        return List.copyOf(fitted);
     }
 
     double activeCivilianWarStress(String empireId) {

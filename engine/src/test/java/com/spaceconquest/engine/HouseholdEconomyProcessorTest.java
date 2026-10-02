@@ -10,12 +10,16 @@ import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.demographics.ColonyFocus;
 import com.spaceconquest.engine.industry.IndustrialFacility;
 import com.spaceconquest.engine.industry.IndustryAccount;
+import com.spaceconquest.engine.macrostructure.OrbitalStation;
+import com.spaceconquest.engine.macrostructure.StationModule;
+import com.spaceconquest.engine.ship.ShipyardWorkCapacity;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HouseholdEconomyProcessorTest {
@@ -60,6 +64,184 @@ class HouseholdEconomyProcessorTest {
         assertEquals(taxes, sheet.incomeTaxRevenue(), 0.001);
         assertEquals(result.publicWagesByBody().get("earth"), sheet.workforceSalaries(), 0.001);
         assertEquals(wages, sheet.grossPlanetaryProduct(), 0.001);
+    }
+
+    @Test
+    void orbitalResidentsFormHouseholdsAndBuyFromTheirStationHub() {
+        GameState initial = state(25);
+        StationModule habitation = new StationModule("hab", "Habitation",
+                StationModule.TYPE_HABITATION, 6, 12_000, 30, 0, Map.of(),
+                "technician", 3, true);
+        OrbitalStation station = new OrbitalStation("station", "Orbital home", "sol", "earth",
+                "empire", OrbitalStation.OWNERSHIP_PUBLIC_STATE, 40, List.of(habitation),
+                Map.of(), 0, 30, 0, 0, 100, 100, "steel", 1, true,
+                List.of(new Population("human", Map.of(25, 200L))));
+        CommercialHub orbitalHub = new CommercialHub("station_market", station.id(), 0,
+                50_000, 2_000, 10, Map.of("food_matrix", new MarketOrder("food_matrix",
+                1_000, 0, 1, 0), "oxygen_gas", new MarketOrder("oxygen_gas", 1_000,
+                0, 1, 0), "consumer_goods", new MarketOrder("consumer_goods", 1_000,
+                0, 2, 0), "luxury_goods", new MarketOrder("luxury_goods", 1_000,
+                0, 5, 0)));
+        GameState populated = initial.toBuilder().orbitalStations(List.of(station))
+                .commercialHubs(List.of(initial.commercialHubs().getFirst(), orbitalHub)).build();
+
+        var result = processor.process(populated, List.of(human()));
+        assertEquals(200, result.householdAccounts().stream()
+                .filter(account -> "station".equals(account.bodyId()))
+                .mapToLong(HouseholdAccount::headcount).sum());
+        assertTrue(result.householdAccounts().stream().filter(account ->
+                "station".equals(account.bodyId())).mapToDouble(HouseholdAccount::marketSpendingCredits)
+                .sum() > 0.0);
+        assertTrue(result.marketAccounts().stream().anyMatch(account ->
+                "station_market".equals(account.hubId())
+                        && account.unsettledSalesCredits() > 0.0));
+    }
+
+    @Test
+    void orbitalShipyardModulesHireWorkersAndPersistPayrollHeadcount() {
+        GameState initial = state(25);
+        StationModule grid = new StationModule("yard_grid", "Shipyard grid",
+                StationModule.TYPE_SHIPYARD_GRID, 10, 20_000, 100, 0, Map.of(),
+                "industrial_worker", 20, true);
+        OrbitalStation station = new OrbitalStation("yard_station", "Orbital yard", "sol", "earth",
+                "empire", OrbitalStation.OWNERSHIP_PUBLIC_STATE, 30, List.of(grid),
+                Map.of(), 100, 100, 0, 0, 100, 100, "steel", 1, true,
+                List.of(new Population("human", Map.of(25, 200L))));
+        HouseholdAccount workers = new HouseholdAccount("yard_station", "sol", "empire", "human",
+                "industrial_worker", 200, 1_000, 0, 0, 0, 0, Map.of(), 1, 1, 0, 0,
+                HouseholdWellbeing.healthy(), new HouseholdEmployment(200, 0, 0, 0));
+        GameState populated = initial.toBuilder().orbitalStations(List.of(station))
+                .householdAccounts(List.of(workers)).build();
+
+        HouseholdEconomyProcessor.TurnResult payroll = processor.process(populated, List.of(human()));
+        StationModule paidGrid = payroll.orbitalStations().getFirst().modules().getFirst();
+        assertTrue(paidGrid.paidWorkers() > 0);
+        assertTrue(paidGrid.dailyWageCostsCredits() > 0.0);
+        assertEquals(paidGrid.paidWorkers(), payroll.paidWorkersByFacility().get("yard_grid"));
+
+        GameState settled = populated.toBuilder().orbitalStations(payroll.orbitalStations())
+                .industryAccounts(payroll.industryAccounts()).empires(payroll.empires()).build();
+        ShipyardWorkCapacity.Profile profile = ShipyardWorkCapacity.forYard(
+                settled, "empire", "sol", "yard_station");
+        assertEquals(Math.min(100.0, paidGrid.paidWorkers() * 5.0), profile.workPerDay(), 0.001);
+    }
+
+    @Test
+    void orbitalYardPayrollUsesResearchedStaffingReductions() {
+        GameState initial = state(25);
+        Empire original = initial.empires().getFirst();
+        Empire researched = new Empire(original.id(), original.name(), original.raceId(),
+                original.societyStructure(), original.treasuryCredits(), original.corporateTaxRate(),
+                original.controlledSystemIds(), original.ministries(),
+                original.systemGovernorAssignments(), List.of(
+                ShipyardWorkCapacity.TECH_AUTOMATED_ASSEMBLY,
+                ShipyardWorkCapacity.TECH_CYBERNETIC_WORKFORCE), original.activeShipDesignIds());
+        StationModule grid = new StationModule("researched_grid", "Shipyard grid",
+                StationModule.TYPE_SHIPYARD_GRID, 10, 20_000, 100, 0, Map.of(),
+                "industrial_worker", 20, true);
+        List<StationModule> modules = new java.util.ArrayList<>(List.of(grid));
+        for (int index = 0; index < 4; index++) {
+            modules.add(new StationModule("assembly_" + index, "Component assembly",
+                    StationModule.TYPE_COMPONENT_ASSEMBLY, 1, 1_000, 1, 0, Map.of(),
+                    "industrial_worker", 1, true));
+        }
+        OrbitalStation station = new OrbitalStation("researched_station", "Orbital yard", "sol", "earth",
+                "empire", OrbitalStation.OWNERSHIP_PUBLIC_STATE, 30, modules,
+                Map.of(), 100, 100, 0, 0, 100, 100, "steel", 1, true,
+                List.of(new Population("human", Map.of(25, 200L))));
+        HouseholdAccount workers = new HouseholdAccount(station.id(), "sol", "empire", "human",
+                "industrial_worker", 200, 0, 0, 0, 0, 0, Map.of(), 1, 1, 0, 0,
+                HouseholdWellbeing.healthy(), new HouseholdEmployment(200, 0, 0, 0));
+        GameState populated = initial.toBuilder().empires(List.of(researched))
+                .orbitalStations(List.of(station)).householdAccounts(List.of(workers)).build();
+
+        var payroll = processor.process(populated, List.of(human()));
+        StationModule paidGrid = payroll.orbitalStations().getFirst().modules().getFirst();
+        assertEquals(12, paidGrid.paidWorkers());
+        assertEquals(300.0, paidGrid.dailyWageCostsCredits(), 0.001);
+        assertEquals(16, modules.stream().mapToInt(module -> payroll.paidWorkersByFacility()
+                .getOrDefault(module.id(), 0)).sum());
+        assertEquals(400.0, modules.stream().mapToDouble(module -> payroll.wagesByFacility()
+                .getOrDefault(module.id(), 0.0)).sum(), 0.001);
+        GameState settled = populated.toBuilder().orbitalStations(payroll.orbitalStations())
+                .empires(payroll.empires()).build();
+        ShipyardWorkCapacity.Profile profile = ShipyardWorkCapacity.forYard(
+                settled, "empire", "sol", station.id());
+        assertEquals(16, profile.staffingByProfession().get("industrial_worker").requiredWorkers());
+        assertTrue(profile.isFullyStaffed());
+        assertEquals(375.0, profile.workPerDay(), 0.001);
+    }
+
+    @Test
+    void orbitalShipyardCapacityFallsWhenPayrollFundsOrLocalWorkersAreLimited() {
+        GameState initial = state(25);
+        StationModule grid = new StationModule("limited_grid", "Shipyard grid",
+                StationModule.TYPE_SHIPYARD_GRID, 10, 20_000, 100, 0, Map.of(),
+                "industrial_worker", 20, true);
+        OrbitalStation station = new OrbitalStation("limited_station", "Orbital yard", "sol", "earth",
+                "empire", OrbitalStation.OWNERSHIP_PUBLIC_STATE, 30, List.of(grid),
+                Map.of(), 100, 100, 0, 0, 100, 100, "steel", 1, true,
+                List.of(new Population("human", Map.of(25, 200L))));
+        HouseholdAccount workers = new HouseholdAccount("limited_station", "sol", "empire", "human",
+                "industrial_worker", 200, 0, 0, 0, 0, 0, Map.of(), 1, 1, 0, 0,
+                HouseholdWellbeing.healthy(), new HouseholdEmployment(200, 0, 0, 0));
+        Empire original = initial.empires().getFirst();
+        Empire lowFunds = new Empire(original.id(), original.name(), original.raceId(),
+                original.societyStructure(), 25, original.corporateTaxRate(),
+                original.controlledSystemIds(), original.ministries(),
+                original.systemGovernorAssignments(), original.unlockedTechIds(),
+                original.activeShipDesignIds());
+        GameState underfunded = initial.toBuilder().empires(List.of(lowFunds))
+                .orbitalStations(List.of(station)).householdAccounts(List.of(workers)).build();
+
+        var limitedPayroll = processor.process(underfunded, List.of(human()));
+        StationModule limitedGrid = limitedPayroll.orbitalStations().getFirst().modules().getFirst();
+        assertEquals(1, limitedGrid.paidWorkers());
+        assertEquals(25.0, limitedGrid.dailyWageCostsCredits(), 0.001);
+        GameState limitedState = underfunded.toBuilder()
+                .orbitalStations(limitedPayroll.orbitalStations()).empires(limitedPayroll.empires()).build();
+        ShipyardWorkCapacity.Profile limitedCapacity = ShipyardWorkCapacity.forYard(
+                limitedState, "empire", "sol", station.id());
+        assertEquals(5.0, limitedCapacity.workPerDay(), 0.001);
+        assertFalse(limitedCapacity.isFullyStaffed());
+
+        Empire restoredFunds = new Empire(original.id(), original.name(), original.raceId(),
+                original.societyStructure(), 1_000, original.corporateTaxRate(),
+                original.controlledSystemIds(), original.ministries(),
+                original.systemGovernorAssignments(), original.unlockedTechIds(),
+                original.activeShipDesignIds());
+        GameState recoveredFunding = limitedState.toBuilder().empires(List.of(restoredFunds))
+                .householdAccounts(limitedPayroll.householdAccounts()).build();
+        var recoveredPayroll = processor.process(recoveredFunding, List.of(human()));
+        StationModule recoveredGrid = recoveredPayroll.orbitalStations().getFirst().modules().getFirst();
+        assertEquals(20, recoveredGrid.paidWorkers());
+        assertEquals(500.0, recoveredGrid.dailyWageCostsCredits(), 0.001);
+        GameState recoveredState = recoveredFunding.toBuilder()
+                .orbitalStations(recoveredPayroll.orbitalStations())
+                .empires(recoveredPayroll.empires()).build();
+        assertEquals(100.0, ShipyardWorkCapacity.forYard(
+                recoveredState, "empire", "sol", station.id()).workPerDay(), 0.001);
+
+        OrbitalStation smallPopulationStation = new OrbitalStation(station.id(), station.name(),
+                station.systemId(), station.planetOrbitId(), station.ownerEntityId(), station.ownershipType(),
+                station.totalSlots(), station.modules(), station.storedCargoKg(),
+                station.currentPowerGenerationKw(), station.currentPowerDemandKw(),
+                station.currentShieldHealth(), station.maxShieldHealth(), station.currentHullHealth(),
+                station.maxHullHealth(), station.armorMaterialId(), station.armorThicknessCm(),
+                station.isOperational(), List.of(new Population("human", Map.of(25, 2L))));
+        HouseholdAccount twoWorkers = new HouseholdAccount("limited_station", "sol", "empire", "human",
+                "industrial_worker", 2, 0, 0, 0, 0, 0, Map.of(), 1, 1, 0, 0,
+                HouseholdWellbeing.healthy(), new HouseholdEmployment(2, 0, 0, 0));
+        GameState shortLabor = initial.toBuilder().orbitalStations(List.of(smallPopulationStation))
+                .householdAccounts(List.of(twoWorkers)).build();
+        var laborPayroll = processor.process(shortLabor, List.of(human()));
+        StationModule laborLimitedGrid = laborPayroll.orbitalStations().getFirst().modules().getFirst();
+        assertEquals(2, laborLimitedGrid.paidWorkers());
+        assertEquals(50.0, laborLimitedGrid.dailyWageCostsCredits(), 0.001);
+        GameState laborLimitedState = shortLabor.toBuilder()
+                .orbitalStations(laborPayroll.orbitalStations()).empires(laborPayroll.empires()).build();
+        assertEquals(10.0, ShipyardWorkCapacity.forYard(
+                laborLimitedState, "empire", "sol", station.id()).workPerDay(), 0.001);
     }
 
     @Test

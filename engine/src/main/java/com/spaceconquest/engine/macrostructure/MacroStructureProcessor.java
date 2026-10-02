@@ -2,6 +2,9 @@ package com.spaceconquest.engine.macrostructure;
 
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.CommercialHub;
+import com.spaceconquest.engine.MarketOrder;
+import com.spaceconquest.engine.economy.MarketAccount;
+import com.spaceconquest.engine.market.MarketProcessor;
 import com.spaceconquest.engine.industry.ConstructionMaterials;
 import com.spaceconquest.engine.industry.ConstructionProgress;
 
@@ -52,7 +55,7 @@ public class MacroStructureProcessor {
                     0.0, station.maxShieldHealth(),
                     station.currentHullHealth(), station.maxHullHealth(),
                     station.armorMaterialId(), station.armorThicknessCm(),
-                    false
+                    false, station.populations()
             );
             return new StationTurnResult(unpowered, 0.0, 0.0, Map.of());
         }
@@ -77,7 +80,7 @@ public class MacroStructureProcessor {
                 currentShield, station.maxShieldHealth(),
                 station.currentHullHealth(), station.maxHullHealth(),
                 station.armorMaterialId(), station.armorThicknessCm(),
-                true
+                true, station.populations()
         );
 
         return new StationTurnResult(updatedStation, collectedTariffs, researchPoints, producedMaterials);
@@ -98,7 +101,8 @@ public class MacroStructureProcessor {
                     mod.id(), mod.name(), mod.type(), mod.slotSize(),
                     mod.dryMassKg(), mod.powerDrawKw(), mod.powerOutputKw(),
                     mod.materialInputs(), mod.workforceProfessionId(),
-                    mod.requiredWorkers(), stayOnline
+                    mod.requiredWorkers(), stayOnline, mod.paidWorkers(),
+                    mod.dailyWageCostsCredits()
             );
             updatedModules.add(updatedMod);
 
@@ -247,14 +251,14 @@ public class MacroStructureProcessor {
                                 station.currentShieldHealth(), station.maxShieldHealth(),
                                 station.currentHullHealth(), station.maxHullHealth(),
                                 station.armorMaterialId(), station.armorThicknessCm(),
-                                station.isOperational()));
-                        if (StationModule.TYPE_COMMERCE.equalsIgnoreCase(
-                                project.plannedModule().type()) && current.commercialHubs().stream()
-                                .noneMatch(hub -> station.id().equals(hub.entityId()))) {
-                            List<CommercialHub> hubs = new ArrayList<>(current.commercialHubs());
-                            hubs.add(new CommercialHub("hub_" + station.id(), station.id(),
-                                    0.0, 500_000.0, 0.0, 10.0, Map.of()));
-                            current = current.withCommercialHubs(hubs);
+                                station.isOperational(), station.populations()));
+                        boolean commerceModule = StationModule.TYPE_COMMERCE.equalsIgnoreCase(
+                                project.plannedModule().type());
+                        GameState hubCheckState = current;
+                        boolean hasOrbitHub = hubCheckState.commercialHubs().stream()
+                                .anyMatch(hub -> hubExistsInOrbit(hubCheckState, station, hub));
+                        if (commerceModule && !hasOrbitHub) {
+                            current = establishOrbitalHub(current, station);
                         }
                         break;
                     }
@@ -273,6 +277,38 @@ public class MacroStructureProcessor {
         }
         return current.toBuilder().constructionProjects(remaining).orbitalStations(stations)
                 .spaceElevators(elevators).build();
+    }
+
+    private boolean hubExistsInOrbit(GameState state, OrbitalStation station, CommercialHub hub) {
+        return state.orbitalStations().stream().anyMatch(existing ->
+                existing.id().equals(hub.entityId())
+                        && station.systemId().equals(existing.systemId())
+                        && station.planetOrbitId().equals(existing.planetOrbitId()));
+    }
+
+    private GameState establishOrbitalHub(GameState state, OrbitalStation station) {
+        CommercialHub model = state.commercialHubs().stream()
+                .filter(hub -> station.systemId().equals(com.spaceconquest.engine.industry
+                        .ConstructionMaterials.systemForBody(state, hub.entityId())))
+                .findFirst().orElse(null);
+        Map<String, MarketOrder> orders = new HashMap<>();
+        if (model != null) model.activeOrders().forEach((resource, order) -> {
+            double supply = order.supplyKg() * 0.1;
+            double demand = order.demandKg() * 0.1;
+            orders.put(resource, new MarketOrder(resource, supply, demand,
+                    MarketProcessor.basePricePerKg(resource), order.shortcomingScore()));
+        });
+        double stored = orders.values().stream().mapToDouble(MarketOrder::supplyKg).sum();
+        CommercialHub hub = new CommercialHub("hub_" + station.id(), station.id(),
+                model == null ? 0.05 : model.transactionTariffRate(),
+                Math.max(500_000.0, stored * 1.5), stored, 10.0, orders);
+        List<CommercialHub> hubs = new ArrayList<>(state.commercialHubs());
+        hubs.add(hub);
+        List<MarketAccount> accounts = new ArrayList<>(state.marketAccounts());
+        double openingCash = orders.values().stream().mapToDouble(order ->
+                order.demandKg() * order.pricePerKg() * 0.8).sum() * 30.0;
+        accounts.add(new MarketAccount(hub.id(), Math.max(100_000.0, openingCash)));
+        return state.toBuilder().commercialHubs(hubs).marketAccounts(accounts).build();
     }
 
     private OrbitalStation createCompletedStation(ConstructionDeploymentProject proj, String ownerEntityId) {

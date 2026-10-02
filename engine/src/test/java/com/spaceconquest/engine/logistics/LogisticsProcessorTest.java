@@ -36,7 +36,7 @@ public class LogisticsProcessorTest {
                 "rp1_kerosene", new MarketOrder("rp1_kerosene", 1_000, 0, 2, 0),
                 "liquid_oxygen", new MarketOrder("liquid_oxygen", 1_000, 0, 2, 0)));
         CommercialHub destination = new CommercialHub("destination", destinationStation.id(),
-                0, 5_000, 0, 10, Map.of());
+                0, 5_000, 0, 10, Map.of("steel", new MarketOrder("steel", 0, 100, 5, 1)));
         Corporation corporation = new Corporation("corp", "Carrier", "emp", "earth",
                 "TRANSPORT", 1_000, List.of(), List.of("ship"), List.of());
         Empire empire = new Empire("emp", "Empire", "human", "Individualist",
@@ -77,6 +77,47 @@ public class LogisticsProcessorTest {
         assertTrue(blocked.fleets().getFirst().location().isAt(
                 FleetLocation.Site.docked(sourceStation.id())));
         assertEquals(20, blocked.tradeRoutes().getFirst().onboardKg(), 0.001);
+    }
+
+    @Test
+    void loadingFreighterIsPulledTowardTheBestPricedMarket() {
+        OrbitalStation sourceStation = station("station_a");
+        OrbitalStation lowPriceStation = station("station_b");
+        OrbitalStation premiumStation = station("station_c");
+        CommercialHub source = new CommercialHub("source", sourceStation.id(), 0,
+                5_000, 500, 10, Map.of("steel", new MarketOrder("steel", 100, 0, 2, 0),
+                "gold", new MarketOrder("gold", 100, 0, 3, 0)));
+        CommercialHub lowPrice = new CommercialHub("low", lowPriceStation.id(), 0,
+                5_000, 0, 10, Map.of("steel", new MarketOrder("steel", 0, 20, 3, 0)));
+        CommercialHub premium = new CommercialHub("premium", premiumStation.id(), 0,
+                5_000, 0, 10, Map.of("steel", new MarketOrder("steel", 0, 100, 10, 1),
+                "gold", new MarketOrder("gold", 0, 100, 20, 1)));
+        Corporation corporation = new Corporation("corp", "Carrier", "emp", "earth",
+                "TRANSPORT", 1_000, List.of(), List.of("ship"), List.of());
+        Empire empire = new Empire("emp", "Empire", "human", "Individualist",
+                0, 0.2, List.of("sol"), List.of(), Map.of(), List.of(), List.of());
+        ShipDesign design = new ShipDesign("design", "Freighter", "corp",
+                ShipRole.CARGO_TRANSPORT, "steel", List.of(), "steel", 0,
+                1_000, 100, 0, 1, 0, 0, true, true);
+        Fleet fleet = new Fleet("fleet", "Freighter", "corp", "sol", "",
+                0, 0, 0, false, "PASSIVE", List.of(new ShipInstance("ship", "design",
+                "corp", 100, 0, 100, Map.of())),
+                FleetLocation.at(FleetLocation.Site.docked(sourceStation.id())));
+        TradeRoute route = new TradeRoute("route", "Steel route", "corp", source.id(),
+                lowPrice.id(), "steel", 20, 0, 100, List.of("ship"), 0, true);
+        GameState state = GameState.builder().orbitalStations(List.of(sourceStation,
+                        lowPriceStation, premiumStation)).commercialHubs(List.of(source, lowPrice, premium))
+                .marketAccounts(List.of(new MarketAccount(source.id(), 0),
+                        new MarketAccount(lowPrice.id(), 1_000), new MarketAccount(premium.id(), 1_000)))
+                .corporations(List.of(corporation)).empires(List.of(empire))
+                .shipDesigns(List.of(design)).fleets(List.of(fleet)).tradeRoutes(List.of(route)).build();
+
+        GameState loaded = new LogisticsProcessor().processTradeRoutes(state).state();
+        assertEquals("premium", loaded.tradeRoutes().getFirst().destinationEntityId());
+        assertEquals("gold", loaded.tradeRoutes().getFirst().materialId());
+        assertEquals(20.0, loaded.fleets().getFirst().ships().getFirst()
+                .storedCargoKg().get("gold"), 0.001);
+        assertTrue(loaded.fleets().getFirst().location().inTransit());
     }
 
     @Test
@@ -192,7 +233,7 @@ public class LogisticsProcessorTest {
                 "rp1_kerosene", new MarketOrder("rp1_kerosene", 10_000, 0, 1, 0),
                 "liquid_oxygen", new MarketOrder("liquid_oxygen", 10_000, 0, 1, 0)));
         CommercialHub destination = new CommercialHub("hub_mars", "mars", 0.02,
-                1_000, 0, 10, Map.of("steel", new MarketOrder("steel", 0, 0, 1, 0)));
+                1_000, 0, 10, Map.of("steel", new MarketOrder("steel", 0, 100, 1, 0)));
         Empire empire = new Empire("emp", "Empire", "human", "Individualist",
                 1_000_000_000, 0.1, List.of("sol"), List.of(), Map.of(), List.of(), List.of());
         ShipDesign design = new ShipDesign("cargo_design", "Cargo", "emp",

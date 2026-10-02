@@ -46,6 +46,7 @@ public final class ConstructionMaterials {
             bodies.add(planet.id());
             planet.moons().forEach(moon -> bodies.add(moon.id()));
         });
+        system.asteroidBelts().forEach(belt -> bodies.add(belt.id()));
         if (preferredBodyId != null && bodies.contains(preferredBodyId)
                 && state.commercialHubs().stream().anyMatch(hub ->
                 preferredBodyId.equals(hub.entityId()))) return preferredBodyId;
@@ -122,7 +123,13 @@ public final class ConstructionMaterials {
 
     public static String systemForBody(GameState state, String bodyId) {
         if (state == null || bodyId == null) return null;
+        String stationSystem = state.orbitalStations().stream()
+                .filter(station -> bodyId.equals(station.id()))
+                .map(OrbitalStation::systemId).findFirst().orElse(null);
+        if (stationSystem != null) return stationSystem;
         for (SolarSystem system : state.solarSystems()) {
+            if (system.asteroidBelts().stream().anyMatch(belt -> bodyId.equals(belt.id())))
+                return system.id();
             for (var planet : system.planets()) {
                 if (bodyId.equals(planet.id()) || planet.moons().stream()
                         .anyMatch(moon -> bodyId.equals(moon.id()))) return system.id();

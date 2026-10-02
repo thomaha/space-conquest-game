@@ -139,8 +139,13 @@ To produce an item of a given complexity, you will need a production facility of
 - Factors affected: mineral vein extraction lifetime (+), electricity demand (++), work hours per unit (+).
 
 - Interstellar shipping optimization (Req: Rocketry)
+
     - Automated cargo route freighters: Standardizing cargo containers to automate bulk hauling networks between mining moons and manufacturing hubs.
 - Factors affected: work hours required to manage shipping lanes (-), fleet fuel efficiency (+).
+
+### Implemented orbital station progression
+
+The `space_stations` application unlocks orbital station frames and station modules. Station frames also require `rocketry`, which supplies the surface launch path for their construction materials. Materials are purchased from a local surface hub and carried to orbit by a cargo or construction ship using a rocket launch provider. A commerce module establishes the first commercial hub in its orbit. Habitation modules provide capacity for passenger arrivals and orbital households, while market demand draws trade toward destinations with better prices and unmet stockpile demand.
 
 - Supply chain automation and industrial computing. To balance production complexity ratings (1 to 10), players need technologies that optimize how their workforce handles complex factory tasks.
     - Automated factory matrices (Req: Robotics + Electricity)

@@ -18,7 +18,8 @@ This module handles input, autonomous decision agents and game command execution
 - `SelectOptimizationPathCommand`: Command selecting performance or miniaturization optimization paths.
 - `ReverseEngineerSalvageCommand`: Command injecting progress vectors from foreign component salvage.
 - `DesignShipCommand`: Command registering physics-validated spaceship blueprints.
-- `QueueShipBuildCommand`: Command queuing spacecraft construction for daily work and material purchases.
+- `QueueShipBuildCommand`: Command queuing spacecraft construction at a compatible yard using its modules, actual paid staffing and technology-adjusted work capacity.
+- `SetSurfaceShipyardStaffingCommand`: Command setting an owned surface shipyard's persistent worker allocation within the remaining local workforce.
 - `LoadOrbitalCargoCommand`: Command buying material at a body's hub and lifting it into an owned cargo or construction ship after capacity and cost checks.
 - `MoveFleetCommand`: Command paying a surface launch provider when needed, committing local maneuver fuel and queuing a deep-space departure followed by researched warp or thrust-and-loaded-mass-based sublight travel.
 - `MoveFleetLocalCommand`: Command validating a maneuver fuel budget and queuing a timed movement to a body's surface or orbit, a station dock or a named deep-space site.
@@ -73,5 +74,5 @@ This module handles input, autonomous decision agents and game command execution
 - Commands that change the world now use `GameState.toBuilder()` or a `with...` method to retain unrelated state fields. Validation and persistence behavior remain uneven across individual commands.
 - Some commands compute a result without persisting it: `SelectOptimizationPathCommand` returns the original state and `TargetSubsystemCommand` does not store the target. `DeclareWarCommand` records its calculated justification and penalties in the game snapshot and save file. While total war remains active, civilian penalties add demographic stress and corporate trust penalties can block corporate investment.
 - Autonomous corporate investment runs once inside the engine turn. The duplicate control-layer corporation AI was removed.
-- `QueueShipBuildCommand` now creates a material-backed work-hour order; ships appear only after it completes. Shipyard capacity, qualified labor and finished corporate-yard purchases described in [ShipDesign.md](../ShipDesign.md) remain open.
+- `QueueShipBuildCommand` creates a material-backed work-hour order; ships appear only after it completes. Surface yard staffing allocations are persisted through `SetSurfaceShipyardStaffingCommand`; orbital yard modules hire and pay workers from station population. Both yard types use actual paid workers for construction capacity. Finished corporate-yard purchases described in [ShipDesign.md](../ShipDesign.md) remain open.
 - The frontend currently instantiates empire AI for a hard-coded ID; the shadow syndicate AI logs its decisions without staging corresponding commands.

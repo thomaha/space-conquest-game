@@ -21,6 +21,7 @@ import com.spaceconquest.engine.industry.IndustrialFacility;
 import com.spaceconquest.engine.industry.IndustryAccount;
 import com.spaceconquest.engine.industry.PowerGridState;
 import com.spaceconquest.engine.logistics.TradeRoute;
+import com.spaceconquest.engine.logistics.LaunchServiceActivity;
 import com.spaceconquest.engine.macrostructure.ConstructionDeploymentProject;
 import com.spaceconquest.engine.macrostructure.OrbitalStation;
 import com.spaceconquest.engine.macrostructure.SpaceElevator;
@@ -82,11 +83,13 @@ public record SaveGame(
         List<MarketAccount> marketAccounts,
         List<IndustryAccount> industryAccounts,
         List<CorporateTaxAccount> corporateTaxAccounts,
+        Map<String, Double> launchUsageKg,
+        List<LaunchServiceActivity> launchActivities,
         List<WarDeclarationRecord> warDeclarations,
         List<DiplomaticProposal> diplomaticProposals,
         List<FleetEngagementRecord> fleetEngagements
 ) {
-    public static final int CURRENT_VERSION = 22;
+    public static final int CURRENT_VERSION = 23;
 
     public SaveGame {
         if (solarSystems == null) solarSystems = List.of();
@@ -124,6 +127,8 @@ public record SaveGame(
         if (marketAccounts == null) marketAccounts = List.of();
         if (industryAccounts == null) industryAccounts = List.of();
         if (corporateTaxAccounts == null) corporateTaxAccounts = List.of();
+        if (launchUsageKg == null) launchUsageKg = Map.of();
+        if (launchActivities == null) launchActivities = List.of();
         if (warDeclarations == null) warDeclarations = List.of();
         if (diplomaticProposals == null) diplomaticProposals = List.of();
         if (fleetEngagements == null) fleetEngagements = List.of();
@@ -147,7 +152,8 @@ public record SaveGame(
                 state.tradeRoutes(), state.fogOfWarStates(), state.systemEconomies(), state.courierShips(),
                 state.planetaryBalanceSheets(), state.imperialBalanceSheets(),
                 state.householdAccounts(), state.marketAccounts(), state.industryAccounts(),
-                state.corporateTaxAccounts(), state.warDeclarations(), state.diplomaticProposals(),
+                state.corporateTaxAccounts(), state.launchUsageKg(), state.launchActivities(),
+                state.warDeclarations(), state.diplomaticProposals(),
                 state.fleetEngagements()
         );
     }
@@ -175,7 +181,7 @@ public record SaveGame(
                 megastructures, galacticCommunity, tradeRoutes, fogOfWarStates,
                 systemEconomies, courierShips, planetaryBalanceSheets, imperialBalanceSheets,
                 householdAccounts, marketAccounts, industryAccounts, corporateTaxAccounts,
-                Map.of(), List.of(), warDeclarations, diplomaticProposals, fleetEngagements
+                launchUsageKg, launchActivities, warDeclarations, diplomaticProposals, fleetEngagements
         );
     }
 }

@@ -17,6 +17,8 @@ import com.spaceconquest.engine.economy.HouseholdEmployment;
 import com.spaceconquest.engine.governance.DiplomacyProcessor;
 import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.ShipRole;
+import com.spaceconquest.engine.macrostructure.OrbitalStation;
+import com.spaceconquest.engine.macrostructure.StationModule;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,13 +34,14 @@ public final class PassengerTransitProcessor {
                                    int count, String destinationBodyId) {
         if (state == null || shipId == null || raceId == null || count <= 0
                 || destinationBodyId == null || !bodyExists(state, destinationBodyId)
+                || !hasDestinationCapacity(state, destinationBodyId, count)
                 || state.passengerManifests().stream().anyMatch(item -> shipId.equals(item.shipId())))
             return false;
         for (Fleet fleet : state.fleets()) {
             ShipInstance ship = fleet.ships().stream().filter(item -> shipId.equals(item.id()))
                     .findFirst().orElse(null);
             if (ship == null || fleet.location().inTransit() || fleet.hasInterstellarOrder()
-                    || fleet.location().current().kind() != FleetLocation.Kind.SURFACE
+                    || !isHabitablePopulationSite(state, fleet.location().current())
                     || ship.passengerCount() != 0) continue;
             String source = fleet.location().current().entityId();
             Population population = population(state, source, raceId);
@@ -143,8 +146,7 @@ public final class PassengerTransitProcessor {
                 remaining.add(manifest);
                 continue;
             }
-            if (!arrived.location().isAt(
-                    FleetLocation.Site.surface(manifest.destinationBodyId()))) {
+            if (!arrivedAtDestination(current, arrived, manifest.destinationBodyId())) {
                 remaining.add(manifest);
                 continue;
             }
@@ -260,12 +262,46 @@ public final class PassengerTransitProcessor {
     }
 
     private static boolean bodyExists(GameState state, String bodyId) {
-        return state.solarSystems().stream().flatMap(system -> system.planets().stream())
+        return state.orbitalStations().stream().anyMatch(station -> station.id().equals(bodyId))
+                || state.solarSystems().stream().flatMap(system -> system.planets().stream())
                 .anyMatch(planet -> bodyId.equals(planet.id()) || planet.moons().stream()
                         .anyMatch(moon -> bodyId.equals(moon.id())));
     }
 
+    private static boolean hasDestinationCapacity(GameState state, String destination, int count) {
+        OrbitalStation station = state.orbitalStations().stream()
+                .filter(item -> destination.equals(item.id())).findFirst().orElse(null);
+        if (station == null) return true;
+        if (!station.hasModuleType(StationModule.TYPE_HABITATION)) return false;
+        long capacity = station.habitationCapacity();
+        long residents = station.populations().stream().mapToLong(Population::totalCount).sum();
+        long booked = state.passengerManifests().stream()
+                .filter(manifest -> destination.equals(manifest.destinationBodyId()))
+                .mapToLong(PassengerManifest::headcount).sum();
+        return capacity >= residents + booked + count;
+    }
+
+    private static boolean isHabitablePopulationSite(GameState state, FleetLocation.Site site) {
+        if (site.kind() == FleetLocation.Kind.SURFACE) return bodyExists(state, site.entityId());
+        if (site.kind() != FleetLocation.Kind.DOCKED) return false;
+        return state.orbitalStations().stream().anyMatch(station ->
+                station.id().equals(site.entityId()) && station.modules().stream()
+                        .anyMatch(module -> module.isOnline()
+                                && StationModule.TYPE_HABITATION.equalsIgnoreCase(module.type())));
+    }
+
+    private static boolean arrivedAtDestination(GameState state, Fleet fleet, String destination) {
+        if (state.orbitalStations().stream().anyMatch(station -> station.id().equals(destination)))
+            return fleet.location().isAt(FleetLocation.Site.docked(destination));
+        return fleet.location().isAt(FleetLocation.Site.surface(destination));
+    }
+
     private static Population population(GameState state, String bodyId, String raceId) {
+        Population orbitalPopulation = state.orbitalStations().stream()
+                .filter(station -> bodyId.equals(station.id()))
+                .flatMap(station -> station.populations().stream())
+                .filter(group -> raceId.equals(group.raceId())).findFirst().orElse(null);
+        if (orbitalPopulation != null) return orbitalPopulation;
         return state.solarSystems().stream().flatMap(system -> system.planets().stream())
                 .flatMap(planet -> {
                     List<Population> groups = new ArrayList<>();
@@ -284,7 +320,10 @@ public final class PassengerTransitProcessor {
                         system.sunColor(), system.planets().stream().map(planet ->
                         changePlanet(planet, bodyId, raceId, ages, sign)).toList(),
                         system.asteroidBelts())).toList();
-        return state.withSolarSystems(systems);
+        List<OrbitalStation> stations = state.orbitalStations().stream().map(station ->
+                bodyId.equals(station.id()) ? station.withPopulations(
+                        changeGroups(station.populations(), raceId, ages, sign)) : station).toList();
+        return state.withSolarSystems(systems).withOrbitalStations(stations);
     }
 
     private static Planet changePlanet(Planet planet, String bodyId, String raceId,
@@ -333,6 +372,10 @@ public final class PassengerTransitProcessor {
     }
 
     private static String systemOfBody(GameState state, String bodyId) {
+        String stationSystem = state.orbitalStations().stream()
+                .filter(station -> bodyId.equals(station.id()))
+                .map(OrbitalStation::systemId).findFirst().orElse(null);
+        if (stationSystem != null) return stationSystem;
         return state.solarSystems().stream().filter(system -> system.planets().stream()
                 .anyMatch(planet -> bodyId.equals(planet.id()) || planet.moons().stream()
                         .anyMatch(moon -> bodyId.equals(moon.id()))))

@@ -8,6 +8,9 @@ import com.spaceconquest.engine.MarketOrder;
 import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.SolarSystem;
+import com.spaceconquest.engine.AsteroidBelt;
+import com.spaceconquest.engine.macrostructure.OrbitalStation;
+import com.spaceconquest.engine.macrostructure.StationModule;
 import com.spaceconquest.engine.industry.IndustrialFacility;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.FleetLocation;
@@ -31,11 +34,15 @@ class MarketDemandProcessorTest {
         CommercialHub first = demand.refresh(initial, DataModelLoader.loadRaces()).getFirst();
         CommercialHub grown = demand.refresh(state(2_000L), DataModelLoader.loadRaces()).getFirst();
 
-        assertEquals(100.0, first.activeOrders().get("food_matrix").demandKg(), 0.001);
-        assertEquals(200.0, grown.activeOrders().get("food_matrix").demandKg(), 0.001);
-        assertEquals(10.0, grown.activeOrders().get("consumer_goods").demandKg(), 0.001);
-        assertTrue(new MarketProcessor().updateHub(grown).activeOrders()
-                .get("food_matrix").shortcomingScore() > 0.0);
+        assertEquals(100.0, grown.activeOrders().get("food_matrix").demandKg()
+                - first.activeOrders().get("food_matrix").demandKg(), 0.001);
+        assertTrue(first.activeOrders().get("food_matrix").demandKg() > 100.0);
+        assertTrue(grown.activeOrders().get("consumer_goods").demandKg() > 10.0);
+        double firstPrice = new MarketProcessor().updateHub(first).activeOrders()
+                .get("food_matrix").pricePerKg();
+        double grownPrice = new MarketProcessor().updateHub(grown).activeOrders()
+                .get("food_matrix").pricePerKg();
+        assertTrue(grownPrice > firstPrice);
     }
 
     @Test
@@ -79,6 +86,53 @@ class MarketDemandProcessorTest {
                 DataModelLoader.loadRaces()).getFirst();
         assertEquals(0.008, preferred.activeOrders().get("refined_thorium").demandKg(),
                 0.000001);
+    }
+
+    @Test
+    void stationResidentsCreateOrbitalConsumerDemand() throws IOException {
+        GameState initial = state(1_000L);
+        StationModule habitation = new StationModule("hab", "Habitation", StationModule.TYPE_HABITATION,
+                6, 12_000, 30, 0, Map.of(), "technician", 3, true);
+        OrbitalStation station = new OrbitalStation("station", "Orbital home", "sol", "earth",
+                "terran", OrbitalStation.OWNERSHIP_PUBLIC_STATE, 40, List.of(habitation),
+                Map.of(), 0, 30, 0, 0, 100, 100, "steel", 1, true,
+                List.of(new Population("human", Map.of(25, 200L))));
+        CommercialHub orbitalHub = new CommercialHub("hub_station", station.id(), 0.05,
+                50_000, 10_000, 10, Map.of());
+        GameState populated = initial.toBuilder().orbitalStations(List.of(station))
+                .commercialHubs(List.of(initial.commercialHubs().getFirst(), orbitalHub)).build();
+
+        CommercialHub demand = new MarketDemandProcessor().refresh(populated,
+                DataModelLoader.loadRaces()).stream().filter(hub -> "hub_station".equals(hub.id()))
+                .findFirst().orElseThrow();
+        assertTrue(demand.activeOrders().get("food_matrix").demandKg() > 0.0);
+        assertTrue(demand.activeOrders().get("consumer_goods").demandKg() > 0.0);
+        assertTrue(demand.activeOrders().get("refined_iron").demandKg() > 0.0);
+    }
+
+    @Test
+    void asteroidMiningFacilityReceivesAHubForItsExports() throws IOException {
+        GameState initial = state(1_000L);
+        SolarSystem oldSystem = initial.solarSystems().getFirst();
+        AsteroidBelt belt = new AsteroidBelt("belt", "Outer belt", "", List.of("iron_ore"), List.of());
+        SolarSystem system = new SolarSystem(oldSystem.id(), oldSystem.name(), oldSystem.description(),
+                oldSystem.x(), oldSystem.y(), oldSystem.z(), oldSystem.sunMass(),
+                oldSystem.sunDiameter(), oldSystem.sunColor(), oldSystem.planets(), List.of(belt));
+        IndustrialFacility mine = new IndustrialFacility("belt_mine", "belt", "mining_outpost",
+                "terran", IndustrialFacility.PUBLIC_STATE, 1, 100, "industrial_worker", false, 0.0);
+        Empire old = initial.empires().getFirst();
+        Empire researched = new Empire(old.id(), old.name(), old.raceId(), old.societyStructure(),
+                old.treasuryCredits(), old.corporateTaxRate(), old.controlledSystemIds(),
+                old.ministries(), old.systemGovernorAssignments(), List.of("industrial_production"),
+                old.activeShipDesignIds());
+        GameState mining = initial.toBuilder().solarSystems(List.of(system))
+                .industrialFacilities(List.of(mine)).empires(List.of(researched)).build();
+
+        CommercialHub beltHub = new MarketDemandProcessor().refresh(mining,
+                DataModelLoader.loadRaces()).stream().filter(hub -> "belt".equals(hub.entityId()))
+                .findFirst().orElseThrow();
+        assertTrue(beltHub.activeOrders().get("iron_ore").demandKg() > 0.0);
+        assertTrue(beltHub.activeOrders().get("food_matrix").demandKg() > 0.0);
     }
 
     private GameState state(long residents) {

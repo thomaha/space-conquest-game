@@ -10,10 +10,16 @@ import com.spaceconquest.engine.economy.MarketAccount;
 import com.spaceconquest.engine.industry.IndustryAccount;
 import com.spaceconquest.engine.macrostructure.ConstructionDeploymentProject;
 import com.spaceconquest.engine.macrostructure.StationModule;
+import com.spaceconquest.engine.macrostructure.OrbitalStation;
 import com.spaceconquest.engine.ship.ShipConstructionOrder;
+import com.spaceconquest.engine.ship.ShipyardWorkCapacity;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.FleetLocation;
+import com.spaceconquest.engine.ship.ShipConstructionProcessor;
+import com.spaceconquest.engine.ship.ShipDesign;
+import com.spaceconquest.engine.ship.ShipRole;
 import com.spaceconquest.engine.logistics.TradeRoute;
+import com.spaceconquest.engine.logistics.LaunchServiceActivity;
 import com.spaceconquest.engine.governance.WarDeclarationRecord;
 import com.spaceconquest.engine.governance.DiplomaticProposal;
 import com.spaceconquest.engine.combat.FleetEngagementRecord;
@@ -141,6 +147,8 @@ public class GameStateTest {
                 "fleet_a", "terran", "fleet_b", "silicon", "terran", List.of("ship_b"), 3);
         PassengerManifest troopDeployment = new PassengerManifest("troop_ship", "earth", "mars",
                 "human", Map.of(25, 50L), true);
+        LaunchServiceActivity launch = new LaunchServiceActivity("terminal_1", "corp_1",
+                "earth", 120.0, 45.0, 9.0);
 
         GameState state = GameState.builder()
                 .turn(5)
@@ -166,6 +174,8 @@ public class GameStateTest {
                         .withMaintenanceCost(5.0)))
                 .corporateTaxAccounts(List.of(new com.spaceconquest.engine.economy.CorporateTaxAccount(
                         "corp_1", 20.0, 5.0, 100.0, 20.0, 15.0)))
+                .launchUsageKg(Map.of("terminal_1", 2_500.0))
+                .launchActivities(List.of(launch))
                 .warDeclarations(List.of(declaration))
                 .diplomaticProposals(List.of(proposal))
                 .fleetEngagements(List.of(battle))
@@ -209,6 +219,8 @@ public class GameStateTest {
         assertEquals(state.marketAccounts(), loaded.marketAccounts());
         assertEquals(state.industryAccounts(), loaded.industryAccounts());
         assertEquals(state.corporateTaxAccounts(), loaded.corporateTaxAccounts());
+        assertEquals(state.launchUsageKg(), loaded.launchUsageKg());
+        assertEquals(state.launchActivities(), loaded.launchActivities());
         assertEquals(List.of(declaration), loaded.warDeclarations());
         assertEquals(List.of(proposal), loaded.diplomaticProposals());
         assertEquals(List.of(battle), loaded.fleetEngagements());
@@ -225,6 +237,8 @@ public class GameStateTest {
         assertEquals(state.marketAccounts(), restored.marketAccounts());
         assertEquals(state.industryAccounts(), restored.industryAccounts());
         assertEquals(state.corporateTaxAccounts(), restored.corporateTaxAccounts());
+        assertEquals(state.launchUsageKg(), restored.launchUsageKg());
+        assertEquals(state.launchActivities(), restored.launchActivities());
     }
 
     @Test
@@ -244,29 +258,85 @@ public class GameStateTest {
         assertTrue(loaded.marketAccounts().isEmpty());
         assertTrue(loaded.industryAccounts().isEmpty());
         assertTrue(loaded.corporateTaxAccounts().isEmpty());
+        assertTrue(loaded.launchUsageKg().isEmpty());
+        assertTrue(loaded.launchActivities().isEmpty());
         assertTrue(loaded.diplomaticProposals().isEmpty());
     }
 
     @Test
     public void constructionProgressAndMaterialReceiptsSurviveSave() throws IOException {
         ShipConstructionOrder ship = new ShipConstructionOrder("ship_order", "terran", "design",
-                "sol", "earth", 100.0, 500.0, Map.of("steel", 1_000.0),
+                "sol", "station", 100.0, 500.0, Map.of("steel", 1_000.0),
                 Map.of("steel", 200.0));
-        StationModule module = new StationModule("module", "Hangar", StationModule.TYPE_CIVILIAN_HANGAR,
-                4, 1_000.0, 10.0, 0.0, Map.of(), "technician", 2, true);
+        StationModule module = new StationModule("module", "Shipyard grid",
+                StationModule.TYPE_SHIPYARD_GRID, 4, 1_000.0, 10.0, 0.0,
+                Map.of(), "industrial_worker", 20, true).withPayroll(17, 425.0);
         ConstructionDeploymentProject stationWork = new ConstructionDeploymentProject(
                 "module_order", "", "sol", "earth",
                 ConstructionDeploymentProject.TYPE_STATION_MODULE, 1.0, 2.0,
                 "terran", Map.of("steel", 800.0), Map.of("steel", 400.0),
-                "Hangar", "PUBLIC_STATE", "station", module, 0, "steel", 5.0, 0.0, false);
+                "Shipyard grid", "PUBLIC_STATE", "station", module, 0, "steel", 5.0, 0.0, false);
+        OrbitalStation station = new OrbitalStation("station", "Yard", "sol", "earth",
+                "terran", OrbitalStation.OWNERSHIP_PUBLIC_STATE, 30, List.of(module),
+                Map.of(), 100, 100, 0, 0, 100, 100, "steel", 1, true);
+        Empire owner = new Empire("terran", "Terran", "human", "Individualist", 50_000,
+                0, List.of("sol"), List.of(), Map.of(), List.of(), List.of());
+        CommercialHub orbitalHub = new CommercialHub("yard_market", "station", 0,
+                10_000, 1_000, 10, Map.of("steel",
+                new MarketOrder("steel", 1_000, 0, 1, 0)));
+        ShipDesign design = new ShipDesign("design", "Yard craft", "terran",
+                ShipRole.CARGO_TRANSPORT, "steel", List.of(), "steel", 0,
+                10_000, 1_000, 0, 1, 0, 0, true, false);
         GameState state = GameState.builder().shipConstructionOrders(List.of(ship))
-                .constructionProjects(List.of(stationWork)).build();
+                .constructionProjects(List.of(stationWork)).orbitalStations(List.of(station))
+                .commercialHubs(List.of(orbitalHub)).shipDesigns(List.of(design))
+                .empires(List.of(owner)).build();
         File file = tempDir.resolve("construction.scsave").toFile();
         SaveGameManager manager = new SaveGameManager(tempDir);
         manager.save(file, state, 1, "2027-01-01T00:00:00Z");
         GameState restored = manager.load(file).toGameState(0, "INITIALIZING");
         assertEquals(state.shipConstructionOrders(), restored.shipConstructionOrders());
         assertEquals(state.constructionProjects(), restored.constructionProjects());
+        assertEquals(state.orbitalStations(), restored.orbitalStations());
+        StationModule restoredGrid = restored.orbitalStations().getFirst().modules().getFirst();
+        assertEquals(17, restoredGrid.paidWorkers());
+        assertEquals(425.0, restoredGrid.dailyWageCostsCredits(), 0.001);
+        assertEquals(85.0, ShipyardWorkCapacity.forYard(
+                restored, "terran", "sol", "station").workPerDay(), 0.001);
+        assertEquals(100.0, restored.shipConstructionOrders().getFirst().accumulatedWorkHours(), 0.001);
+        assertEquals(Map.of("steel", 200.0),
+                restored.shipConstructionOrders().getFirst().consumedMaterialsKg());
+        GameState resumed = new ShipConstructionProcessor().process(restored);
+        ShipConstructionOrder resumedOrder = resumed.shipConstructionOrders().getFirst();
+        assertEquals(185.0, resumedOrder.accumulatedWorkHours(), 0.001);
+        assertEquals(Map.of("steel", 370.0), resumedOrder.consumedMaterialsKg());
+        assertEquals(830.0, resumed.commercialHubs().getFirst().activeOrders()
+                .get("steel").supplyKg(), 0.001);
+    }
+
+    @Test
+    public void olderOrbitalStationSaveDefaultsMissingPayrollFields() throws IOException {
+        Path path = tempDir.resolve("legacy_orbital_payroll.scsave");
+        Files.writeString(path, """
+                {"version":22,"savedAt":"2026-01-01T00:00:00Z","gameSpeed":1,
+                 "gameTime":"2026-01-01T00:00:00Z","solarSystems":[],
+                 "orbitalStations":[{"id":"station","name":"Yard","systemId":"sol",
+                   "planetOrbitId":"earth","ownerEntityId":"terran",
+                   "ownershipType":"PUBLIC_STATE","totalSlots":30,
+                   "modules":[{"id":"grid","name":"Grid","type":"SHIPYARD_GRID",
+                     "slotSize":10,"dryMassKg":1000,"powerDrawKw":10,"powerOutputKw":0,
+                     "materialInputs":{},"workforceProfessionId":"industrial_worker",
+                     "requiredWorkers":20,"isOnline":true}],"storedCargoKg":{},
+                   "currentPowerGenerationKw":100,"currentPowerDemandKw":100,
+                   "currentShieldHealth":0,"maxShieldHealth":0,"currentHullHealth":100,
+                   "maxHullHealth":100,"armorMaterialId":"steel","armorThicknessCm":1,
+                   "isOperational":true}]}
+                """);
+
+        SaveGame loaded = new SaveGameManager(tempDir).load(path.toFile());
+        StationModule module = loaded.orbitalStations().getFirst().modules().getFirst();
+        assertEquals(0, module.paidWorkers());
+        assertEquals(0.0, module.dailyWageCostsCredits(), 0.001);
     }
 
     @Test

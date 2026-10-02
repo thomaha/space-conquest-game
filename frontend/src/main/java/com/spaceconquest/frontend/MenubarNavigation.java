@@ -35,10 +35,10 @@ public class MenubarNavigation {
         button.setStyle(STYLE_NORMAL);
         button.setCursor(Cursor.HAND);
         button.setOnAction(e -> {
-            setActiveButton(button);
             if (onAction != null) {
                 onAction.run();
             }
+            setActiveButton(button);
         });
         navButtons.add(button);
         return button;
@@ -53,10 +53,10 @@ public class MenubarNavigation {
         button.setStyle(initialStyle);
         button.setCursor(Cursor.HAND);
         button.setOnAction(e -> {
-            setActiveButton(button);
             if (onAction != null) {
                 onAction.run();
             }
+            setActiveButton(button);
         });
         navButtons.add(button);
         return button;

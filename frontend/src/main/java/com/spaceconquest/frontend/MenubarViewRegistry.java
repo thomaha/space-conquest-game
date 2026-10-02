@@ -187,7 +187,7 @@ public class MenubarViewRegistry {
                     .findFirst().orElse(null);
             techView.updateData(state.researchProjects(), state.technologyExchangeRoutes(), state.systemEconomies(), playerEmpire);
         }
-        if (industryView != null) industryView.updateData(state.industrialFacilities(), state.expansionProjects());
+        if (industryView != null) industryView.updateData(state);
         if (shipDesignerView != null) shipDesignerView.updateData(state);
         if (fleetManagementView != null) fleetManagementView.updateData(state);
         if (commercialHubView != null) commercialHubView.updateData(state);
@@ -199,8 +199,9 @@ public class MenubarViewRegistry {
         if (planetDetailView != null) planetDetailView.updateData(state);
         if (colonyManagementView != null) colonyManagementView.updateData(state);
         if (espionageView != null) espionageView.updateData(state.sleeperAgents(), state.espionageOperations(), state.pirateBases());
-        if (orbitalStationView != null) orbitalStationView.updateData(state.orbitalStations(), state.spaceElevators());
+        if (orbitalStationView != null) orbitalStationView.updateData(state, playerEmpireId);
         if (galaxyCanvasView != null) galaxyCanvasView.updateData(state);
+        if (orbitalStationView != null) orbitalStationView.updateData(state);
     }
 
     public void refreshOnTick(GameState state) {
@@ -209,7 +210,7 @@ public class MenubarViewRegistry {
         if (corporateView != null) corporateView.updateData(state);
         if (diplomacyView != null) diplomacyView.updateData(state);
         if (techView != null) techView.setResearchProjects(state.researchProjects());
-        if (industryView != null) industryView.updateData(state.industrialFacilities(), state.expansionProjects());
+        if (industryView != null) industryView.updateData(state);
         if (shipDesignerView != null) shipDesignerView.updateData(state);
         if (fleetManagementView != null) fleetManagementView.updateData(state);
         if (commercialHubView != null) commercialHubView.updateData(state);

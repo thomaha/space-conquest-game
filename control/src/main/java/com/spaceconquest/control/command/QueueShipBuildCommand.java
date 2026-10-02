@@ -3,11 +3,12 @@ package com.spaceconquest.control.command;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.habitation.PassengerStasis;
-import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
 import com.spaceconquest.engine.industry.ConstructionMaterials;
 import com.spaceconquest.engine.ship.ShipConstructionOrder;
 import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.PropulsionCatalog;
+import com.spaceconquest.engine.ship.ShipConstructionRequirements;
+import com.spaceconquest.engine.ship.ShipyardWorkCapacity;
 import com.spaceconquest.engine.macrostructure.StationModule;
 
 import java.util.ArrayList;
@@ -27,7 +28,7 @@ public record QueueShipBuildCommand(String ownerEntityId, String designId,
                 .filter(empire -> ownerEntityId.equals(empire.id())
                         && empire.controlledSystemIds().contains(systemId))
                 .findFirst().orElse(null);
-        if (owner == null || yard(state) == null) return false;
+        if (owner == null || resolveYardEntity(state) == null) return false;
         return state.shipDesigns().stream().anyMatch(design -> design.id().equals(designId)
                 && ownerEntityId.equals(design.ownerEntityId())
                 && (!design.equippedModuleIds().contains(PassengerStasis.MODULE_ID)
@@ -44,19 +45,21 @@ public record QueueShipBuildCommand(String ownerEntityId, String designId,
         if (!validate(state)) return state;
         ShipDesign design = state.shipDesigns().stream()
                 .filter(item -> designId.equals(item.id())).findFirst().orElseThrow();
-        String bodyId = yard(state);
-        double requiredHours = Math.max(200.0, design.totalDryMassKg() / 100.0);
+        String bodyId = resolveYardEntity(state);
+        ShipConstructionRequirements.Estimate estimate = ShipConstructionRequirements.estimate(design);
         List<ShipConstructionOrder> orders = new ArrayList<>(state.shipConstructionOrders());
         orders.add(new ShipConstructionOrder("ship_order_" + UUID.randomUUID(),
-                ownerEntityId, designId, systemId, bodyId, 0.0, requiredHours,
-                ConstructionMaterialCatalog.ship(design), Map.of()));
+                ownerEntityId, designId, systemId, bodyId, 0.0, estimate.workUnits(),
+                estimate.materialsKg(), Map.of()));
         return state.withShipConstructionOrders(orders);
     }
 
-    private String yard(GameState state) {
+    public String resolveYardEntity(GameState state) {
+        if (state == null || systemId == null || ownerEntityId == null) return null;
         String orbital = state.orbitalStations().stream()
                 .filter(station -> systemId.equals(station.systemId())
                         && ownerEntityId.equals(station.ownerEntityId())
+                        && station.isOperational()
                         && (station.hasModuleType(StationModule.TYPE_SHIPYARD_GRID)
                         || station.hasModuleType(StationModule.TYPE_CAPITAL_SLIPWAY))
                         && ConstructionMaterials.orbitalHubEntity(state, systemId,
@@ -68,7 +71,13 @@ public record QueueShipBuildCommand(String ownerEntityId, String designId,
                         .flatMap(planet -> java.util.stream.Stream.concat(
                                 java.util.stream.Stream.of(planet.id()),
                                 planet.moons().stream().map(moon -> moon.id()))))
-                .map(body -> ConstructionMaterials.bodyForSystem(state, systemId, body))
-                .filter(java.util.Objects::nonNull).findFirst().orElse(null);
+                .filter(body -> ConstructionMaterials.bodyForSystem(state, systemId, body) != null)
+                .filter(body -> state.industrialFacilities().stream().anyMatch(facility ->
+                        ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID
+                                .equals(facility.applicationId())
+                                && body.equals(facility.planetId())
+                                && ownerEntityId.equals(facility.ownerEntityId())
+                                && facility.tier() > 0))
+                .findFirst().orElse(null);
     }
 }

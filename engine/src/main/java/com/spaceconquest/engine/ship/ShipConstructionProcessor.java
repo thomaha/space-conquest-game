@@ -5,16 +5,23 @@ import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.industry.ConstructionProgress;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** Completes ship orders only after daily work and the entire physical bill are settled. */
 public final class ShipConstructionProcessor {
     public GameState process(GameState state) {
+        return process(state, null);
+    }
+
+    public GameState process(GameState state, Map<String, Integer> paidWorkersByFacility) {
         GameState current = state;
         List<ShipConstructionOrder> remaining = new ArrayList<>();
         List<ShipConstructionOrder> completed = new ArrayList<>();
         List<Fleet> fleets = new ArrayList<>(state.fleets());
+        Map<String, Double> remainingDailyCapacity = new HashMap<>();
         for (ShipConstructionOrder order : state.shipConstructionOrders()) {
             current = current.withFleets(fleets);
             ShipDesign design = state.shipDesigns().stream()
@@ -28,15 +35,24 @@ public final class ShipConstructionProcessor {
             boolean orbital = current.orbitalStations().stream()
                     .anyMatch(station -> order.yardBodyId().equals(station.id())
                             && order.systemId().equals(station.systemId()));
+            String yardKey = order.systemId() + "/" + order.yardBodyId();
+            Double availableCapacity = remainingDailyCapacity.get(yardKey);
+            if (availableCapacity == null) {
+                availableCapacity = ShipyardWorkCapacity.forYard(current, order.ownerEntityId(),
+                        order.systemId(), order.yardBodyId(), paidWorkersByFacility).workPerDay();
+            }
+            double dailyWork = availableCapacity;
             ConstructionProgress.Step step = orbital
                     ? ConstructionProgress.advanceOrbital(current, order.systemId(),
                     order.yardBodyId(), order.ownerEntityId(), order.requiredMaterialsKg(),
                     order.consumedMaterialsKg(), order.accumulatedWorkHours(),
-                    order.requiredWorkHours(), 100.0)
+                    order.requiredWorkHours(), dailyWork)
                     : ConstructionProgress.advance(current, order.yardBodyId(),
                     order.ownerEntityId(), order.requiredMaterialsKg(),
                     order.consumedMaterialsKg(), order.accumulatedWorkHours(),
-                    order.requiredWorkHours(), 100.0);
+                    order.requiredWorkHours(), dailyWork);
+            double usedWork = Math.max(0.0, step.workHours() - order.accumulatedWorkHours());
+            remainingDailyCapacity.put(yardKey, Math.max(0.0, dailyWork - usedWork));
             current = step.state();
             fleets = new ArrayList<>(current.fleets());
             if (step.complete()) {

@@ -21,13 +21,20 @@ public final class ConstructionMaterialCatalog {
     }
 
     public static Map<String, Double> ship(ShipDesign design) {
-        double mass = Math.max(1_000.0, design.totalDryMassKg());
+        if (design == null) return Map.of();
+        return ship(design.totalDryMassKg(), design.hullMaterialId(),
+                design.armorMaterialId(), design.equippedModuleIds());
+    }
+
+    public static Map<String, Double> ship(double dryMassKg, String hullMaterialId,
+                                           String armorMaterialId, java.util.List<String> moduleIds) {
+        double mass = Math.max(1_000.0, Double.isFinite(dryMassKg) ? dryMassKg : 0.0);
         Map<String, Double> bill = new LinkedHashMap<>();
-        bill.merge(design.hullMaterialId(), mass * 0.65, Double::sum);
-        bill.merge(design.armorMaterialId(), mass * 0.20, Double::sum);
+        bill.merge(hullMaterialId, mass * 0.65, Double::sum);
+        bill.merge(armorMaterialId, mass * 0.20, Double::sum);
         bill.merge("refined_copper", mass * 0.10, Double::sum);
         bill.merge("silicon", mass * 0.05, Double::sum);
-        long pods = design.equippedModuleIds().stream()
+        long pods = (moduleIds == null ? java.util.List.<String>of() : moduleIds).stream()
                 .filter(PassengerStasis.MODULE_ID::equals).count();
         if (pods > 0) {
             bill.merge("refined_aluminum", pods * 100.0, Double::sum);

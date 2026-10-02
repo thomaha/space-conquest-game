@@ -2,6 +2,11 @@ package com.spaceconquest.engine.macrostructure;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import com.spaceconquest.engine.CommercialHub;
+import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.MarketOrder;
+import com.spaceconquest.engine.Planet;
+import com.spaceconquest.engine.SolarSystem;
 
 import java.util.List;
 import java.util.Map;
@@ -136,5 +141,53 @@ class MacroStructureProcessorTest {
         assertEquals(0, result.remainingProjects().size());
         assertEquals(1, result.newlyCompletedStations().size());
         assertEquals("mars", result.newlyCompletedStations().get(0).planetOrbitId());
+    }
+
+    @Test
+    void firstCommerceModuleCreatesOneStockedHubForItsOrbit() {
+        StationModule control = new StationModule("control", "Control", StationModule.TYPE_CONTROL,
+                1, 100.0, 0.0, 0.0, Map.of(), "technician", 0, true);
+        StationModule power = new StationModule("power", "Power", StationModule.TYPE_POWER,
+                1, 100.0, 0.0, 100.0, Map.of(), "technician", 0, true);
+        OrbitalStation first = new OrbitalStation("first", "First base", "sys", "planet",
+                "emp", OrbitalStation.OWNERSHIP_PUBLIC_STATE, 20, List.of(control, power),
+                Map.of(), 100.0, 0.0, 0.0, 0.0, 100.0, 100.0, "steel", 1.0, true);
+        OrbitalStation second = new OrbitalStation("second", "Second base", "sys", "planet",
+                "emp", OrbitalStation.OWNERSHIP_PUBLIC_STATE, 20, List.of(control, power),
+                Map.of(), 100.0, 0.0, 0.0, 0.0, 100.0, 100.0, "steel", 1.0, true);
+        CommercialHub home = new CommercialHub("home", "planet", 0.05, 1000.0,
+                100.0, 10.0, Map.of("refined_iron", new MarketOrder("refined_iron",
+                100.0, 20.0, 2.0, 0.0)));
+        StationModule commerce = new StationModule("commerce", "Commerce", StationModule.TYPE_COMMERCE,
+                1, 100.0, 0.0, 0.0, Map.of(), "technician", 0, true);
+        ConstructionDeploymentProject moduleProject = new ConstructionDeploymentProject("module",
+                "", "sys", "planet", ConstructionDeploymentProject.TYPE_STATION_MODULE,
+                0.0, 1.0, "emp", Map.of(), Map.of(), "Commerce", first.ownershipType(),
+                first.id(), commerce, 0, "steel", 1.0, 0.0, false);
+        GameState state = GameState.builder()
+                .solarSystems(List.of(new SolarSystem("sys", "System", "", 0, 0, 0,
+                        1, 1, "yellow", List.of(new Planet("planet", "Planet", "", 1,
+                        1, 1, 0, 1, "terrestrial", "", false, 0, List.of(), List.of(),
+                        List.of())), List.of())))
+                .commercialHubs(List.of(home)).orbitalStations(List.of(first, second))
+                .constructionProjects(List.of(moduleProject)).build();
+
+        GameState completed = processor.advanceConstructionProjects(state);
+        assertEquals(1, completed.commercialHubs().stream()
+                .filter(hub -> "first".equals(hub.entityId()) || "second".equals(hub.entityId()))
+                .count());
+        CommercialHub orbitalHub = completed.commercialHubs().stream()
+                .filter(hub -> "first".equals(hub.entityId())).findFirst().orElseThrow();
+        assertEquals(10.0, orbitalHub.activeOrders().get("refined_iron").supplyKg(), 0.000001);
+        assertEquals(2.0, orbitalHub.activeOrders().get("refined_iron").demandKg(), 0.000001);
+        ConstructionDeploymentProject duplicateModule = new ConstructionDeploymentProject("module-2",
+                "", "sys", "planet", ConstructionDeploymentProject.TYPE_STATION_MODULE,
+                0.0, 1.0, "emp", Map.of(), Map.of(), "Commerce", second.ownershipType(),
+                second.id(), commerce, 0, "steel", 1.0, 0.0, false);
+        GameState withSecondModule = completed.withConstructionProjects(List.of(duplicateModule));
+        GameState afterSecond = processor.advanceConstructionProjects(withSecondModule);
+        assertEquals(1, afterSecond.commercialHubs().stream()
+                .filter(hub -> hub.entityId().equals("first") || hub.entityId().equals("second"))
+                .count());
     }
 }

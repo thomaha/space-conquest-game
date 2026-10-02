@@ -8,6 +8,7 @@ import com.spaceconquest.engine.MarketOrder;
 import com.spaceconquest.engine.economy.MarketAccount;
 import com.spaceconquest.engine.industry.IndustryMarketProcessor;
 import com.spaceconquest.engine.market.MarketProcessor;
+import com.spaceconquest.engine.market.MarketStockpilePolicy;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.FleetLocation;
 import com.spaceconquest.engine.ship.LocalTravel;
@@ -37,6 +38,7 @@ public class LogisticsProcessor {
 
     private record Carrier(Fleet fleet, ShipInstance ship, ShipDesign design) {}
     private record RouteStep(GameState state, TradeRoute route, double deliveredKg) {}
+    private record MarketChoice(String materialId, String destinationHubId, double score) {}
     private record Shipment(double massKg, LaunchService.Plan launch) {
     }
 
@@ -268,8 +270,7 @@ public class LogisticsProcessor {
 
     private RouteStep load(GameState state, TradeRoute route, Carrier carrier) {
         CommercialHub origin = hub(state, route.originEntityId());
-        CommercialHub destination = hub(state, route.destinationEntityId());
-        if (origin == null || destination == null)
+        if (origin == null || FleetPositioning.hubSite(state, origin) == null)
             return new RouteStep(state, route, 0.0);
         boolean surface = FleetPositioning.hubSite(state, origin).kind()
                 == FleetLocation.Kind.SURFACE;
@@ -277,6 +278,12 @@ public class LogisticsProcessor {
                 .isAt(FleetLocation.Site.orbit(origin.entityId()));
         if (!FleetPositioning.atHub(state, carrier.fleet(), origin) && !orbitalPickup)
             return moveRoute(state, route, carrier.fleet().id(), origin);
+        MarketChoice choice = bestPricedMarketChoice(state, route, origin);
+        if (choice != null) route = route.withMarketChoice(choice.materialId(),
+                choice.destinationHubId());
+        CommercialHub destination = hub(state, route.destinationEntityId());
+        if (destination == null || FleetPositioning.hubSite(state, destination) == null)
+            return new RouteStep(state, route, 0.0);
         MarketOrder order = origin.activeOrders().get(route.materialId());
         if (order == null || !Double.isFinite(order.pricePerKg())
                 || order.pricePerKg() < 0.0) return new RouteStep(state, route, 0.0);
@@ -314,6 +321,39 @@ public class LogisticsProcessor {
         double fuelCost = Math.max(0.0, beforeMove - balance(current, route.ownerEntityId()));
         return new RouteStep(current, route.withLoadedCargo(quantity, purchase + lift)
                 .withOperatingCost(fuelCost), 0.0);
+    }
+
+    private MarketChoice bestPricedMarketChoice(GameState state, TradeRoute route,
+                                                CommercialHub origin) {
+        MarketChoice best = null;
+        String fromSystem = FleetPositioning.systemForHub(state, origin);
+        FleetLocation.Site fromSite = FleetPositioning.hubSite(state, origin);
+        for (MarketOrder source : origin.activeOrders().values()) {
+            if (!Double.isFinite(source.supplyKg())
+                    || source.supplyKg() <= route.minSourceInventoryThresholdKg()
+                    || !Double.isFinite(source.pricePerKg()) || source.pricePerKg() < 0.0) continue;
+            for (CommercialHub candidate : state.commercialHubs()) {
+                if (candidate.id().equals(origin.id())
+                        || FleetPositioning.hubSite(state, candidate) == null) continue;
+                MarketOrder buyer = candidate.activeOrders().get(source.resourceId());
+                if (buyer == null || buyer.demandKg() <= 0.0 || buyer.pricePerKg() < 0.0
+                        || hubCash(state, candidate.id()) <= 0.0) continue;
+                String toSystem = FleetPositioning.systemForHub(state, candidate);
+                double transitDays = fromSystem != null && fromSystem.equals(toSystem)
+                        ? FleetLocation.travelDays(fromSite, FleetPositioning.hubSite(state, candidate))
+                        : 8.0;
+                double wholesaleBid = buyer.pricePerKg() * IndustryMarketProcessor.WHOLESALE_SHARE;
+                double transportPenalty = Math.max(0.01, source.pricePerKg() * 0.025) * transitDays;
+                double margin = wholesaleBid - source.pricePerKg() - transportPenalty;
+                if (margin <= 0.0) continue;
+                double pricePull = 1.0 + Math.clamp(buyer.demandKg()
+                        / Math.max(1.0, buyer.supplyKg()), 0.0, 2.0);
+                double score = margin * pricePull;
+                if (best == null || score > best.score())
+                    best = new MarketChoice(source.resourceId(), candidate.id(), score);
+            }
+        }
+        return best;
     }
 
     private RouteStep deliver(GameState state, TradeRoute route, Carrier carrier) {
@@ -373,10 +413,12 @@ public class LogisticsProcessor {
     }
 
     private double room(CommercialHub hub, TradeRoute route) {
-        double materialStock = hub.activeOrders().getOrDefault(route.materialId(),
-                new MarketOrder(route.materialId(), 0, 0, 10, 0)).supplyKg();
+        MarketOrder order = hub.activeOrders().get(route.materialId());
+        double materialStock = order == null ? 0.0 : order.supplyKg();
+        double reserveRoom = Math.max(0.0,
+                MarketStockpilePolicy.targetStockKg(order) - materialStock);
         return Math.max(0.0, Math.min(route.maxDestinationCapacityKg() - materialStock,
-                hub.storageCapacityKg() - hub.currentStoredWeightKg()));
+                Math.min(hub.storageCapacityKg() - hub.currentStoredWeightKg(), reserveRoom)));
     }
 
     private GameState changeHubStock(GameState state, String hubId, String materialId,

@@ -3,6 +3,10 @@ package com.spaceconquest.frontend;
 import com.spaceconquest.engine.macrostructure.OrbitalStation;
 import com.spaceconquest.engine.macrostructure.SpaceElevator;
 import com.spaceconquest.engine.macrostructure.StationModule;
+import com.spaceconquest.control.HumanController;
+import com.spaceconquest.control.command.AddStationModuleCommand;
+import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.ship.ShipyardWorkCapacity;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -27,6 +31,8 @@ public class OrbitalStationView {
     private VBox root;
     private VBox content;
     private final Menubar menubar;
+    private GameState gameState;
+    private String playerEmpireId;
     private final List<OrbitalStation> stations = new ArrayList<>();
     private final List<SpaceElevator> elevators = new ArrayList<>();
 
@@ -99,6 +105,16 @@ public class OrbitalStationView {
         }
     }
 
+    public void updateData(GameState state, String empireId) {
+        gameState = state;
+        playerEmpireId = empireId;
+        if (state != null) updateData(state.orbitalStations(), state.spaceElevators());
+    }
+
+    public void updateData(GameState state) {
+        updateData(state, playerEmpireId);
+    }
+
     private void renderContent() {
         content.getChildren().clear();
 
@@ -134,8 +150,9 @@ public class OrbitalStationView {
                 sTitle.setFill(Color.LIGHTGREEN);
                 sTitle.setFont(Font.font("Verdana", FontWeight.BOLD, 13));
 
-                Text stats = new Text(String.format("Slots: %d/%d | Power: %.1f/%.1f kW | Shield: %.0f/%.0f | Hull: %.0f/%.0f | Armor: %s (%.1fcm) | Status: %s",
-                        station.getAllocatedSlots(), station.totalSlots(), station.currentPowerDemandKw(), station.currentPowerGenerationKw(),
+                Text stats = new Text(String.format("Slots: %d/%d | Residents: %,d/%,d | Power: %.1f/%.1f kW | Shield: %.0f/%.0f | Hull: %.0f/%.0f | Armor: %s (%.1fcm) | Status: %s",
+                        station.getAllocatedSlots(), station.totalSlots(), station.residentCount(),
+                        station.habitationCapacity(), station.currentPowerDemandKw(), station.currentPowerGenerationKw(),
                         station.currentShieldHealth(), station.maxShieldHealth(), station.currentHullHealth(), station.maxHullHealth(),
                         station.armorMaterialId(), station.armorThicknessCm(), station.isOperational() ? "OPERATIONAL" : "OFFLINE"));
                 stats.setFill(Color.WHITE);
@@ -146,17 +163,80 @@ public class OrbitalStationView {
                 for (StationModule mod : station.modules()) {
                     Text mText = new Text(String.format("  • [%s] %s (%d slots) | Power: -%.1f kW / +%.1f kW | %s (%d workers) | %s",
                             mod.type(), mod.name(), mod.slotSize(), mod.powerDrawKw(), mod.powerOutputKw(),
-                            mod.workforceProfessionId(), mod.requiredWorkers(), mod.isOnline() ? "ONLINE" : "OFFLINE"));
+                            mod.workforceProfessionId(), ShipyardWorkCapacity.requiredWorkers(
+                            gameState, station.ownerEntityId(), mod),
+                            mod.isOnline() ? "ONLINE" : "OFFLINE"));
                     mText.setFill(mod.isOnline() ? Color.LIGHTGRAY : Color.SALMON);
                     mText.setFont(Font.font("Verdana", 10));
                     sBox.getChildren().add(mText);
                 }
+
+                Button habitationButton = habitationModuleButton(station);
+                if (habitationButton != null) sBox.getChildren().add(habitationButton);
+                Button commerceButton = commerceModuleButton(station);
+                if (commerceButton != null) sBox.getChildren().add(commerceButton);
 
                 section.getChildren().add(sBox);
             }
         }
 
         return section;
+    }
+
+    private Button commerceModuleButton(OrbitalStation station) {
+        if (gameState == null || menubar == null || playerEmpireId == null
+                || !playerEmpireId.equals(station.ownerEntityId())) return null;
+        boolean researched = gameState.empires().stream().anyMatch(empire ->
+                empire.id().equals(playerEmpireId)
+                        && empire.unlockedTechIds().contains("space_stations"));
+        if (!researched) return null;
+        boolean alreadyPlanned = gameState.constructionProjects().stream()
+                .anyMatch(project -> station.id().equals(project.targetStationId())
+                        && project.plannedModule() != null
+                        && StationModule.TYPE_COMMERCE.equalsIgnoreCase(project.plannedModule().type()));
+        boolean hasCommerce = station.modules().stream().anyMatch(module ->
+                StationModule.TYPE_COMMERCE.equalsIgnoreCase(module.type()));
+        int reservedSlots = gameState.constructionProjects().stream()
+                .filter(project -> station.id().equals(project.targetStationId())
+                        && project.plannedModule() != null)
+                .mapToInt(project -> project.plannedModule().slotSize()).sum();
+        if (alreadyPlanned || hasCommerce || !station.hasAvailableSlots(reservedSlots + 8)) return null;
+        Button button = new Button("Build commerce module (8 slots)");
+        button.setOnAction(event -> {
+            HumanController controller = menubar.getHumanController();
+            if (controller != null) {
+                controller.stageCommand(new AddStationModuleCommand(station.id(),
+                        "Orbital commerce hub", StationModule.TYPE_COMMERCE,
+                        8, 14_000.0, 20.0, 0.0, "bureaucrat", 3));
+                button.setDisable(true);
+            }
+        });
+        return button;
+    }
+
+    private Button habitationModuleButton(OrbitalStation station) {
+        if (gameState == null || menubar == null || playerEmpireId == null
+                || !playerEmpireId.equals(station.ownerEntityId())) return null;
+        boolean researched = gameState.empires().stream().anyMatch(empire ->
+                empire.id().equals(playerEmpireId)
+                        && empire.unlockedTechIds().contains("space_stations"));
+        if (!researched) return null;
+        int usedSlots = gameState.constructionProjects().stream()
+                .filter(project -> station.id().equals(project.targetStationId())
+                        && project.plannedModule() != null)
+                .mapToInt(project -> project.plannedModule().slotSize()).sum();
+        if (!station.hasAvailableSlots(usedSlots + 6)) return null;
+        Button button = new Button("Build habitation module (600 residents)");
+        button.setOnAction(event -> {
+            HumanController controller = menubar.getHumanController();
+            if (controller != null) {
+                controller.stageCommand(new AddStationModuleCommand(station.id(),
+                        "Orbital habitation block", StationModule.TYPE_HABITATION,
+                        6, 12_000.0, 30.0, 0.0, "technician", 3));
+                button.setDisable(true);
+            }
+        });
+        return button;
     }
 
     private VBox createElevatorsSection() {

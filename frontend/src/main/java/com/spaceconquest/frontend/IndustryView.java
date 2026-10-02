@@ -4,9 +4,13 @@ import com.spaceconquest.control.HumanController;
 import com.spaceconquest.control.command.BuildFacilityCommand;
 import com.spaceconquest.control.command.ExpandFacilityCommand;
 import com.spaceconquest.control.command.SetFacilityRecipeCommand;
+import com.spaceconquest.control.command.SetSurfaceShipyardStaffingCommand;
 import com.spaceconquest.control.command.StartProspectingMissionCommand;
+import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.industry.ConstructionMaterials;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.ship.ShipyardWorkCapacity;
 import com.spaceconquest.engine.industry.refinement.RefinementProcessor;
 import com.spaceconquest.engine.industry.refinement.RefinementRecipe;
 import javafx.geometry.Insets;
@@ -40,6 +44,7 @@ public class IndustryView {
     private Label feedbackLabel;
     private final Menubar menubar;
     private HumanController humanController;
+    private GameState snapshot;
     private String playerEmpireId = "terran_confederation";
     private final List<IndustrialFacility> facilities = new ArrayList<>();
     private final List<FacilityExpansionProject> expansionProjects = new ArrayList<>();
@@ -115,12 +120,13 @@ public class IndustryView {
         }
     }
 
-    public void updateData(List<IndustrialFacility> newFacilities, List<FacilityExpansionProject> newProjects) {
+    public void updateData(GameState state) {
+        snapshot = state;
         facilities.clear();
-        if (newFacilities != null) facilities.addAll(newFacilities);
+        if (state != null) facilities.addAll(state.industrialFacilities());
 
         expansionProjects.clear();
-        if (newProjects != null) expansionProjects.addAll(newProjects);
+        if (state != null) expansionProjects.addAll(state.expansionProjects());
 
         if (root.isVisible()) {
             renderContent();
@@ -165,14 +171,19 @@ public class IndustryView {
         Label appLbl = new Label("Facility application:");
         appLbl.setTextFill(Color.LIGHTCYAN);
         ComboBox<String> appCombo = new ComboBox<>();
-        appCombo.getItems().addAll("smelter", "foundry", "hydroponics_dome", "consumer_factory", "fission_reactor", "fusion_reactor", "mining_outpost", "mass_driver");
+        appCombo.getItems().addAll("smelter", "foundry", "hydroponics_dome", "consumer_factory", "fission_reactor", "fusion_reactor", "mining_outpost", "mass_driver", "surface_shipyard");
         appCombo.setValue("smelter");
 
         Label profLbl = new Label("Worker profession:");
         profLbl.setTextFill(Color.LIGHTCYAN);
         ComboBox<String> profCombo = new ComboBox<>();
-        profCombo.getItems().addAll("miner", "smelter_operator", "hydroponics_farmer", "technician", "engineer");
+        profCombo.getItems().addAll("miner", "smelter_operator", "hydroponics_farmer", "technician", "engineer", "industrial_worker");
         profCombo.setValue("smelter_operator");
+        appCombo.valueProperty().addListener((observable, previous, selected) -> {
+            if (ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID.equals(selected)) {
+                profCombo.setValue("industrial_worker");
+            }
+        });
 
         Label tierLbl = new Label("Facility tier:");
         tierLbl.setTextFill(Color.LIGHTCYAN);
@@ -261,28 +272,35 @@ public class IndustryView {
                         feedbackLabel.setTextFill(Color.LIGHTGREEN);
                     }
                 });
+                boolean projectActive = expansionProjects.stream()
+                        .anyMatch(project -> fac.id().equals(project.facilityId()));
+                upgradeBtn.setDisable(projectActive);
 
-                ComboBox<String> recipeCombo = new ComboBox<>();
-                for (RefinementRecipe rec : RefinementProcessor.STANDARD_RECIPES) {
-                    recipeCombo.getItems().add(rec.id());
-                }
-                recipeCombo.setValue(RefinementProcessor.STANDARD_RECIPES.get(0).id());
-                recipeCombo.setStyle("-fx-font-size: 10px;");
-
-                Button recipeBtn = new Button("Set recipe");
-                recipeBtn.setStyle("-fx-background-color: #00b894; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
-                recipeBtn.setOnAction(e -> {
-                    if (humanController != null) {
-                        String selectedRecipe = recipeCombo.getValue();
-                        humanController.stageCommand(new SetFacilityRecipeCommand(
-                                fac.id(), selectedRecipe
-                        ));
-                        feedbackLabel.setText("Updated active manufacturing recipe for facility " + fac.id() + " to " + selectedRecipe);
-                        feedbackLabel.setTextFill(Color.LIGHTGREEN);
+                topRow.getChildren().add(facTitle);
+                if (!ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID
+                        .equals(fac.applicationId())) {
+                    ComboBox<String> recipeCombo = new ComboBox<>();
+                    for (RefinementRecipe rec : RefinementProcessor.STANDARD_RECIPES) {
+                        recipeCombo.getItems().add(rec.id());
                     }
-                });
+                    recipeCombo.setValue(RefinementProcessor.STANDARD_RECIPES.get(0).id());
+                    recipeCombo.setStyle("-fx-font-size: 10px;");
 
-                topRow.getChildren().addAll(facTitle, recipeCombo, recipeBtn, upgradeBtn);
+                    Button recipeBtn = new Button("Set recipe");
+                    recipeBtn.setStyle("-fx-background-color: #00b894; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
+                    recipeBtn.setOnAction(e -> {
+                        if (humanController != null) {
+                            String selectedRecipe = recipeCombo.getValue();
+                            humanController.stageCommand(new SetFacilityRecipeCommand(
+                                    fac.id(), selectedRecipe
+                            ));
+                            feedbackLabel.setText("Updated active manufacturing recipe for facility " + fac.id() + " to " + selectedRecipe);
+                            feedbackLabel.setTextFill(Color.LIGHTGREEN);
+                        }
+                    });
+                    topRow.getChildren().addAll(recipeCombo, recipeBtn);
+                }
+                topRow.getChildren().add(upgradeBtn);
 
                 Text facStatus = new Text(String.format("  Throughput multiplier: %.2fx | Expansion status: %s",
                         fac.getEffectiveThroughputMultiplier(),
@@ -291,11 +309,133 @@ public class IndustryView {
                 facStatus.setFont(Font.font("Verdana", 11));
 
                 card.getChildren().addAll(topRow, facStatus);
+                if (ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID
+                        .equals(fac.applicationId())) {
+                    card.getChildren().addAll(createSurfaceShipyardStatus(fac));
+                    if (playerEmpireId.equals(fac.ownerEntityId())) {
+                        card.getChildren().add(createShipyardStaffingControls(fac));
+                    }
+                }
                 section.getChildren().add(card);
             }
         }
 
         return section;
+    }
+
+    private List<javafx.scene.Node> createSurfaceShipyardStatus(IndustrialFacility facility) {
+        List<javafx.scene.Node> nodes = new ArrayList<>();
+        FacilityExpansionProject project = expansionProjects.stream()
+                .filter(item -> facility.id().equals(item.facilityId()))
+                .findFirst().orElse(null);
+        if (project != null) {
+            String phase = facility.tier() == 0 ? "Shipyard construction" : "Shipyard tier upgrade";
+            ProgressBar progress = new ProgressBar(project.getProgressPercentage() / 100.0);
+            progress.setPrefWidth(220);
+            double requiredKg = project.requiredMaterialsKg().values().stream()
+                    .mapToDouble(Double::doubleValue).sum();
+            double consumedKg = project.consumedMaterialsKg().values().stream()
+                    .mapToDouble(Double::doubleValue).sum();
+            Text progressText = new Text(String.format(
+                    "%s: %.0f%% | work %.0f / %.0f hours | materials %.0f / %.0f kg",
+                    phase, project.getProgressPercentage(), project.accumulatedWorkHours(),
+                    project.requiredWorkHours(), consumedKg, requiredKg));
+            progressText.setFill(Color.LIGHTCYAN);
+            progressText.setFont(Font.font("Verdana", 11));
+            HBox progressRow = new HBox(8, progress, progressText);
+            progressRow.setAlignment(Pos.CENTER_LEFT);
+            nodes.add(progressRow);
+            if (facility.tier() == 0) {
+                Text materials = new Text("Shipyard becomes operational when its tier 1 construction project completes.");
+                materials.setFill(Color.LIGHTYELLOW);
+                materials.setFont(Font.font("Verdana", 11));
+                nodes.add(materials);
+            }
+        }
+
+        if (snapshot == null) {
+            Text workforce = new Text(String.format("Staffing after completion: %d %s assigned",
+                    facility.allocatedWorkers(), displayProfession(facility.workerProfessionId())));
+            workforce.setFill(Color.GAINSBORO);
+            workforce.setFont(Font.font("Verdana", 11));
+            nodes.add(workforce);
+            return nodes;
+        }
+
+        String systemId = ConstructionMaterials.systemForBody(snapshot, facility.planetId());
+        ShipyardWorkCapacity.Profile profile = systemId == null ? null
+                : ShipyardWorkCapacity.forYard(snapshot, facility.ownerEntityId(), systemId,
+                facility.planetId());
+        if (profile == null || "Unavailable".equals(profile.yardType())) {
+            return nodes;
+        }
+        if (facility.tier() == 0) {
+            Text pending = new Text("Yard is not operational until tier 1 construction completes.");
+            pending.setFill(Color.LIGHTYELLOW);
+            pending.setFont(Font.font("Verdana", 11));
+            nodes.add(pending);
+        } else {
+            Text rate = new Text(String.format(
+                    "Surface yard capacity: tier %d | %.0f current base work-hours/day | %.1f effective work-hours/day%s",
+                    facility.tier(), profile.baseWorkPerDay(), profile.workPerDay(),
+                    facility.isUndergoingExpansion() ? " (50% expansion throttle applied)" : ""));
+            rate.setFill(profile.workPerDay() > 0.0 ? Color.LIGHTCYAN : Color.LIGHTYELLOW);
+            rate.setFont(Font.font("Verdana", 11));
+            nodes.add(rate);
+        }
+        profile.staffingByProfession().values().forEach(staff -> {
+            long assignable = ShipyardWorkCapacity.assignableWorkers(snapshot, facility);
+            Text staffing = new Text(String.format(
+                    "Staffing: %,d paid / %,d required %s; %,d jobs allocated (%.0f%% filled); maximum assignable: %,d%s",
+                    staff.filledWorkers(), staff.requiredWorkers(),
+                    displayProfession(staff.professionId()), facility.allocatedWorkers(),
+                    staff.filledFraction() * 100.0,
+                    assignable, profile.isFullyStaffed() ? " — fully staffed" : " — understaffed"));
+            staffing.setFill(staff.filledFraction() >= 0.999 ? Color.LIGHTGREEN : Color.LIGHTYELLOW);
+            staffing.setFont(Font.font("Verdana", 11));
+            nodes.add(staffing);
+        });
+        snapshot.industryAccounts().stream()
+                .filter(account -> facility.id().equals(account.facilityId()))
+                .findFirst().ifPresent(account -> {
+                    Text payroll = new Text(String.format("Last daily payroll: %.2f credits",
+                            account.wageCostsCredits()));
+                    payroll.setFill(Color.GAINSBORO);
+                    payroll.setFont(Font.font("Verdana", 11));
+                    nodes.add(payroll);
+                });
+        return nodes;
+    }
+
+    private HBox createShipyardStaffingControls(IndustrialFacility facility) {
+        long assignable = ShipyardWorkCapacity.assignableWorkers(snapshot, facility);
+        int maximum = (int) Math.min(Integer.MAX_VALUE,
+                Math.max(facility.allocatedWorkers(), assignable));
+        Spinner<Integer> workers = new Spinner<>(0, maximum, facility.allocatedWorkers());
+        workers.setEditable(true);
+        workers.setPrefWidth(105);
+        Button apply = new Button("Set assigned workers");
+        apply.setOnAction(event -> {
+            if (humanController == null) return;
+            int requested = workers.getValue();
+            humanController.stageCommand(new SetSurfaceShipyardStaffingCommand(
+                    playerEmpireId, facility.id(), requested));
+            feedbackLabel.setText("Staffing order staged: " + requested + " "
+                    + displayProfession(facility.workerProfessionId()) + " for " + facility.id());
+            feedbackLabel.setTextFill(Color.LIGHTGREEN);
+        });
+        Label label = new Label("Assigned workers:");
+        label.setTextFill(Color.LIGHTCYAN);
+        Label availability = new Label(String.format("Maximum assignable: %,d", assignable));
+        availability.setTextFill(Color.GAINSBORO);
+        HBox row = new HBox(8, label, workers, apply, availability);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
+    }
+
+    private String displayProfession(String professionId) {
+        return professionId == null || professionId.isBlank()
+                ? "industrial worker" : professionId.replace('_', ' ');
     }
 
     private VBox createExpansionSection() {

@@ -2,6 +2,7 @@ package com.spaceconquest.engine.macrostructure;
 
 import java.util.List;
 import java.util.Map;
+import com.spaceconquest.engine.Population;
 
 /**
  * Represents a space station orbiting a celestial body or positioned at strategic space coordinates.
@@ -43,7 +44,8 @@ public record OrbitalStation(
         double maxHullHealth,
         String armorMaterialId,
         double armorThicknessCm,
-        boolean isOperational
+        boolean isOperational,
+        List<Population> populations
 ) {
     public static final String OWNERSHIP_PUBLIC_STATE = "PUBLIC_STATE";
     public static final String OWNERSHIP_PRIVATE_CORPORATE = "PRIVATE_CORPORATE";
@@ -52,6 +54,27 @@ public record OrbitalStation(
     public OrbitalStation {
         modules = modules == null ? List.of() : List.copyOf(modules);
         storedCargoKg = storedCargoKg == null ? Map.of() : Map.copyOf(storedCargoKg);
+        populations = populations == null ? List.of() : List.copyOf(populations);
+    }
+
+    public OrbitalStation(String id, String name, String systemId, String planetOrbitId,
+                          String ownerEntityId, String ownershipType, int totalSlots,
+                          List<StationModule> modules, Map<String, Double> storedCargoKg,
+                          double currentPowerGenerationKw, double currentPowerDemandKw,
+                          double currentShieldHealth, double maxShieldHealth,
+                          double currentHullHealth, double maxHullHealth,
+                          String armorMaterialId, double armorThicknessCm, boolean isOperational) {
+        this(id, name, systemId, planetOrbitId, ownerEntityId, ownershipType, totalSlots,
+                modules, storedCargoKg, currentPowerGenerationKw, currentPowerDemandKw,
+                currentShieldHealth, maxShieldHealth, currentHullHealth, maxHullHealth,
+                armorMaterialId, armorThicknessCm, isOperational, List.of());
+    }
+
+    public OrbitalStation withPopulations(List<Population> value) {
+        return new OrbitalStation(id, name, systemId, planetOrbitId, ownerEntityId, ownershipType,
+                totalSlots, modules, storedCargoKg, currentPowerGenerationKw, currentPowerDemandKw,
+                currentShieldHealth, maxShieldHealth, currentHullHealth, maxHullHealth,
+                armorMaterialId, armorThicknessCm, isOperational, value);
     }
 
     public int getAllocatedSlots() {
@@ -64,5 +87,15 @@ public record OrbitalStation(
 
     public boolean hasModuleType(String type) {
         return modules.stream().anyMatch(m -> m.isOnline() && m.type().equalsIgnoreCase(type));
+    }
+
+    public long habitationCapacity() {
+        return modules.stream().filter(module ->
+                StationModule.TYPE_HABITATION.equalsIgnoreCase(module.type()))
+                .mapToLong(module -> Math.max(0, module.slotSize()) * 100L).sum();
+    }
+
+    public long residentCount() {
+        return populations.stream().mapToLong(Population::totalCount).sum();
     }
 }

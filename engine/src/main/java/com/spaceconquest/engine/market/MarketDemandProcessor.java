@@ -41,7 +41,7 @@ public class MarketDemandProcessor {
         Map<String, Empire> empires = new HashMap<>();
         for (Empire empire : state.empires()) empires.put(empire.id(), empire);
 
-        return state.commercialHubs().stream().map(hub -> {
+        return ensureIndustrialSiteHubs(state).stream().map(hub -> {
             Map<String, Double> demand = new HashMap<>();
             Residents local = residents.get(hub.entityId());
             if (local != null && !local.hive()) {
@@ -90,11 +90,14 @@ public class MarketDemandProcessor {
                         * recipe.technologyMultiplier(owner) / recipe.workersPerBatch();
                 recipe.inputsKg().forEach((resource, kg) ->
                         demand.merge(resource, batches * kg, Double::sum));
+                recipe.outputsKg().forEach((resource, kg) ->
+                        demand.merge(resource, batches * kg, Double::sum));
             }
             constructionDemand.getOrDefault(hub.entityId(), Map.of()).forEach((resource, kg) ->
                     demand.merge(resource, kg, Double::sum));
             shipFuelDemand(state, hub, demand);
             Map<String, MarketOrder> orders = new HashMap<>(hub.activeOrders());
+            addStockpileDemand(hub, demand);
             Set<String> allGoods = new HashSet<>(managedGoods);
             allGoods.addAll(demand.keySet());
             for (String resource : allGoods) {
@@ -109,6 +112,43 @@ public class MarketDemandProcessor {
                     hub.storageCapacityKg(), hub.currentStoredWeightKg(), hub.logisticsRangeUnits(),
                     Map.copyOf(orders));
         }).toList();
+    }
+
+    private List<CommercialHub> ensureIndustrialSiteHubs(GameState state) {
+        List<CommercialHub> hubs = new java.util.ArrayList<>(state.commercialHubs());
+        Set<String> hubBodies = new HashSet<>();
+        hubs.forEach(hub -> hubBodies.add(hub.entityId()));
+        for (var system : state.solarSystems()) {
+            for (var belt : system.asteroidBelts()) {
+                if (belt.populations().isEmpty() || !hubBodies.add(belt.id())) continue;
+                hubs.add(new CommercialHub("hub_" + belt.id(), belt.id(),
+                        0.05, 500_000.0, 0.0, 10.0, Map.of()));
+            }
+        }
+        for (IndustrialFacility facility : state.industrialFacilities()) {
+            boolean stationSite = state.orbitalStations().stream()
+                    .anyMatch(station -> facility.planetId().equals(station.id()));
+            if (stationSite || com.spaceconquest.engine.industry.ConstructionMaterials
+                    .systemForBody(state, facility.planetId()) == null
+                    || hubBodies.contains(facility.planetId()))
+                continue;
+            hubs.add(new CommercialHub("hub_" + facility.planetId(), facility.planetId(),
+                    0.05, 500_000.0, 0.0, 10.0, Map.of()));
+            hubBodies.add(facility.planetId());
+        }
+        return List.copyOf(hubs);
+    }
+
+    private void addStockpileDemand(CommercialHub hub, Map<String, Double> demand) {
+        MarketStockpilePolicy.baseTargetsKg().forEach((resource, target) -> {
+            MarketOrder order = hub.activeOrders().get(resource);
+            double currentSupply = order == null ? 0.0 : order.supplyKg();
+            double targetKg = Math.max(target, demand.getOrDefault(resource, 0.0)
+                    * 30.0);
+            double replenishment = Math.max(0.0, targetKg - currentSupply)
+                    / 30.0;
+            if (replenishment > 0.0) demand.merge(resource, replenishment, Double::sum);
+        });
     }
 
     private Map<String, Map<String, Double>> constructionDemand(GameState state) {
@@ -222,6 +262,12 @@ public class MarketDemandProcessor {
                     bodies.put(moon.id(), new Residents(moon.populations(), moon.atmosphere(), hive));
                 }
             }
+            for (var belt : system.asteroidBelts())
+                bodies.put(belt.id(), new Residents(belt.populations(), "none", hive));
+            for (var station : state.orbitalStations()) {
+                if (system.id().equals(station.systemId()))
+                    bodies.put(station.id(), new Residents(station.populations(), "none", hive));
+            }
         }
         return bodies;
     }
@@ -233,6 +279,7 @@ public class MarketDemandProcessor {
         }
         for (IndustryRecipeCatalog.Recipe recipe : IndustryRecipeCatalog.all()) {
             resources.addAll(recipe.inputsKg().keySet());
+            resources.addAll(recipe.outputsKg().keySet());
         }
         return resources;
     }

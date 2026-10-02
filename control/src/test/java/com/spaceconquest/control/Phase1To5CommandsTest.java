@@ -41,7 +41,7 @@ class Phase1To5CommandsTest {
         ))
                 .empires(List.of(new Empire("terran_confederation", "Terran", "human",
                         "Individualist", 1_000_000.0, 0.15, List.of("sol"), List.of(),
-                        Map.of(), List.of("industrial_production"), List.of())))
+                        Map.of(), List.of("industrial_production", "rocketry", "space_stations"), List.of())))
                 .commercialHubs(List.of(new CommercialHub("hub_earth", "earth", 0.0,
                         1_000_000.0, 500_000.0, 10.0,
                         Map.of("refined_iron", new MarketOrder("refined_iron", 200_000.0, 0, 1, 0),
@@ -78,6 +78,20 @@ class Phase1To5CommandsTest {
                 .advanceConstructionProjects(updated);
         assertEquals("Gateway Station", updated.orbitalStations().getFirst().name());
         assertTrue(updated.orbitalStations().getFirst().isOperational());
+    }
+
+    @Test
+    void orbitalStationFrameRequiresRocketryAndSpaceStationsResearch() {
+        Empire owner = initialState.empires().getFirst();
+        Empire withoutStationResearch = new Empire(owner.id(), owner.name(), owner.raceId(),
+                owner.societyStructure(), owner.treasuryCredits(), owner.corporateTaxRate(),
+                owner.controlledSystemIds(), owner.ministries(), owner.systemGovernorAssignments(),
+                List.of("industrial_production"), owner.activeShipDesignIds());
+        GameState locked = initialState.withEmpires(List.of(withoutStationResearch));
+        BuildOrbitalStationCommand command = new BuildOrbitalStationCommand(
+                "Gateway Station", "sol", "earth", owner.id(),
+                OrbitalStation.OWNERSHIP_PUBLIC_STATE, 50, "steel", 5.0);
+        assertFalse(command.validate(locked));
     }
 
     @Test

@@ -48,7 +48,9 @@ class MultiPhaseIntegrationSimulationTest {
         List<Empire> funded = opening.empires().stream().map(empire -> new Empire(empire.id(),
                 empire.name(), empire.raceId(), empire.societyStructure(), 10_000_000.0,
                 empire.corporateTaxRate(), empire.controlledSystemIds(), empire.ministries(),
-                empire.systemGovernorAssignments(), empire.unlockedTechIds(),
+                empire.systemGovernorAssignments(), java.util.stream.Stream.concat(
+                        empire.unlockedTechIds().stream(), java.util.stream.Stream.of(
+                                "rocketry", "space_stations")).distinct().toList(),
                 empire.activeShipDesignIds())).toList();
         List<ShipDesign> designs = new java.util.ArrayList<>(opening.shipDesigns());
         designs.add(new ShipDesign("test_orbital_transport", "Test orbital transport",

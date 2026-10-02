@@ -2,7 +2,15 @@ package com.spaceconquest.engine;
 
 import com.spaceconquest.engine.economy.PlanetaryBalanceSheet;
 import com.spaceconquest.engine.economy.HouseholdAccount;
+import com.spaceconquest.engine.economy.HouseholdEmployment;
+import com.spaceconquest.engine.economy.HouseholdWellbeing;
 import com.spaceconquest.engine.economy.SystemEconomy;
+import com.spaceconquest.engine.macrostructure.OrbitalStation;
+import com.spaceconquest.engine.macrostructure.StationModule;
+import com.spaceconquest.engine.ship.ShipConstructionOrder;
+import com.spaceconquest.engine.ship.ShipDesign;
+import com.spaceconquest.engine.ship.ShipRole;
+import org.junit.jupiter.api.io.TempDir;
 import com.spaceconquest.engine.market.CorporateInvestmentProcessor;
 import org.junit.jupiter.api.Test;
 
@@ -10,10 +18,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class SpaceConquestEngineTest {
+    @TempDir
+    Path tempDir;
+
     @Test
     public void defaultEngineStartsWithoutAScenario() {
         SpaceConquestEngine engine = new SpaceConquestEngine();
@@ -93,6 +105,73 @@ public class SpaceConquestEngineTest {
         assertEquals(0.2, newFactory.expansionProgress(), 0.001);
         assertTrue(after.expansionProjects().stream()
                 .anyMatch(project -> newFactory.id().equals(project.facilityId())));
+    }
+
+    @Test
+    public void restoredEnginePaysOrbitalYardWorkersBeforeAdvancingSavedBuild() throws Exception {
+        SpaceConquestEngine source = SpaceConquestEngine.fromSolScenario();
+        GameState opening = source.getGameState();
+        String stationId = "save_resume_yard";
+        StationModule control = new StationModule("yard_control", "Station control",
+                StationModule.TYPE_CONTROL, 2, 1_000, 0, 100, Map.of(),
+                "technician", 0, true);
+        StationModule grid = new StationModule("yard_grid", "Shipyard grid",
+                StationModule.TYPE_SHIPYARD_GRID, 10, 20_000, 20, 0, Map.of(),
+                "industrial_worker", 20, true).withPayroll(17, 425);
+        OrbitalStation station = new OrbitalStation(stationId, "Save resume yard", "sol", "earth",
+                "terran_confederation", OrbitalStation.OWNERSHIP_PUBLIC_STATE, 30,
+                List.of(control, grid), Map.of(), 100, 20, 0, 0, 100, 100,
+                "steel", 1, true, List.of(new Population("human", Map.of(25, 200L))));
+        CommercialHub stationHub = new CommercialHub("yard_market", stationId, 0,
+                1_000_000, 100_000, 10,
+                Map.of("steel", new MarketOrder("steel", 100_000, 0, 1, 0)));
+        ShipDesign design = new ShipDesign("yard_design", "Yard design", "terran_confederation",
+                ShipRole.CARGO_TRANSPORT, "steel", List.of(), "steel", 0,
+                10_000, 10_000, 0, 1, 0, 0, true, false);
+        ShipConstructionOrder order = new ShipConstructionOrder("yard_order",
+                "terran_confederation", design.id(), "sol", stationId,
+                100, 500, Map.of("steel", 1_000.0), Map.of("steel", 200.0));
+        HouseholdAccount workers = new HouseholdAccount(stationId, "sol", "terran_confederation",
+                "human", "industrial_worker", 200, 0, 0, 0, 0, 0, Map.of(), 1, 1, 0, 0,
+                HouseholdWellbeing.healthy(), new HouseholdEmployment(200, 0, 0, 0));
+        List<Empire> wealthy = opening.empires().stream().map(empire ->
+                "terran_confederation".equals(empire.id()) ? wealthyEmpire(empire) : empire).toList();
+        GameState ready = opening.toBuilder().empires(wealthy)
+                .orbitalStations(List.of(station)).commercialHubs(
+                        java.util.stream.Stream.concat(opening.commercialHubs().stream(),
+                                java.util.stream.Stream.of(stationHub)).toList())
+                .shipDesigns(java.util.stream.Stream.concat(opening.shipDesigns().stream(),
+                        java.util.stream.Stream.of(design)).toList())
+                .shipConstructionOrders(List.of(order))
+                .householdAccounts(java.util.stream.Stream.concat(opening.householdAccounts().stream(),
+                        java.util.stream.Stream.of(workers)).toList()).build();
+
+        var start = GameClock.START_TIME;
+        var savedTime = start.plusDays(1);
+        SaveGameManager manager = new SaveGameManager(tempDir);
+        var file = tempDir.resolve("orbital_yard_resume.scsave").toFile();
+        manager.save(file, ready, 1, savedTime.toString(), start.toString());
+        SpaceConquestEngine restored = new SpaceConquestEngine(manager.load(file));
+        restored.stepTurn();
+
+        GameState nextDay = restored.getGameState();
+        StationModule paidGrid = nextDay.orbitalStations().getFirst().modules().stream()
+                .filter(module -> grid.id().equals(module.id())).findFirst().orElseThrow();
+        assertEquals(12, paidGrid.paidWorkers());
+        assertEquals(300.0, paidGrid.dailyWageCostsCredits(), 0.001);
+        ShipConstructionOrder progressing = nextDay.shipConstructionOrders().getFirst();
+        assertTrue(progressing.accumulatedWorkHours() > order.accumulatedWorkHours());
+        assertTrue(progressing.consumedMaterialsKg().getOrDefault("steel", 0.0) > 200.0);
+    }
+
+    private Empire wealthyEmpire(Empire empire) {
+        List<String> technologies = new ArrayList<>(empire.unlockedTechIds());
+        technologies.add("automated_assembly_lines");
+        technologies.add("cybernetic_workforce_integration");
+        return new Empire(empire.id(), empire.name(), empire.raceId(), empire.societyStructure(),
+                1_000_000, empire.corporateTaxRate(), empire.controlledSystemIds(),
+                empire.ministries(), empire.systemGovernorAssignments(), technologies,
+                empire.activeShipDesignIds());
     }
 
     @Test

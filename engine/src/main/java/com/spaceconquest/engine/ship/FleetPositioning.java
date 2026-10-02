@@ -18,17 +18,26 @@ public final class FleetPositioning {
     }
 
     public static FleetLocation.Site hubSite(GameState state, CommercialHub hub) {
+        if (isAsteroidBelt(state, hub.entityId()))
+            return FleetLocation.Site.deepSpace(hub.entityId());
+        if (state.orbitalStations().stream().anyMatch(station ->
+                station.id().equals(hub.entityId())))
+            return FleetLocation.Site.docked(hub.entityId());
         if (ConstructionMaterials.systemForBody(state, hub.entityId()) != null)
             return FleetLocation.Site.surface(hub.entityId());
-        return state.orbitalStations().stream().anyMatch(station ->
-                station.id().equals(hub.entityId()))
-                ? FleetLocation.Site.docked(hub.entityId()) : null;
+        return null;
+    }
+
+    private static boolean isAsteroidBelt(GameState state, String entityId) {
+        return state.solarSystems().stream().anyMatch(system -> system.asteroidBelts().stream()
+                .anyMatch(belt -> entityId.equals(belt.id())));
     }
 
     public static boolean atHub(GameState state, Fleet fleet, CommercialHub hub) {
         FleetLocation.Site site = hubSite(state, hub);
+        String systemId = systemForHub(state, hub);
         return site != null && !fleet.hasInterstellarOrder()
-                && systemForHub(state, hub).equals(fleet.currentSystemId())
+                && systemId != null && systemId.equals(fleet.currentSystemId())
                 && fleet.location().isAt(site);
     }
 

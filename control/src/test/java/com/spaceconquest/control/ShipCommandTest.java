@@ -3,13 +3,22 @@ package com.spaceconquest.control;
 import com.spaceconquest.control.command.CommandQueue;
 import com.spaceconquest.control.command.DesignShipCommand;
 import com.spaceconquest.control.command.MoveFleetCommand;
+import com.spaceconquest.control.command.MoveFleetLocalCommand;
 import com.spaceconquest.control.command.QueueShipBuildCommand;
 import com.spaceconquest.control.command.SetFleetStanceCommand;
+import com.spaceconquest.control.command.UpdateShipDesignCommand;
 import com.spaceconquest.control.command.RefuelShipCommand;
+import com.spaceconquest.control.command.SetSurfaceShipyardStaffingCommand;
 import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.Corporation;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.Empire;
+import com.spaceconquest.engine.Population;
+import com.spaceconquest.engine.Race;
+import com.spaceconquest.engine.economy.HouseholdEconomyProcessor;
+import com.spaceconquest.engine.economy.HouseholdAccount;
+import com.spaceconquest.engine.economy.HouseholdEmployment;
+import com.spaceconquest.engine.economy.HouseholdWellbeing;
 import com.spaceconquest.engine.MarketOrder;
 import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.SolarSystem;
@@ -20,8 +29,16 @@ import com.spaceconquest.engine.ship.ShipInstance;
 import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.ShipRole;
 import com.spaceconquest.engine.ship.ShipConstructionProcessor;
+import com.spaceconquest.engine.ship.ShipConstructionRequirements;
+import com.spaceconquest.engine.ship.ShipConstructionOrder;
+import com.spaceconquest.engine.ship.ShipyardWorkCapacity;
+import com.spaceconquest.engine.macrostructure.OrbitalStation;
+import com.spaceconquest.engine.macrostructure.StationModule;
 import com.spaceconquest.engine.habitation.PassengerStasis;
 import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.industry.IndustryAccount;
+import com.spaceconquest.engine.industry.IndustryMarketProcessor;
+import com.spaceconquest.engine.industry.ConstructionMaterials;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -67,7 +84,15 @@ public class ShipCommandTest {
                         "liquid_oxygen", new MarketOrder("liquid_oxygen", 50_000.0, 0, 2, 0)))))
                 .industrialFacilities(List.of(new IndustrialFacility("earth_launch", "earth",
                         "cargo_terminal", "emp_terran", IndustrialFacility.PUBLIC_STATE,
-                        1, 100, "technician", false, 0.0)))
+                        1, 100, "technician", false, 0.0),
+                        new IndustrialFacility("earth_shipyard", "earth",
+                                ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID, "emp_terran",
+                                IndustrialFacility.PUBLIC_STATE, 1, 100, "industrial_worker",
+                                false, 0.0)))
+                .industryAccounts(List.of(IndustryAccount.empty("earth_shipyard")
+                        .withPaidWorkers(100)))
+                .householdAccounts(List.of(workforce("industrial_worker", 100),
+                        workforce("engineer", 10)))
                 .build();
     }
 
@@ -91,10 +116,16 @@ public class ShipCommandTest {
     public void testQueueShipBuildCommand() {
         QueueShipBuildCommand buildCmd = new QueueShipBuildCommand("emp_terran", "design_atlas_hauler", "sol");
         assertTrue(buildCmd.validate(initialState));
+        assertEquals("earth", buildCmd.resolveYardEntity(initialState));
 
         GameState queued = buildCmd.apply(initialState);
         assertTrue(queued.fleets().isEmpty());
         assertEquals(1, queued.shipConstructionOrders().size());
+        var estimate = ShipConstructionRequirements.estimate(cargoDesign);
+        assertEquals(estimate.workUnits(),
+                queued.shipConstructionOrders().getFirst().requiredWorkHours());
+        assertEquals(estimate.materialsKg(),
+                queued.shipConstructionOrders().getFirst().requiredMaterialsKg());
         GameState stateWithShip = new ShipConstructionProcessor().process(queued);
         stateWithShip = new ShipConstructionProcessor().process(stateWithShip);
         assertFalse(stateWithShip.fleets().isEmpty());
@@ -152,6 +183,307 @@ public class ShipCommandTest {
         assertFalse(new QueueShipBuildCommand(corp.id(), cargoDesign.id(), "sol").validate(state));
         assertFalse(new DesignShipCommand(proprietary).validate(state));
         assertFalse(new DesignShipCommand(cargoDesign).validate(state));
+    }
+
+    @Test
+    public void shipyardCapacityUsesLocalStaffingAndAutomationTechnology() {
+        ShipyardWorkCapacity.Profile staffed = ShipyardWorkCapacity.forYard(initialState,
+                "emp_terran", "sol", "earth");
+        assertEquals(100.0, staffed.workPerDay(), 0.001);
+        assertTrue(staffed.isFullyStaffed());
+
+        GameState unstaffedState = initialState.toBuilder().householdAccounts(List.of())
+                .industryAccounts(List.of(IndustryAccount.empty("earth_shipyard"))).build();
+        ShipyardWorkCapacity.Profile unstaffed = ShipyardWorkCapacity.forYard(unstaffedState,
+                "emp_terran", "sol", "earth");
+        assertEquals(0.0, unstaffed.workPerDay(), 0.001);
+        assertFalse(unstaffed.isFullyStaffed());
+
+        Empire original = initialState.empires().getFirst();
+        Empire automatedEmpire = new Empire(original.id(), original.name(), original.raceId(),
+                original.societyStructure(), original.treasuryCredits(), original.corporateTaxRate(),
+                original.controlledSystemIds(), original.ministries(),
+                original.systemGovernorAssignments(), List.of("rocketry", "computers",
+                ShipyardWorkCapacity.TECH_AUTOMATED_ASSEMBLY), original.activeShipDesignIds());
+        GameState automatedState = initialState.withEmpires(List.of(automatedEmpire));
+        ShipyardWorkCapacity.Profile automated = ShipyardWorkCapacity.forYard(automatedState,
+                "emp_terran", "sol", "earth");
+        assertEquals(125.0, automated.workPerDay(), 0.001);
+        assertTrue(automated.isFullyStaffed());
+    }
+
+    @Test
+    public void commercialHubAloneDoesNotQualifyAsSurfaceShipyard() {
+        GameState withoutYard = initialState.toBuilder().industrialFacilities(List.of()).build();
+        QueueShipBuildCommand command = new QueueShipBuildCommand(
+                "emp_terran", "design_atlas_hauler", "sol");
+        assertNull(command.resolveYardEntity(withoutYard));
+        assertFalse(command.validate(withoutYard));
+    }
+
+    @Test
+    public void surfaceShipyardRemainsAvailableAtHalfCapacityDuringTierUpgrade() {
+        IndustrialFacility upgrading = new IndustrialFacility("earth_shipyard", "earth",
+                ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID, "emp_terran",
+                IndustrialFacility.PUBLIC_STATE, 1, 100, "industrial_worker", true, 0.0);
+        GameState state = initialState.toBuilder().industrialFacilities(List.of(upgrading)).build();
+        QueueShipBuildCommand command = new QueueShipBuildCommand(
+                "emp_terran", "design_atlas_hauler", "sol");
+
+        assertEquals("earth", command.resolveYardEntity(state));
+        ShipyardWorkCapacity.Profile profile = ShipyardWorkCapacity.forYard(
+                state, "emp_terran", "sol", "earth");
+        assertEquals(50.0, profile.baseWorkPerDay(), 0.001);
+        assertEquals(50.0, profile.workPerDay(), 0.001);
+    }
+
+    @Test
+    public void surfaceShipyardStaffingIsPersistentAndLimitedByUncommittedWorkers() {
+        SetSurfaceShipyardStaffingCommand setStaff = new SetSurfaceShipyardStaffingCommand(
+                "emp_terran", "earth_shipyard", 50);
+        assertTrue(setStaff.validate(initialState));
+        GameState understaffed = setStaff.apply(initialState);
+        IndustrialFacility yard = understaffed.industrialFacilities().stream()
+                .filter(facility -> "earth_shipyard".equals(facility.id())).findFirst().orElseThrow();
+        assertEquals(50, yard.allocatedWorkers());
+        GameState paidAtNewAllocation = understaffed.toBuilder().industryAccounts(List.of(
+                IndustryAccount.empty("earth_shipyard").withPaidWorkers(50))).build();
+        ShipyardWorkCapacity.Profile profile = ShipyardWorkCapacity.forYard(
+                paidAtNewAllocation, "emp_terran", "sol", "earth");
+        assertEquals(50.0, profile.workPerDay(), 0.001);
+        assertFalse(profile.isFullyStaffed());
+        assertFalse(new SetSurfaceShipyardStaffingCommand(
+                "emp_terran", "earth_shipyard", 101).validate(initialState));
+
+        IndustrialFacility secondYard = new IndustrialFacility("earth_shipyard_2", "earth",
+                ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID, "emp_terran",
+                IndustrialFacility.PUBLIC_STATE, 1, 0, "industrial_worker", false, 0.0);
+        GameState sharedWorkforce = initialState.toBuilder().industrialFacilities(List.of(
+                initialState.industrialFacilities().get(0),
+                initialState.industrialFacilities().get(1), secondYard)).build();
+        assertEquals(0, ShipyardWorkCapacity.assignableWorkers(sharedWorkforce, secondYard));
+        assertFalse(new SetSurfaceShipyardStaffingCommand(
+                "emp_terran", secondYard.id(), 1).validate(sharedWorkforce));
+    }
+
+    @Test
+    public void surfaceYardCapacityUsesWorkersPaidByCurrentPayroll() {
+        Map<String, Integer> hired = Map.of("earth_shipyard", 37);
+        var payroll = new IndustryMarketProcessor().process(initialState, Map.of(), Map.of(), hired);
+        IndustryAccount yardPayroll = payroll.industryAccounts().stream()
+                .filter(account -> "earth_shipyard".equals(account.facilityId()))
+                .findFirst().orElseThrow();
+        assertEquals(37, yardPayroll.paidWorkers());
+
+        GameState staffedState = initialState.toBuilder()
+                .industryAccounts(payroll.industryAccounts()).build();
+        ShipyardWorkCapacity.Profile profile = ShipyardWorkCapacity.forYard(
+                staffedState, "emp_terran", "sol", "earth");
+        assertEquals(37.0, profile.workPerDay(), 0.001);
+        assertFalse(profile.isFullyStaffed());
+    }
+
+    @Test
+    public void constructionUsesCurrentPayrollWorkersAndStopsWhenNoWorkersArePaid() {
+        QueueShipBuildCommand command = new QueueShipBuildCommand(
+                "emp_terran", "design_atlas_hauler", "sol");
+        GameState queued = command.apply(initialState);
+        ShipConstructionProcessor processor = new ShipConstructionProcessor();
+
+        GameState unpaid = processor.process(queued, Map.of());
+        assertEquals(0.0, unpaid.shipConstructionOrders().getFirst().accumulatedWorkHours());
+        GameState partiallyStaffed = processor.process(queued, Map.of("earth_shipyard", 25));
+        assertEquals(25.0, partiallyStaffed.shipConstructionOrders().getFirst()
+                .accumulatedWorkHours());
+    }
+
+    @Test
+    public void orbitalShipyardLifecycleRequiresResearchCargoAndPaidStaffing() {
+        Empire original = initialState.empires().getFirst();
+        GameState researched = initialState.toBuilder().empires(List.of(new Empire(original.id(),
+                original.name(), original.raceId(), original.societyStructure(),
+                original.treasuryCredits(), original.corporateTaxRate(),
+                original.controlledSystemIds(), original.ministries(),
+                original.systemGovernorAssignments(), List.of("rocketry", "computers",
+                "space_stations"), original.activeShipDesignIds()))).build();
+        var deployment = new com.spaceconquest.control.command.BuildOrbitalStationCommand(
+                "Orbital works", "sol", "earth", "emp_terran",
+                OrbitalStation.OWNERSHIP_PUBLIC_STATE, 30, "steel", 1.0);
+        assertTrue(deployment.validate(researched));
+        assertFalse(deployment.validate(initialState));
+
+        String stationId = "orbital_works";
+        StationModule grid = new StationModule("orbital_grid", "Shipyard grid",
+                StationModule.TYPE_SHIPYARD_GRID, 10, 20_000, 100, 0, Map.of(),
+                "industrial_worker", 20, true);
+        OrbitalStation station = new OrbitalStation(stationId, "Orbital works", "sol", "earth",
+                "emp_terran", OrbitalStation.OWNERSHIP_PUBLIC_STATE, 30, List.of(grid),
+                Map.of(), 100, 100, 0, 0, 100, 100, "steel", 1.0, true,
+                List.of(new Population("human", Map.of(25, 200L))));
+        CommercialHub orbitalHub = new CommercialHub("orbital_market", stationId, 0,
+                100_000, 0, 10, Map.of());
+        ShipDesign hull = new ShipDesign("orbital_hull", "Orbital hull", "emp_terran",
+                ShipRole.CARGO_TRANSPORT, "steel", List.of(), "steel", 1,
+                10_000, 50_000, 0, 1, 0, 0, true, false);
+        var bill = ShipConstructionRequirements.estimate(hull).materialsKg();
+        ShipInstance supplyShip = new ShipInstance("orbital_supply_ship", cargoDesign.id(),
+                "emp_terran", 100, 0, 0, bill);
+        Fleet supplyFleet = new Fleet("orbital_supply_fleet", "Orbital supply", "emp_terran",
+                "sol", "", 0, 0, 0, false, "PASSIVE", List.of(supplyShip),
+                FleetLocation.at(FleetLocation.Site.orbit("earth")));
+        HouseholdAccount workers = workforce(stationId, "industrial_worker", 200);
+        GameState supplied = researched.toBuilder().orbitalStations(List.of(station))
+                .commercialHubs(List.of(orbitalHub)).shipDesigns(List.of(cargoDesign, hull))
+                .fleets(List.of(supplyFleet)).householdAccounts(List.of(workers)).build();
+
+        MoveFleetLocalCommand deliver = new MoveFleetLocalCommand(supplyFleet.id(),
+                FleetLocation.Kind.DOCKED, stationId);
+        assertTrue(deliver.validate(supplied));
+        GameState inTransit = deliver.apply(supplied);
+        assertTrue(inTransit.fleets().getFirst().location().inTransit());
+        GameState docked = inTransit.withFleets(new FleetProcessor().processFleetMovements(
+                inTransit.fleets(), inTransit.orbitalStations(), List.of()));
+        assertTrue(docked.fleets().getFirst().location()
+                .isAt(FleetLocation.Site.docked(stationId)));
+
+        QueueShipBuildCommand queue = new QueueShipBuildCommand(
+                "emp_terran", hull.id(), "sol");
+        assertTrue(queue.validate(docked));
+        GameState queued = queue.apply(docked);
+        assertEquals(stationId, queued.shipConstructionOrders().getFirst().yardBodyId());
+
+        ShipConstructionProcessor construction = new ShipConstructionProcessor();
+        GameState unpaid = construction.process(queued, Map.of());
+        assertEquals(0.0, unpaid.shipConstructionOrders().getFirst().accumulatedWorkHours());
+        assertTrue(unpaid.shipConstructionOrders().getFirst().consumedMaterialsKg().isEmpty());
+
+        var payroll = new HouseholdEconomyProcessor().process(docked,
+                List.of(new Race("human", "Human", "", 1, 1, "Individualist", 1, 288,
+                        "carbon", "oxygen", 18, 45, "Organic", "Diverse", 80)));
+        StationModule paidGrid = payroll.orbitalStations().getFirst().modules().getFirst();
+        assertTrue(paidGrid.paidWorkers() > 0);
+        assertTrue(paidGrid.dailyWageCostsCredits() > 0);
+        GameState staffed = queued.toBuilder().orbitalStations(payroll.orbitalStations())
+                .empires(payroll.empires()).fleets(docked.fleets()).build();
+        GameState progressing = construction.process(staffed, payroll.paidWorkersByFacility());
+        assertTrue(progressing.shipConstructionOrders().getFirst().accumulatedWorkHours() > 0);
+        assertTrue(progressing.shipConstructionOrders().getFirst().consumedMaterialsKg()
+                .values().stream().mapToDouble(Double::doubleValue).sum() > 0);
+        double remainingCargo = progressing.fleets().getFirst().ships().getFirst()
+                .storedCargoKg().values().stream().mapToDouble(Double::doubleValue).sum();
+        assertTrue(remainingCargo < bill.values().stream().mapToDouble(Double::doubleValue).sum());
+
+        StationModule offlineGrid = new StationModule(grid.id(), grid.name(), grid.type(),
+                grid.slotSize(), grid.dryMassKg(), grid.powerDrawKw(), grid.powerOutputKw(),
+                grid.materialInputs(), grid.workforceProfessionId(), grid.requiredWorkers(), false)
+                .withPayroll(paidGrid.paidWorkers(), paidGrid.dailyWageCostsCredits());
+        OrbitalStation offlineStation = new OrbitalStation(station.id(), station.name(),
+                station.systemId(), station.planetOrbitId(), station.ownerEntityId(),
+                station.ownershipType(), station.totalSlots(), List.of(offlineGrid),
+                station.storedCargoKg(), station.currentPowerGenerationKw(),
+                station.currentPowerDemandKw(), station.currentShieldHealth(), station.maxShieldHealth(),
+                station.currentHullHealth(), station.maxHullHealth(), station.armorMaterialId(),
+                station.armorThicknessCm(), station.isOperational(), station.populations());
+        GameState offline = progressing.toBuilder().orbitalStations(List.of(offlineStation)).build();
+        double priorWork = offline.shipConstructionOrders().getFirst().accumulatedWorkHours();
+        GameState paused = construction.process(offline, payroll.paidWorkersByFacility());
+        assertEquals(priorWork, paused.shipConstructionOrders().getFirst().accumulatedWorkHours());
+    }
+
+    @Test
+    public void orbitalShipyardCapacityIncludesInstalledModulesAndTheirStaffing() {
+        String stationId = "orbital_yard";
+        OrbitalStation station = new OrbitalStation(stationId, "Orbital yard", "sol", "earth",
+                "emp_terran", OrbitalStation.OWNERSHIP_PUBLIC_STATE, 60,
+                List.of(new StationModule("yard_grid", "Shipyard grid",
+                                StationModule.TYPE_SHIPYARD_GRID, 10, 20_000, 100, 0,
+                                Map.of(), "industrial_worker", 40, true).withPayroll(40, 40.0),
+                        new StationModule("capital_slipway", "Capital slipway",
+                                StationModule.TYPE_CAPITAL_SLIPWAY, 20, 40_000, 100, 0,
+                                Map.of(), "industrial_worker", 300, true).withPayroll(300, 300.0),
+                        new StationModule("assembly", "Component assembly module",
+                                StationModule.TYPE_COMPONENT_ASSEMBLY, 8, 12_000, 50, 0,
+                                Map.of(), "technician", 20, true).withPayroll(20, 20.0)),
+                Map.of(), 250, 150, 500, 500, 1000, 1000, "steel", 2, true, List.of());
+        GameState orbitalState = initialState.toBuilder()
+                .orbitalStations(List.of(station))
+                .householdAccounts(List.of(workforce(stationId, "industrial_worker", 340),
+                        workforce(stationId, "technician", 20)))
+                .build();
+
+        ShipyardWorkCapacity.Profile capacity = ShipyardWorkCapacity.forYard(orbitalState,
+                "emp_terran", "sol", stationId);
+        assertEquals("Capital slipway", capacity.yardType());
+        assertEquals(450.0, capacity.baseWorkPerDay(), 0.001);
+        assertEquals(450.0, capacity.workPerDay(), 0.001);
+        assertTrue(capacity.isFullyStaffed());
+        assertEquals(1, capacity.installedYardModules().get(StationModule.TYPE_SHIPYARD_GRID));
+        assertEquals(1, capacity.installedYardModules().get(StationModule.TYPE_CAPITAL_SLIPWAY));
+        assertEquals(1, capacity.installedYardModules().get(StationModule.TYPE_COMPONENT_ASSEMBLY));
+        ShipyardWorkCapacity.Profile unpaid = ShipyardWorkCapacity.forYard(orbitalState,
+                "emp_terran", "sol", stationId, Map.of());
+        assertEquals(0.0, unpaid.workPerDay(), 0.001);
+    }
+
+    @Test
+    public void simultaneousBuildsShareDailyYardCapacityInQueueOrder() {
+        QueueShipBuildCommand command = new QueueShipBuildCommand(
+                "emp_terran", "design_atlas_hauler", "sol");
+        GameState twoOrders = command.apply(command.apply(initialState));
+
+        GameState afterOneDay = new ShipConstructionProcessor().process(twoOrders);
+        assertEquals(100.0, afterOneDay.shipConstructionOrders().get(0).accumulatedWorkHours());
+        assertEquals(0.0, afterOneDay.shipConstructionOrders().get(1).accumulatedWorkHours());
+    }
+
+    @Test
+    public void materialBlockedOrderPassesUnusedDailyCapacityToNextSurfaceOrder() {
+        ShipConstructionOrder blocked = new ShipConstructionOrder("blocked_order", "emp_terran",
+                cargoDesign.id(), "sol", "earth", 0.0, 100.0,
+                Map.of("unobtainium", 100.0), Map.of());
+        ShipConstructionOrder ready = new ShipConstructionOrder("ready_order", "emp_terran",
+                cargoDesign.id(), "sol", "earth", 0.0, 100.0,
+                Map.of("steel", 100.0), Map.of());
+        GameState queued = initialState.toBuilder()
+                .shipConstructionOrders(List.of(blocked, ready)).build();
+
+        GameState afterOneDay = new ShipConstructionProcessor().process(queued);
+
+        assertEquals(List.of("blocked_order"), afterOneDay.shipConstructionOrders().stream()
+                .map(ShipConstructionOrder::id).toList());
+        assertEquals(0.0, afterOneDay.shipConstructionOrders().getFirst().accumulatedWorkHours());
+        assertEquals(1, afterOneDay.fleets().size());
+        assertEquals("ship_ready_order", afterOneDay.fleets().getFirst().ships().getFirst().id());
+    }
+
+    private HouseholdAccount workforce(String professionId, long count) {
+        return workforce("earth", professionId, count);
+    }
+
+    private HouseholdAccount workforce(String bodyId, String professionId, long count) {
+        return new HouseholdAccount(bodyId, "sol", "emp_terran", "human", professionId,
+                count, 0, 0, 0, 0, 0, Map.of(), 1, 1, 0, 0,
+                HouseholdWellbeing.healthy(), new HouseholdEmployment(count, 0, 0, 0));
+    }
+
+    @Test
+    void publicShipBlueprintCanBeEditedAndRemainsAvailableForConstruction() {
+        ShipDesign revised = new ShipDesign(cargoDesign.id(), "Atlas Hauler Mk II",
+                cargoDesign.ownerEntityId(), cargoDesign.role(), "carbon_nanotubes",
+                cargoDesign.equippedModuleIds(), cargoDesign.armorMaterialId(),
+                cargoDesign.armorThicknessCm(), cargoDesign.totalDryMassKg() + 500,
+                cargoDesign.maxCargoMassKg(), cargoDesign.fuelCapacityKg(),
+                cargoDesign.powerBalanceKw(), cargoDesign.calculatedStructuralIntegrity(),
+                cargoDesign.minLaunchThrustRequiredN(), cargoDesign.totalThrustN(),
+                cargoDesign.isValidForLaunch(), false);
+        UpdateShipDesignCommand command = new UpdateShipDesignCommand(revised);
+
+        assertTrue(command.validate(initialState));
+        GameState updated = command.apply(initialState);
+        assertEquals(1, updated.shipDesigns().size());
+        assertEquals("Atlas Hauler Mk II", updated.shipDesigns().getFirst().name());
+        assertTrue(new QueueShipBuildCommand("emp_terran", revised.id(), "sol")
+                .validate(updated));
     }
 
     @Test

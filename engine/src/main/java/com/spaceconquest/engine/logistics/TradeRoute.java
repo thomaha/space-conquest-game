@@ -117,4 +117,29 @@ public record TradeRoute(
                 phase, onboardKg, onboardCostCredits, 0.0,
                 cumulativeOperatingResultCredits);
     }
+
+    public TradeRoute withDestination(String newDestinationEntityId) {
+        if (newDestinationEntityId == null || newDestinationEntityId.isBlank()
+                || newDestinationEntityId.equals(destinationEntityId)) return this;
+        return new TradeRoute(id, name, ownerEntityId, originEntityId,
+                newDestinationEntityId, materialId, transferAmountPerTurnKg,
+                minSourceInventoryThresholdKg, maxDestinationCapacityKg,
+                assignedFreighterIds, totalVolumeMovedKg, isActive, phase,
+                onboardKg, onboardCostCredits, dailyOperatingResultCredits,
+                cumulativeOperatingResultCredits);
+    }
+
+    public TradeRoute withMarketChoice(String newMaterialId, String newDestinationEntityId) {
+        String material = newMaterialId == null || newMaterialId.isBlank()
+                ? materialId : newMaterialId;
+        String destination = newDestinationEntityId == null || newDestinationEntityId.isBlank()
+                ? destinationEntityId : newDestinationEntityId;
+        if (material.equals(materialId) && destination.equals(destinationEntityId)) return this;
+        return new TradeRoute(id, name, ownerEntityId, originEntityId,
+                destination, material, transferAmountPerTurnKg,
+                minSourceInventoryThresholdKg, maxDestinationCapacityKg,
+                assignedFreighterIds, totalVolumeMovedKg, isActive, phase,
+                onboardKg, onboardCostCredits, dailyOperatingResultCredits,
+                cumulativeOperatingResultCredits);
+    }
 }

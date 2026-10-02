@@ -3,6 +3,7 @@ package com.spaceconquest.frontend;
 import com.spaceconquest.control.HumanController;
 import com.spaceconquest.control.ai.EmpireAIController;
 import com.spaceconquest.control.ai.ShadowSyndicateAIController;
+import com.spaceconquest.control.command.GameCommand;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameClock;
 import com.spaceconquest.engine.GameState;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 import static com.almasb.fxgl.dsl.FXGL.*;
 
@@ -77,6 +79,41 @@ public class Menubar {
 
     public void submitSimulationTask(Runnable task) {
         simulationExecutor.execute(task);
+    }
+
+    /** Applies a non-time-advancing command while the campaign clock is paused by an open page. */
+    public void submitImmediateCommand(GameCommand command, Consumer<Boolean> completion) {
+        if (command == null || mainApp == null) {
+            if (completion != null) completion.accept(false);
+            return;
+        }
+        long generation = worldGeneration.get();
+        simulationExecutor.execute(() -> {
+            GameState updated;
+            boolean accepted;
+            synchronized (mainApp.getEngine()) {
+                GameState before = mainApp.getEngine().getGameState();
+                accepted = before != null && command.validate(before);
+                if (accepted) {
+                    updated = command.apply(before);
+                    mainApp.getEngine().applyGameState(updated);
+                    mainApp.getEngine().recordCommandTreasuryChanges(before.empires(), updated.empires());
+                } else {
+                    updated = before;
+                }
+            }
+            GameState stateForUi = updated;
+            boolean wasAccepted = accepted;
+            Platform.runLater(() -> {
+                if (generation != worldGeneration.get()) return;
+                if (wasAccepted) {
+                    publishedState = stateForUi;
+                    humanController.onGameStateUpdate(stateForUi);
+                    viewRegistry.updateAllViews(stateForUi, humanController, playerEmpireId);
+                }
+                if (completion != null) completion.accept(wasAccepted);
+            });
+        });
     }
 
     public void invalidateWorldRefreshes() {
