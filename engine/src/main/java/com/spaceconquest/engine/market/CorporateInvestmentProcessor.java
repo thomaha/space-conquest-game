@@ -167,9 +167,8 @@ public class CorporateInvestmentProcessor {
                 ? "mod_fission_thruster" : "mod_chemical_rocket";
         ShipModule baseDrive = PropulsionCatalog.module(driveId);
         ShipModule drive = ShipApplicationProduction.optimize(state, corporation.id(), baseDrive);
-        ShipModule cargo = ShipApplicationProduction.optimize(state, corporation.id(), new ShipModule(
-                "mod_cargo_hold_large", "Large cargo hold", "LARGE", 8, 2000, 30, 0, 0, 2,
-                Map.of(), Map.of("cargoCapacityKg", 50_000.0)));
+        ShipModule cargo = ShipApplicationProduction.optimize(state, corporation.id(),
+                ShipComponentCatalog.module("mod_cargo_hold_large"));
         List<ShipModule> modules = List.of(drive, cargo, PropulsionCatalog.fuelTankModule());
         double cargoCapacity = cargo.operationalStats().get("cargoCapacityKg");
         double minimumLaunchThrust = 300_000.0 * (25_000.0 + cargoCapacity + 15_000.0) / 90_000.0;

@@ -6,6 +6,7 @@
 This module contains the core game logic, the static data model and state management for the Space Conquest Game.
 
 ## Key components
+- `ShipComponentCatalog`, `ShipDesignSpecification` and `ShipBlueprintFactory`: Share provisional component choices and rebuild medium-frame player blueprints from live research, real hull materials and available manufacturing capacity. UI previews use the same calculation.
 - `GameEngine`: Interface defining the core loop and engine operations.
 - `GameState`: Represents the current state of the game world.
 - `SpaceConquestEngine`: Game engine executing turn-based updates across population, market pricing, corporate investments, crime and imperial governance.

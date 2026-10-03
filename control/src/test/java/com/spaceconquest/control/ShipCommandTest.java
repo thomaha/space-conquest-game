@@ -99,7 +99,7 @@ public class ShipCommandTest {
     public void testDesignShipCommand() {
         ShipDesign explorer = new ShipDesign(
                 "design_scout_1", "Starlight Scout", "emp_terran",
-                ShipRole.EXPLORER, "carbon_nanotubes", List.of(), "steel", 1.0,
+                ShipRole.EXPLORER, "carbon_nanotubes", com.spaceconquest.engine.ship.ShipComponentCatalog.workbenchModules("mod_chemical_rocket", false), "steel", 1.0,
                 5000.0, 500.0, 50.0, 2.0, 50000.0, 250000.0, true, false
         );
 
@@ -469,7 +469,7 @@ public class ShipCommandTest {
     void publicShipBlueprintCanBeEditedAndRemainsAvailableForConstruction() {
         ShipDesign revised = new ShipDesign(cargoDesign.id(), "Atlas Hauler Mk II",
                 cargoDesign.ownerEntityId(), cargoDesign.role(), "carbon_nanotubes",
-                cargoDesign.equippedModuleIds(), cargoDesign.armorMaterialId(),
+                com.spaceconquest.engine.ship.ShipComponentCatalog.workbenchModules("mod_chemical_rocket", false), cargoDesign.armorMaterialId(),
                 cargoDesign.armorThicknessCm(), cargoDesign.totalDryMassKg() + 500,
                 cargoDesign.maxCargoMassKg(), cargoDesign.fuelCapacityKg(),
                 cargoDesign.powerBalanceKw(), cargoDesign.calculatedStructuralIntegrity(),
@@ -488,7 +488,7 @@ public class ShipCommandTest {
     @Test
     void ionDriveRequiresSuperconductorsForDesignAndConstruction() {
         ShipDesign ion = new ShipDesign("ion", "Ion hauler", "emp_terran",
-                ShipRole.CARGO_TRANSPORT, "steel", List.of("mod_ion_drive"),
+                ShipRole.CARGO_TRANSPORT, "steel", com.spaceconquest.engine.ship.ShipComponentCatalog.workbenchModules("mod_ion_drive", false),
                 "steel", 1, 10_000, 20_000, 100, 1, 0, 450_000, true, false);
         assertFalse(new DesignShipCommand(ion).validate(initialState));
         GameState withDesign = initialState.toBuilder()
@@ -640,13 +640,13 @@ public class ShipCommandTest {
         assertEquals(4.0, warpOrdered.fleets().getFirst().interstellarTravelDays(), 0.001);
         ShipDesign podDesign = new ShipDesign("pod_design", "Stasis transport",
                 old.id(), ShipRole.CARGO_TRANSPORT, "steel",
-                List.of(PassengerStasis.MODULE_ID), "steel", 0, 1000,
+                com.spaceconquest.engine.ship.ShipComponentCatalog.workbenchModules("mod_chemical_rocket", true), "steel", 0, 1000,
                 10000, 100, 1, 0, 0, true, false);
         assertFalse(new DesignShipCommand(podDesign).validate(researched));
         Empire stasisOwner = new Empire(old.id(), old.name(), old.raceId(),
                 old.societyStructure(), old.treasuryCredits(), old.corporateTaxRate(),
                 old.controlledSystemIds(), old.ministries(), old.systemGovernorAssignments(),
-                List.of("warp", PassengerStasis.TECHNOLOGY_ID), old.activeShipDesignIds());
+                List.of("rocketry", "warp", PassengerStasis.TECHNOLOGY_ID), old.activeShipDesignIds());
         GameState unlocked = upgradeSurfaceYard(researched.toBuilder().empires(List.of(stasisOwner)).build(), 3);
         assertTrue(new DesignShipCommand(podDesign).validate(unlocked));
         GameState withPod = new DesignShipCommand(podDesign).apply(unlocked);

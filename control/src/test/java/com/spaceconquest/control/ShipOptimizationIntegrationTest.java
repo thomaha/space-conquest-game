@@ -187,12 +187,14 @@ class ShipOptimizationIntegrationTest {
     }
 
     private ShipDesign blueprint(GameState state) {
-        ShipModule drive = ShipApplicationProduction.optimize(state, "empire", PropulsionCatalog.module("mod_fusion_drive"));
-        List<ShipModule> modules = List.of(drive, PropulsionCatalog.fuelTankModule());
-        return new ShipDesign("blueprint", "Fusion freighter", "empire", ShipRole.CARGO_TRANSPORT,
-                "steel", modules.stream().map(ShipModule::id).toList(), "steel", 1.0,
-                20_000.0, 10_000.0, 15_000.0, 100.0, 1.0, 0.0, drive.thrustOutputN(), true, false,
-                ShipApplicationProduction.profile(state, "empire", modules, 20_000.0));
+        var specification = new com.spaceconquest.engine.ship.ShipDesignSpecification(
+                "blueprint", "Fusion freighter", "empire", ShipRole.CARGO_TRANSPORT, "steel",
+                com.spaceconquest.engine.ship.ShipComponentCatalog.workbenchModules("mod_fusion_drive", false),
+                "steel", 1.0);
+        var evaluation = com.spaceconquest.engine.ship.ShipBlueprintFactory.evaluate(
+                state.toBuilder().orbitalStations(List.of(station("capital", true))).build(), specification);
+        assertTrue(evaluation.valid(), evaluation.errors().toString());
+        return evaluation.design();
     }
 
     private GameState state(boolean capitalYard) {

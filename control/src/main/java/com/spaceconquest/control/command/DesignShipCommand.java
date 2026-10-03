@@ -1,56 +1,33 @@
 package com.spaceconquest.control.command;
 
 import com.spaceconquest.engine.GameState;
-import com.spaceconquest.engine.habitation.PassengerStasis;
+import com.spaceconquest.engine.ship.ShipBlueprintFactory;
 import com.spaceconquest.engine.ship.ShipDesign;
-import com.spaceconquest.engine.ship.PropulsionCatalog;
-import com.spaceconquest.engine.ship.ShipManufacturingCapacity;
+import com.spaceconquest.engine.ship.ShipDesignSpecification;
 
 import java.util.ArrayList;
-import java.util.List;
 
-/**
- * Command to register a validated spaceship blueprint in the galactic design registry.
- */
-public record DesignShipCommand(
-        ShipDesign shipDesign
-) implements GameCommand {
+/** Registers a blueprint calculated from component choices at command execution time. */
+public record DesignShipCommand(ShipDesignSpecification specification) implements GameCommand {
+    public DesignShipCommand(ShipDesign submitted) { this(ShipDesignSpecification.from(submitted)); }
 
     @Override
     public boolean validate(GameState state) {
-        if (state == null || shipDesign == null || shipDesign.id() == null
-                || shipDesign.ownerEntityId() == null || shipDesign.isProprietaryCorporateDesign()) {
-            return false;
-        }
-        boolean researched = state.empires().stream().anyMatch(empire ->
-                empire.id().equals(shipDesign.ownerEntityId())
-                        && empire.unlockedTechIds().contains(PassengerStasis.TECHNOLOGY_ID));
-        boolean drivesResearched = state.empires().stream().anyMatch(empire ->
-                empire.id().equals(shipDesign.ownerEntityId())
-                        && PropulsionCatalog.researched(shipDesign.equippedModuleIds(),
-                        empire.unlockedTechIds()));
-        return (!shipDesign.equippedModuleIds().contains(PassengerStasis.MODULE_ID) || researched)
-                && (shipDesign.manufacturingProfile().requiredComplexity() == 0
-                || ShipManufacturingCapacity.requiredComplexity(shipDesign)
-                <= ShipManufacturingCapacity.forOwner(state, shipDesign.ownerEntityId()))
-                && drivesResearched
-                && PropulsionCatalog.validConfiguration(shipDesign.equippedModuleIds(),
-                shipDesign.fuelCapacityKg())
-                && state.shipDesigns().stream().noneMatch(design -> design.id().equals(shipDesign.id()))
-                && state.corporations().stream().noneMatch(corp -> corp.id().equals(shipDesign.ownerEntityId()));
+        return available(state) && ShipBlueprintFactory.evaluate(state, specification).valid();
+    }
+
+    private boolean available(GameState state) {
+        return state != null && specification != null && state.shipDesigns().stream()
+                .noneMatch(design -> design.id().equals(specification.id()));
     }
 
     @Override
     public GameState apply(GameState state) {
-        if (!validate(state)) {
-            return state;
-        }
-
-        List<ShipDesign> updatedDesigns = new ArrayList<>(state.shipDesigns());
-        updatedDesigns.add(shipDesign);
-
-        return state.toBuilder()
-                .shipDesigns(updatedDesigns)
-                .build();
+        if (!available(state)) return state;
+        var evaluation = ShipBlueprintFactory.evaluate(state, specification);
+        if (!evaluation.valid()) return state;
+        var designs = new ArrayList<>(state.shipDesigns());
+        designs.add(evaluation.design());
+        return state.withShipDesigns(designs);
     }
 }

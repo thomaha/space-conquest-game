@@ -4,6 +4,10 @@ The ship design interface is a hard physics-bounded engineering playground. Inst
 
 #### Structural blueprint properties
 
+Current implementation: The player workbench uses a fixed medium frame with 30 slots and 15,000 kg frame mass. `ShipComponentCatalog` supplies provisional reactor, cargo and stasis stats alongside the propulsion catalog. Registration and editing commands accept immutable material and component choices. `ShipBlueprintFactory` recalculates mass, cargo, fuel, power, structural integrity, thrust and manufacturing metadata using live research and yard capacity. Submitted calculated values cannot override these checks. Unknown components, unknown structural materials, invalid armor thickness, missing tanks, multiple drives, slot overflow, power deficits and unsupported role requirements are rejected.
+
+Launch previews use the first non-gas planet with positive gravity in an owned system. Its atmosphere is provisionally treated as either vacuum or pressure 1; without a surface reference the blueprint is orbital only. Selecting a launch body and full atmospheric modeling remain future work. Existing saved designs retain their captured values. A blueprint referenced by a built ship or active construction order cannot be edited; register a new blueprint for a revised design. Corporate procurement retains its separate provisional hull template. Reactor research gates beyond the existing drive and stasis requirements and full material-dependent armor physics remain future work.
+
 Every user-defined ship configuration requires the allocation of a primary operational anchor role and a core structural material, which dictate the baseline scaling limits of the starframe:
 
 - **Primary operational role:** The user tags the design with an explicit intent from the [User-Defined Ship Roles Matrix](Spaceships.md). This tag functions as a validation check (e.g., a *Troop Transport* blueprint must contain a *Cryogenic Troop Transport Bay*). It also dictates how automated private corporate networks or military AI fleets utilize the hull after manufacturing.
@@ -68,6 +72,8 @@ Local journeys use provisional maneuver budgets of 10 m/s for docking, 30 m/s be
 After daily movement and passenger arrival, idle fleets sharing a physical site in the same system automatically fight when their empires are at `TOTAL_WAR`. A fleet can take part in one encounter per turn. The encounter resolver applies surviving ship instances to the game state, removes fleets with no surviving ships and records compact battle history. Battles in transit and encounters outside total war are skipped. The resolver currently delegates to `TacticalCombatProcessor` behind `FleetEncounterResolver`; this adapter is temporary because tactical combat is planned for a complete overhaul. Battle history is saved and retains the latest 1,000 encounters.
 
 #### Cost and work estimate
+
+Registration and editing feedback uses the command queue's explicit execution receipt. A submission stays pending until processed or cancelled, even if other snapshots arrive. Rejected edits cannot appear successful merely because an unchanged blueprint is already present. The next snapshot refresh reads completed receipts without blocking the UI thread. These receipts are transient control-layer feedback and are not saved as game state.
 
 The designer previews the same material bill and work requirement used when a ship build order is queued. These values update as hull material, armor, thickness, propulsion or optional modules change.
 

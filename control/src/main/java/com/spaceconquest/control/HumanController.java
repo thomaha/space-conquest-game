@@ -2,9 +2,12 @@ package com.spaceconquest.control;
 
 import com.spaceconquest.control.command.CommandQueue;
 import com.spaceconquest.control.command.GameCommand;
+import com.spaceconquest.control.command.CommandOutcome;
 import com.spaceconquest.engine.GameState;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Human player controller handling UI command dispatch and game state updates.
@@ -38,6 +41,11 @@ public class HumanController implements Controller {
 
     public void stageCommand(GameCommand command) {
         dispatchCommand(command);
+    }
+
+    public CompletableFuture<CommandOutcome> stageTrackedCommand(GameCommand command) {
+        return commandQueue == null ? CompletableFuture.completedFuture(CommandOutcome.CANCELLED)
+                : commandQueue.submitTracked(command);
     }
 
     @Override

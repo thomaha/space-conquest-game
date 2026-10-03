@@ -370,6 +370,8 @@ Each module contains a `MODULE.md` file with specific details about its purpose 
 - Start the game by running `com.spaceconquest.frontend.Main` with the frontend module dependencies available. The app opens to an empty galaxy with the game menu visible; choose New game to generate a campaign or Load game to browse existing saves. Express Terran start creates 50 solar systems with the Terran Confederation and three other races on separate homeworlds. The current POMs do not configure the `javafx:run` Maven goal.
 
 ## Current implementation
+
+- Player blueprint registration and editing rebuild stats from a shared engine component catalog and live research. The designer uses the same calculation for snapshot previews. Blueprints used by built ships or active orders are immutable through editing commands. The fixed medium frame, reference launch environment and legacy blueprint limits are documented in [ShipDesign.md](ShipDesign.md).
 - Static data model loaded from JSON property files: solar systems, races, materials, technologies with
   applications, star properties (Hertzsprung-Russell) and professions.
 - Procedural galaxy generation with realistic star mass distribution and colors.

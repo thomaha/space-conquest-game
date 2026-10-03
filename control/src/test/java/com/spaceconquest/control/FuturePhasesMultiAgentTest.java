@@ -58,7 +58,7 @@ public class FuturePhasesMultiAgentTest {
 
         ShipDesign frigateDesign = new ShipDesign(
                 "design_terran_frigate", "Terran Patrol Frigate", playerEmpireId,
-                ShipRole.COMBAT_SHIP, "steel", List.of(), "steel", 1.5,
+                ShipRole.COMBAT_SHIP, "steel", com.spaceconquest.engine.ship.ShipComponentCatalog.workbenchModules("mod_chemical_rocket", false), "steel", 1.5,
                 12000.0, 1000.0, 150.0, 1.4, 80000.0, 350000.0, true, false
         );
         human.dispatchCommand(new DesignShipCommand(frigateDesign));

@@ -3,18 +3,18 @@ package com.spaceconquest.frontend;
 import com.spaceconquest.control.HumanController;
 import com.spaceconquest.control.command.DesignShipCommand;
 import com.spaceconquest.control.command.GameCommand;
+import com.spaceconquest.control.command.CommandOutcome;
 import com.spaceconquest.control.command.UpdateShipDesignCommand;
-import com.spaceconquest.engine.Material;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.habitation.PassengerStasis;
 import com.spaceconquest.engine.ship.ShipDesign;
+import com.spaceconquest.engine.ship.ShipDesignSpecification;
+import com.spaceconquest.engine.ship.ShipBlueprintFactory;
+import com.spaceconquest.engine.ship.ShipComponentCatalog;
 import com.spaceconquest.engine.ship.ShipDesignValidator;
 import com.spaceconquest.engine.ship.ShipConstructionRequirements;
-import com.spaceconquest.engine.ship.ShipHullFrame;
 import com.spaceconquest.engine.ship.ShipModule;
 import com.spaceconquest.engine.ship.PropulsionCatalog;
-import com.spaceconquest.engine.ship.ShipApplicationProduction;
-import com.spaceconquest.engine.ship.ShipManufacturingCapacity;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -39,6 +39,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Interactive UI panel for custom starframe engineering, real-time physics validation and blueprint dispatching.
@@ -51,13 +52,13 @@ public class ShipDesignerView {
     private final Menubar menubar;
     private HumanController humanController;
     private String playerEmpireId = "terran_confederation";
-    private final ShipDesignValidator validator = new ShipDesignValidator();
     private final List<ShipDesign> registeredDesigns = new ArrayList<>();
     private final Map<String, PendingDesign> pendingDesigns = new LinkedHashMap<>();
     private GameState snapshot;
     private String editingDesignId;
 
-    private record PendingDesign(ShipDesign design, long queuedAtTurn, boolean updating) {}
+    private record PendingDesign(ShipDesign design, CompletableFuture<CommandOutcome> completion,
+                                 boolean updating) {}
 
     public ShipDesignerView(Menubar menubar) {
         this.menubar = menubar;
@@ -149,10 +150,10 @@ public class ShipDesignerView {
             List<PendingDesign> confirmed = new ArrayList<>();
             List<PendingDesign> rejected = new ArrayList<>();
             pendingDesigns.values().forEach(pending -> {
-                boolean applied = state.shipDesigns().stream()
-                        .anyMatch(design -> pending.design().equals(design));
-                if (applied) confirmed.add(pending);
-                else if (state.turn() != pending.queuedAtTurn()) rejected.add(pending);
+                if (!pending.completion().isDone()) return;
+                if (pending.completion().isCompletedExceptionally()) rejected.add(pending);
+                else if (pending.completion().getNow(null) == CommandOutcome.EXECUTED) confirmed.add(pending);
+                else rejected.add(pending);
             });
             confirmed.forEach(pending -> pendingDesigns.remove(pending.design().id()));
             rejected.forEach(pending -> pendingDesigns.remove(pending.design().id()));
@@ -165,13 +166,21 @@ public class ShipDesignerView {
             }
             if (!rejected.isEmpty()) {
                 PendingDesign latest = rejected.getLast();
-                feedbackLabel.setText(latest.updating()
-                        ? "Changes to " + latest.design().name() + " were rejected. Check its technology and design settings."
-                        : "Blueprint " + latest.design().name() + " was rejected. Check its technology and design settings.");
+                feedbackLabel.setText(failedSubmissionMessage(latest));
                 feedbackLabel.setTextFill(Color.SALMON);
             }
         }
         updateDesigns(state == null ? List.of() : state.shipDesigns());
+    }
+
+    private String failedSubmissionMessage(PendingDesign pending) {
+        if (pending.completion().isCompletedExceptionally())
+            return "Blueprint submission failed. " + pending.design().name() + " was not confirmed.";
+        if (pending.completion().getNow(null) == CommandOutcome.CANCELLED)
+            return "Blueprint submission for " + pending.design().name() + " was cancelled.";
+        return pending.updating()
+                ? "Changes to " + pending.design().name() + " were rejected. Check research, yard capacity and active use."
+                : "Blueprint " + pending.design().name() + " was rejected. Check its technology and design settings.";
     }
 
     private void renderContent() {
@@ -263,7 +272,12 @@ public class ShipDesignerView {
         stasisPod.selectedProperty().addListener((observable, old, selected) -> refreshStats.run());
         Button saveBlueprintBtn = createSaveBlueprintButton(nameField, roleCombo, matCombo,
                 armorCombo, armorSpinner, stasisPod, engineCombo, editingDesign);
-        saveBlueprintBtn.setDisable(engineCombo.getItems().isEmpty());
+        boolean inUse = editingDesign != null && snapshot != null
+                && (snapshot.shipConstructionOrders().stream().anyMatch(order -> editingDesign.id().equals(order.designId()))
+                || snapshot.fleets().stream().flatMap(fleet -> fleet.ships().stream())
+                        .anyMatch(ship -> editingDesign.id().equals(ship.designId())));
+        saveBlueprintBtn.setDisable(engineCombo.getItems().isEmpty() || inUse);
+        if (inUse) section.getChildren().add(new Label("This blueprint is in use. Register a new design to change its specifications."));
 
         if (editingDesign != null) {
             Button cancelEdit = new Button("Cancel editing");
@@ -339,34 +353,24 @@ public class ShipDesignerView {
                                        String hullMaterialId,
                                        String armorMaterialId, double armorThickness,
                                        ShipModule selectedDrive, boolean stasisSelected) {
-        ShipModule reactor = new ShipModule("mod_fission_reactor", "Fission reactor tier 2",
-                "MEDIUM", 4, 3000.0, 0.0, 500.0, 0.0, 2, Map.of(), Map.of());
-        ShipModule cargoVault = new ShipModule("mod_cargo_vault", "Pressurized cargo vault",
-                "LARGE", 8, 2000.0, 30.0, 0.0, 0.0, 1, Map.of(),
-                Map.of("cargoCapacityKg", 30000.0));
-        ShipModule drive = selectedDrive == null
-                ? PropulsionCatalog.module("mod_chemical_rocket") : selectedDrive;
-        ShipHullFrame frame = new ShipHullFrame("frame_medium", "Medium hull starframe", 30,
-                hullMaterialId, 15000.0, 60.0);
-        Material hullMaterial = previewMaterial(hullMaterialId);
-        Material armorMaterial = previewMaterial(armorMaterialId);
-        List<ShipModule> modules = new ArrayList<>(List.of(reactor, drive, cargoVault,
-                PropulsionCatalog.fuelTankModule()));
-        if (stasisSelected) modules.add(new ShipModule(PassengerStasis.MODULE_ID,
-                "Cryogenic stasis pod", "MEDIUM", 2, 1200, 80, 0, 0, 7,
-                Map.of("refined_aluminum", 100.0, "refined_copper", 50.0),
-                Map.of("stasisCapacity", (double) PassengerStasis.PASSENGERS_PER_POD)));
-        modules.replaceAll(module -> ShipApplicationProduction.optimize(snapshot, playerEmpireId, module));
-        ShipDesignValidator.ValidationResult result = validator.validate(role, frame,
-                modules,
-                hullMaterial, armorMaterial, armorThickness, 1.0, 1.0,
-                ShipManufacturingCapacity.forOwner(snapshot, playerEmpireId));
-        statsBox.getChildren().setAll(createWorkbenchStatsBox(result).getChildren());
-        var manufacturing = ShipApplicationProduction.profile(snapshot, playerEmpireId, modules, result.totalDryMassKg());
-        ShipConstructionRequirements.Estimate estimate = ShipConstructionRequirements.estimate(
-                result.totalDryMassKg(), hullMaterialId, armorMaterialId,
-                modules.stream().map(ShipModule::id).toList(),
-                manufacturing);
+        statsBox.getChildren().clear();
+        estimateBox.getChildren().clear();
+        if (selectedDrive == null) {
+            estimateBox.getChildren().add(new Label("Research a propulsion drive to design a ship."));
+            return;
+        }
+        var specification = new ShipDesignSpecification("preview", "Preview", playerEmpireId,
+                role, hullMaterialId, ShipComponentCatalog.workbenchModules(selectedDrive.id(), stasisSelected),
+                armorMaterialId, armorThickness);
+        var evaluation = ShipBlueprintFactory.evaluate(snapshot, specification);
+        if (evaluation.physics() != null)
+            statsBox.getChildren().setAll(createWorkbenchStatsBox(evaluation.physics()).getChildren());
+        if (!evaluation.valid()) {
+            estimateBox.getChildren().add(new Label(String.join("; ", evaluation.errors())));
+            return;
+        }
+        var manufacturing = evaluation.design().manufacturingProfile();
+        ShipConstructionRequirements.Estimate estimate = ShipConstructionRequirements.estimate(evaluation.design());
         long minimumTurns = (long) Math.ceil(estimate.workUnits() / 100.0);
         List<javafx.scene.Node> estimateLines = new ArrayList<>();
         Text estimateHeader = new Text("Estimated production requirements");
@@ -395,11 +399,6 @@ public class ShipDesignerView {
         estimateBox.getChildren().setAll(estimateLines);
     }
 
-    private Material previewMaterial(String materialId) {
-        return new Material(materialId, materialId, "Preview material", true, Map.of(),
-                7800.0, 60.0, 1);
-    }
-
     private Button createSaveBlueprintButton(TextField nameField, ComboBox<String> roleCombo,
                                             ComboBox<String> matCombo, ComboBox<String> armorCombo,
                                             Spinner<Double> armorSpinner, CheckBox stasisPod,
@@ -409,62 +408,37 @@ public class ShipDesignerView {
                 ? "Register blueprint design" : "Save blueprint changes");
         saveBlueprintBtn.setStyle("-fx-background-color: #00cec9; -fx-text-fill: black; -fx-font-weight: bold;");
         saveBlueprintBtn.setOnAction(e -> {
-            List<ShipModule> modules = new ArrayList<>();
-            modules.add(new ShipModule("mod_fission_reactor", "Fission reactor tier 2",
-                    "MEDIUM", 4, 3000, 0, 500, 0, 2, Map.of(), Map.of()));
             if (engineCombo.getValue() == null) return;
-            modules.add(engineCombo.getValue());
-            modules.add(new ShipModule("mod_cargo_vault", "Pressurized cargo vault",
-                    "LARGE", 8, 2000, 30, 0, 0, 1, Map.of(),
-                    Map.of("cargoCapacityKg", 30000.0)));
-            modules.add(PropulsionCatalog.fuelTankModule());
-            if (stasisPod.isSelected()) modules.add(new ShipModule(PassengerStasis.MODULE_ID,
-                    "Cryogenic stasis pod", "MEDIUM", 2, 1200, 80, 0, 0, 7,
-                    Map.of("refined_aluminum", 100.0, "refined_copper", 50.0),
-                    Map.of("stasisCapacity", (double) PassengerStasis.PASSENGERS_PER_POD)));
-            modules.replaceAll(module -> ShipApplicationProduction.optimize(snapshot, playerEmpireId, module));
-            ShipHullFrame frame = new ShipHullFrame("frame_medium", "Medium hull starframe",
-                    30, matCombo.getValue(), 15000, 60);
-            Material material = new Material(matCombo.getValue(), matCombo.getValue(),
-                    "Structural material", true, Map.of(), 7800, 60, 1);
-            ShipDesignValidator.ValidationResult valRes = validator.validate(roleCombo.getValue(),
-                    frame, modules, material, material, armorSpinner.getValue(), 1, 1,
-                    ShipManufacturingCapacity.forOwner(snapshot, playerEmpireId));
-            if (!valRes.isValid()) {
-                feedbackLabel.setText("Blueprint invalid: " + String.join(", ", valRes.validationErrors()));
+            String id = editingDesign == null ? "design_" + UUID.randomUUID().toString().substring(0, 8)
+                    : editingDesign.id();
+            var specification = new ShipDesignSpecification(id, nameField.getText(), playerEmpireId,
+                    roleCombo.getValue(), matCombo.getValue(),
+                    ShipComponentCatalog.workbenchModules(engineCombo.getValue().id(), stasisPod.isSelected()),
+                    armorCombo.getValue(), armorSpinner.getValue());
+            var evaluation = ShipBlueprintFactory.evaluate(snapshot, specification);
+            if (!evaluation.valid()) {
+                feedbackLabel.setText("Blueprint invalid: " + String.join(", ", evaluation.errors()));
                 feedbackLabel.setTextFill(Color.SALMON);
                 return;
             }
-            String id = editingDesign == null ? "design_" + UUID.randomUUID().toString().substring(0, 8)
-                    : editingDesign.id();
-            ShipDesign newDesign = new ShipDesign(
-                    id, nameField.getText(), playerEmpireId, roleCombo.getValue(), matCombo.getValue(),
-                    modules.stream().map(ShipModule::id).toList(),
-                    armorCombo.getValue(), armorSpinner.getValue(),
-                    valRes.totalDryMassKg(), valRes.maxCargoMassKg(), valRes.fuelCapacityKg(),
-                    valRes.powerBalanceKw(),
-                    valRes.structuralIntegrity(), valRes.minLaunchThrustRequiredN(),
-                    valRes.totalThrustN(), valRes.isLaunchCapable(), false,
-                    ShipApplicationProduction.profile(snapshot, playerEmpireId, modules, valRes.totalDryMassKg())
-            );
+            ShipDesign newDesign = evaluation.design();
 
             if (humanController != null) {
                 GameCommand command;
                 boolean updating = editingDesign != null;
                 if (!updating) {
-                    command = new DesignShipCommand(newDesign);
+                    command = new DesignShipCommand(specification);
                 } else {
-                    command = new UpdateShipDesignCommand(newDesign);
+                    command = new UpdateShipDesignCommand(specification);
                     editingDesignId = null;
                 }
                 feedbackLabel.setText(updating
                         ? "Blueprint changes queued for the next simulation tick."
                         : "Blueprint queued for the next simulation tick.");
                 pendingDesigns.put(newDesign.id(), new PendingDesign(newDesign,
-                        snapshot == null ? -1 : snapshot.turn(), updating));
+                        humanController.stageTrackedCommand(command), updating));
                 feedbackLabel.setTextFill(Color.LIGHTGREEN);
                 renderContent();
-                humanController.stageCommand(command);
             } else {
                 feedbackLabel.setText("The command queue is unavailable. Blueprint changes were not submitted.");
                 feedbackLabel.setTextFill(Color.SALMON);

@@ -43,6 +43,7 @@ public class InteractiveGameplayPipelineTest {
         List<Empire> updatedEmpires = state.empires().stream().map(e -> {
             if (playerEmpire.equalsIgnoreCase(e.id())) {
                 List<String> techs = new java.util.ArrayList<>(e.unlockedTechIds());
+                if (!techs.contains("rocketry")) techs.add("rocketry");
                 if (!techs.contains("electricity")) techs.add("electricity");
                 if (!techs.contains("solar_power")) techs.add("solar_power");
                 if (!techs.contains("stellar_megastructures")) techs.add("stellar_megastructures");
@@ -93,7 +94,7 @@ public class InteractiveGameplayPipelineTest {
                 playerEmpire,
                 "COMBAT_SHIP",
                 "steel",
-                List.of("mod_fission_reactor", "mod_ion_drive", "mod_cargo_vault"),
+                com.spaceconquest.engine.ship.ShipComponentCatalog.workbenchModules("mod_chemical_rocket", false),
                 "inconel_alloy",
                 2.5,
                 25000.0,
