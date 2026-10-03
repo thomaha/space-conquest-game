@@ -47,6 +47,10 @@ public final class LocalTravel {
             double exhaust = drive.exhaustVelocityMps()
                     * (fuel == null ? 1.0 : fuel.exhaustMultiplier());
             double mass = wetMass(design, ship);
+            if (design.powerProfile() != null && design.equippedModuleIds().contains("mod_ion_drive")
+                    && ShipPowerProcessor.poweredThrust(design, ship,
+                    ShipSolarEnvironment.journey(state, fleet, destination)) * days * InterstellarTravel.SECONDS_PER_DAY
+                    < deltaV * mass) return null;
             if (!Double.isFinite(mass) || mass <= 0.0) return null;
             double required = mass * -Math.expm1(-deltaV / exhaust);
             if (!Double.isFinite(required) || required <= 0.0
@@ -91,7 +95,7 @@ public final class LocalTravel {
             return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(),
                     ship.currentHullHealth(), ship.currentShieldHealth(),
                     Math.max(0.0, ship.currentFuelKg() - used), Map.copyOf(cargo),
-                    ship.passengerCount(), ship.passengerRaceId(), ship.transitMode());
+                    ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState());
         }).toList();
         return fleet.withShips(ships).withLocation(fleet.location().depart(destination, plan.days()));
     }
@@ -105,7 +109,7 @@ public final class LocalTravel {
         if (dryMass <= 0.0) return null;
         double payload = fleet.ships().stream().mapToDouble(ship ->
                 ship.storedCargoKg().values().stream().mapToDouble(Double::doubleValue).sum()
-                        + ship.currentFuelKg() + ship.passengerCount() * 80.0).sum();
+                        + ship.currentFuelKg() + ship.generatorFuelMassKg() + ship.passengerCount() * 80.0).sum();
         return LaunchService.choose(state, fleet.location().current().entityId(),
                 fleet.ownerEntityId(), Math.max(1.0, payload),
                 fleet.ships().stream().anyMatch(ship -> ship.passengerCount() > 0),
@@ -118,7 +122,7 @@ public final class LocalTravel {
     }
 
     private static double wetMass(ShipDesign design, ShipInstance ship) {
-        return design.totalDryMassKg() + ship.currentFuelKg()
+        return design.totalDryMassKg() + ship.currentFuelKg() + ship.generatorFuelMassKg()
                 + ship.storedCargoKg().values().stream().mapToDouble(Double::doubleValue).sum()
                 + ship.passengerCount() * 80.0;
     }

@@ -19,6 +19,7 @@ public final class ShipApplicationProduction {
             Map.entry("mod_fusion_drive", "fusion_engines"),
             Map.entry("mod_antimatter_drive", "antimatter_engines"),
             Map.entry("mod_fission_reactor", "fission_reactors"),
+            Map.entry(ShipComponentCatalog.SOLAR_ARRAY_ID, "solar_power"),
             Map.entry(PassengerStasis.MODULE_ID, "cryogenic_stasis_pod"),
             Map.entry("mod_cargo_vault", "pressurized_cargo_holds"),
             Map.entry("mod_cargo_hold_large", "pressurized_cargo_holds"));
@@ -36,6 +37,10 @@ public final class ShipApplicationProduction {
         if (modifiers.effectMultiplier() == 1.0 && modifiers.costMultiplier() == 1.0
                 && modifiers.complexityShift() == 0) return module;
         Map<String, Double> stats = module.operationalStats();
+        if (stats.containsKey("thrusterEfficiency")) {
+            stats = new HashMap<>(stats);
+            stats.computeIfPresent("thrusterEfficiency", (key, efficiency) -> Math.clamp(efficiency * modifiers.effectMultiplier(), 0, 1));
+        }
         if (PassengerStasis.MODULE_ID.equals(module.id()) || "pressurized_cargo_holds".equals(applicationId)) {
             stats = new HashMap<>(stats);
             if (PassengerStasis.MODULE_ID.equals(module.id()))

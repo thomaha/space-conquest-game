@@ -122,10 +122,10 @@ public class ShipDesignValidator {
                     structuralIntegrity, MIN_STRUCTURAL_INTEGRITY_THRESHOLD));
         }
 
-        double powerBalance = agg.powerOutput() - agg.powerDraw();
+        double powerBalance = agg.powerOutput() - agg.powerDraw() - 2;
         if (powerBalance < 0.0) {
             errors.add(String.format("Power grid deficit: output (%.1f kW) is less than total draw (%.1f kW)",
-                    agg.powerOutput(), agg.powerDraw()));
+                    agg.powerOutput(), agg.powerDraw() + 2));
         }
 
         int allowedComplexity = Math.max(1, maxManufacturingComplexity);

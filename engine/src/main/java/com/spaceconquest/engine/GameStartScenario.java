@@ -11,14 +11,14 @@ public enum GameStartScenario {
             "Contemporary industry",
             "Industrialized homeworld with funded power, food and manufacturing and all tracked starting population needs met",
             LocalDateTime.of(2027, 1, 1, 8, 0),
-            List.of("electricity", "rocketry", "nuclear_fission", "industrial_production"),
+            List.of("electricity", "solar_power", "rocketry", "nuclear_fission", "industrial_production"),
             List.of()
     ),
     ADVANCED_ROCKETRY(
             "Advanced rocketry",
             "Healthy industrialized homeworld, colonies in the starting system and offworld mining bases",
             LocalDateTime.of(2050, 1, 1, 8, 0),
-            List.of("electricity", "rocketry", "nuclear_fission", "industrial_production",
+            List.of("electricity", "solar_power", "rocketry", "nuclear_fission", "industrial_production",
                     "computers", "robotics", "supply_chain_automation", "methalox_propulsion"),
             List.of("cargo_transport_mk1", "mining_vessel_mk1")
     ),
@@ -26,7 +26,7 @@ public enum GameStartScenario {
             "Basic warp technology",
             "Healthy industrialized homeworld, extensive expansion in the starting system and nearby bases",
             LocalDateTime.of(2200, 1, 1, 8, 0),
-            List.of("electricity", "rocketry", "nuclear_fission", "industrial_production",
+            List.of("electricity", "solar_power", "rocketry", "nuclear_fission", "industrial_production",
                     "computers", "robotics", "supply_chain_automation", "superconductors",
                     "geological_prospecting", "nuclear_fusion", "methalox_propulsion",
                     "hydrolox_propulsion", "energy_fields",

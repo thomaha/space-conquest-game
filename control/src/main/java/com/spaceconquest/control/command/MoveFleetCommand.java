@@ -8,6 +8,7 @@ import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.InterstellarTravel;
 import com.spaceconquest.engine.ship.LocalTravel;
 import com.spaceconquest.engine.ship.FleetLocation;
+import com.spaceconquest.engine.ship.ShipPowerForecast;
 import com.spaceconquest.engine.logistics.LaunchService;
 
 import java.util.ArrayList;
@@ -25,7 +26,9 @@ public record MoveFleetCommand(
 ) implements GameCommand {
 
     public record DeparturePreview(LocalTravel.Plan local, InterstellarTravel.Plan crossing,
-                                   double launchCostCredits) {
+                                   double launchCostCredits, List<ShipPowerForecast.Readiness> electrical) {
+        public DeparturePreview { electrical = List.copyOf(electrical); }
+        public boolean ready() { return ShipPowerForecast.ready(electrical); }
         public double totalDays() {
             return (local == null ? 0 : Math.ceil(local.days())) + Math.ceil(crossing.days());
         }
@@ -37,7 +40,8 @@ public record MoveFleetCommand(
 
     @Override
     public boolean validate(GameState state) {
-        return preview(state) != null;
+        var departure = preview(state);
+        return departure != null && departure.ready();
     }
 
     /** Uses the same snapshot checks and departure fuel commitments as command execution. */
@@ -70,7 +74,9 @@ public record MoveFleetCommand(
         Fleet departure = local == null ? fleet : LocalTravel.depart(fleet, deepSpace, local);
         InterstellarTravel.Plan plan = InterstellarTravel.plan(state, departure, targetSystemId);
         if (plan == null) return null;
-        var preview = new DeparturePreview(local, plan, LaunchService.payerOperatingCost(state, launch, fleet.ownerEntityId()));
+        var power = ShipPowerForecast.departure(state, fleet, deepSpace, local, plan);
+        var preview = new DeparturePreview(local, plan,
+                LaunchService.payerOperatingCost(state, launch, fleet.ownerEntityId()), power);
         boolean passengers = state.passengerManifests().stream().anyMatch(manifest ->
                 fleet.ships().stream().anyMatch(ship -> ship.id().equals(manifest.shipId())));
         if (!passengers) return preview;

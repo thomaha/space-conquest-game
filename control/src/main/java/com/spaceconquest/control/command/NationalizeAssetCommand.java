@@ -65,7 +65,7 @@ public record NationalizeAssetCommand(String empireId, String corporationId, Str
                 }
                 ShipInstance publicShip = new ShipInstance(ship.id(), ship.designId(), empireId,
                         ship.currentHullHealth(), ship.currentShieldHealth(), ship.currentFuelKg(),
-                        ship.storedCargoKg(), ship.passengerCount(), ship.passengerRaceId(), ship.transitMode());
+                        ship.storedCargoKg(), ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState());
                 fleets.add(new Fleet("fleet_nationalized_" + UUID.randomUUID(), "Nationalized fleet",
                         empireId, fleet.currentSystemId(), fleet.targetSystemId(), fleet.coordinateX(),
                         fleet.coordinateY(), fleet.transitProgress(), fleet.isInWarp(), fleet.fleetStance(),
@@ -74,7 +74,7 @@ public record NationalizeAssetCommand(String empireId, String corporationId, Str
                         fleet.interstellarAccelerationMps2(), fleet.interstellarElapsedDays(),
                         fleet.interstellarPeakSpeedMps(),
                         java.util.Map.of(ship.id(), fleet.interstellarFuelBudgetKg()
-                                .getOrDefault(ship.id(), 0.0))));
+                                .getOrDefault(ship.id(), 0.0)), fleet.flightMotion()));
             }
             if (!remaining.isEmpty()) {
                 fleets.add(fleet.withShips(remaining));

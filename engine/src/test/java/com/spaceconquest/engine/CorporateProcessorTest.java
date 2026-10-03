@@ -82,7 +82,7 @@ public class CorporateProcessorTest {
             var quote = ShipConstructionRequirements.estimate(design);
             assertEquals(baseDesign.totalThrustN() * modifiers.effectMultiplier(), design.totalThrustN(), 0.001);
             assertEquals(4 + modifiers.complexityShift(), ShipManufacturingCapacity.requiredComplexity(design));
-            assertEquals(1.0 + 6_000.0 / 25_000.0 * (modifiers.costMultiplier() - 1.0),
+            assertEquals(1.0 + 6_000.0 / design.totalDryMassKg() * (modifiers.costMultiplier() - 1.0),
                     design.manufacturingProfile().costMultiplier(), 0.000001);
             assertEquals(quote.workUnits(), order.requiredWorkHours());
             assertEquals(quote.materialsKg(), order.requiredMaterialsKg());
@@ -100,9 +100,9 @@ public class CorporateProcessorTest {
                 CorporateInvestmentProcessor.SHIP_PROCUREMENT_COST);
         var design = invested.shipDesigns().getFirst();
         assertEquals(57_500.0, design.maxCargoMassKg(), 0.001);
-        assertEquals(325_000.0, design.minLaunchThrustRequiredN(), 0.001);
+        assertEquals(345_000.0, design.minLaunchThrustRequiredN(), 0.001);
         assertEquals(850_000.0, design.totalThrustN());
-        assertEquals(1.0 + 2_000.0 / 25_000.0 * 0.20, design.manufacturingProfile().costMultiplier(), 0.000001);
+        assertEquals(1.0 + 2_000.0 / design.totalDryMassKg() * 0.20, design.manufacturingProfile().costMultiplier(), 0.000001);
         assertEquals(ShipConstructionRequirements.estimate(design).workUnits(),
                 invested.shipConstructionOrders().getFirst().requiredWorkHours());
     }

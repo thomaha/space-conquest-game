@@ -42,7 +42,8 @@ public record ShipDesign(
         double totalThrustN,
         boolean isValidForLaunch,
         boolean isProprietaryCorporateDesign,
-        ShipManufacturingProfile manufacturingProfile
+        ShipManufacturingProfile manufacturingProfile,
+        ShipPowerProfile powerProfile
 ) {
     public ShipDesign {
         manufacturingProfile = manufacturingProfile == null ? ShipManufacturingProfile.baseline() : manufacturingProfile;
@@ -50,6 +51,18 @@ public record ShipDesign(
         equippedModuleIds = List.copyOf(equippedModuleIds);
         if (!Double.isFinite(fuelCapacityKg) || fuelCapacityKg < 0.0)
             throw new IllegalArgumentException("Invalid fuel capacity");
+    }
+
+    public ShipDesign(String id, String name, String ownerEntityId, String role,
+                      String hullMaterialId, List<String> equippedModuleIds, String armorMaterialId,
+                      double armorThicknessCm, double totalDryMassKg, double maxCargoMassKg,
+                      double fuelCapacityKg, double powerBalanceKw, double calculatedStructuralIntegrity,
+                      double minLaunchThrustRequiredN, double totalThrustN, boolean isValidForLaunch,
+                      boolean isProprietaryCorporateDesign, ShipManufacturingProfile manufacturingProfile) {
+        this(id, name, ownerEntityId, role, hullMaterialId, equippedModuleIds, armorMaterialId,
+                armorThicknessCm, totalDryMassKg, maxCargoMassKg, fuelCapacityKg, powerBalanceKw,
+                calculatedStructuralIntegrity, minLaunchThrustRequiredN, totalThrustN,
+                isValidForLaunch, isProprietaryCorporateDesign, manufacturingProfile, null);
     }
 
     public ShipDesign(String id, String name, String ownerEntityId, String role,

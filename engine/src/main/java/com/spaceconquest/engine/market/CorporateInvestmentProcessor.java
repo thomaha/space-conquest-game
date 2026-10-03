@@ -169,16 +169,24 @@ public class CorporateInvestmentProcessor {
         ShipModule drive = ShipApplicationProduction.optimize(state, corporation.id(), baseDrive);
         ShipModule cargo = ShipApplicationProduction.optimize(state, corporation.id(),
                 ShipComponentCatalog.module("mod_cargo_hold_large"));
-        List<ShipModule> modules = List.of(drive, cargo, PropulsionCatalog.fuelTankModule());
+        boolean nuclear = empire.unlockedTechIds().contains("nuclear_fission");
+        ShipModule power = ShipApplicationProduction.optimize(state, corporation.id(), ShipComponentCatalog.module(
+                nuclear ? ShipComponentCatalog.FISSION_REACTOR_ID : ShipComponentCatalog.CHEMICAL_GENERATOR_ID));
+        ShipModule battery = ShipComponentCatalog.module(ShipComponentCatalog.BATTERY_ID);
+        ShipModule reserves = ShipComponentCatalog.module(nuclear ? ShipComponentCatalog.REACTOR_TANK_ID
+                : ShipComponentCatalog.GENERATOR_TANK_ID);
+        List<ShipModule> modules = List.of(drive, cargo, PropulsionCatalog.fuelTankModule(), power, battery, reserves);
+        double dryMass = 25_000 + power.dryMassKg() + battery.dryMassKg() + reserves.dryMassKg();
         double cargoCapacity = cargo.operationalStats().get("cargoCapacityKg");
-        double minimumLaunchThrust = 300_000.0 * (25_000.0 + cargoCapacity + 15_000.0) / 90_000.0;
+        double minimumLaunchThrust = 300_000.0 * (dryMass + cargoCapacity + 15_000.0) / 90_000.0;
         String role = fleetRole(corporation);
         return new ShipDesign("design_corp_" + UUID.randomUUID(), corporation.name() + " " + role,
                 corporation.id(), role, "refined_aluminum",
-                List.of("mod_cargo_hold_large", drive.id(), PropulsionCatalog.FUEL_TANK_MODULE_ID),
-                "steel", 2.0, 25_000.0, cargoCapacity, 15_000.0,
-                150.0, 1.20, minimumLaunchThrust, drive.thrustOutputN(), drive.thrustOutputN() >= minimumLaunchThrust, true,
-                ShipApplicationProduction.profile(state, corporation.id(), modules, 25_000.0));
+                modules.stream().map(ShipModule::id).toList(),
+                "steel", 2.0, dryMass, cargoCapacity, 15_000.0,
+                power.powerOutputKw() - drive.powerDrawKw() - cargo.powerDrawKw() - 2,
+                1.20, minimumLaunchThrust, drive.thrustOutputN(), drive.thrustOutputN() >= minimumLaunchThrust, true,
+                ShipApplicationProduction.profile(state, corporation.id(), modules, dryMass), ShipPowerProfile.capture(modules));
     }
 
     public double findMaxShortcoming(Corporation corporation, List<CommercialHub> hubs) {

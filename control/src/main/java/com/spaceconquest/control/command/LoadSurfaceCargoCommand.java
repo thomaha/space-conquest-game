@@ -54,7 +54,7 @@ public record LoadSurfaceCargoCommand(String shipId, String bodyId,
                 ships.set(shipIndex, new ShipInstance(ship.id(), ship.designId(),
                         ship.ownerEntityId(), ship.currentHullHealth(), ship.currentShieldHealth(),
                         ship.currentFuelKg(), Map.copyOf(cargo), ship.passengerCount(),
-                        ship.passengerRaceId(), ship.transitMode()));
+                        ship.passengerRaceId(), ship.transitMode(), ship.powerState()));
                 fleets.set(fleetIndex, fleet.withShips(ships));
                 return purchase.state().withFleets(fleets);
             }

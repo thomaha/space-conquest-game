@@ -68,10 +68,11 @@ public final class InterstellarTravel {
                     .filter(value -> Double.isFinite(value) && value > 0.0)
                     .mapToDouble(Double::doubleValue).sum();
             double mass = Math.max(1.0, design.totalDryMassKg()
-                    + Math.max(0.0, ship.currentFuelKg()) + cargo
+                    + Math.max(0.0, ship.currentFuelKg()) + ship.generatorFuelMassKg() + cargo
                     + Math.max(0, ship.passengerCount()) * 80.0);
             if (!Double.isFinite(mass)) return null;
-            fleetAcceleration = Math.min(fleetAcceleration, design.totalThrustN() / mass);
+            double thrust = ShipPowerProcessor.poweredThrust(design, ship, ShipSolarEnvironment.DARK);
+            fleetAcceleration = Math.min(fleetAcceleration, thrust / mass);
             PropulsionCatalog.Drive drive = PropulsionCatalog.mainDrive(design.equippedModuleIds());
             if (drive != null) {
                 if (ship.currentFuelKg() <= 0.0 || mass <= ship.currentFuelKg()) return null;
@@ -131,7 +132,7 @@ public final class InterstellarTravel {
             return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(),
                     ship.currentHullHealth(), ship.currentShieldHealth(),
                     ship.currentFuelKg(), Map.copyOf(cargo), ship.passengerCount(),
-                    ship.passengerRaceId(), ship.transitMode());
+                    ship.passengerRaceId(), ship.transitMode(), ship.powerState());
         }).toList());
     }
 

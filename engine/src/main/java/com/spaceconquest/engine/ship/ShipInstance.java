@@ -26,7 +26,8 @@ public record ShipInstance(
         Map<String, Double> storedCargoKg,
         int passengerCount,
         String passengerRaceId,
-        String transitMode
+        String transitMode,
+        ShipPowerState powerState
 ) {
     public static final String MODE_CONSCIOUS = "CONSCIOUS";
     public static final String MODE_CRYOGENIC_STASIS = "CRYOGENIC_STASIS";
@@ -36,6 +37,20 @@ public record ShipInstance(
         if (transitMode == null) transitMode = MODE_CONSCIOUS;
         if (passengerRaceId == null) passengerRaceId = "";
     }
+
+    public ShipInstance(String id, String designId, String ownerEntityId, double currentHullHealth,
+                        double currentShieldHealth, double currentFuelKg, Map<String, Double> storedCargoKg,
+                        int passengerCount, String passengerRaceId, String transitMode) {
+        this(id, designId, ownerEntityId, currentHullHealth, currentShieldHealth, currentFuelKg,
+                storedCargoKg, passengerCount, passengerRaceId, transitMode, null);
+    }
+
+    public ShipInstance withPowerState(ShipPowerState power) {
+        return new ShipInstance(id, designId, ownerEntityId, currentHullHealth, currentShieldHealth,
+                currentFuelKg, storedCargoKg, passengerCount, passengerRaceId, transitMode, power);
+    }
+
+    public double generatorFuelMassKg() { return powerState == null ? 0 : powerState.fuelMassKg(); }
 
     public ShipInstance(
             String id,

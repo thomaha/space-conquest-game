@@ -111,7 +111,7 @@ public final class PropulsionCatalog {
             case "mod_fission_thruster" -> new ShipModule(moduleId, "Fission thermal drive", "MEDIUM",
                     5, 6_000, 100, 0, 850_000, 4, Map.of(), Map.of());
             case "mod_ion_drive" -> new ShipModule(moduleId, "MPD ion drive", "MEDIUM",
-                    6, 4_500, 120, 0, 450_000, 7, Map.of(), Map.of());
+                    6, 4_500, 120, 0, 3.9, 7, Map.of(), Map.of("thrusterEfficiency", .65));
             case "mod_fusion_drive" -> new ShipModule(moduleId, "Fusion drive", "LARGE",
                     8, 5_000, 200, 0, 1_200_000, 8, Map.of(), Map.of());
             case "mod_antimatter_drive" -> new ShipModule(moduleId, "Antimatter drive", "LARGE",

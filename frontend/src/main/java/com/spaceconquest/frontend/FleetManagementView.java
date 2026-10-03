@@ -694,6 +694,7 @@ public class FleetManagementView {
             shipList.getChildren().add(shipText);
             ShipDesign design = snapshot == null ? null : snapshot.shipDesigns().stream()
                     .filter(item -> item.id().equals(ship.designId())).findFirst().orElse(null);
+            shipList.getChildren().add(ShipPowerCard.create(snapshot, fleet, ship, design, humanController, feedbackLabel));
             PropulsionCatalog.Drive drive = design == null ? null
                     : PropulsionCatalog.mainDrive(design.equippedModuleIds());
             if (drive != null) {
@@ -730,6 +731,16 @@ public class FleetManagementView {
     }
 
     private String locationLabel(Fleet fleet) {
+        if (Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode()))
+            return "Power interrupted | " + (fleet.location().inTransit()
+                    ? String.format("Local transfer %.1f%% complete", fleet.location().progress() * 100)
+                    : fleet.interstellarDistanceMeters() <= 0 && fleet.hasInterstellarOrder()
+                    ? String.format("Warp corridor %.1f%% complete", fleet.transitProgress() * 100)
+                    : fleet.flightMotion() == null ? "Awaiting assistance"
+                    : String.format("Coasting at %.1f m/s", fleet.flightMotion().velocityMps()));
+        if (Fleet.MODE_RECOVERY.equals(fleet.interstellarMode()))
+            return String.format("Recovery to %s: %.1f%% | %.1f m/s", fleet.targetSystemId(),
+                    fleet.transitProgress() * 100, fleet.flightMotion().velocityMps());
         if (fleet.isInterstellarTransit()) {
             if (Fleet.MODE_SUBLIGHT.equals(fleet.interstellarMode())
                     && fleet.interstellarDistanceMeters() > 0.0) {

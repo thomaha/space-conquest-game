@@ -9,6 +9,7 @@ import com.spaceconquest.engine.MarketOrder;
 import com.spaceconquest.engine.Moon;
 import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.SolarSystem;
+import com.spaceconquest.engine.SolarRadiation;
 import com.spaceconquest.engine.economy.MarketAccount;
 
 import java.util.ArrayList;
@@ -68,25 +69,24 @@ public class PowerGenerationProcessor {
         for (SolarSystem system : systems) {
             for (Planet planet : system.planets()) {
                 if (planet.id().equals(facility.planetId())) {
-                    return environmentFactor(facility.applicationId(), planet.distance(),
+                    return environmentFactor(system, facility.applicationId(), planet.distance(),
                             planet.atmosphere(), planet.hasLiquidWater());
                 }
                 for (Moon moon : planet.moons()) {
                     if (moon.id().equals(facility.planetId())) {
-                        return environmentFactor(facility.applicationId(), planet.distance(),
+                        return environmentFactor(system, facility.applicationId(), planet.distance(),
                                 moon.atmosphere(), moon.hasLiquidWater());
                     }
                 }
             }
         }
-        return 1.0;
+        return "solar_power".equals(facility.applicationId()) ? 0 : 1;
     }
 
-    private double environmentFactor(String applicationId, double orbitalDistanceKm,
+    private double environmentFactor(SolarSystem system, String applicationId, double orbitalDistanceKm,
                                      String atmosphere, boolean hasLiquidWater) {
         return switch (applicationId) {
-            case "solar_power" -> Math.clamp(Math.pow(149_600_000.0
-                    / Math.max(1.0, orbitalDistanceKm), 2.0), 0.1, 2.0)
+            case "solar_power" -> SolarRadiation.factor(system, orbitalDistanceKm)
                     * ("none".equalsIgnoreCase(atmosphere) ? 1.0 : 0.85);
             case "wind_power" -> "none".equalsIgnoreCase(atmosphere) ? 0.0 : 1.0;
             case "hydropower" -> hasLiquidWater ? 1.0 : 0.0;

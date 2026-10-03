@@ -257,6 +257,14 @@ public class LogisticsProcessorTest {
                 .tradeRoutes(List.of(route)).build();
         LogisticsProcessor processor = new LogisticsProcessor();
         GameState dispatched = processor.processTradeRoutes(state).state();
+        Empire poor = new Empire(empire.id(), empire.name(), empire.raceId(), empire.societyStructure(), 10,
+                empire.corporateTaxRate(), empire.controlledSystemIds(), empire.ministries(),
+                empire.systemGovernorAssignments(), empire.unlockedTechIds(), empire.activeShipDesignIds());
+        GameState unfunded = state.toBuilder().empires(List.of(poor)).build();
+        GameState waiting = processor.processTradeRoutes(unfunded).state();
+        assertEquals(unfunded.fleets(), waiting.fleets());
+        assertEquals(unfunded.commercialHubs(), waiting.commercialHubs());
+        assertEquals(10, waiting.empires().getFirst().treasuryCredits());
         assertEquals(trackedCredits(state), trackedCredits(dispatched), 0.001);
         assertEquals(trackedMaterial(state, "steel"), trackedMaterial(dispatched, "steel"), 0.001);
         assertEquals(80, dispatched.commercialHubs().getFirst().activeOrders()

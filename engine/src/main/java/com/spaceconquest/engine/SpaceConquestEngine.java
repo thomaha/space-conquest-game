@@ -409,7 +409,7 @@ public class SpaceConquestEngine implements GameEngine {
         double totalStationTariff = 0.0;
         double totalStationResearch = 0.0;
         for (OrbitalStation station : orbitalStations) {
-            MacroStructureProcessor.StationTurnResult res = macroStructureProcessor.processOrbitalStation(station, 0.05);
+            MacroStructureProcessor.StationTurnResult res = macroStructureProcessor.processOrbitalStation(station, 0.05, solarSystems);
             if (res.updatedStation() != null) {
                 updatedStations.add(res.updatedStation());
                 totalStationTariff += res.collectedTariffCredits();
@@ -491,7 +491,8 @@ public class SpaceConquestEngine implements GameEngine {
     }
 
     private void updateFleets() {
-        fleets = fleetProcessor.processFleetMovements(fleets, orbitalStations, diplomaticRelations);
+        fleets = fleetProcessor.processFleetMovements(
+                com.spaceconquest.engine.ship.ShipPowerProcessor.advanceDay(getGameState()), orbitalStations, diplomaticRelations);
         GameState arrivals = PassengerTransitProcessor.advanceDay(getGameState(), races);
         GameState engagements = fleetEncounterResolver.resolveEncounters(arrivals);
         fleets = engagements.fleets();

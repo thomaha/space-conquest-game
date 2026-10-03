@@ -84,7 +84,8 @@ class PowerGenerationProcessorTest {
                         IndustryAccount.empty("fusion").withOperatingCash(500.0))).build();
 
         var result = generator.process(state, Map.of("solar", 100, "burner", 100, "fusion", 100), Map.of());
-        assertEquals(35_500.0, result.generationKw().get("earth"), 0.001);
+        assertEquals(29_500.0, result.generationKw().get("earth"), 0.001);
+        assertEquals(0.0, result.accounts().getFirst().generatedKwh(), 0.001);
         assertEquals(0.0, result.accounts().getFirst().inputCostsCredits(), 0.001);
         assertEquals(200.0, result.accounts().get(1).inputCostsCredits(), 0.001);
         assertEquals(10.0, result.accounts().get(2).inputCostsCredits(), 0.001);
@@ -100,7 +101,7 @@ class PowerGenerationProcessorTest {
                 0.0, 12_742.0, "terrestrial", "nitrogen_oxygen", true, 0.7,
                 List.of(), List.of(moon), List.of());
         SolarSystem sol = new SolarSystem("sol", "Sol", "", 0.0, 0.0, 0.0,
-                1.0, 1.0, "Yellow", List.of(earth), List.of());
+                1.989e30, 1.0, "Yellow", List.of(earth), List.of());
         GameState state = state(List.of("electricity"), 0.0, 500.0).toBuilder()
                 .solarSystems(List.of(sol))
                 .industrialFacilities(List.of(plant("solar", "solar_power", "moon"),

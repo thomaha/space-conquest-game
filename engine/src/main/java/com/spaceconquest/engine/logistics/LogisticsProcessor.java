@@ -41,6 +41,7 @@ public class LogisticsProcessor {
     private record MarketChoice(String materialId, String destinationHubId, double score) {}
     private record Shipment(double massKg, LaunchService.Plan launch) {
     }
+    private record CarrierDeparture(GameState state, double launchCostCredits) {}
 
     /** Advances one physical shipment per assigned cargo ship on the daily tick. */
     public FreightResult processTradeRoutes(GameState state) {
@@ -60,6 +61,8 @@ public class LogisticsProcessor {
                 updated.add(route);
                 continue;
             }
+            if (TradeRoute.DELIVERING.equals(route.phase())) route = route.withAvailableCargo(
+                    carrier.ship().storedCargoKg().getOrDefault(route.materialId(), 0.0));
             RouteStep step = switch (route.phase()) {
                 case TradeRoute.LOADING -> load(current, route, carrier);
                 case TradeRoute.DELIVERING -> deliver(current, route, carrier);
@@ -299,26 +302,32 @@ public class LogisticsProcessor {
             return new RouteStep(state, route, 0.0);
         Shipment affordable = affordableShipment(state, route, origin, carrier.design(),
                 quantity, order.pricePerKg(), balance(state, route.ownerEntityId()),
-                orbitalPickup, cargo + carrier.ship().passengerCount() * 80.0,
+                orbitalPickup, cargo + carrier.ship().currentFuelKg() + carrier.ship().generatorFuelMassKg()
+                        + carrier.ship().passengerCount() * 80.0,
                 carrier.ship().passengerCount() > 0);
+        if (affordable == null) return new RouteStep(state, route, 0);
         quantity = affordable.massKg();
         double lift = LaunchService.payerOperatingCost(state, affordable.launch(),
                 route.ownerEntityId());
+        if (surface && !orbitalPickup) lift = 0; // Settle the complete carrier launch after loading and refueling.
         double purchase = quantity * order.pricePerKg();
         if (!Double.isFinite(lift) || !Double.isFinite(purchase)
                 || quantity <= 0.000001)
             return new RouteStep(state, route, 0.0);
         GameState current = settleHub(state, route.ownerEntityId(), origin.id(), -purchase);
-        if (affordable.launch() != null)
+        if (affordable.launch() != null && orbitalPickup)
             current = LaunchService.settle(current, route.ownerEntityId(), affordable.launch());
         current = changeHubStock(current, origin.id(), route.materialId(), -quantity,
                 order.pricePerKg());
         current = changeShipCargo(current, carrier.ship().id(), route.materialId(), quantity);
         double beforeMove = balance(current, route.ownerEntityId());
-        current = surface && !orbitalPickup
-                ? departFromSurface(current, carrier.fleet().id(), origin.entityId())
-                : moveToward(current, carrier.fleet().id(), destination);
-        double fuelCost = Math.max(0.0, beforeMove - balance(current, route.ownerEntityId()));
+        if (surface && !orbitalPickup) {
+            CarrierDeparture departure = departFromSurface(current, carrier.fleet().id(), origin.entityId());
+            current = departure.state();
+            lift = departure.launchCostCredits();
+        } else current = moveToward(current, carrier.fleet().id(), destination);
+        double fuelCost = Math.max(0.0, beforeMove - balance(current, route.ownerEntityId())
+                - (surface && !orbitalPickup ? lift : 0));
         return new RouteStep(current, route.withLoadedCargo(quantity, purchase + lift)
                 .withOperatingCost(fuelCost), 0.0);
     }
@@ -458,7 +467,7 @@ public class LogisticsProcessor {
                 ships.set(shipIndex, new ShipInstance(ship.id(), ship.designId(),
                         ship.ownerEntityId(), ship.currentHullHealth(),
                         ship.currentShieldHealth(), ship.currentFuelKg(), Map.copyOf(cargo),
-                        ship.passengerCount(), ship.passengerRaceId(), ship.transitMode()));
+                        ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState()));
                 fleets.set(fleetIndex, fleet.withShips(ships));
                 return state.withFleets(fleets);
             }
@@ -477,6 +486,9 @@ public class LogisticsProcessor {
                     || fleet.location().inTransit()) continue;
             Fleet moved = fleet;
             if (!systemId.equals(fleet.currentSystemId())) {
+                GameState beforeDeparture = state;
+                Fleet launchFleet = fleet;
+                LocalTravel.Plan launchPlan = null;
                 if (!fleet.location().isAt(FleetLocation.Site.deepSpace())) {
                     GameState ready = prepareLocalDeparture(state, fleet,
                             FleetLocation.Site.deepSpace());
@@ -486,11 +498,19 @@ public class LogisticsProcessor {
                     fleet = fleets.get(index);
                     LocalTravel.Plan local = LocalTravel.plan(state, fleet,
                             FleetLocation.Site.deepSpace());
+                    launchFleet = fleet;
+                    launchPlan = local;
                     fleet = LocalTravel.depart(fleet, FleetLocation.Site.deepSpace(), local);
                 }
                 com.spaceconquest.engine.ship.InterstellarTravel.Plan plan =
                         com.spaceconquest.engine.ship.InterstellarTravel.plan(state, fleet, systemId);
-                if (plan == null) continue;
+                if (plan == null || !com.spaceconquest.engine.ship.ShipPowerForecast.ready(
+                        com.spaceconquest.engine.ship.ShipPowerForecast.departure(state, launchFleet,
+                                FleetLocation.Site.deepSpace(), launchPlan, plan))) {
+                    state = beforeDeparture;
+                    fleets = new ArrayList<>(state.fleets());
+                    continue;
+                }
                 Fleet fueled = com.spaceconquest.engine.ship.InterstellarTravel
                         .commitReactorFuel(fleet, plan);
                 moved = new Fleet(fleet.id(), fleet.name(), fleet.ownerEntityId(),
@@ -516,10 +536,13 @@ public class LogisticsProcessor {
 
     private GameState prepareLocalDeparture(GameState state, Fleet fleet,
                                             FleetLocation.Site destination) {
-        GameState ready = refuelForLocalLeg(state, fleet, destination);
+        GameState ready = com.spaceconquest.engine.ship.ShipPowerResupply.prepareLocal(
+                refuelForLocalLeg(state, fleet, destination), fleet, destination);
         Fleet updated = ready.fleets().stream().filter(item -> fleet.id().equals(item.id()))
                 .findFirst().orElse(null);
-        if (updated == null || LocalTravel.plan(ready, updated, destination) == null)
+        LocalTravel.Plan plan = updated == null ? null : LocalTravel.plan(ready, updated, destination);
+        if (plan == null || !com.spaceconquest.engine.ship.ShipPowerForecast.ready(
+                com.spaceconquest.engine.ship.ShipPowerForecast.departure(ready, updated, destination, plan, null)))
             return null;
         if (updated.location().current().kind() != FleetLocation.Kind.SURFACE)
             return ready;
@@ -606,12 +629,28 @@ public class LogisticsProcessor {
                 <= availableCredits + 0.000001 ? new Shipment(quantity, launch) : null;
     }
 
-    private GameState departFromSurface(GameState state, String fleetId, String bodyId) {
+    private CarrierDeparture departFromSurface(GameState state, String fleetId, String bodyId) {
+        Fleet departing = state.fleets().stream().filter(fleet -> fleet.id().equals(fleetId)).findFirst().orElse(null);
+        if (departing == null) return new CarrierDeparture(state, 0);
+        FleetLocation.Site destination = FleetLocation.Site.orbit(bodyId);
+        GameState ready = com.spaceconquest.engine.ship.ShipPowerResupply.prepareLocal(
+                refuelForLocalLeg(state, departing, destination), departing, destination);
+        Fleet updated = ready.fleets().stream().filter(fleet -> fleet.id().equals(fleetId)).findFirst().orElseThrow();
+        LocalTravel.Plan plan = LocalTravel.plan(ready, updated, destination);
+        if (plan == null || !com.spaceconquest.engine.ship.ShipPowerForecast.ready(
+                com.spaceconquest.engine.ship.ShipPowerForecast.departure(ready, updated, destination, plan, null)))
+            return new CarrierDeparture(state, 0);
+        LaunchService.Plan launch = LocalTravel.surfaceLaunchPlan(ready, updated);
+        if (launch == null) return new CarrierDeparture(state, 0);
+        ready = LaunchService.settle(ready, updated.ownerEntityId(), launch);
+        state = ready;
+        GameState departureState = state;
         List<Fleet> fleets = state.fleets().stream().map(fleet ->
                 fleetId.equals(fleet.id()) ? LocalTravel.depart(fleet,
-                        FleetLocation.Site.orbit(bodyId), LocalTravel.plan(state, fleet,
+                        FleetLocation.Site.orbit(bodyId), LocalTravel.plan(departureState, fleet,
                                 FleetLocation.Site.orbit(bodyId))) : fleet).toList();
-        return state.withFleets(fleets);
+        return new CarrierDeparture(state.withFleets(fleets),
+                LaunchService.payerOperatingCost(ready, launch, updated.ownerEntityId()));
     }
 
     /** Positive ownerDelta sells to the hub; negative ownerDelta buys from it. */

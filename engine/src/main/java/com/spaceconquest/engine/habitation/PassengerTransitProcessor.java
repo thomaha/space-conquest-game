@@ -64,7 +64,8 @@ public final class PassengerTransitProcessor {
                 ? item : item.withShips(item.ships().stream().map(ship ->
                 !shipId.equals(ship.id()) ? ship : new ShipInstance(ship.id(), ship.designId(),
                         ship.ownerEntityId(), ship.currentHullHealth(), ship.currentShieldHealth(),
-                        ship.currentFuelKg(), ship.storedCargoKg(), count, raceId, transitMode))
+                        ship.currentFuelKg(), ship.storedCargoKg(), count, raceId, transitMode,
+                        ship.powerState() == null ? null : ship.powerState().resetPassengerOutage()))
                 .toList())).toList();
         GameState reduced = changePopulation(state, source, raceId, booked, -1);
         return reduced.toBuilder().fleets(fleets).passengerManifests(manifests).build();
@@ -115,7 +116,7 @@ public final class PassengerTransitProcessor {
                 : item.withShips(item.ships().stream().map(ship -> !shipId.equals(ship.id()) ? ship
                 : new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(),
                 ship.currentShieldHealth(), ship.currentFuelKg(), ship.storedCargoKg(), count, raceId,
-                ship.transitMode())).toList())).toList();
+                ship.transitMode(), ship.powerState())).toList())).toList();
         List<HouseholdAccount> accounts = state.householdAccounts().stream().map(current -> {
             if (!current.key().equals(account.key())) return current;
             HouseholdEmployment employment = current.employment();
@@ -159,7 +160,7 @@ public final class PassengerTransitProcessor {
                                             : new ShipInstance(ship.id(), ship.designId(),
                                             ship.ownerEntityId(), ship.currentHullHealth(),
                                             ship.currentShieldHealth(), ship.currentFuelKg(),
-                                            ship.storedCargoKg(), 0, "", ship.transitMode()))
+                                            ship.storedCargoKg(), 0, "", ship.transitMode(), ship.powerState()))
                                     .toList())).toList();
             current = current.withFleets(fleets);
         }
@@ -194,7 +195,10 @@ public final class PassengerTransitProcessor {
                         cargo.computeIfPresent(id, (key, available) ->
                                 Math.max(0.0, available - amount)));
                 Map<Integer, Long> survivors = new HashMap<>(manifest.ageGroups());
-                int casualties = result.casualtyCount();
+                ShipDesign electricalDesign = state.shipDesigns().stream().filter(item -> ship.designId().equals(item.id()))
+                        .findFirst().orElse(null);
+                int casualties = Math.min(ship.passengerCount(), result.casualtyCount()
+                        + com.spaceconquest.engine.ship.ShipPowerSurvival.casualties(ship, electricalDesign));
                 for (int age : manifest.ageGroups().keySet().stream().sorted().toList()) {
                     long lost = Math.min(casualties, survivors.getOrDefault(age, 0L));
                     survivors.computeIfPresent(age, (key, count) -> count - lost);
@@ -209,7 +213,7 @@ public final class PassengerTransitProcessor {
                 updatedShips.add(new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(),
                         ship.currentHullHealth(), ship.currentShieldHealth(), ship.currentFuelKg(),
                         Map.copyOf(cargo), (int) remaining.headcount(),
-                        remaining.headcount() > 0 ? ship.passengerRaceId() : "", ship.transitMode()));
+                        remaining.headcount() > 0 ? ship.passengerRaceId() : "", ship.transitMode(), ship.powerState()));
             }
             updatedFleets.add(fleet.withShips(updatedShips));
         }

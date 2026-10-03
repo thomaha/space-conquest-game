@@ -1,6 +1,8 @@
 package com.spaceconquest.engine.macrostructure;
 
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.SolarRadiation;
+import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.MarketOrder;
 import com.spaceconquest.engine.economy.MarketAccount;
@@ -38,6 +40,10 @@ public class MacroStructureProcessor {
      * Executes turn update calculations for an orbital space station.
      */
     public StationTurnResult processOrbitalStation(OrbitalStation station, double stateTariffRate) {
+        return processOrbitalStation(station, stateTariffRate, List.of());
+    }
+
+    public StationTurnResult processOrbitalStation(OrbitalStation station, double stateTariffRate, List<SolarSystem> systems) {
         if (station == null) {
             return new StationTurnResult(null, 0.0, 0.0, Map.of());
         }
@@ -60,11 +66,12 @@ public class MacroStructureProcessor {
             return new StationTurnResult(unpowered, 0.0, 0.0, Map.of());
         }
 
-        double totalGenKw = modules.stream().filter(StationModule::isOnline).mapToDouble(StationModule::powerOutputKw).sum();
+        double solarFactor = SolarRadiation.stationFactor(systems, station);
+        double totalGenKw = modules.stream().filter(StationModule::isOnline).mapToDouble(module -> moduleOutputKw(module, solarFactor)).sum();
         double totalDemandKw = modules.stream().filter(StationModule::isOnline).mapToDouble(StationModule::powerDrawKw).sum();
         boolean isPowerDeficit = totalGenKw < totalDemandKw;
 
-        ModulePowerStateResult powerState = resolveModulePowerStates(modules, isPowerDeficit);
+        ModulePowerStateResult powerState = resolveModulePowerStates(modules, isPowerDeficit, solarFactor);
         List<StationModule> updatedModules = powerState.updatedModules();
 
         double collectedTariffs = calculateCommerceTariffs(updatedModules, stateTariffRate);
@@ -86,7 +93,7 @@ public class MacroStructureProcessor {
         return new StationTurnResult(updatedStation, collectedTariffs, researchPoints, producedMaterials);
     }
 
-    private ModulePowerStateResult resolveModulePowerStates(List<StationModule> modules, boolean isPowerDeficit) {
+    private ModulePowerStateResult resolveModulePowerStates(List<StationModule> modules, boolean isPowerDeficit, double solarFactor) {
         List<StationModule> updatedModules = new ArrayList<>();
         double activeGenKw = 0.0;
         double activeDemandKw = 0.0;
@@ -107,7 +114,7 @@ public class MacroStructureProcessor {
             updatedModules.add(updatedMod);
 
             if (stayOnline) {
-                activeGenKw += mod.powerOutputKw();
+                activeGenKw += moduleOutputKw(mod, solarFactor);
                 activeDemandKw += mod.powerDrawKw();
             }
         }
@@ -204,6 +211,11 @@ public class MacroStructureProcessor {
                 updated.orbitalStations(), updated.spaceElevators());
     }
 
+    public static double moduleOutputKw(StationModule module, double solarFactor) {
+        return StationModule.TYPE_SOLAR_ARRAY.equalsIgnoreCase(module.type())
+                ? SolarRadiation.outputKw(module.powerOutputKw(), solarFactor) : module.powerOutputKw();
+    }
+
     public GameState advanceConstructionProjects(GameState state) {
         GameState current = state;
         List<ConstructionDeploymentProject> remaining = new ArrayList<>();
@@ -246,7 +258,7 @@ public class MacroStructureProcessor {
                                 station.systemId(), station.planetOrbitId(), station.ownerEntityId(),
                                 station.ownershipType(), station.totalSlots(), modules,
                                 station.storedCargoKg(), station.currentPowerGenerationKw()
-                                + project.plannedModule().powerOutputKw(),
+                                + moduleOutputKw(project.plannedModule(), SolarRadiation.stationFactor(current.solarSystems(), station)),
                                 station.currentPowerDemandKw() + project.plannedModule().powerDrawKw(),
                                 station.currentShieldHealth(), station.maxShieldHealth(),
                                 station.currentHullHealth(), station.maxHullHealth(),

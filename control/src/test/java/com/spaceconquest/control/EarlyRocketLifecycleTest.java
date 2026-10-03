@@ -4,6 +4,7 @@ import com.spaceconquest.control.command.DesignShipCommand;
 import com.spaceconquest.control.command.MoveFleetCommand;
 import com.spaceconquest.control.command.QueueShipBuildCommand;
 import com.spaceconquest.control.command.RefuelShipCommand;
+import com.spaceconquest.control.command.ResupplyShipPowerCommand;
 import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
@@ -103,6 +104,10 @@ class EarlyRocketLifecycleTest {
         assertEquals(amount * (2 * drive.fuelFraction() + 3 * (1 - drive.fuelFraction())),
                 cash - state.empires().getFirst().treasuryCredits(), 0.001);
         var travel = new MoveFleetCommand(state.fleets().getFirst().id(), "b");
+        assertFalse(travel.validate(state), "A full propulsion tank does not provide generator electricity");
+        var electricalFuel = new ResupplyShipPowerCommand(ship.id(), "yard", "rp1", 3000);
+        assertTrue(electricalFuel.validate(state));
+        state = electricalFuel.apply(state);
         assertTrue(travel.validate(state));
         var preview = travel.preview(state);
         assertNotNull(preview);
@@ -135,11 +140,13 @@ class EarlyRocketLifecycleTest {
         assertFalse(arrived.hasInterstellarOrder());
         assertTrue(arrived.ships().getFirst().currentFuelKg() < departureFuel);
         assertTrue(arrived.ships().getFirst().currentFuelKg() >= 0);
+        assertTrue(arrived.ships().getFirst().generatorFuelMassKg() < 3000);
     }
 
     private GameState advance(GameState state) {
         return state.toBuilder().turn(state.turn() + 1).fleets(new FleetProcessor()
-                .processFleetMovements(state.fleets(), state.orbitalStations(), state.diplomaticRelations())).build();
+                .processFleetMovements(com.spaceconquest.engine.ship.ShipPowerProcessor.advanceDay(state),
+                        state.orbitalStations(), state.diplomaticRelations())).build();
     }
 
     @ParameterizedTest

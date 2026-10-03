@@ -35,6 +35,7 @@ public record StationModule(
     public static final String TYPE_CONTROL = "CONTROL";
     public static final String TYPE_HABITATION = "HABITATION";
     public static final String TYPE_POWER = "POWER";
+    public static final String TYPE_SOLAR_ARRAY = "SOLAR_ARRAY";
     public static final String TYPE_STORAGE = "STORAGE";
     public static final String TYPE_COMMERCE = "COMMERCE";
     public static final String TYPE_LOGISTICS = "LOGISTICS";

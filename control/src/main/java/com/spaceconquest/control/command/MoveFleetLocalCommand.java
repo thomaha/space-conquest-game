@@ -7,6 +7,7 @@ import com.spaceconquest.engine.logistics.TradeRoute;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.FleetLocation;
 import com.spaceconquest.engine.ship.LocalTravel;
+import com.spaceconquest.engine.ship.ShipPowerForecast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +30,9 @@ public record MoveFleetLocalCommand(String fleetId, FleetLocation.Kind targetKin
             return false;
         FleetLocation.Site destination = destination();
         if (fleet.location().isAt(destination)) return false;
-        if (LocalTravel.plan(state, fleet, destination) == null) return false;
+        var plan = LocalTravel.plan(state, fleet, destination);
+        if (plan == null || !ShipPowerForecast.ready(
+                ShipPowerForecast.departure(state, fleet, destination, plan, null))) return false;
         if (fleet.location().current().kind() == FleetLocation.Kind.SURFACE
                 && LocalTravel.surfaceLaunchPlan(state, fleet) == null) return false;
         if (targetKind == FleetLocation.Kind.DEEP_SPACE)

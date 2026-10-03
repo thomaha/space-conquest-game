@@ -43,7 +43,7 @@ public final class ShipBlueprintFactory {
         if (!PropulsionCatalog.researched(specification.moduleIds(), owner.unlockedTechIds()))
             errors.add("The selected propulsion drive has not been researched");
         if (!ShipComponentCatalog.powerResearched(specification.moduleIds(), owner.unlockedTechIds()))
-            errors.add("Nuclear fission is required for the selected reactor");
+            errors.add("The selected electrical source has not been researched");
         if (specification.moduleIds().contains(PassengerStasis.MODULE_ID)
                 && !owner.unlockedTechIds().contains(PassengerStasis.TECHNOLOGY_ID))
             errors.add("Cryogenic stasis has not been researched");
@@ -72,7 +72,8 @@ public final class ShipBlueprintFactory {
                 physics.totalDryMassKg(), physics.maxCargoMassKg(), physics.fuelCapacityKg(), physics.powerBalanceKw(),
                 physics.structuralIntegrity(), environment.surface() ? physics.minLaunchThrustRequiredN() : 0,
                 physics.totalThrustN(), environment.surface() && physics.isLaunchCapable(), false,
-                ShipApplicationProduction.profile(state, owner.id(), modules, physics.totalDryMassKg()));
+                ShipApplicationProduction.profile(state, owner.id(), modules, physics.totalDryMassKg()),
+                ShipPowerProfile.capture(modules));
         return new Evaluation(design, physics, errors);
     }
 

@@ -61,7 +61,7 @@ public final class ShipConstructionProcessor {
             current = step.state();
             fleets = new ArrayList<>(current.fleets());
             if (step.complete()) {
-                commission(fleets, order, orbital);
+                commission(fleets, order, orbital, design.powerProfile() != null);
                 current = current.withFleets(fleets);
                 String sourceBodyId = orbital ? current.orbitalStations().stream()
                         .filter(station -> order.yardBodyId().equals(station.id()))
@@ -96,9 +96,10 @@ public final class ShipConstructionProcessor {
                 .corporations(corporations).build();
     }
 
-    private void commission(List<Fleet> fleets, ShipConstructionOrder order, boolean orbital) {
+    private void commission(List<Fleet> fleets, ShipConstructionOrder order, boolean orbital, boolean electrical) {
         ShipInstance ship = new ShipInstance(shipId(order), order.designId(),
                 order.ownerEntityId(), 1000.0, 500.0, 0.0, java.util.Map.of());
+        if (electrical) ship = ship.withPowerState(ShipPowerState.empty());
         FleetLocation.Site yard = orbital
                 ? FleetLocation.Site.docked(order.yardBodyId())
                 : FleetLocation.Site.surface(order.yardBodyId());

@@ -69,7 +69,7 @@ class ShipOptimizationIntegrationTest {
         var validation = new ShipDesignValidator().validate(ShipRole.CARGO_TRANSPORT,
                 null, modules, null, null, 0.0, 1.0, 1.0, 7);
         assertTrue(validation.isValid(), validation.validationErrors().toString());
-        assertEquals(525.0, validation.powerBalanceKw(), 0.001);
+        assertEquals(523.0, validation.powerBalanceKw(), 0.001);
         var profile = ShipApplicationProduction.profile(selected, "empire", modules, validation.totalDryMassKg());
         assertEquals(1.0 + 3000.0 / validation.totalDryMassKg() * 0.20, profile.costMultiplier(), 0.000001);
         ShipDesign design = new ShipDesign("blueprint", "Reactor freighter", "empire", ShipRole.CARGO_TRANSPORT,

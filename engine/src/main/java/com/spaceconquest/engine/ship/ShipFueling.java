@@ -89,7 +89,7 @@ public final class ShipFueling {
         ships.set(ships.indexOf(ship), new ShipInstance(ship.id(), ship.designId(),
                 ship.ownerEntityId(), ship.currentHullHealth(), ship.currentShieldHealth(),
                 ship.currentFuelKg() + quantityKg, Map.copyOf(cargo),
-                ship.passengerCount(), ship.passengerRaceId(), ship.transitMode()));
+                ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState()));
         fleets.set(fleets.indexOf(fleet), fleet.withShips(ships));
         return paid.withFleets(fleets);
     }

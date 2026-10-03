@@ -132,7 +132,7 @@ public final class PlanetaryInvasionProcessor {
                 : current.withShips(current.ships().stream().map(ship -> !transport.id().equals(ship.id()) ? ship
                 : new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(),
                 ship.currentShieldHealth(), ship.currentFuelKg(), ship.storedCargoKg(), 0, "",
-                ship.transitMode())).toList())).toList();
+                ship.transitMode(), ship.powerState())).toList())).toList();
         List<PassengerManifest> manifests = state.passengerManifests().stream()
                 .filter(item -> !deployment.shipId().equals(item.shipId())).toList();
         return state.toBuilder().fleets(fleets).passengerManifests(manifests).build();

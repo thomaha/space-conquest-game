@@ -26,6 +26,8 @@ public record AddStationModuleCommand(
         boolean researched = state.empires().stream().anyMatch(empire ->
                 empire.controlledSystemIds().contains(station.systemId())
                         && empire.unlockedTechIds().contains("space_stations")
+                        && (!StationModule.TYPE_SOLAR_ARRAY.equalsIgnoreCase(moduleType)
+                        || empire.unlockedTechIds().contains("electricity") && empire.unlockedTechIds().contains("solar_power"))
                         && (empire.id().equals(station.ownerEntityId())
                         || state.corporations().stream().anyMatch(corporation ->
                         corporation.id().equals(station.ownerEntityId())

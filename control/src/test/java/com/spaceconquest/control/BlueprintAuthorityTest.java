@@ -57,7 +57,7 @@ class BlueprintAuthorityTest {
         assertEquals(15_000, actual.fuelCapacityKg());
         assertEquals(600_000, actual.totalThrustN());
         assertTrue(actual.totalDryMassKg() > 15_000);
-        assertEquals(450, actual.powerBalanceKw());
+        assertEquals(448, actual.powerBalanceKw());
         assertEquals(2, actual.manufacturingProfile().requiredComplexity());
         assertEquals(1, actual.manufacturingProfile().costMultiplier());
         assertEquals(0, actual.manufacturingProfile().stasisCapacity());

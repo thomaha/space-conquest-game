@@ -109,6 +109,19 @@ public record TradeRoute(
                 cumulativeOperatingResultCredits - costCredits);
     }
 
+    /** Writes off missing paid freight without a second cash charge or claimed delivery. */
+    public TradeRoute withAvailableCargo(double availableKg) {
+        if (!Double.isFinite(availableKg) || availableKg < 0) throw new IllegalArgumentException("Invalid available cargo");
+        double remaining = Math.min(onboardKg, availableKg);
+        if (remaining == onboardKg) return this;
+        double retainedCost = onboardKg <= 0 ? 0 : onboardCostCredits * remaining / onboardKg;
+        double loss = Math.max(0, onboardCostCredits - retainedCost);
+        return new TradeRoute(id, name, ownerEntityId, originEntityId, destinationEntityId, materialId,
+                transferAmountPerTurnKg, minSourceInventoryThresholdKg, maxDestinationCapacityKg,
+                assignedFreighterIds, totalVolumeMovedKg, isActive, remaining > 0 ? phase : RETURNING,
+                remaining, retainedCost, dailyOperatingResultCredits - loss, cumulativeOperatingResultCredits - loss);
+    }
+
     public TradeRoute resetDailyResult() {
         return new TradeRoute(id, name, ownerEntityId, originEntityId,
                 destinationEntityId, materialId, transferAmountPerTurnKg,

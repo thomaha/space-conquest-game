@@ -2,8 +2,12 @@ package com.spaceconquest.frontend.empire;
 
 import com.spaceconquest.engine.macrostructure.OrbitalStation;
 import com.spaceconquest.engine.macrostructure.SpaceElevator;
+import com.spaceconquest.engine.macrostructure.StationModule;
+import com.spaceconquest.engine.SolarRadiation;
+import com.spaceconquest.control.command.AddStationModuleCommand;
 import javafx.geometry.Insets;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Button;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
@@ -71,6 +75,27 @@ public class StationsTab {
         details.setFill(Color.WHITE);
         
         card.getChildren().addAll(name, details);
+        Text power = new Text(String.format("Power: %.1f/%.1f kW demand/generation",
+                station.currentPowerDemandKw(), station.currentPowerGenerationKw()));
+        power.setFill(Color.LIGHTCYAN);
+        card.getChildren().add(power);
+        var state = parent.getLatestGameState();
+        if (state != null) {
+            Text sunlight = new Text(String.format("Solar illumination: %.3f times Sol at 1 AU",
+                    SolarRadiation.stationFactor(state.solarSystems(), station)));
+            sunlight.setFill(Color.LIGHTCYAN);
+            card.getChildren().add(sunlight);
+            var command = new AddStationModuleCommand(station.id(), "Solar array (500 kW at Sol, 1 AU)",
+                    StationModule.TYPE_SOLAR_ARRAY, 4, 2500, 0, 500, "technician", 0);
+            if (parent.getHumanController() != null && command.validate(state)) {
+                Button build = new Button("Build solar array (4 slots, 500 kW at Sol, 1 AU)");
+                build.setOnAction(event -> {
+                    parent.getHumanController().stageCommand(command);
+                    build.setDisable(true);
+                });
+                card.getChildren().add(build);
+            }
+        }
         return card;
     }
 

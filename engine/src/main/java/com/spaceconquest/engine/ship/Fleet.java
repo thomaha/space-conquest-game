@@ -25,6 +25,7 @@ import java.util.Map;
  * @param interstellarElapsedDays time spent in the interstellar crossing
  * @param interstellarPeakSpeedMps fuel-limited peak speed for the current itinerary
  * @param interstellarFuelBudgetKg planned fuel consumption by ship ID
+ * @param flightMotion actual sublight drift or replacement trajectory after a power interruption
  */
 public record Fleet(
         String id,
@@ -45,10 +46,13 @@ public record Fleet(
         double interstellarAccelerationMps2,
         double interstellarElapsedDays,
         double interstellarPeakSpeedMps,
-        Map<String, Double> interstellarFuelBudgetKg
+        Map<String, Double> interstellarFuelBudgetKg,
+        FlightMotion flightMotion
 ) {
     public static final String MODE_WARP = "WARP";
     public static final String MODE_SUBLIGHT = "SUBLIGHT";
+    public static final String MODE_POWER_INTERRUPTED = "POWER_INTERRUPTED";
+    public static final String MODE_RECOVERY = "RECOVERY";
 
     public Fleet {
         ships = ships == null ? List.of() : List.copyOf(ships);
@@ -56,12 +60,28 @@ public record Fleet(
         if (interstellarMode == null) interstellarMode = "";
         if (interstellarFuelBudgetKg == null) interstellarFuelBudgetKg = Map.of();
         else interstellarFuelBudgetKg = Map.copyOf(interstellarFuelBudgetKg);
+        if (MODE_RECOVERY.equals(interstellarMode)
+                && (flightMotion == null || flightMotion.trajectory() == null))
+            throw new IllegalArgumentException("Recovery requires a physical trajectory");
         if (!Double.isFinite(interstellarTravelDays) || interstellarTravelDays < 0.0
                 || !Double.isFinite(interstellarDistanceMeters) || interstellarDistanceMeters < 0.0
                 || !Double.isFinite(interstellarAccelerationMps2) || interstellarAccelerationMps2 < 0.0
                 || !Double.isFinite(interstellarElapsedDays) || interstellarElapsedDays < 0.0
                 || !Double.isFinite(interstellarPeakSpeedMps) || interstellarPeakSpeedMps < 0.0)
             throw new IllegalArgumentException("Invalid interstellar travel profile");
+    }
+
+    public Fleet(String id, String name, String ownerEntityId, String currentSystemId,
+                 String targetSystemId, double coordinateX, double coordinateY,
+                 double transitProgress, boolean isInWarp, String fleetStance,
+                 List<ShipInstance> ships, FleetLocation location, String interstellarMode,
+                 double interstellarTravelDays, double interstellarDistanceMeters,
+                 double interstellarAccelerationMps2, double interstellarElapsedDays,
+                 double interstellarPeakSpeedMps, Map<String, Double> interstellarFuelBudgetKg) {
+        this(id, name, ownerEntityId, currentSystemId, targetSystemId, coordinateX, coordinateY,
+                transitProgress, isInWarp, fleetStance, ships, location, interstellarMode,
+                interstellarTravelDays, interstellarDistanceMeters, interstellarAccelerationMps2,
+                interstellarElapsedDays, interstellarPeakSpeedMps, interstellarFuelBudgetKg, null);
     }
 
     public Fleet(String id, String name, String ownerEntityId, String currentSystemId,
@@ -111,7 +131,7 @@ public record Fleet(
                 coordinateX, coordinateY, transitProgress, isInWarp, fleetStance, ships, value,
                 interstellarMode, interstellarTravelDays, interstellarDistanceMeters,
                 interstellarAccelerationMps2, interstellarElapsedDays,
-                interstellarPeakSpeedMps, interstellarFuelBudgetKg);
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion);
     }
 
     public Fleet withShips(List<ShipInstance> value) {
@@ -119,7 +139,16 @@ public record Fleet(
                 coordinateX, coordinateY, transitProgress, isInWarp, fleetStance, value, location,
                 interstellarMode, interstellarTravelDays, interstellarDistanceMeters,
                 interstellarAccelerationMps2, interstellarElapsedDays,
-                interstellarPeakSpeedMps, interstellarFuelBudgetKg);
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion);
+    }
+
+    /** Retains last known progress and consumed reserves while invalidating the controlled arrival plan. */
+    public Fleet withInterruptedTravel() {
+        return new Fleet(id, name, ownerEntityId, currentSystemId, targetSystemId,
+                coordinateX, coordinateY, transitProgress, false, fleetStance, ships, location,
+                MODE_POWER_INTERRUPTED, interstellarTravelDays, interstellarDistanceMeters,
+                interstellarAccelerationMps2, interstellarElapsedDays,
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion);
     }
 
     public boolean isInterstellarTransit() {

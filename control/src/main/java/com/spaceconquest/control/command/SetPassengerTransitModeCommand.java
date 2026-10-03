@@ -27,7 +27,7 @@ public record SetPassengerTransitModeCommand(
         if (!validMode) return false;
 
         return state.fleets().stream()
-                .filter(f -> f.id().equals(fleetId))
+                .filter(f -> f.id().equals(fleetId) && !f.hasInterstellarOrder() && !f.location().inTransit())
                 .flatMap(f -> f.ships().stream())
                 .anyMatch(s -> s.id().equals(shipId)
                         && (!ShipInstance.MODE_CRYOGENIC_STASIS.equalsIgnoreCase(transitMode)
@@ -50,7 +50,7 @@ public record SetPassengerTransitModeCommand(
                         updatedShips.add(new ShipInstance(
                                 ship.id(), ship.designId(), ship.ownerEntityId(),
                                 ship.currentHullHealth(), ship.currentShieldHealth(), ship.currentFuelKg(),
-                                ship.storedCargoKg(), ship.passengerCount(), ship.passengerRaceId(), transitMode.toUpperCase()
+                                ship.storedCargoKg(), ship.passengerCount(), ship.passengerRaceId(), transitMode.toUpperCase(), ship.powerState()
                         ));
                     } else {
                         updatedShips.add(ship);

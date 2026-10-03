@@ -12,6 +12,9 @@ import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.MarketOrder;
 import com.spaceconquest.engine.SaveGameManager;
 import com.spaceconquest.engine.SpaceConquestEngine;
+import com.spaceconquest.engine.Planet;
+import com.spaceconquest.engine.SolarSystem;
+import com.spaceconquest.engine.SolarRadiation;
 import com.spaceconquest.engine.economy.MarketAccount;
 import com.spaceconquest.engine.industry.IndustrialFacility;
 import com.spaceconquest.engine.industry.IndustryMarketProcessor;
@@ -137,6 +140,9 @@ class ApplicationOptimizationIntegrationTest {
                 0.0, List.of("sol"), List.of(), Map.of(),
                 List.of("electricity", "industrial_production", "solar_power", "water_electrolysis"), List.of());
         return GameState.builder().empires(List.of(empire))
+                .solarSystems(List.of(new SolarSystem("sol", "Sol", "", 0, 0, 0, SolarRadiation.SOLAR_MASS_KG,
+                        1392700, "yellow", List.of(new Planet("earth", "Earth", "", 1, 9.81, SolarRadiation.AU_KM,
+                        0, 12742, "terrestrial", "none", false, 0, List.of(), List.of(), List.of())), List.of())))
                 .industrialFacilities(List.of(new IndustrialFacility("solar", "earth", "solar_power", "empire",
                         IndustrialFacility.PUBLIC_STATE, 1, 100, "technician", false, 0.0))).build();
     }

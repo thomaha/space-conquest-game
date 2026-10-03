@@ -38,12 +38,19 @@ public class FleetProcessor {
             List<DiplomaticRelation> relations
     ) {
         if (fleet == null) return null;
+        if (Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode())
+                || Fleet.MODE_RECOVERY.equals(fleet.interstellarMode())) return fleet;
+        // A failed controlled itinerary remains in space; it cannot claim braking or arrival.
+        if ((fleet.hasInterstellarOrder() || fleet.location().inTransit())
+                && fleet.ships().stream().anyMatch(ship -> ship.powerState() != null
+                && (ship.powerState().unmetDriveKwh() > .000001
+                || ship.powerState().lastUnmetEssentialKwh() > .000001))) return fleet.withInterruptedTravel();
 
         boolean inWarp = fleet.isInWarp();
         double progress = fleet.transitProgress();
         double elapsedDays = fleet.interstellarElapsedDays();
         String currentSys = fleet.currentSystemId();
-        String targetSys = fleet.targetSystemId();
+        String targetSys = fleet.targetSystemId() == null ? "" : fleet.targetSystemId();
         double posX = fleet.coordinateX();
         double posY = fleet.coordinateY();
         FleetLocation location = fleet.location();
@@ -137,7 +144,7 @@ public class FleetProcessor {
                     ship.currentHullHealth(), ship.currentShieldHealth(),
                     Math.max(0.0, ship.currentFuelKg() - budget * deltaFraction),
                     ship.storedCargoKg(), ship.passengerCount(),
-                    ship.passengerRaceId(), ship.transitMode());
+                    ship.passengerRaceId(), ship.transitMode(), ship.powerState());
         }).toList();
     }
 
@@ -163,7 +170,7 @@ public class FleetProcessor {
                     Math.clamp(ship.currentHullHealth() + 5.0, 0.0, 100.0),
                     Math.clamp(ship.currentShieldHealth() + 10.0, 0.0, 100.0),
                     ship.currentFuelKg(), ship.storedCargoKg(), ship.passengerCount(),
-                    ship.passengerRaceId(), ship.transitMode())).toList();
+                    ship.passengerRaceId(), ship.transitMode(), ship.powerState())).toList();
         }
         return fleet.ships();
     }

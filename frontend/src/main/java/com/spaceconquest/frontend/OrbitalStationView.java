@@ -3,6 +3,7 @@ package com.spaceconquest.frontend;
 import com.spaceconquest.engine.macrostructure.OrbitalStation;
 import com.spaceconquest.engine.macrostructure.SpaceElevator;
 import com.spaceconquest.engine.macrostructure.StationModule;
+import com.spaceconquest.engine.SolarRadiation;
 import com.spaceconquest.control.HumanController;
 import com.spaceconquest.control.command.AddStationModuleCommand;
 import com.spaceconquest.engine.GameState;
@@ -162,6 +163,12 @@ public class OrbitalStationView {
                 stats.setFont(Font.font("Verdana", 11));
 
                 sBox.getChildren().addAll(sTitle, stats);
+                if (gameState != null && station.modules().stream().anyMatch(module -> StationModule.TYPE_SOLAR_ARRAY.equalsIgnoreCase(module.type()))) {
+                    Text sunlight = new Text(String.format("Solar illumination: %.3f times Sol at 1 AU",
+                            SolarRadiation.stationFactor(gameState.solarSystems(), station)));
+                    sunlight.setFill(Color.LIGHTCYAN);
+                    sBox.getChildren().add(sunlight);
+                }
 
                 for (StationModule mod : station.modules()) {
                     Text mText = new Text(String.format("  • [%s] %s (%d slots) | Power: -%.1f kW / +%.1f kW | %s (%d workers) | %s",
@@ -178,6 +185,8 @@ public class OrbitalStationView {
                 if (habitationButton != null) sBox.getChildren().add(habitationButton);
                 Button commerceButton = commerceModuleButton(station);
                 if (commerceButton != null) sBox.getChildren().add(commerceButton);
+                Button solarButton = solarModuleButton(station);
+                if (solarButton != null) sBox.getChildren().add(solarButton);
 
                 section.getChildren().add(sBox);
             }
@@ -211,6 +220,23 @@ public class OrbitalStationView {
                 controller.stageCommand(new AddStationModuleCommand(station.id(),
                         "Orbital commerce hub", StationModule.TYPE_COMMERCE,
                         8, 14_000.0, 20.0, 0.0, "bureaucrat", 3));
+                button.setDisable(true);
+            }
+        });
+        return button;
+    }
+
+    private Button solarModuleButton(OrbitalStation station) {
+        if (gameState == null || menubar == null || playerEmpireId == null
+                || !playerEmpireId.equals(station.ownerEntityId())) return null;
+        var command = new AddStationModuleCommand(station.id(), "Solar array (500 kW at Sol, 1 AU)",
+                StationModule.TYPE_SOLAR_ARRAY, 4, 2500, 0, 500, "technician", 0);
+        if (!command.validate(gameState)) return null;
+        Button button = new Button("Build solar array (4 slots, 500 kW at Sol, 1 AU)");
+        button.setOnAction(event -> {
+            HumanController controller = menubar.getHumanController();
+            if (controller != null) {
+                controller.stageCommand(command);
                 button.setDisable(true);
             }
         });

@@ -4,7 +4,6 @@ import com.spaceconquest.control.command.MoveFleetCommand;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.InterstellarTravel;
-import com.spaceconquest.engine.ship.ShipComponentCatalog;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
@@ -19,9 +18,9 @@ final class FleetDeparturePreviewCard {
     static void refresh(VBox box, Button move, GameState state, Fleet fleet, String target) {
         box.getChildren().clear();
         var preview = new MoveFleetCommand(fleet.id(), target).preview(state);
-        move.setDisable(preview == null);
+        move.setDisable(preview == null || !preview.ready());
         if (preview == null) {
-            box.getChildren().add(line("Departure unavailable. Check orders, propellant, launch service and passenger supplies."));
+            box.getChildren().add(line("Departure unavailable. Check orders, propulsion electricity, propellant, launch service and passenger supplies."));
             return;
         }
         var crossing = preview.crossing();
@@ -40,10 +39,14 @@ final class FleetDeparturePreviewCard {
         reactorFuel(box, "Crossing drive fuel", crossing.reactorFuelBudgetKg());
         if (preview.launchCostCredits() > 0)
             box.getChildren().add(line(String.format("Surface launch charge: %,.2f credits", preview.launchCostCredits())));
-        if (state.shipDesigns().stream().anyMatch(design -> design.equippedModuleIds()
-                .contains(ShipComponentCatalog.CHEMICAL_GENERATOR_ID) && fleet.ships().stream()
-                .anyMatch(ship -> ship.designId().equals(design.id()))))
-            box.getChildren().add(line("Chemical generator fuel use and electrical endurance are not modeled."));
+        for (var power : preview.electrical()) {
+            box.getChildren().add(line(power.modeled()
+                    ? String.format("Electrical supply for %s: %s | Journey %,.0f kWh | Arrival reserve %,.0f kWh | Fuel %,.3f kg",
+                    power.shipId(), power.ready() ? "Ready" : "Insufficient", power.journeyKwh(),
+                    power.arrivalReserveKwh(), power.generatorFuelUsedKg())
+                    : power.explanation()));
+            if (!power.ready()) box.getChildren().add(line(power.explanation()));
+        }
     }
 
     private static double total(Map<String, Double> quantities) {

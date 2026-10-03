@@ -51,8 +51,13 @@ public record FleetLocation(Site current, Site destination, double progress, dou
     }
 
     public FleetLocation advanceDay() {
+        return advanceDays(1);
+    }
+
+    public FleetLocation advanceDays(double days) {
+        if (!Double.isFinite(days) || days < 0) throw new IllegalArgumentException("Invalid local elapsed time");
         if (!inTransit()) return this;
-        double next = progress + 1.0 / travelDays;
+        double next = progress + days / travelDays;
         return next + 0.000001 >= 1.0 ? at(destination)
                 : new FleetLocation(current, destination, next, travelDays);
     }

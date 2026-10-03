@@ -11,11 +11,24 @@ import java.util.Set;
 public final class ShipComponentCatalog {
     public static final String CHEMICAL_GENERATOR_ID = "mod_chemical_generator";
     public static final String FISSION_REACTOR_ID = "mod_fission_reactor";
-    public static final List<String> POWER_MODULE_IDS = List.of(CHEMICAL_GENERATOR_ID, FISSION_REACTOR_ID);
+    public static final String SOLAR_ARRAY_ID = "mod_solar_array";
+    public static final String BATTERY_ID = "mod_ship_battery";
+    public static final String GENERATOR_TANK_ID = "mod_generator_tank";
+    public static final String REACTOR_TANK_ID = "mod_reactor_tank";
+    public static final List<String> POWER_MODULE_IDS = List.of(SOLAR_ARRAY_ID, CHEMICAL_GENERATOR_ID, FISSION_REACTOR_ID);
     public static final Set<String> ROLES = Set.of(ShipRole.FIGHTER, ShipRole.EXPLORER, ShipRole.TROOP_TRANSPORT,
             ShipRole.CARGO_TRANSPORT, ShipRole.COLONY_SHIP, ShipRole.MINING_SHIP, ShipRole.ESCORT,
             ShipRole.COMBAT_SHIP, ShipRole.CARRIER_SHIP, ShipRole.CONSTRUCTION_SHIP);
     private static final Map<String, ShipModule> MODULES = Map.of(
+            SOLAR_ARRAY_ID, new ShipModule(SOLAR_ARRAY_ID, "Deployable solar arrays (120 kW at 1 AU)",
+                    "MEDIUM", 4, 2500, 0, 120, 0, 2, Map.of(), Map.of()),
+            BATTERY_ID, new ShipModule(BATTERY_ID, "Ship battery (500 kWh)",
+                    "MEDIUM", 2, 2500, 0, 0, 0, 2, Map.of(),
+                    Map.of("batteryKwh", 500.0, "chargeKw", 100.0, "dischargeKw", 200.0)),
+            GENERATOR_TANK_ID, new ShipModule(GENERATOR_TANK_ID, "Generator reserves (15,000 kg)",
+                    "MEDIUM", 2, 2000, 0, 0, 0, 2, Map.of(), Map.of("generatorTankKg", 15000.0)),
+            REACTOR_TANK_ID, new ShipModule(REACTOR_TANK_ID, "Electrical reactor fuel compartment (100 kg)",
+                    "SMALL", 1, 500, 0, 0, 0, 2, Map.of(), Map.of("reactorTankKg", 100.0)),
             CHEMICAL_GENERATOR_ID, new ShipModule(CHEMICAL_GENERATOR_ID, "Chemical auxiliary generator",
                     "MEDIUM", 4, 4500, 0, 500, 0, 2, Map.of(), Map.of()),
             "mod_fission_reactor", new ShipModule("mod_fission_reactor", "Fission reactor tier 2",
@@ -47,12 +60,16 @@ public final class ShipComponentCatalog {
 
     public static List<String> workbenchModules(String driveId, boolean stasis, String powerModuleId) {
         List<String> ids = new ArrayList<>(List.of(powerModuleId, driveId, "mod_cargo_vault",
-                PropulsionCatalog.FUEL_TANK_MODULE_ID));
+                PropulsionCatalog.FUEL_TANK_MODULE_ID, BATTERY_ID));
+        if (CHEMICAL_GENERATOR_ID.equals(powerModuleId)) ids.add(GENERATOR_TANK_ID);
+        if (FISSION_REACTOR_ID.equals(powerModuleId)) ids.add(REACTOR_TANK_ID);
         if (stasis) ids.add(PassengerStasis.MODULE_ID);
         return List.copyOf(ids);
     }
 
     public static boolean powerResearched(List<String> modules, List<String> technologies) {
-        return !modules.contains(FISSION_REACTOR_ID) || technologies.contains("nuclear_fission");
+        return (!modules.contains(FISSION_REACTOR_ID) || technologies.contains("nuclear_fission"))
+                && (!modules.contains(SOLAR_ARRAY_ID)
+                || technologies.contains("electricity") && technologies.contains("solar_power"));
     }
 }
