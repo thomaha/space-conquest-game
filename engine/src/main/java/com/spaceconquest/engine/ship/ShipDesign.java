@@ -22,6 +22,7 @@ import java.util.List;
  * @param totalThrustN                     aggregate propulsion thrust in Newtons
  * @param isValidForLaunch                 true if design satisfies launch thrust-to-mass barrier
  * @param isProprietaryCorporateDesign     true if created by private corporate AI
+ * @param manufacturingProfile            captured optimization cost multiplier and manufacturing complexity
  */
 public record ShipDesign(
         String id,
@@ -40,13 +41,28 @@ public record ShipDesign(
         double minLaunchThrustRequiredN,
         double totalThrustN,
         boolean isValidForLaunch,
-        boolean isProprietaryCorporateDesign
+        boolean isProprietaryCorporateDesign,
+        ShipManufacturingProfile manufacturingProfile
 ) {
     public ShipDesign {
+        manufacturingProfile = manufacturingProfile == null ? ShipManufacturingProfile.baseline() : manufacturingProfile;
         if (equippedModuleIds == null) equippedModuleIds = List.of();
         equippedModuleIds = List.copyOf(equippedModuleIds);
         if (!Double.isFinite(fuelCapacityKg) || fuelCapacityKg < 0.0)
             throw new IllegalArgumentException("Invalid fuel capacity");
+    }
+
+    public ShipDesign(String id, String name, String ownerEntityId, String role,
+                      String hullMaterialId, List<String> equippedModuleIds,
+                      String armorMaterialId, double armorThicknessCm,
+                      double totalDryMassKg, double maxCargoMassKg, double fuelCapacityKg,
+                      double powerBalanceKw, double calculatedStructuralIntegrity,
+                      double minLaunchThrustRequiredN, double totalThrustN,
+                      boolean isValidForLaunch, boolean isProprietaryCorporateDesign) {
+        this(id, name, ownerEntityId, role, hullMaterialId, equippedModuleIds, armorMaterialId,
+                armorThicknessCm, totalDryMassKg, maxCargoMassKg, fuelCapacityKg, powerBalanceKw,
+                calculatedStructuralIntegrity, minLaunchThrustRequiredN, totalThrustN,
+                isValidForLaunch, isProprietaryCorporateDesign, ShipManufacturingProfile.baseline());
     }
 
     public ShipDesign(String id, String name, String ownerEntityId, String role,

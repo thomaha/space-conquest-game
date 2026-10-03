@@ -14,6 +14,7 @@ All assignments made must be backed by actual data in the game world. Example: y
 - `CameraController`: Zoom, focus and goto navigation on the galaxy map.
 - `SolarSystemRenderer` / `GalaxyRegistry`: Renders solar systems and keeps track of rendered entities.
 - `TechnologyView`, `GalaxyListView`, `GameMenuView`: The base page overlays opened from the menubar.
+- The technology page displays pending application outcomes and resolved refinement cycles. It stages refinement research, path choices and prototype acceptance or discard through commands. Industry cards show required and available manufacturing complexity and identify paused production. Ship designer previews show captured stasis capacity alongside manufacturing quotes.
 - `EmpireView`: Modular tabbed management hub featuring Imperial economy, Imperial cabinet governance, a planetary body explorer with overview, people and industries pages, sovereign orbital stations and shipyards, private corporation registry and imperial megastructures.
 - `PlanetaryBodyEntry`: Adapter model encapsulating planetary and moon characteristics, colonization status, habitability and sorting attributes.
 - `CorporateView`: UI panel displaying registered private corporations, liquid capital, shortcomings and fleets.

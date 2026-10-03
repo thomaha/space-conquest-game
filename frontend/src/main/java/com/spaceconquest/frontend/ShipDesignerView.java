@@ -13,6 +13,8 @@ import com.spaceconquest.engine.ship.ShipConstructionRequirements;
 import com.spaceconquest.engine.ship.ShipHullFrame;
 import com.spaceconquest.engine.ship.ShipModule;
 import com.spaceconquest.engine.ship.PropulsionCatalog;
+import com.spaceconquest.engine.ship.ShipApplicationProduction;
+import com.spaceconquest.engine.ship.ShipManufacturingCapacity;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -221,7 +223,7 @@ public class ShipDesignerView {
         boolean stasisResearched = snapshot != null && snapshot.empires().stream()
                 .anyMatch(empire -> empire.id().equals(playerEmpireId)
                         && empire.unlockedTechIds().contains(PassengerStasis.TECHNOLOGY_ID));
-        CheckBox stasisPod = new CheckBox("Cryogenic stasis pod (100 passengers)");
+        CheckBox stasisPod = new CheckBox("Cryogenic stasis pod");
         stasisPod.setDisable(!stasisResearched);
         stasisPod.setTextFill(Color.LIGHTCYAN);
         if (!stasisResearched) stasisPod.setText("Cryogenic stasis pod (research required)");
@@ -354,14 +356,17 @@ public class ShipDesignerView {
                 "Cryogenic stasis pod", "MEDIUM", 2, 1200, 80, 0, 0, 7,
                 Map.of("refined_aluminum", 100.0, "refined_copper", 50.0),
                 Map.of("stasisCapacity", (double) PassengerStasis.PASSENGERS_PER_POD)));
+        modules.replaceAll(module -> ShipApplicationProduction.optimize(snapshot, playerEmpireId, module));
         ShipDesignValidator.ValidationResult result = validator.validate(role, frame,
                 modules,
                 hullMaterial, armorMaterial, armorThickness, 1.0, 1.0,
-                Math.max(5, drive.complexityLevel()));
+                ShipManufacturingCapacity.forOwner(snapshot, playerEmpireId));
         statsBox.getChildren().setAll(createWorkbenchStatsBox(result).getChildren());
+        var manufacturing = ShipApplicationProduction.profile(snapshot, playerEmpireId, modules, result.totalDryMassKg());
         ShipConstructionRequirements.Estimate estimate = ShipConstructionRequirements.estimate(
                 result.totalDryMassKg(), hullMaterialId, armorMaterialId,
-                modules.stream().map(ShipModule::id).toList());
+                modules.stream().map(ShipModule::id).toList(),
+                manufacturing);
         long minimumTurns = (long) Math.ceil(estimate.workUnits() / 100.0);
         List<javafx.scene.Node> estimateLines = new ArrayList<>();
         Text estimateHeader = new Text("Estimated production requirements");
@@ -372,6 +377,11 @@ public class ShipDesignerView {
                 estimate.workUnits(), minimumTurns));
         work.setFill(Color.LIGHTCYAN);
         estimateLines.add(work);
+        if (manufacturing.stasisCapacity() != null && manufacturing.stasisCapacity() > 0) {
+            Text stasis = new Text("Stasis capacity: " + manufacturing.stasisCapacity() + " passengers");
+            stasis.setFill(Color.LIGHTCYAN);
+            estimateLines.add(stasis);
+        }
         estimate.materialsKg().entrySet().stream().sorted(Map.Entry.comparingByKey())
                 .forEach(entry -> {
                     Text material = new Text(String.format("%s: %.0f kg",
@@ -412,14 +422,14 @@ public class ShipDesignerView {
                     "Cryogenic stasis pod", "MEDIUM", 2, 1200, 80, 0, 0, 7,
                     Map.of("refined_aluminum", 100.0, "refined_copper", 50.0),
                     Map.of("stasisCapacity", (double) PassengerStasis.PASSENGERS_PER_POD)));
+            modules.replaceAll(module -> ShipApplicationProduction.optimize(snapshot, playerEmpireId, module));
             ShipHullFrame frame = new ShipHullFrame("frame_medium", "Medium hull starframe",
                     30, matCombo.getValue(), 15000, 60);
             Material material = new Material(matCombo.getValue(), matCombo.getValue(),
                     "Structural material", true, Map.of(), 7800, 60, 1);
             ShipDesignValidator.ValidationResult valRes = validator.validate(roleCombo.getValue(),
                     frame, modules, material, material, armorSpinner.getValue(), 1, 1,
-                    Math.max(stasisPod.isSelected() ? 7 : 5,
-                            engineCombo.getValue().complexityLevel()));
+                    ShipManufacturingCapacity.forOwner(snapshot, playerEmpireId));
             if (!valRes.isValid()) {
                 feedbackLabel.setText("Blueprint invalid: " + String.join(", ", valRes.validationErrors()));
                 feedbackLabel.setTextFill(Color.SALMON);
@@ -434,7 +444,8 @@ public class ShipDesignerView {
                     valRes.totalDryMassKg(), valRes.maxCargoMassKg(), valRes.fuelCapacityKg(),
                     valRes.powerBalanceKw(),
                     valRes.structuralIntegrity(), valRes.minLaunchThrustRequiredN(),
-                    valRes.totalThrustN(), valRes.isLaunchCapable(), false
+                    valRes.totalThrustN(), valRes.isLaunchCapable(), false,
+                    ShipApplicationProduction.profile(snapshot, playerEmpireId, modules, valRes.totalDryMassKg())
             );
 
             if (humanController != null) {

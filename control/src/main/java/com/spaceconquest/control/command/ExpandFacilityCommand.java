@@ -1,6 +1,7 @@
 package com.spaceconquest.control.command;
 
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.technology.ApplicationProduction;
 import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.IndustrialFacility;
@@ -69,9 +70,10 @@ public record ExpandFacilityCommand(
                 facilityId,
                 targetTier,
                 0.0,
-                requiredWorkHours > 0.0 ? requiredWorkHours : 200.0,
+                ApplicationProduction.constructionWorkHours(state, original.ownerEntityId(), original.applicationId(),
+                        requiredWorkHours > 0.0 ? requiredWorkHours : 200.0),
                 costCredits,
-                ConstructionMaterialCatalog.facility(original.applicationId(),
+                ConstructionMaterialCatalog.facility(state, original.ownerEntityId(), original.applicationId(),
                         targetTier - original.tier()),
                 Map.of()
         );

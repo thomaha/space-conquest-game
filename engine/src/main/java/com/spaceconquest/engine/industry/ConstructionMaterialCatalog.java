@@ -1,6 +1,8 @@
 package com.spaceconquest.engine.industry;
 
 import com.spaceconquest.engine.ship.ShipDesign;
+import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.technology.ApplicationProduction;
 import com.spaceconquest.engine.habitation.PassengerStasis;
 
 import java.util.LinkedHashMap;
@@ -9,6 +11,13 @@ import java.util.Map;
 /** Material bills for the construction paths currently represented by game-state assets. */
 public final class ConstructionMaterialCatalog {
     private ConstructionMaterialCatalog() {}
+
+    public static Map<String, Double> facility(GameState state, String ownerId, String applicationId, int tier) {
+        double multiplier = ApplicationProduction.modifiersForOwner(state, ownerId, applicationId).costMultiplier();
+        Map<String, Double> bill = new LinkedHashMap<>();
+        facility(applicationId, tier).forEach((material, kg) -> bill.put(material, kg * multiplier));
+        return Map.copyOf(bill);
+    }
 
     public static Map<String, Double> facility(String applicationId, int tier) {
         double scale = Math.max(1, tier);

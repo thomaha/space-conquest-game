@@ -788,6 +788,16 @@
         "costToBuildPerUnit": 1200.0,
         "requiredMaterials": ["steel", "refined_titanium", "silicon"],
         "complexity": 6
+      },
+      {
+        "id": "pressurized_cargo_holds",
+        "name": "Pressurized cargo holds",
+        "description": "Modular pressurized holds with standardized packing and containment systems for freighters.",
+        "requiredTechnologies": [],
+        "affectedFactors": ["cargo_capacity"],
+        "costToBuildPerUnit": 300.0,
+        "requiredMaterials": ["steel", "refined_aluminum"],
+        "complexity": 2
       }
     ]
   },

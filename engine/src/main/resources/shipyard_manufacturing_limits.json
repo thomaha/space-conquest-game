@@ -1,0 +1,5 @@
+[
+  {"yardType": "surface_shipyard", "baseComplexity": 5, "complexityPerTier": 1},
+  {"yardType": "SHIPYARD_GRID", "baseComplexity": 7, "complexityPerTier": 0},
+  {"yardType": "CAPITAL_SLIPWAY", "baseComplexity": 10, "complexityPerTier": 0}
+]

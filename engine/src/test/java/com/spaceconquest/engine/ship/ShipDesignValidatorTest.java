@@ -101,8 +101,8 @@ public class ShipDesignValidatorTest {
     }
 
     @Test
-    public void testNanotechnologyComplexityCapFailure() {
-        // Module complexity level 6 when imperial tech tier is only 2
+    public void testManufacturingComplexityCapFailure() {
+        // Module complexity level 6 when available manufacturing complexity is only 2
         ShipModule advancedShield = new ShipModule("mod_antimatter_shield", "Antimatter Barrier", "SMALL", 2, 1500.0, 50.0, 0.0, 0.0, 6, Map.of(), Map.of());
         ShipModule reactor = new ShipModule("mod_reactor", "Standard Reactor", "SMALL", 2, 1000.0, 0.0, 200.0, 0.0, 2, Map.of(), Map.of());
 
@@ -111,8 +111,8 @@ public class ShipDesignValidatorTest {
                 steel, steel, 1.0, 1.0, 1.0, 2
         );
 
-        assertFalse(result.isValid(), "Design should fail nanotech complexity cap");
-        assertTrue(result.validationErrors().stream().anyMatch(e -> e.contains("nanotechnology tier")));
+        assertFalse(result.isValid(), "Design should fail manufacturing complexity cap");
+        assertTrue(result.validationErrors().stream().anyMatch(e -> e.contains("manufacturing complexity")));
     }
 
     @Test

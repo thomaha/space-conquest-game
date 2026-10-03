@@ -30,6 +30,7 @@ import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.ShipConstructionOrder;
 import com.spaceconquest.engine.technology.ResearchProject;
+import com.spaceconquest.engine.technology.ApplicationOptimization;
 import com.spaceconquest.engine.technology.TechnologyExchangeRoute;
 import com.spaceconquest.engine.terraforming.AtmosphericComposition;
 import com.spaceconquest.engine.terraforming.GeoengineeringProject;
@@ -87,7 +88,8 @@ public record GameState(
         List<LaunchServiceActivity> launchActivities,
         List<WarDeclarationRecord> warDeclarations,
         List<DiplomaticProposal> diplomaticProposals,
-        List<FleetEngagementRecord> fleetEngagements
+        List<FleetEngagementRecord> fleetEngagements,
+        List<ApplicationOptimization> applicationOptimizations
 ) {
     public GameState {
         solarSystems = immutableList(solarSystems);
@@ -130,6 +132,7 @@ public record GameState(
         warDeclarations = immutableList(warDeclarations);
         diplomaticProposals = immutableList(diplomaticProposals);
         fleetEngagements = immutableList(fleetEngagements);
+        applicationOptimizations = immutableList(applicationOptimizations);
     }
 
     private static <T> List<T> immutableList(List<T> values) {
@@ -157,7 +160,8 @@ public record GameState(
                 builder.systemEconomies, builder.courierShips, builder.planetaryBalanceSheets, builder.imperialBalanceSheets,
                 builder.householdAccounts, builder.marketAccounts, builder.industryAccounts,
                 builder.corporateTaxAccounts, builder.launchUsageKg, builder.launchActivities,
-                builder.warDeclarations, builder.diplomaticProposals, builder.fleetEngagements
+                builder.warDeclarations, builder.diplomaticProposals, builder.fleetEngagements,
+                builder.applicationOptimizations
         );
     }
 
@@ -213,6 +217,7 @@ public record GameState(
         private List<WarDeclarationRecord> warDeclarations;
         private List<DiplomaticProposal> diplomaticProposals;
         private List<FleetEngagementRecord> fleetEngagements;
+        private List<ApplicationOptimization> applicationOptimizations;
 
         public Builder() {}
 
@@ -260,6 +265,7 @@ public record GameState(
             this.warDeclarations = state.warDeclarations();
             this.diplomaticProposals = state.diplomaticProposals();
             this.fleetEngagements = state.fleetEngagements();
+            this.applicationOptimizations = state.applicationOptimizations();
         }
 
         public Builder turn(long value) { this.turn = value; return this; }
@@ -305,6 +311,7 @@ public record GameState(
         public Builder warDeclarations(List<WarDeclarationRecord> value) { this.warDeclarations = value; return this; }
         public Builder diplomaticProposals(List<DiplomaticProposal> value) { this.diplomaticProposals = value; return this; }
         public Builder fleetEngagements(List<FleetEngagementRecord> value) { this.fleetEngagements = value; return this; }
+        public Builder applicationOptimizations(List<ApplicationOptimization> value) { this.applicationOptimizations = value; return this; }
 
         public GameState build() {
             return new GameState(this);
@@ -365,6 +372,10 @@ public record GameState(
 
     public GameState withFleets(List<Fleet> value) {
         return toBuilder().fleets(value).build();
+    }
+
+    public GameState withApplicationOptimizations(List<ApplicationOptimization> value) {
+        return toBuilder().applicationOptimizations(value).build();
     }
 
     public GameState withGeologicalDeposits(List<GeologicalDeposit> value) {

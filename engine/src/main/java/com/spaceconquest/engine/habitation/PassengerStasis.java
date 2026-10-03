@@ -21,12 +21,18 @@ public final class PassengerStasis {
         if (state == null || ship == null) return false;
         ShipDesign design = state.shipDesigns().stream()
                 .filter(item -> ship.designId().equals(item.id())).findFirst().orElse(null);
-        if (design == null || design.equippedModuleIds().stream()
-                .filter(MODULE_ID::equals).count() * PASSENGERS_PER_POD < passengers) return false;
+        if (design == null || passengers <= 0 || capacity(design) < passengers) return false;
         String empireId = state.corporations().stream()
                 .filter(corp -> corp.id().equals(ship.ownerEntityId()))
                 .map(Corporation::empireId).findFirst().orElse(ship.ownerEntityId());
         return state.empires().stream().anyMatch(empire -> empire.id().equals(empireId)
                 && empire.unlockedTechIds().contains(TECHNOLOGY_ID));
+    }
+
+    public static int capacity(ShipDesign design) {
+        if (design == null || !design.equippedModuleIds().contains(MODULE_ID)) return 0;
+        Integer captured = design.manufacturingProfile().stasisCapacity();
+        return captured != null ? captured : (int) design.equippedModuleIds().stream()
+                .filter(MODULE_ID::equals).count() * PASSENGERS_PER_POD;
     }
 }

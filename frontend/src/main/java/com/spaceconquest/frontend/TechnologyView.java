@@ -1,15 +1,21 @@
 package com.spaceconquest.frontend;
 
+import com.spaceconquest.control.command.ResolveApplicationResearchCommand;
+import com.spaceconquest.engine.technology.ApplicationRefinement;
+import com.spaceconquest.engine.technology.ResearchVarianceResult;
+
 import com.spaceconquest.control.HumanController;
 import com.spaceconquest.control.command.ReverseEngineerSalvageCommand;
 import com.spaceconquest.control.command.SelectOptimizationPathCommand;
 import com.spaceconquest.control.command.StartResearchCommand;
 import com.spaceconquest.engine.DataModelLoader;
+import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.TechnicalApplication;
 import com.spaceconquest.engine.Technology;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.technology.ResearchProject;
+import com.spaceconquest.engine.technology.ApplicationProduction;
 import com.spaceconquest.engine.technology.TechnologyExchangeRoute;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -50,6 +56,8 @@ public class TechnologyView {
     private final List<TechnologyExchangeRoute> exchangeRoutes = new ArrayList<>();
     private final List<SystemEconomy> systemEconomies = new ArrayList<>();
     private Empire playerEmpire;
+    private GameState snapshot = new GameState();
+    private List<Technology> technologies = List.of();
     private long totalScientists = 0;
     private long unassignedScientists = 0;
 
@@ -139,14 +147,17 @@ public class TechnologyView {
         }
     }
 
-    public void updateData(List<ResearchProject> projects, List<TechnologyExchangeRoute> routes, List<SystemEconomy> economies, Empire empire) {
+    public void updateData(GameState state) {
+        if (state == null) return;
+        snapshot = state;
         activeResearchProjects.clear();
-        if (projects != null) activeResearchProjects.addAll(projects);
+        activeResearchProjects.addAll(state.researchProjects());
         exchangeRoutes.clear();
-        if (routes != null) exchangeRoutes.addAll(routes);
+        exchangeRoutes.addAll(state.technologyExchangeRoutes());
         systemEconomies.clear();
-        if (economies != null) systemEconomies.addAll(economies);
-        this.playerEmpire = empire;
+        systemEconomies.addAll(state.systemEconomies());
+        playerEmpire = state.empires().stream().filter(empire -> empire.id().equals(playerEmpireId))
+                .findFirst().orElse(null);
 
         if (root != null && root.isVisible()) {
             loadData();
@@ -170,21 +181,15 @@ public class TechnologyView {
 
         // 4. Foundational Tech Tree Section
         try {
-            List<Technology> technologies = DataModelLoader.loadTechnologies();
+            technologies = DataModelLoader.loadTechnologies();
             Text techTreeHeader = new Text("Available technologies and practical applications");
             techTreeHeader.setFill(Color.LIGHTBLUE);
             techTreeHeader.setFont(Font.font("Verdana", FontWeight.BOLD, 16));
             content.getChildren().add(techTreeHeader);
 
             for (Technology tech : technologies) {
-                // Hide non-researchable technologies (simple logic for now)
-                if (playerEmpire != null && !playerEmpire.unlockedTechIds().contains(tech.id())) {
-                    boolean allReqsMet = tech.requiredTechnologies().isEmpty() ||
-                            playerEmpire.unlockedTechIds().containsAll(tech.requiredTechnologies());
-                    if (allReqsMet) {
-                        content.getChildren().add(createTechBox(tech));
-                    }
-                } else if (playerEmpire == null) {
+                if (playerEmpire == null || playerEmpire.unlockedTechIds().contains(tech.id())
+                        || playerEmpire.unlockedTechIds().containsAll(tech.requiredTechnologies())) {
                     content.getChildren().add(createTechBox(tech));
                 }
             }
@@ -391,6 +396,9 @@ public class TechnologyView {
         scientistSpinner.setEditable(true);
 
         Button researchBtn = new Button("Start research");
+        boolean researched = playerEmpire != null && playerEmpire.unlockedTechIds().contains(tech.id());
+        researchBtn.setDisable(researched || humanController == null || playerEmpire == null);
+        if (researched) researchBtn.setText("Researched");
         researchBtn.setStyle("-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;");
         researchBtn.setOnAction(e -> {
             int count = scientistSpinner.getValue();
@@ -437,7 +445,7 @@ public class TechnologyView {
             techBox.getChildren().add(reqs);
         }
 
-        if (!tech.applications().isEmpty()) {
+        if (researched && !tech.applications().isEmpty()) {
             VBox appsBox = new VBox(6);
             appsBox.setPadding(new Insets(5, 0, 0, 15));
             for (TechnicalApplication app : tech.applications()) {
@@ -499,11 +507,15 @@ public class TechnologyView {
         HBox appHeader = new HBox(10);
         appHeader.setAlignment(Pos.CENTER_LEFT);
 
-        Text appName = new Text("• " + app.name() + " (Cost: " + (int) app.costToBuildPerUnit() + " hrs, Complexity: " + app.complexity() + ")");
+        var modifiers = ApplicationProduction.modifiers(snapshot, playerEmpireId, app.id());
+        Text appName = new Text("• " + app.name() + " (Cost: "
+                + String.format("%.1f", app.calculateOptimizedUnitCost(modifiers))
+                + " hrs, Complexity: " + app.calculateOptimizedComplexity(modifiers) + ")");
         appName.setFill(Color.LIGHTGREEN);
         appName.setFont(Font.font("Verdana", FontWeight.BOLD, 13));
 
-        Text appBonus = new Text("Researched bonus: -10% resource requirement.");
+        boolean researched = playerEmpire != null && playerEmpire.unlockedTechIds().contains(app.id());
+        Text appBonus = new Text(researched ? "Researched" : "Research required to optimize");
         appBonus.setFill(Color.KHAKI);
         appBonus.setFont(Font.font("Verdana", 10));
 
@@ -511,7 +523,10 @@ public class TechnologyView {
         appScientistSpinner.setPrefWidth(80);
         appScientistSpinner.setEditable(true);
 
-        Button appResearchBtn = new Button("Research app");
+        var development = ApplicationRefinement.find(snapshot.applicationOptimizations(), playerEmpireId, app.id());
+        Button appResearchBtn = new Button(researched ? "Refine app" : "Research app");
+        appResearchBtn.setDisable(humanController == null || playerEmpire == null
+                || (development != null && development.pendingOutcome() != null));
         appResearchBtn.setStyle("-fx-background-color: #16a085; -fx-text-fill: white; -fx-font-size: 10px; -fx-font-weight: bold;");
         appResearchBtn.setOnAction(e -> {
             int count = appScientistSpinner.getValue();
@@ -542,7 +557,21 @@ public class TechnologyView {
 
     private VBox createOptimizationBox(TechnicalApplication app) {
         VBox optBox = new VBox(4);
-        Text optHeader = new Text("Dual-path optimization (based on breakthrough outcomes):");
+        var development = ApplicationRefinement.find(snapshot.applicationOptimizations(), playerEmpireId, app.id());
+        var modifiers = ApplicationProduction.modifiers(snapshot, playerEmpireId, app.id());
+        String selectedPath = snapshot.applicationOptimizations().stream()
+                .filter(selection -> playerEmpireId.equals(selection.empireId()) && app.id().equals(selection.applicationId()))
+                .map(selection -> switch (selection.pathChoice()) {
+                    case "PATH_A" -> "Performance";
+                    case "PATH_B" -> "Miniaturization";
+                    case "RESEARCH" -> "Research improvement";
+                    default -> "None";
+                })
+                .findFirst().orElse("None");
+        Text optHeader = new Text("Optimization: " + selectedPath
+                + String.format(" | Output: %.0f%% | Material/work cost: %.0f%%",
+                modifiers.effectMultiplier() * 100.0, modifiers.costMultiplier() * 100.0)
+                + " | Refinement cycles: " + (development == null ? 0 : development.completedRefinements()));
         optHeader.setFill(Color.LIGHTCORAL);
         optHeader.setFont(Font.font("Verdana", FontWeight.BOLD, 9));
 
@@ -550,31 +579,60 @@ public class TechnologyView {
         optControls.setAlignment(Pos.CENTER_LEFT);
 
         Button pathABtn = new Button("Path A: performance (+15% output, +20% cost)");
+        boolean eligible = humanController != null && ApplicationProduction.canOptimize(playerEmpire, app.id(), technologies);
+        eligible = eligible && (development == null || development.canChoosePath());
+        pathABtn.setDisable(!eligible);
         pathABtn.setStyle("-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-size: 10px;");
         pathABtn.setOnAction(e -> {
             if (humanController != null) {
                 humanController.stageCommand(new SelectOptimizationPathCommand(
                         playerEmpireId, app.id(), SelectOptimizationPathCommand.PATH_A_PERFORMANCE
                 ));
-                feedbackLabel.setText("Selected Path A (Performance) optimization for " + app.name());
+                feedbackLabel.setText("Performance optimization queued for " + app.name() + ". Applies on the next tick.");
                 feedbackLabel.setTextFill(Color.LIGHTGREEN);
             }
         });
 
         Button pathBBtn = new Button("Path B: miniaturize (-15% cost, -1 complexity)");
+        pathBBtn.setDisable(!eligible);
         pathBBtn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-size: 10px;");
         pathBBtn.setOnAction(e -> {
             if (humanController != null) {
                 humanController.stageCommand(new SelectOptimizationPathCommand(
                         playerEmpireId, app.id(), SelectOptimizationPathCommand.PATH_B_MINIATURIZATION
                 ));
-                feedbackLabel.setText("Selected Path B (Miniaturization) optimization for " + app.name());
+                feedbackLabel.setText("Miniaturization optimization queued for " + app.name() + ". Applies on the next tick.");
                 feedbackLabel.setTextFill(Color.LIGHTGREEN);
             }
         });
 
         optControls.getChildren().addAll(pathABtn, pathBBtn);
         optBox.getChildren().addAll(optHeader, optControls);
+        if (development != null && development.pendingOutcome() != null)
+            optBox.getChildren().add(createResearchDecisionControls(app, development.pendingOutcome()));
         return optBox;
+    }
+
+    private HBox createResearchDecisionControls(TechnicalApplication app, ResearchVarianceResult outcome) {
+        Label result = new Label(outcome.outcomeType().replace('_', ' ')
+                + String.format(" | Output %.0f%% | Cost %.0f%% | Complexity %+d",
+                outcome.effectMultiplier() * 100, outcome.costMultiplier() * 100, outcome.complexityShift()));
+        result.setTextFill(Color.KHAKI);
+        Button accept = new Button("Accept improvement");
+        accept.setDisable(humanController == null
+                || ResearchVarianceResult.OPTIMIZED_SUCCESS.equals(outcome.outcomeType()));
+        accept.setOnAction(event -> {
+            humanController.stageCommand(new ResolveApplicationResearchCommand(playerEmpireId, app.id(), true));
+            feedbackLabel.setText("Research improvement queued for " + app.name() + ". Applies on the next tick.");
+        });
+        Button discard = new Button("Discard prototype");
+        discard.setDisable(humanController == null);
+        discard.setOnAction(event -> {
+            humanController.stageCommand(new ResolveApplicationResearchCommand(playerEmpireId, app.id(), false));
+            feedbackLabel.setText("Prototype discard queued for " + app.name() + ". Applies on the next tick.");
+        });
+        HBox controls = new HBox(10, result, accept, discard);
+        controls.setAlignment(Pos.CENTER_LEFT);
+        return controls;
     }
 }

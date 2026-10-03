@@ -1,5 +1,7 @@
 package com.spaceconquest.frontend.empire;
 
+import com.spaceconquest.engine.industry.FacilityManufacturingCapacity;
+
 import com.spaceconquest.frontend.Menubar;
 import com.spaceconquest.frontend.PostConstructionInitializer;
 import com.spaceconquest.frontend.PlanetaryBodyEntry;
@@ -280,6 +282,10 @@ public class EmpireView {
                 facility.getEffectiveThroughputMultiplier(),
                 facility.isUndergoingExpansion() ? " during expansion" : "");
         card.getChildren().add(createIndustryDetailRow("Size:", size));
+        card.getChildren().add(createIndustryDetailRow("Manufacturing complexity:",
+                FacilityManufacturingCapacity.required(latestGameState, facility.ownerEntityId(), facility.applicationId())
+                        + " required / " + FacilityManufacturingCapacity.available(facility.applicationId(), facility.tier())
+                        + " available" + (FacilityManufacturingCapacity.canOperate(latestGameState, facility) ? "" : "; production paused")));
         if (facility.tier() == 0) {
             card.getChildren().add(createIndustryDetailRow("Construction:",
                     String.format("%.0f%% complete", facility.expansionProgress() * 100.0)));

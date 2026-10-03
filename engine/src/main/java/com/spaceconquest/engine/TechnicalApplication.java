@@ -1,5 +1,7 @@
 package com.spaceconquest.engine;
 
+import com.spaceconquest.engine.technology.ResearchVarianceResult;
+
 import java.util.List;
 
 /**
@@ -24,6 +26,16 @@ public record TechnicalApplication(
     List<String> requiredMaterials,
     int complexity
 ) {
+    /** Work hours per unit after applying the selected development path. */
+    public double calculateOptimizedUnitCost(ResearchVarianceResult modifiers) {
+        return costToBuildPerUnit * modifiers.costMultiplier();
+    }
+
+    /** Manufacturing complexity after applying the path, with a minimum of one. */
+    public int calculateOptimizedComplexity(ResearchVarianceResult modifiers) {
+        return Math.max(1, complexity + modifiers.complexityShift());
+    }
+
     /**
      * Calculates the optimized unit cost based on optimization level.
      * Formula: Optimized unit cost = Base cost * 0.9^Optimization level

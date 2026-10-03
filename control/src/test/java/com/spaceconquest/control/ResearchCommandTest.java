@@ -7,6 +7,7 @@ import com.spaceconquest.control.command.SelectOptimizationPathCommand;
 import com.spaceconquest.control.command.StartResearchCommand;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.economy.SystemEconomy;
 import com.spaceconquest.engine.technology.ResearchProject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,13 +28,14 @@ public class ResearchCommandTest {
         Empire empire = new Empire(
                 "emp_terran", "Terran Federation", "terran", "Individualist",
                 50000.0, 0.05, List.of("sol"),
-                List.of(), Map.of(), List.of("electricity"), List.of()
+                List.of(), Map.of(), List.of("electricity", "solar_power"), List.of()
         );
 
         initialState = GameState.builder()
                 .turn(1)
                 .status("RUNNING")
                 .empires(List.of(empire))
+                .systemEconomies(List.of(SystemEconomy.createDefault("sol", "emp_terran", 50_000)))
                 .build();
     }
 
@@ -53,19 +55,30 @@ public class ResearchCommandTest {
 
     @Test
     public void testSelectOptimizationPathCommand() {
-        SelectOptimizationPathCommand command = new SelectOptimizationPathCommand("emp_terran", "fission_engine", "PATH_A");
+        SelectOptimizationPathCommand command = new SelectOptimizationPathCommand("emp_terran", "solar_power", "PATH_A");
         assertTrue(command.validate(initialState));
 
-        SelectOptimizationPathCommand invalid = new SelectOptimizationPathCommand("emp_terran", "fission_engine", "INVALID");
+        GameState selected = command.apply(initialState);
+        assertEquals(1, selected.applicationOptimizations().size());
+        assertEquals("PATH_A", selected.applicationOptimizations().getFirst().pathChoice());
+        assertEquals(1.15, selected.applicationOptimizations().getFirst().result().effectMultiplier());
+
+        GameState replaced = new SelectOptimizationPathCommand(
+                "emp_terran", "solar_power", "PATH_B").apply(selected);
+        assertEquals(1, replaced.applicationOptimizations().size());
+        assertEquals("PATH_B", replaced.applicationOptimizations().getFirst().pathChoice());
+        assertEquals(0.85, replaced.applicationOptimizations().getFirst().result().costMultiplier());
+
+        SelectOptimizationPathCommand invalid = new SelectOptimizationPathCommand("emp_terran", "solar_power", "INVALID");
         assertFalse(invalid.validate(initialState));
     }
 
     @Test
     public void testReverseEngineerSalvageCommand() {
-        StartResearchCommand startCmd = new StartResearchCommand("emp_terran", "fusion_power", false, 5);
+        StartResearchCommand startCmd = new StartResearchCommand("emp_terran", "nuclear_fission", false, 5);
         GameState withProject = startCmd.apply(initialState);
 
-        ReverseEngineerSalvageCommand salvageCmd = new ReverseEngineerSalvageCommand("emp_terran", "fusion_power", "terran", true, 2);
+        ReverseEngineerSalvageCommand salvageCmd = new ReverseEngineerSalvageCommand("emp_terran", "nuclear_fission", "terran", true, 2);
         assertTrue(salvageCmd.validate(withProject));
 
         GameState postSalvage = salvageCmd.apply(withProject);

@@ -2,6 +2,26 @@
 
 The research system handles scientific progression through a non-deterministic, application-driven model. Rather than utilizing a static, linear tech tree where outcomes are completely predictable, completing a research cycle unlocks localized possibilities for practical application. Evolving a technology requires balancing structural complexity constraints against a stochastically weighted breakthrough loop.
 
+#### Current implementation
+
+Completed application research retains its rolled outcome until the owner makes a decision. Optimized success enables performance or miniaturization; other outcomes can be accepted or discarded. Accepted improvements accumulate output and cost multipliers and complexity shifts across research cycles, with application complexity floored at 1. Each outcome can be consumed once. Refining a researched application starts another 500-point project and requires actual available scientists. Pending decisions block another project for that application. Outcomes, accumulated modifiers and resolved cycle counts survive save/load.
+
+Existing researched applications without recorded outcomes retain their earlier path-selection behavior until they complete a refinement cycle. Their path selection replaces the previous baseline variant. New recorded outcomes require the matching decision rather than allowing free repeated upgrades. Selecting a path also requires the parent technology and explicit application prerequisites.
+
+Performance increases facility throughput and power generation; miniaturization retains the current output while reducing costs and complexity. New construction and expansion quotes use the accumulated material and work multiplier. Existing projects keep their original quotes. Extra industrial batches consume their full recipe inputs and deplete discovered deposits normally.
+
+The technology view displays the selected path, effective unit work cost and adjusted application complexity. Recognized main drives now link to their research applications. The player ship designer applies optimized thrust and component complexity, then captures a manufacturing cost multiplier weighted by each linked module's share of blueprint dry mass. New ship orders and their previews use that captured multiplier. Operational shipyards enforce provisional complexity limits from `shipyard_manufacturing_limits.json`: surface yards start at 5 and gain one per tier, orbital grids support 7 and capital slipways support 10. Path changes do not alter existing blueprint stats or quotes.
+
+The ship designer's fission reactor links to `fission_reactors`. Performance increases its power output by 15%; miniaturization keeps baseline output. Both paths adjust component complexity and its mass-weighted contribution to the manufacturing quote. The blueprint captures the resulting net power balance. Ship component baseline stats remain provisional and are separate from the application's catalog complexity.
+
+Corporate procurement also captures its empire's selected drive path when creating a proprietary blueprint and uses the shared manufacturing quote for every order. It selects a fission drive only with nuclear fission research, otherwise a chemical rocket. Reusing an existing blueprint preserves its stats and manufacturing values after path changes.
+
+Cargo vaults and corporate large holds link to the provisional `pressurized_cargo_holds` application under interstellar shipping optimization. Their capacity, complexity and cost changes are captured in new blueprints. Stasis pods link to `cryogenic_stasis_pod`: performance increases supported passengers, rounded down to whole seats. Captured stasis capacity is enforced during passenger loading and mode changes; older blueprints retain 100 passengers per pod. Later refinements do not change existing ship capacities.
+
+General facilities use provisional specialized manufacturing limits from `facility_manufacturing_limits.json`. Tier 1 supports the application's baseline complexity; each extra tier adds one level. Production and fuel demand pause when the selected variant exceeds capacity. New public, tile and corporate facility projects quote the minimum tier needed for their selected variant. Existing projects retain their target tier and quote; they may need a later expansion if application complexity rises. Recipe IDs absent from the application catalog use a baseline complexity of 1. These rules can be overridden per application in the resource catalog.
+
+The recognized drive, reactor, cargo and stasis components now have application links. Other future component catalogs, detailed material receipts, variance-factor balancing and research-dependent nanotechnology tiers remain future work. The sections below describe the target mechanics.
+
 #### 1. Core technology and application schema
 
 The game engine segregates scientific knowledge into macro **Foundational Areas** and granular **Technical Applications** using the following data-driven configurations:

@@ -32,6 +32,11 @@ public final class ShipConstructionProcessor {
                 remaining.add(order);
                 continue;
             }
+            if (ShipManufacturingCapacity.forYard(current, order.ownerEntityId(), order.systemId(), order.yardBodyId())
+                    < ShipManufacturingCapacity.requiredComplexity(design)) {
+                remaining.add(order);
+                continue;
+            }
             boolean orbital = current.orbitalStations().stream()
                     .anyMatch(station -> order.yardBodyId().equals(station.id())
                             && order.systemId().equals(station.systemId()));

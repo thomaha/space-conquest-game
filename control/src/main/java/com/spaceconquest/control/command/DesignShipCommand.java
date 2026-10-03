@@ -4,6 +4,7 @@ import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.habitation.PassengerStasis;
 import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.PropulsionCatalog;
+import com.spaceconquest.engine.ship.ShipManufacturingCapacity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +30,9 @@ public record DesignShipCommand(
                         && PropulsionCatalog.researched(shipDesign.equippedModuleIds(),
                         empire.unlockedTechIds()));
         return (!shipDesign.equippedModuleIds().contains(PassengerStasis.MODULE_ID) || researched)
+                && (shipDesign.manufacturingProfile().requiredComplexity() == 0
+                || ShipManufacturingCapacity.requiredComplexity(shipDesign)
+                <= ShipManufacturingCapacity.forOwner(state, shipDesign.ownerEntityId()))
                 && drivesResearched
                 && PropulsionCatalog.validConfiguration(shipDesign.equippedModuleIds(),
                 shipDesign.fuelCapacityKg())

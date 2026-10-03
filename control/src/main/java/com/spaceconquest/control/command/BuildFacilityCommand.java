@@ -1,9 +1,11 @@
 package com.spaceconquest.control.command;
 
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.technology.ApplicationProduction;
 import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.industry.FacilityManufacturingCapacity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,10 +57,12 @@ public record BuildFacilityCommand(
         );
 
         GameState funded = FacilityOperatingCapital.addFacility(state, newFacility);
+        int targetTier = FacilityManufacturingCapacity.minimumTier(state, ownerEntityId, applicationId);
         List<FacilityExpansionProject> projects = new ArrayList<>(funded.expansionProjects());
         projects.add(new FacilityExpansionProject("project_" + UUID.randomUUID(), facilityId,
-                1, 0.0, 500.0, 0.0,
-                ConstructionMaterialCatalog.facility(applicationId, 1), Map.of()));
+                targetTier, 0.0, ApplicationProduction.constructionWorkHours(state, ownerEntityId, applicationId,
+                500.0 * targetTier), 0.0,
+                ConstructionMaterialCatalog.facility(state, ownerEntityId, applicationId, targetTier), Map.of()));
         return funded.withExpansionProjects(projects);
     }
 }

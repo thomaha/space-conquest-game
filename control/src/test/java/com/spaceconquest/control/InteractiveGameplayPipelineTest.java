@@ -43,6 +43,8 @@ public class InteractiveGameplayPipelineTest {
         List<Empire> updatedEmpires = state.empires().stream().map(e -> {
             if (playerEmpire.equalsIgnoreCase(e.id())) {
                 List<String> techs = new java.util.ArrayList<>(e.unlockedTechIds());
+                if (!techs.contains("electricity")) techs.add("electricity");
+                if (!techs.contains("solar_power")) techs.add("solar_power");
                 if (!techs.contains("stellar_megastructures")) techs.add("stellar_megastructures");
                 if (!techs.contains("superconductors")) techs.add("superconductors");
                 return new Empire(
@@ -61,10 +63,10 @@ public class InteractiveGameplayPipelineTest {
 
         // 2. Step 1: Technology Research, Optimization & Reverse Engineering
         humanController.stageCommand(new StartResearchCommand(
-                playerEmpire, "fusion_reactors", false, 10
+                playerEmpire, "solar_power", true, 10
         ));
         humanController.stageCommand(new SelectOptimizationPathCommand(
-                playerEmpire, "fusion_reactor_mk1", SelectOptimizationPathCommand.PATH_A_PERFORMANCE
+                playerEmpire, "solar_power", SelectOptimizationPathCommand.PATH_A_PERFORMANCE
         ));
         humanController.stageCommand(new ReverseEngineerSalvageCommand(
                 playerEmpire, "salvage_hull_01", 0.8, "energy_shielding"
@@ -132,7 +134,7 @@ public class InteractiveGameplayPipelineTest {
 
         // 6. Verify Mutations in GameState
         GameState mutatedState = engine.getGameState();
-        assertTrue(mutatedState.researchProjects().stream().anyMatch(r -> r.targetTechOrAppId().equals("fusion_reactors")));
+        assertTrue(mutatedState.researchProjects().stream().anyMatch(r -> r.targetTechOrAppId().equals("solar_power")));
         assertTrue(mutatedState.shipDesigns().stream().anyMatch(d -> d.id().equals("design_dreadnought_01")));
         assertTrue(mutatedState.industrialFacilities().stream().anyMatch(f -> f.applicationId().equals("smelter")));
         assertEquals(1, engine.getMegastructures().size());

@@ -65,7 +65,8 @@ import com.spaceconquest.engine.scenario.VictoryConditionChecker;
 import com.spaceconquest.engine.ship.*;
 import com.spaceconquest.engine.technology.ResearchProcessor;
 import com.spaceconquest.engine.technology.ResearchProject;
-import com.spaceconquest.engine.technology.ResearchVarianceResult;
+import com.spaceconquest.engine.technology.ApplicationOptimization;
+import com.spaceconquest.engine.technology.ResearchTickProcessor;
 import com.spaceconquest.engine.technology.TechnologyExchangeRoute;
 import com.spaceconquest.engine.terraforming.AtmosphericComposition;
 import com.spaceconquest.engine.terraforming.GeoengineeringProject;
@@ -126,6 +127,7 @@ public class SpaceConquestEngine implements GameEngine {
     private List<WarDeclarationRecord> warDeclarations = new ArrayList<>();
     private List<DiplomaticProposal> diplomaticProposals = new ArrayList<>();
     private List<FleetEngagementRecord> fleetEngagements = new ArrayList<>();
+    private List<ApplicationOptimization> applicationOptimizations = new ArrayList<>();
     private List<IndustryAccount> industryAccounts = new ArrayList<>();
     private List<CorporateTaxAccount> corporateTaxAccounts = new ArrayList<>();
     private final ImperialFinanceCoordinator imperialFinance = new ImperialFinanceCoordinator();
@@ -503,49 +505,10 @@ public class SpaceConquestEngine implements GameEngine {
     }
 
     private void updateResearch() {
-        List<ResearchProject> updatedProjects = new ArrayList<>();
-        Map<String, List<String>> newlyUnlockedTechs = new HashMap<>();
-
-        for (ResearchProject project : researchProjects) {
-            Empire empire = empires.stream()
-                    .filter(e -> e.id().equals(project.empireId()))
-                    .findFirst()
-                    .orElse(null);
-            Race race = (empire != null) ? races.stream()
-                    .filter(r -> r.id().equalsIgnoreCase(empire.raceId()))
-                    .findFirst()
-                    .orElse(null) : null;
-            ResearchProject advanced = researchProcessor.advanceProject(project, race, empire, technologyExchangeRoutes);
-            if (advanced.isComplete()) {
-                ResearchVarianceResult outcome = researchProcessor.rollBreakthrough();
-                logger.info("Research complete for empire {} on {}: outcome {}",
-                        project.empireId(), project.targetTechOrAppId(), outcome.outcomeType());
-                newlyUnlockedTechs.computeIfAbsent(project.empireId(), k -> new ArrayList<>())
-                        .add(project.targetTechOrAppId());
-            } else {
-                updatedProjects.add(advanced);
-            }
-        }
-        researchProjects = updatedProjects;
-        if (!newlyUnlockedTechs.isEmpty()) {
-            empires = empires.stream().map(emp -> {
-                List<String> toAdd = newlyUnlockedTechs.get(emp.id());
-                if (toAdd != null && !toAdd.isEmpty()) {
-                    List<String> combinedTechs = new ArrayList<>(emp.unlockedTechIds());
-                    for (String t : toAdd) {
-                        if (!combinedTechs.contains(t)) {
-                            combinedTechs.add(t);
-                        }
-                    }
-                    return new Empire(
-                            emp.id(), emp.name(), emp.raceId(), emp.societyStructure(),
-                            emp.treasuryCredits(), emp.corporateTaxRate(), emp.controlledSystemIds(),
-                            emp.ministries(), emp.systemGovernorAssignments(), combinedTechs, emp.activeShipDesignIds()
-                    );
-                }
-                return emp;
-            }).toList();
-        }
+        var result = new ResearchTickProcessor().process(getGameState(), races, researchProcessor);
+        researchProjects = new ArrayList<>(result.projects());
+        empires = new ArrayList<>(result.empires());
+        applicationOptimizations = new ArrayList<>(result.optimizations());
     }
 
     private void updateGovernance() {
@@ -787,95 +750,41 @@ public class SpaceConquestEngine implements GameEngine {
     @Override
     public synchronized GameState getGameState() {
         return new GameState(
-                turn,
-                running.get() ? "RUNNING" : "STOPPED",
-                solarSystems,
-                empires,
-                corporations,
-                commercialHubs,
-                shadowSyndicates,
-                diplomaticRelations,
-                systemGovernors,
-                researchProjects,
-                technologyExchangeRoutes,
-                shipDesigns,
-                shipConstructionOrders,
-                fleets,
-                passengerManifests,
-                geologicalDeposits,
-                powerGrids,
-                industrialFacilities,
-                expansionProjects,
-                orbitalStations,
-                spaceElevators,
-                constructionProjects,
-                sleeperAgents,
-                espionageOperations,
-                pirateBases,
-                terraformingProjects,
-                megastructures,
-                galacticCommunity,
-                tradeRoutes,
-                fogOfWarStates,
-                systemEconomies,
-                courierShips,
-                planetaryBalanceSheets,
-                imperialBalanceSheets,
-                householdAccounts,
-                marketAccounts,
-                industryAccounts,
-                corporateTaxAccounts,
-                launchUsageKg,
-                launchActivities,
-                warDeclarations,
-                diplomaticProposals,
-                fleetEngagements
+                turn, running.get() ? "RUNNING" : "STOPPED", solarSystems, empires,
+                corporations, commercialHubs, shadowSyndicates, diplomaticRelations,
+                systemGovernors, researchProjects, technologyExchangeRoutes, shipDesigns,
+                shipConstructionOrders, fleets, passengerManifests, geologicalDeposits,
+                powerGrids, industrialFacilities, expansionProjects, orbitalStations,
+                spaceElevators, constructionProjects, sleeperAgents, espionageOperations,
+                pirateBases, terraformingProjects, megastructures, galacticCommunity,
+                tradeRoutes, fogOfWarStates, systemEconomies, courierShips,
+                planetaryBalanceSheets, imperialBalanceSheets, householdAccounts, marketAccounts,
+                industryAccounts, corporateTaxAccounts, launchUsageKg, launchActivities,
+                warDeclarations, diplomaticProposals, fleetEngagements, applicationOptimizations
         );
     }
 
-    public ResearchProcessor getResearchProcessor() {
-        return researchProcessor;
-    }
+    public ResearchProcessor getResearchProcessor() { return researchProcessor; }
 
-    public FleetProcessor getFleetProcessor() {
-        return fleetProcessor;
-    }
+    public FleetProcessor getFleetProcessor() { return fleetProcessor; }
 
-    public ProspectingProcessor getProspectingProcessor() {
-        return prospectingProcessor;
-    }
+    public ProspectingProcessor getProspectingProcessor() { return prospectingProcessor; }
 
-    public PowerProcessor getPowerProcessor() {
-        return powerProcessor;
-    }
+    public PowerProcessor getPowerProcessor() { return powerProcessor; }
 
-    public IndustryProcessor getIndustryProcessor() {
-        return industryProcessor;
-    }
+    public IndustryProcessor getIndustryProcessor() { return industryProcessor; }
 
-    public TacticalCombatProcessor getTacticalCombatProcessor() {
-        return tacticalCombatProcessor;
-    }
+    public TacticalCombatProcessor getTacticalCombatProcessor() { return tacticalCombatProcessor; }
 
-    public OrbitalBombardmentProcessor getOrbitalBombardmentProcessor() {
-        return orbitalBombardmentProcessor;
-    }
+    public OrbitalBombardmentProcessor getOrbitalBombardmentProcessor() { return orbitalBombardmentProcessor; }
 
-    public ColonizationProcessor getColonizationProcessor() {
-        return colonizationProcessor;
-    }
+    public ColonizationProcessor getColonizationProcessor() { return colonizationProcessor; }
 
-    public MacroStructureProcessor getMacroStructureProcessor() {
-        return macroStructureProcessor;
-    }
+    public MacroStructureProcessor getMacroStructureProcessor() { return macroStructureProcessor; }
 
-    public EspionageProcessor getEspionageProcessor() {
-        return espionageProcessor;
-    }
+    public EspionageProcessor getEspionageProcessor() { return espionageProcessor; }
 
-    public RefinementProcessor getRefinementProcessor() {
-        return refinementProcessor;
-    }
+    public RefinementProcessor getRefinementProcessor() { return refinementProcessor; }
 
     public TerraformingProcessor getTerraformingProcessor() {
         return terraformingProcessor;
@@ -996,6 +905,7 @@ public class SpaceConquestEngine implements GameEngine {
         this.warDeclarations = new ArrayList<>(state.warDeclarations());
         this.diplomaticProposals = new ArrayList<>(state.diplomaticProposals());
         this.fleetEngagements = new ArrayList<>(state.fleetEngagements());
+        this.applicationOptimizations = new ArrayList<>(state.applicationOptimizations());
     }
 
     public synchronized void recordCommandTreasuryChanges(List<Empire> before, List<Empire> after) {

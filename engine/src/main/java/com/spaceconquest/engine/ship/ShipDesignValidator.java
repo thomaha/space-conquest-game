@@ -57,12 +57,12 @@ public class ShipDesignValidator {
             double armorThicknessCm,
             double homePlanetGravity,
             double homeAtmospherePressure,
-            int maxNanotechTier,
+            int maxManufacturingComplexity,
             boolean isProprietaryCorporate
     ) {
         ValidationResult res = validate(
                 role, frame, modules, hullMaterial, armorMaterial,
-                armorThicknessCm, homePlanetGravity, homeAtmospherePressure, maxNanotechTier
+                armorThicknessCm, homePlanetGravity, homeAtmospherePressure, maxManufacturingComplexity
         );
 
         return new ShipDesign(
@@ -98,7 +98,7 @@ public class ShipDesignValidator {
             double armorThicknessCm,
             double homePlanetGravity,
             double homeAtmospherePressure,
-            int maxNanotechTier
+            int maxManufacturingComplexity
     ) {
         List<String> errors = new ArrayList<>();
         ModuleAggregation agg = aggregateModules(modules);
@@ -128,10 +128,10 @@ public class ShipDesignValidator {
                     agg.powerOutput(), agg.powerDraw()));
         }
 
-        int allowedTier = Math.max(1, maxNanotechTier);
-        if (agg.maxComplexity() > allowedTier) {
-            errors.add(String.format("Equipped module complexity (%d) exceeds imperial nanotechnology tier (%d)",
-                    agg.maxComplexity(), allowedTier));
+        int allowedComplexity = Math.max(1, maxManufacturingComplexity);
+        if (agg.maxComplexity() > allowedComplexity) {
+            errors.add(String.format("Equipped module complexity (%d) exceeds available manufacturing complexity (%d)",
+                    agg.maxComplexity(), allowedComplexity));
         }
 
         validateRoleRequirements(role, agg, errors);

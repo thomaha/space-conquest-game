@@ -30,6 +30,7 @@ import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.ShipConstructionOrder;
 import com.spaceconquest.engine.technology.ResearchProject;
+import com.spaceconquest.engine.technology.ApplicationOptimization;
 import com.spaceconquest.engine.technology.TechnologyExchangeRoute;
 import com.spaceconquest.engine.terraforming.GeoengineeringProject;
 
@@ -87,9 +88,10 @@ public record SaveGame(
         List<LaunchServiceActivity> launchActivities,
         List<WarDeclarationRecord> warDeclarations,
         List<DiplomaticProposal> diplomaticProposals,
-        List<FleetEngagementRecord> fleetEngagements
+        List<FleetEngagementRecord> fleetEngagements,
+        List<ApplicationOptimization> applicationOptimizations
 ) {
-    public static final int CURRENT_VERSION = 23;
+    public static final int CURRENT_VERSION = 26;
 
     public SaveGame {
         if (solarSystems == null) solarSystems = List.of();
@@ -132,6 +134,7 @@ public record SaveGame(
         if (warDeclarations == null) warDeclarations = List.of();
         if (diplomaticProposals == null) diplomaticProposals = List.of();
         if (fleetEngagements == null) fleetEngagements = List.of();
+        if (applicationOptimizations == null) applicationOptimizations = List.of();
     }
 
     public static SaveGame fromGameState(GameState state, String savedAt, int gameSpeed, String gameTime) {
@@ -154,7 +157,7 @@ public record SaveGame(
                 state.householdAccounts(), state.marketAccounts(), state.industryAccounts(),
                 state.corporateTaxAccounts(), state.launchUsageKg(), state.launchActivities(),
                 state.warDeclarations(), state.diplomaticProposals(),
-                state.fleetEngagements()
+                state.fleetEngagements(), state.applicationOptimizations()
         );
     }
 
@@ -181,7 +184,8 @@ public record SaveGame(
                 megastructures, galacticCommunity, tradeRoutes, fogOfWarStates,
                 systemEconomies, courierShips, planetaryBalanceSheets, imperialBalanceSheets,
                 householdAccounts, marketAccounts, industryAccounts, corporateTaxAccounts,
-                launchUsageKg, launchActivities, warDeclarations, diplomaticProposals, fleetEngagements
+                launchUsageKg, launchActivities, warDeclarations, diplomaticProposals,
+                fleetEngagements, applicationOptimizations
         );
     }
 }

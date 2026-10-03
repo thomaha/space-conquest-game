@@ -1,5 +1,7 @@
 package com.spaceconquest.frontend;
 
+import com.spaceconquest.engine.industry.FacilityManufacturingCapacity;
+
 import com.spaceconquest.control.HumanController;
 import com.spaceconquest.control.command.BuildFacilityCommand;
 import com.spaceconquest.control.command.ExpandFacilityCommand;
@@ -312,6 +314,12 @@ public class IndustryView {
                 facStatus.setFont(Font.font("Verdana", 11));
 
                 card.getChildren().addAll(topRow, facStatus);
+                Text complexity = new Text("  Manufacturing complexity: "
+                        + FacilityManufacturingCapacity.required(snapshot, fac.ownerEntityId(), fac.applicationId())
+                        + " required / " + FacilityManufacturingCapacity.available(fac.applicationId(), fac.tier())
+                        + " available" + (FacilityManufacturingCapacity.canOperate(snapshot, fac) ? "" : " | Production paused"));
+                complexity.setFill(FacilityManufacturingCapacity.canOperate(snapshot, fac) ? Color.LIGHTCYAN : Color.ORANGE);
+                card.getChildren().add(complexity);
                 if (ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID
                         .equals(fac.applicationId())) {
                     card.getChildren().addAll(createSurfaceShipyardStatus(fac));

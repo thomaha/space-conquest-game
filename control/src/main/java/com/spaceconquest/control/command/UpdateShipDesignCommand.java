@@ -4,6 +4,7 @@ import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.habitation.PassengerStasis;
 import com.spaceconquest.engine.ship.PropulsionCatalog;
 import com.spaceconquest.engine.ship.ShipDesign;
+import com.spaceconquest.engine.ship.ShipManufacturingCapacity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,9 @@ public record UpdateShipDesignCommand(ShipDesign shipDesign) implements GameComm
         if (owner == null) return false;
         return (!shipDesign.equippedModuleIds().contains(PassengerStasis.MODULE_ID)
                 || owner.unlockedTechIds().contains(PassengerStasis.TECHNOLOGY_ID))
+                && (shipDesign.manufacturingProfile().requiredComplexity() == 0
+                || ShipManufacturingCapacity.requiredComplexity(shipDesign)
+                <= ShipManufacturingCapacity.forOwner(state, shipDesign.ownerEntityId()))
                 && PropulsionCatalog.researched(shipDesign.equippedModuleIds(), owner.unlockedTechIds())
                 && PropulsionCatalog.validConfiguration(shipDesign.equippedModuleIds(),
                 shipDesign.fuelCapacityKg());

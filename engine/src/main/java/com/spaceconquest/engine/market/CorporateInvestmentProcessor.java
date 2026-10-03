@@ -4,8 +4,10 @@ import com.spaceconquest.engine.*;
 import com.spaceconquest.engine.industry.FacilityExpansionProject;
 import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
 import com.spaceconquest.engine.industry.IndustrialFacility;
+import com.spaceconquest.engine.industry.FacilityManufacturingCapacity;
 import com.spaceconquest.engine.industry.IndustryRecipeCatalog;
 import com.spaceconquest.engine.ship.*;
+import com.spaceconquest.engine.technology.ApplicationProduction;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -76,9 +78,12 @@ public class CorporateInvestmentProcessor {
                             && recipe.outputsKg().containsKey(deposit.materialId())));
         }
         if ("FLEET".equalsIgnoreCase(type) || "SHIP".equalsIgnoreCase(type)) {
+            ShipDesign existingDesign = ownedFleetDesign(state, corporation);
             return credits == SHIP_PROCUREMENT_COST && corporation.liquidCapitalReserves() >= credits
                     && empire != null && empire.unlockedTechIds().contains("rocketry")
                     && empire.unlockedTechIds().contains("computers")
+                    && (existingDesign == null || PropulsionCatalog.researched(
+                    existingDesign.equippedModuleIds(), empire.unlockedTechIds()))
                     && state.shipConstructionOrders().stream()
                     .noneMatch(order -> corporationId.equals(order.ownerEntityId()));
         }
@@ -99,6 +104,8 @@ public class CorporateInvestmentProcessor {
                     bestOrder(corporation, hub).resourceId());
             IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(application);
             String id = "facility_corp_" + UUID.randomUUID();
+            int targetTier = Math.max(recipe.minTier(),
+                    FacilityManufacturingCapacity.minimumTier(state, corporationId, application));
             String profession = switch (application) {
                 case "mining_outpost" -> "miner";
                 case "industrial_soil_cultivation" -> "farmer";
@@ -111,32 +118,24 @@ public class CorporateInvestmentProcessor {
             builder.industrialFacilities(facilities);
             List<FacilityExpansionProject> projects = new ArrayList<>(state.expansionProjects());
             projects.add(new FacilityExpansionProject("project_corp_" + UUID.randomUUID(), id,
-                    recipe.minTier(), 0.0, FACTORY_CONSTRUCTION_WORK_HOURS, credits,
-                    ConstructionMaterialCatalog.facility(application, recipe.minTier()), Map.of()));
+                    targetTier, 0.0, ApplicationProduction.constructionWorkHours(
+                    state, corporationId, application, FACTORY_CONSTRUCTION_WORK_HOURS * targetTier), credits,
+                    ConstructionMaterialCatalog.facility(state, corporationId, application, targetTier), Map.of()));
             builder.expansionProjects(projects);
             facilityIds.add(id);
         } else {
-            String role = "EXTRACTION".equalsIgnoreCase(corporation.marketOrientation())
-                    ? ShipRole.MINING_SHIP : ShipRole.CARGO_TRANSPORT;
-            ShipDesign design = state.shipDesigns().stream()
-                    .filter(item -> corporationId.equals(item.ownerEntityId()) && role.equals(item.role()))
-                    .findFirst().orElse(null);
+            ShipDesign design = ownedFleetDesign(state, corporation);
             List<ShipDesign> designs = new ArrayList<>(state.shipDesigns());
             if (design == null) {
-                design = new ShipDesign("design_corp_" + UUID.randomUUID(), corporation.name() + " " + role,
-                        corporationId, role, "refined_aluminum",
-                        List.of("mod_cargo_hold_large", "mod_fission_thruster",
-                                com.spaceconquest.engine.ship.PropulsionCatalog.FUEL_TANK_MODULE_ID),
-                        "steel", 2.0, 25_000.0, 50_000.0, 15_000.0,
-                        150.0, 1.20, 300_000.0, 850_000.0, true, true);
+                design = createFleetDesign(state, corporation);
                 designs.add(design);
                 builder.shipDesigns(designs);
             }
+            ShipConstructionRequirements.Estimate quote = ShipConstructionRequirements.estimate(design);
             List<ShipConstructionOrder> orders = new ArrayList<>(state.shipConstructionOrders());
             orders.add(new ShipConstructionOrder("corp_" + UUID.randomUUID(), corporationId,
                     design.id(), systemForBody(state, bodyId), bodyId, 0.0,
-                    Math.max(200.0, design.totalDryMassKg() / 100.0),
-                    ConstructionMaterialCatalog.ship(design), Map.of()));
+                    quote.workUnits(), quote.materialsKg(), Map.of()));
             builder.shipConstructionOrders(orders);
         }
         List<Corporation> corporations = new ArrayList<>();
@@ -146,6 +145,41 @@ public class CorporateInvestmentProcessor {
                     item.liquidCapitalReserves() - credits, facilityIds, shipIds, item.claimedVeinIds()) : item);
         }
         return builder.corporations(corporations).build();
+    }
+
+    private String fleetRole(Corporation corporation) {
+        return "EXTRACTION".equalsIgnoreCase(corporation.marketOrientation())
+                ? ShipRole.MINING_SHIP : ShipRole.CARGO_TRANSPORT;
+    }
+
+    private ShipDesign ownedFleetDesign(GameState state, Corporation corporation) {
+        String role = fleetRole(corporation);
+        return state.shipDesigns().stream()
+                .filter(design -> corporation.id().equals(design.ownerEntityId()) && role.equals(design.role()))
+                .findFirst().orElse(null);
+    }
+
+    /** Keeps the provisional corporate hull while using researched drive stats and frozen production values. */
+    private ShipDesign createFleetDesign(GameState state, Corporation corporation) {
+        Empire empire = state.empires().stream().filter(item -> corporation.empireId().equals(item.id()))
+                .findFirst().orElseThrow();
+        String driveId = empire.unlockedTechIds().contains("nuclear_fission")
+                ? "mod_fission_thruster" : "mod_chemical_rocket";
+        ShipModule baseDrive = PropulsionCatalog.module(driveId);
+        ShipModule drive = ShipApplicationProduction.optimize(state, corporation.id(), baseDrive);
+        ShipModule cargo = ShipApplicationProduction.optimize(state, corporation.id(), new ShipModule(
+                "mod_cargo_hold_large", "Large cargo hold", "LARGE", 8, 2000, 30, 0, 0, 2,
+                Map.of(), Map.of("cargoCapacityKg", 50_000.0)));
+        List<ShipModule> modules = List.of(drive, cargo, PropulsionCatalog.fuelTankModule());
+        double cargoCapacity = cargo.operationalStats().get("cargoCapacityKg");
+        double minimumLaunchThrust = 300_000.0 * (25_000.0 + cargoCapacity + 15_000.0) / 90_000.0;
+        String role = fleetRole(corporation);
+        return new ShipDesign("design_corp_" + UUID.randomUUID(), corporation.name() + " " + role,
+                corporation.id(), role, "refined_aluminum",
+                List.of("mod_cargo_hold_large", drive.id(), PropulsionCatalog.FUEL_TANK_MODULE_ID),
+                "steel", 2.0, 25_000.0, cargoCapacity, 15_000.0,
+                150.0, 1.20, minimumLaunchThrust, drive.thrustOutputN(), drive.thrustOutputN() >= minimumLaunchThrust, true,
+                ShipApplicationProduction.profile(state, corporation.id(), modules, 25_000.0));
     }
 
     public double findMaxShortcoming(Corporation corporation, List<CommercialHub> hubs) {

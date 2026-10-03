@@ -4,6 +4,7 @@ import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
 
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 
 /** Shared production estimate used by the designer and shipyard order creation. */
 public final class ShipConstructionRequirements {
@@ -22,7 +23,16 @@ public final class ShipConstructionRequirements {
     public static Estimate estimate(ShipDesign design) {
         if (design == null) return new Estimate(Map.of(), 0.0);
         return estimate(design.totalDryMassKg(), design.hullMaterialId(),
-                design.armorMaterialId(), design.equippedModuleIds());
+                design.armorMaterialId(), design.equippedModuleIds(), design.manufacturingProfile());
+    }
+
+    public static Estimate estimate(double dryMassKg, String hullMaterialId,
+                                    String armorMaterialId, List<String> moduleIds,
+                                    ShipManufacturingProfile profile) {
+        Estimate baseline = estimate(dryMassKg, hullMaterialId, armorMaterialId, moduleIds);
+        Map<String, Double> materials = new LinkedHashMap<>();
+        baseline.materialsKg().forEach((material, kg) -> materials.put(material, kg * profile.costMultiplier()));
+        return new Estimate(materials, baseline.workUnits() * profile.costMultiplier());
     }
 
     public static Estimate estimate(double dryMassKg, String hullMaterialId,

@@ -500,7 +500,7 @@ public class ShipCommandTest {
                 owner.societyStructure(), owner.treasuryCredits(), owner.corporateTaxRate(),
                 owner.controlledSystemIds(), owner.ministries(), owner.systemGovernorAssignments(),
                 List.of("rocketry", "computers", "superconductors"), owner.activeShipDesignIds());
-        GameState unlocked = initialState.toBuilder().empires(List.of(researched)).build();
+        GameState unlocked = upgradeSurfaceYard(initialState.toBuilder().empires(List.of(researched)).build(), 3);
         assertTrue(new DesignShipCommand(ion).validate(unlocked));
         assertTrue(new QueueShipBuildCommand("emp_terran", ion.id(), "sol")
                 .validate(unlocked.toBuilder().shipDesigns(List.of(cargoDesign, ion)).build()));
@@ -647,12 +647,21 @@ public class ShipCommandTest {
                 old.societyStructure(), old.treasuryCredits(), old.corporateTaxRate(),
                 old.controlledSystemIds(), old.ministries(), old.systemGovernorAssignments(),
                 List.of("warp", PassengerStasis.TECHNOLOGY_ID), old.activeShipDesignIds());
-        GameState unlocked = researched.toBuilder().empires(List.of(stasisOwner)).build();
+        GameState unlocked = upgradeSurfaceYard(researched.toBuilder().empires(List.of(stasisOwner)).build(), 3);
         assertTrue(new DesignShipCommand(podDesign).validate(unlocked));
         GameState withPod = new DesignShipCommand(podDesign).apply(unlocked);
         assertEquals(100.0, com.spaceconquest.engine.industry.ConstructionMaterialCatalog
                 .ship(podDesign).get("refined_aluminum"), 0.001);
         assertTrue(new QueueShipBuildCommand(old.id(), podDesign.id(), "sol")
                 .validate(withPod));
+    }
+
+    private GameState upgradeSurfaceYard(GameState state, int tier) {
+        return state.withIndustrialFacilities(state.industrialFacilities().stream().map(facility ->
+                ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID.equals(facility.applicationId())
+                        ? new IndustrialFacility(facility.id(), facility.planetId(), facility.applicationId(),
+                        facility.ownerEntityId(), facility.ownershipType(), tier, facility.allocatedWorkers(),
+                        facility.workerProfessionId(), facility.isUndergoingExpansion(), facility.expansionProgress())
+                        : facility).toList());
     }
 }

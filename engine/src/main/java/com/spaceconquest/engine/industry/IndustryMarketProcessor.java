@@ -4,6 +4,7 @@ import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.Corporation;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.technology.ApplicationProduction;
 import com.spaceconquest.engine.MarketOrder;
 import com.spaceconquest.engine.economy.MarketAccount;
 
@@ -70,9 +71,11 @@ public class IndustryMarketProcessor {
         double inputCosts = 0.0;
         if (hub != null && poweredWorkers > 0 && facility.allocatedWorkers() > 0
                 && IndustryRecipeCatalog.isUnlocked(recipe, technologyOwner)
-                && facility.tier() >= recipe.minTier()) {
+                && facility.tier() >= recipe.minTier()
+                && FacilityManufacturingCapacity.canOperate(ledger.state, facility)) {
             double batches = Math.min(poweredWorkers, facility.allocatedWorkers())
                     * facility.getEffectiveThroughputMultiplier()
+                    * ApplicationProduction.modifiers(ledger.state, technologyOwner.id(), facility.applicationId()).effectMultiplier()
                     * recipe.technologyMultiplier(technologyOwner) / recipe.workersPerBatch();
             batches = affordableBatches(recipe, batches, facility, hub, ledger);
             if (batches > 0.0) {
@@ -181,6 +184,7 @@ public class IndustryMarketProcessor {
     }
 
     private static final class Ledger {
+        private final GameState state;
         private final Map<String, Empire> empires = new LinkedHashMap<>();
         private final Map<String, Corporation> corporations = new LinkedHashMap<>();
         private final Map<String, CommercialHub> hubs = new LinkedHashMap<>();
@@ -192,6 +196,7 @@ public class IndustryMarketProcessor {
         private final Map<String, Double> imperialExpenses = new HashMap<>();
 
         private Ledger(GameState state) {
+            this.state = state;
             cash = new IndustryOperatingLedger(state.industryAccounts());
             for (Empire item : state.empires()) empires.put(item.id(), item);
             for (Corporation item : state.corporations()) corporations.put(item.id(), item);

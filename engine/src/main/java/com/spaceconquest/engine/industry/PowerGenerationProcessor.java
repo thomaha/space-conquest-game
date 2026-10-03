@@ -4,6 +4,7 @@ import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.Corporation;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.technology.ApplicationProduction;
 import com.spaceconquest.engine.MarketOrder;
 import com.spaceconquest.engine.Moon;
 import com.spaceconquest.engine.Planet;
@@ -39,12 +40,14 @@ public class PowerGenerationProcessor {
             Empire technologyOwner = ledger.technologyOwner(facility);
             if (technologyOwner != null && technologyOwner.unlockedTechIds().contains("electricity")
                     && technologyOwner.unlockedTechIds().contains(plant.requiredTechnology())
-                    && staffed > 0 && facility.tier() > 0) {
+                    && staffed > 0 && facility.tier() > 0
+                    && FacilityManufacturingCapacity.canOperate(state, facility)) {
                 double staffing = Math.clamp((double) staffed / plant.requiredWorkers(), 0.0, 1.0);
                 double environment = environmentFactor(state.solarSystems(), facility);
                 double scale = facility.tier() * staffing * facility.getEffectiveThroughputMultiplier()
                         / Math.pow(1.5, Math.max(0, facility.tier() - 1));
-                kw = plant.kwPerTier() * scale * environment;
+                kw = plant.kwPerTier() * scale * environment
+                        * ApplicationProduction.modifiers(state, technologyOwner.id(), facility.applicationId()).effectMultiplier();
                 if (plant.fuelMaterialId() != null && kw > 0.0) {
                     double[] fuel = ledger.buyFuel(facility, plant.fuelMaterialId(),
                             plant.fuelKgPerTierDay() * scale);

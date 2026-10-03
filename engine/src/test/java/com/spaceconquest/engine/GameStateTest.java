@@ -24,6 +24,8 @@ import com.spaceconquest.engine.governance.WarDeclarationRecord;
 import com.spaceconquest.engine.governance.DiplomaticProposal;
 import com.spaceconquest.engine.combat.FleetEngagementRecord;
 import com.spaceconquest.engine.habitation.PassengerManifest;
+import com.spaceconquest.engine.technology.ApplicationOptimization;
+import com.spaceconquest.engine.technology.ResearchVarianceResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -179,6 +181,9 @@ public class GameStateTest {
                 .warDeclarations(List.of(declaration))
                 .diplomaticProposals(List.of(proposal))
                 .fleetEngagements(List.of(battle))
+                .applicationOptimizations(List.of(new ApplicationOptimization(
+                        "terran", "fission_engine", "PATH_A",
+                        new ResearchVarianceResult(ResearchVarianceResult.OPTIMIZED_SUCCESS, 1.15, 1.20, 1))))
                 .passengerManifests(List.of(troopDeployment))
                 .build();
 
@@ -223,6 +228,8 @@ public class GameStateTest {
         assertEquals(state.launchActivities(), loaded.launchActivities());
         assertEquals(List.of(declaration), loaded.warDeclarations());
         assertEquals(List.of(proposal), loaded.diplomaticProposals());
+        assertEquals(state.applicationOptimizations(), loaded.applicationOptimizations());
+        assertEquals(state.applicationOptimizations(), loaded.toGameState(state.turn(), state.status()).applicationOptimizations());
         assertEquals(List.of(battle), loaded.fleetEngagements());
         assertEquals(List.of(troopDeployment), loaded.passengerManifests());
         assertEquals(state, loaded.toGameState(5, "RUNNING"));

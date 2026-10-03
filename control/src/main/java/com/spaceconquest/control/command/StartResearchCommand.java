@@ -1,7 +1,12 @@
 package com.spaceconquest.control.command;
 
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.DataModelLoader;
+import com.spaceconquest.engine.technology.ApplicationProduction;
+import com.spaceconquest.engine.technology.ApplicationRefinement;
 import com.spaceconquest.engine.technology.ResearchProject;
+
+import java.io.IOException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,16 +30,29 @@ public record StartResearchCommand(
         if (assignedScientists <= 0) {
             return false;
         }
+        var empire = state.empires().stream().filter(value -> empireId.equals(value.id())).findFirst().orElse(null);
+        if (empire == null) return false;
+        try {
+            if (!ApplicationProduction.canResearch(empire, targetTechOrAppId, isApplication,
+                    DataModelLoader.loadTechnologies())) return false;
+        } catch (IOException e) {
+            return false;
+        }
+        if (empire.unlockedTechIds().contains(targetTechOrAppId)) {
+            if (!isApplication) return false;
+            var development = ApplicationRefinement.find(state.applicationOptimizations(), empireId, targetTechOrAppId);
+            if (development != null && development.pendingOutcome() != null) return false;
+        }
 
         // Validate that total assigned scientists does not exceed available headcount
-        long availableScientists = (state.systemEconomies() == null || state.systemEconomies().isEmpty()) ? 100 : state.systemEconomies().stream()
+        long availableScientists = state.systemEconomies().stream()
                 .filter(se -> se.empireId().equals(empireId))
                 .mapToLong(se -> se.employedScientists())
                 .sum();
 
-        int currentlyAssigned = (state.researchProjects() == null) ? 0 : state.researchProjects().stream()
+        long currentlyAssigned = state.researchProjects().stream()
                 .filter(p -> p.empireId().equals(empireId) && !p.targetTechOrAppId().equals(targetTechOrAppId))
-                .mapToInt(p -> p.assignedScientists())
+                .mapToLong(p -> p.assignedScientists())
                 .sum();
 
         if (currentlyAssigned + assignedScientists > availableScientists) {

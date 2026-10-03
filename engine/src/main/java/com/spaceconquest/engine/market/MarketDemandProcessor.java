@@ -4,6 +4,8 @@ import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.Corporation;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.technology.ApplicationProduction;
+import com.spaceconquest.engine.industry.FacilityManufacturingCapacity;
 import com.spaceconquest.engine.MarketOrder;
 import com.spaceconquest.engine.Population;
 import com.spaceconquest.engine.PopulationProcessor;
@@ -71,6 +73,7 @@ public class MarketDemandProcessor {
                     if (owner != null && facility.tier() > 0 && facility.allocatedWorkers() > 0
                             && owner.unlockedTechIds().contains("electricity")
                             && owner.unlockedTechIds().contains(plant.requiredTechnology())
+                            && FacilityManufacturingCapacity.canOperate(state, facility)
                             && plant.fuelMaterialId() != null) {
                         double staffing = Math.clamp(
                                 (double) facility.allocatedWorkers() / plant.requiredWorkers(), 0.0, 1.0);
@@ -84,9 +87,11 @@ public class MarketDemandProcessor {
                 }
                 IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(facility.applicationId());
                 if (!IndustryRecipeCatalog.isUnlocked(recipe, owner)
-                        || facility.tier() < recipe.minTier()) continue;
+                        || facility.tier() < recipe.minTier()
+                        || !FacilityManufacturingCapacity.canOperate(state, facility)) continue;
                 double batches = Math.max(0, facility.allocatedWorkers())
                         * facility.getEffectiveThroughputMultiplier()
+                        * ApplicationProduction.modifiers(state, owner.id(), facility.applicationId()).effectMultiplier()
                         * recipe.technologyMultiplier(owner) / recipe.workersPerBatch();
                 recipe.inputsKg().forEach((resource, kg) ->
                         demand.merge(resource, batches * kg, Double::sum));

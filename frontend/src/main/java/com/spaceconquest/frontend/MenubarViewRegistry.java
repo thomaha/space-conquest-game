@@ -1,7 +1,6 @@
 package com.spaceconquest.frontend;
 
 import com.spaceconquest.control.HumanController;
-import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.audio.AudioSynthesizer;
 import com.spaceconquest.frontend.empire.EmpireView;
@@ -223,12 +222,7 @@ public class MenubarViewRegistry {
         if (empireView != null) empireView.updateData(state);
         if (corporateView != null) corporateView.updateData(state);
         if (diplomacyView != null) diplomacyView.updateData(state);
-        if (techView != null) {
-            Empire playerEmpire = state.empires().stream()
-                    .filter(e -> e.id().equals(playerEmpireId))
-                    .findFirst().orElse(null);
-            techView.updateData(state.researchProjects(), state.technologyExchangeRoutes(), state.systemEconomies(), playerEmpire);
-        }
+        if (techView != null) techView.updateData(state);
         if (industryView != null) industryView.updateData(state);
         if (shipDesignerView != null) shipDesignerView.updateData(state);
         if (fleetManagementView != null) fleetManagementView.updateData(state);

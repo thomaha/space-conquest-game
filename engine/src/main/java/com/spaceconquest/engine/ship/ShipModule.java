@@ -31,7 +31,7 @@ public record ShipModule(
         Map<String, Double> operationalStats
 ) {
     public ShipModule {
-        if (materialCostsKg == null) materialCostsKg = Map.of();
-        if (operationalStats == null) operationalStats = Map.of();
+        materialCostsKg = materialCostsKg == null ? Map.of() : Map.copyOf(materialCostsKg);
+        operationalStats = operationalStats == null ? Map.of() : Map.copyOf(operationalStats);
     }
 }

@@ -22,6 +22,7 @@ import com.spaceconquest.control.command.SetFleetStanceCommand;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.ship.ShipConstructionOrder;
 import com.spaceconquest.engine.ship.ShipConstructionRequirements;
+import com.spaceconquest.engine.ship.ShipManufacturingCapacity;
 import com.spaceconquest.engine.ship.ShipyardWorkCapacity;
 import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.Fleet;
@@ -292,6 +293,8 @@ public class FleetManagementView {
         ShipConstructionRequirements.Estimate estimate =
                 ShipConstructionRequirements.estimate(design);
         String yardEntityId = command.resolveYardEntity(snapshot);
+        lines.add(readinessText("Required manufacturing complexity: "
+                + ShipManufacturingCapacity.requiredComplexity(design), Color.LIGHTCYAN));
         if (yardEntityId == null) {
             lines.add(readinessText("No completed shipyard with a local commercial hub was found in this system. Build a surface_shipyard facility or commission an orbital shipyard module.",
                     Color.SALMON));
@@ -303,7 +306,9 @@ public class FleetManagementView {
                     Color.SALMON));
         }
 
-        if (yardEntityId != null) lines.add(readinessText("Build site: " + yardEntityId, Color.GAINSBORO));
+        if (yardEntityId != null) lines.add(readinessText("Build site: " + yardEntityId
+                + " | Complexity capacity: " + ShipManufacturingCapacity.forYard(snapshot,
+                playerEmpireId, systemId, yardEntityId), Color.GAINSBORO));
         ShipyardWorkCapacity.Profile profile = yardEntityId == null
                 ? null : ShipyardWorkCapacity.forYard(snapshot, playerEmpireId,
                 systemId, yardEntityId);
