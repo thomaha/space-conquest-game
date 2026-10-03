@@ -3,6 +3,8 @@
 This module handles input, autonomous decision agents and game command execution pipelines for players and AI controllers.
 
 ## Key components
+- `MoveFleetCommand.preview`: Returns immutable departure details from the same snapshot validation used by movement commands, including local maneuver fuel, crossing time, braking fuel and any launch charge.
+- Player blueprint registration, editing and ship construction require nuclear fission research for an equipped fission reactor. Chemical auxiliary generators allow early rocket designs without nuclear research. Early rocket lifecycle tests cover all three fuel/oxidizer combinations and resumed sublight travel after save/load.
 - `Controller`: Interface for observing game state updates.
 - `HumanController`: Player controller for receiving game state updates and staging interactive commands.
 - `CommandQueue`: Thread-safe staging queue validating and executing game commands during turn transitions. Optional command receipts report execution, rejection or cancellation; an aborted batch completes receipts exceptionally. Receipts are transient and are cancelled when queued submissions are cleared. It reports actual treasury changes to the engine for imperial daily accounting.

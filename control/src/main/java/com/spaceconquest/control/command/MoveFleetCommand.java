@@ -24,20 +24,32 @@ public record MoveFleetCommand(
         double targetY
 ) implements GameCommand {
 
+    public record DeparturePreview(LocalTravel.Plan local, InterstellarTravel.Plan crossing,
+                                   double launchCostCredits) {
+        public double totalDays() {
+            return (local == null ? 0 : Math.ceil(local.days())) + Math.ceil(crossing.days());
+        }
+    }
+
     public MoveFleetCommand(String fleetId, String targetSystemId) {
         this(fleetId, targetSystemId, 0.0, 0.0);
     }
 
     @Override
     public boolean validate(GameState state) {
+        return preview(state) != null;
+    }
+
+    /** Uses the same snapshot checks and departure fuel commitments as command execution. */
+    public DeparturePreview preview(GameState state) {
         if (state == null || fleetId == null) {
-            return false;
+            return null;
         }
         if (targetSystemId == null || state.solarSystems().stream()
-                .noneMatch(system -> targetSystemId.equals(system.id()))) return false;
+                .noneMatch(system -> targetSystemId.equals(system.id()))) return null;
         Fleet fleet = state.fleets().stream().filter(item -> fleetId.equals(item.id()))
                 .findFirst().orElse(null);
-        if (fleet == null) return false;
+        if (fleet == null) return null;
         boolean valid = state.solarSystems().stream()
                 .anyMatch(system -> system.id().equals(fleet.currentSystemId()))
                 && !targetSystemId.equals(fleet.currentSystemId())
@@ -48,22 +60,26 @@ public record MoveFleetCommand(
                         .flatMap(route -> route.assignedFreighterIds().stream())
                         .noneMatch(id -> fleet.ships().stream()
                                 .anyMatch(ship -> id.equals(ship.id())));
-        if (!valid) return false;
-        if (fleet.location().current().kind() == FleetLocation.Kind.SURFACE
-                && LocalTravel.surfaceLaunchPlan(state, fleet) == null) return false;
-        Fleet departure = localDeparture(state, fleet);
-        if (departure == null) return false;
+        if (!valid) return null;
+        LaunchService.Plan launch = fleet.location().current().kind() == FleetLocation.Kind.SURFACE
+                ? LocalTravel.surfaceLaunchPlan(state, fleet) : null;
+        if (fleet.location().current().kind() == FleetLocation.Kind.SURFACE && launch == null) return null;
+        FleetLocation.Site deepSpace = FleetLocation.Site.deepSpace();
+        LocalTravel.Plan local = fleet.location().isAt(deepSpace) ? null : LocalTravel.plan(state, fleet, deepSpace);
+        if (!fleet.location().isAt(deepSpace) && local == null) return null;
+        Fleet departure = local == null ? fleet : LocalTravel.depart(fleet, deepSpace, local);
         InterstellarTravel.Plan plan = InterstellarTravel.plan(state, departure, targetSystemId);
-        if (plan == null) return false;
+        if (plan == null) return null;
+        var preview = new DeparturePreview(local, plan, LaunchService.payerOperatingCost(state, launch, fleet.ownerEntityId()));
         boolean passengers = state.passengerManifests().stream().anyMatch(manifest ->
                 fleet.ships().stream().anyMatch(ship -> ship.id().equals(manifest.shipId())));
-        if (!passengers) return true;
+        if (!passengers) return preview;
         try {
             return PassengerTransitProcessor.canSustainJourney(state, departure,
                     DataModelLoader.loadRaces(),
-                    plan.days());
+                    plan.days()) ? preview : null;
         } catch (IOException exception) {
-            return false;
+            return null;
         }
     }
 

@@ -214,13 +214,7 @@ public class ShipDesignerView {
 
         Spinner<Double> armorSpinner = new Spinner<>(0.5, 10.0, 2.0, 0.5);
         armorSpinner.setPrefWidth(80);
-        ComboBox<ShipModule> engineCombo = new ComboBox<>();
-        engineCombo.setConverter(new StringConverter<>() {
-            @Override public String toString(ShipModule module) {
-                return module == null ? "" : module.name();
-            }
-            @Override public ShipModule fromString(String value) { return null; }
-        });
+        ComboBox<ShipModule> engineCombo = moduleCombo();
         List<String> unlocked = snapshot == null ? List.of() : snapshot.empires().stream()
                 .filter(empire -> empire.id().equals(playerEmpireId))
                 .map(empire -> empire.unlockedTechIds()).findFirst().orElse(List.of());
@@ -229,6 +223,11 @@ public class ShipDesignerView {
                 engineCombo.getItems().add(PropulsionCatalog.module(moduleId));
         }
         if (!engineCombo.getItems().isEmpty()) engineCombo.setValue(engineCombo.getItems().getFirst());
+        ComboBox<ShipModule> powerCombo = moduleCombo();
+        ShipComponentCatalog.POWER_MODULE_IDS.stream()
+                .filter(id -> ShipComponentCatalog.powerResearched(List.of(id), unlocked))
+                .map(ShipComponentCatalog::module).forEach(powerCombo.getItems()::add);
+        powerCombo.setValue(powerCombo.getItems().getFirst());
         boolean stasisResearched = snapshot != null && snapshot.empires().stream()
                 .anyMatch(empire -> empire.id().equals(playerEmpireId)
                         && empire.unlockedTechIds().contains(PassengerStasis.TECHNOLOGY_ID));
@@ -251,27 +250,30 @@ public class ShipDesignerView {
             PropulsionCatalog.MAIN_DRIVE_IDS.stream()
                     .filter(editingDesign.equippedModuleIds()::contains)
                     .map(PropulsionCatalog::module).findFirst().ifPresent(engineCombo::setValue);
+            powerCombo.getItems().stream().filter(module -> editingDesign.equippedModuleIds().contains(module.id()))
+                    .findFirst().ifPresent(powerCombo::setValue);
             stasisPod.setSelected(editingDesign.equippedModuleIds()
                     .contains(PassengerStasis.MODULE_ID));
         }
 
         GridPane grid = createWorkbenchForm(nameField, roleCombo, matCombo, armorCombo,
-                armorSpinner, engineCombo);
+                armorSpinner, engineCombo, powerCombo);
 
         VBox statsBox = new VBox(6);
         VBox estimateBox = new VBox(4);
         Runnable refreshStats = () -> refreshWorkbenchStats(statsBox, estimateBox, roleCombo.getValue(),
                 matCombo.getValue(), armorCombo.getValue(), armorSpinner.getValue(),
-                engineCombo.getValue(), stasisPod.isSelected());
+                engineCombo.getValue(), powerCombo.getValue(), stasisPod.isSelected());
         refreshStats.run();
         engineCombo.valueProperty().addListener((observable, old, selected) -> refreshStats.run());
+        powerCombo.valueProperty().addListener((observable, old, selected) -> refreshStats.run());
         roleCombo.valueProperty().addListener((observable, old, selected) -> refreshStats.run());
         matCombo.valueProperty().addListener((observable, old, selected) -> refreshStats.run());
         armorCombo.valueProperty().addListener((observable, old, selected) -> refreshStats.run());
         armorSpinner.valueProperty().addListener((observable, old, selected) -> refreshStats.run());
         stasisPod.selectedProperty().addListener((observable, old, selected) -> refreshStats.run());
         Button saveBlueprintBtn = createSaveBlueprintButton(nameField, roleCombo, matCombo,
-                armorCombo, armorSpinner, stasisPod, engineCombo, editingDesign);
+                armorCombo, armorSpinner, stasisPod, engineCombo, powerCombo, editingDesign);
         boolean inUse = editingDesign != null && snapshot != null
                 && (snapshot.shipConstructionOrders().stream().anyMatch(order -> editingDesign.id().equals(order.designId()))
                 || snapshot.fleets().stream().flatMap(fleet -> fleet.ships().stream())
@@ -295,10 +297,21 @@ public class ShipDesignerView {
         return section;
     }
 
+    private static ComboBox<ShipModule> moduleCombo() {
+        ComboBox<ShipModule> combo = new ComboBox<>();
+        combo.setConverter(new StringConverter<>() {
+            @Override public String toString(ShipModule module) {
+                return module == null ? "" : module.name();
+            }
+            @Override public ShipModule fromString(String value) { return null; }
+        });
+        return combo;
+    }
+
     private GridPane createWorkbenchForm(TextField nameField, ComboBox<String> roleCombo,
                                         ComboBox<String> matCombo, ComboBox<String> armorCombo,
                                         Spinner<Double> armorSpinner,
-                                        ComboBox<ShipModule> engineCombo) {
+                                        ComboBox<ShipModule> engineCombo, ComboBox<ShipModule> powerCombo) {
         GridPane grid = new GridPane();
         grid.setHgap(12);
         grid.setVgap(8);
@@ -324,6 +337,10 @@ public class ShipDesignerView {
         grid.add(new HBox(5, armorCombo, armorSpinner), 3, 1);
         grid.add(engineLbl, 0, 2);
         grid.add(engineCombo, 1, 2);
+        Label powerLbl = new Label("Electrical power:");
+        powerLbl.setTextFill(Color.LIGHTCYAN);
+        grid.add(powerLbl, 2, 2);
+        grid.add(powerCombo, 3, 2);
         return grid;
     }
 
@@ -352,7 +369,7 @@ public class ShipDesignerView {
     private void refreshWorkbenchStats(VBox statsBox, VBox estimateBox, String role,
                                        String hullMaterialId,
                                        String armorMaterialId, double armorThickness,
-                                       ShipModule selectedDrive, boolean stasisSelected) {
+                                       ShipModule selectedDrive, ShipModule selectedPower, boolean stasisSelected) {
         statsBox.getChildren().clear();
         estimateBox.getChildren().clear();
         if (selectedDrive == null) {
@@ -360,7 +377,7 @@ public class ShipDesignerView {
             return;
         }
         var specification = new ShipDesignSpecification("preview", "Preview", playerEmpireId,
-                role, hullMaterialId, ShipComponentCatalog.workbenchModules(selectedDrive.id(), stasisSelected),
+                role, hullMaterialId, ShipComponentCatalog.workbenchModules(selectedDrive.id(), stasisSelected, selectedPower.id()),
                 armorMaterialId, armorThickness);
         var evaluation = ShipBlueprintFactory.evaluate(snapshot, specification);
         if (evaluation.physics() != null)
@@ -402,7 +419,7 @@ public class ShipDesignerView {
     private Button createSaveBlueprintButton(TextField nameField, ComboBox<String> roleCombo,
                                             ComboBox<String> matCombo, ComboBox<String> armorCombo,
                                             Spinner<Double> armorSpinner, CheckBox stasisPod,
-                                            ComboBox<ShipModule> engineCombo,
+                                            ComboBox<ShipModule> engineCombo, ComboBox<ShipModule> powerCombo,
                                             ShipDesign editingDesign) {
         Button saveBlueprintBtn = new Button(editingDesign == null
                 ? "Register blueprint design" : "Save blueprint changes");
@@ -413,7 +430,7 @@ public class ShipDesignerView {
                     : editingDesign.id();
             var specification = new ShipDesignSpecification(id, nameField.getText(), playerEmpireId,
                     roleCombo.getValue(), matCombo.getValue(),
-                    ShipComponentCatalog.workbenchModules(engineCombo.getValue().id(), stasisPod.isSelected()),
+                    ShipComponentCatalog.workbenchModules(engineCombo.getValue().id(), stasisPod.isSelected(), powerCombo.getValue().id()),
                     armorCombo.getValue(), armorSpinner.getValue());
             var evaluation = ShipBlueprintFactory.evaluate(snapshot, specification);
             if (!evaluation.valid()) {

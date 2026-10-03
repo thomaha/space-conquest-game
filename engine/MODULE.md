@@ -6,6 +6,7 @@
 This module contains the core game logic, the static data model and state management for the Space Conquest Game.
 
 ## Key components
+- The provisional ship power catalog contains a chemical auxiliary generator and a researched fission reactor. Both affect mass, slots, power balance and manufacturing requirements. Auxiliary generator fuel consumption and endurance remain unmodeled.
 - `ShipComponentCatalog`, `ShipDesignSpecification` and `ShipBlueprintFactory`: Share provisional component choices and rebuild medium-frame player blueprints from live research, real hull materials and available manufacturing capacity. UI previews use the same calculation.
 - `GameEngine`: Interface defining the core loop and engine operations.
 - `GameState`: Represents the current state of the game world.

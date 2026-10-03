@@ -10,6 +10,7 @@ import com.spaceconquest.engine.ship.PropulsionCatalog;
 import com.spaceconquest.engine.ship.ShipConstructionRequirements;
 import com.spaceconquest.engine.ship.ShipyardWorkCapacity;
 import com.spaceconquest.engine.ship.ShipManufacturingCapacity;
+import com.spaceconquest.engine.ship.ShipComponentCatalog;
 import com.spaceconquest.engine.macrostructure.StationModule;
 
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ public record QueueShipBuildCommand(String ownerEntityId, String designId,
                 || owner.unlockedTechIds().contains(PassengerStasis.TECHNOLOGY_ID))
                 && PropulsionCatalog.researched(design.equippedModuleIds(),
                 owner.unlockedTechIds())
+                && ShipComponentCatalog.powerResearched(design.equippedModuleIds(), owner.unlockedTechIds())
                 && PropulsionCatalog.validConfiguration(design.equippedModuleIds(),
                 design.fuelCapacityKg())
                 && !design.isProprietaryCorporateDesign());

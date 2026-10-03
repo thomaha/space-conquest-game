@@ -8,14 +8,17 @@ import com.spaceconquest.engine.ship.ShipBlueprintFactory;
 import com.spaceconquest.engine.ship.ShipComponentCatalog;
 import com.spaceconquest.engine.ship.ShipDesignSpecification;
 import com.spaceconquest.engine.ship.ShipRole;
+import com.spaceconquest.engine.ship.ShipModule;
 import com.spaceconquest.engine.technology.ApplicationOptimization;
 import com.spaceconquest.engine.technology.ResearchVarianceResult;
 import javafx.application.Platform;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.GridPane;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -69,6 +72,15 @@ class ShipDesignerOutcomeTest {
 
     private String feedback(ShipDesignerView view) {
         return ((Label) view.getRoot().getChildren().get(1)).getText();
+    }
+
+    private ComboBox<?> powerCombo(ShipDesignerView view) {
+        var section = (VBox) content(view).getChildren().getFirst();
+        var grid = section.getChildren().stream().filter(GridPane.class::isInstance)
+                .map(GridPane.class::cast).findFirst().orElseThrow();
+        return grid.getChildren().stream().filter(ComboBox.class::isInstance).map(node -> (ComboBox<?>) node)
+                .filter(combo -> combo.getValue() instanceof ShipModule module
+                        && ShipComponentCatalog.POWER_MODULE_IDS.contains(module.id())).findFirst().orElseThrow();
     }
 
     private void onFxThread(Runnable assertions) throws Exception {
@@ -127,6 +139,33 @@ class ShipDesignerOutcomeTest {
             view.updateData(initial);
             assertTrue(feedback(view).contains("was cancelled"), feedback(view));
             assertTrue(initial.shipDesigns().isEmpty());
+        });
+    }
+
+    @Test
+    void designerOffersEarlyPowerAndPreservesSelectedResearchedFissionPowerWhenEditing() throws Exception {
+        onFxThread(() -> {
+            var initial = state(true);
+            var queue = new CommandQueue();
+            var view = view(queue, initial);
+            assertEquals(1, powerCombo(view).getItems().size());
+            assertEquals(ShipComponentCatalog.CHEMICAL_GENERATOR_ID,
+                    ((ShipModule) powerCombo(view).getValue()).id());
+            var owner = initial.empires().getFirst();
+            var researched = new Empire(owner.id(), owner.name(), owner.raceId(), owner.societyStructure(),
+                    owner.treasuryCredits(), owner.corporateTaxRate(), owner.controlledSystemIds(), owner.ministries(),
+                    owner.systemGovernorAssignments(), List.of("rocketry", "nuclear_fission"), owner.activeShipDesignIds());
+            var nuclear = initial.toBuilder().empires(List.of(researched)).build();
+            view.updateData(nuclear);
+            assertEquals(2, powerCombo(view).getItems().size());
+            powerCombo(view).getSelectionModel().select(1);
+            button(content(view), "Register blueprint design").fire();
+            var registered = queue.drainAndExecute(nuclear);
+            assertTrue(registered.shipDesigns().getFirst().equippedModuleIds()
+                    .contains(ShipComponentCatalog.FISSION_REACTOR_ID));
+            view.updateData(registered);
+            button(content(view), "Edit design").fire();
+            assertEquals(ShipComponentCatalog.FISSION_REACTOR_ID, ((ShipModule) powerCombo(view).getValue()).id());
         });
     }
 }

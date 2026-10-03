@@ -145,7 +145,13 @@ public class ShipCommandTest {
 
         MoveFleetCommand moveCmd = new MoveFleetCommand(fleetId, "alpha_centauri", 50.0, 50.0);
         assertTrue(moveCmd.validate(stateWithShip));
+        var preview = moveCmd.preview(stateWithShip);
+        assertNotNull(preview);
+        assertTrue(preview.local().days() > 0);
+        assertTrue(preview.launchCostCredits() > 0);
         GameState stateInTransit = moveCmd.apply(stateWithShip);
+        assertEquals(preview.launchCostCredits(), stateWithShip.empires().getFirst().treasuryCredits()
+                - stateInTransit.empires().getFirst().treasuryCredits(), 0.001);
 
         Fleet transitFleet = stateInTransit.fleets().getFirst();
         assertFalse(transitFleet.isInWarp());

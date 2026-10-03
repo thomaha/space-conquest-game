@@ -8,6 +8,8 @@ All data presented must be tied to the actual data in the game world. Such that 
 All assignments made must be backed by actual data in the game world. Example: you cannot assign more scientists to perform research than available in the empire.
 
 ## Key components
+- `FleetDeparturePreviewCard`: Shows snapshot-based local and inter-system travel times, long-voyage years, sublight speed, propellant and reactor fuel budgets and surface launch charges before departure. It disables unavailable departures using the move command's preview checks and identifies unmodeled chemical generator endurance.
+- The ship designer offers a chemical auxiliary generator for early ships and a fission reactor after nuclear fission research. Power selection changes snapshot previews and is carried in blueprint commands and retained when editing an existing design.
 - Ship designer calculations use `ShipBlueprintFactory` on the injected snapshot. Registration and editing commands carry immutable component choices; calculated stats are previews. Designs used by ships or active construction orders cannot be edited.
 - `Main`: The FXGL entry point. It starts with an empty world and open game menu, then renders a generated or loaded campaign. Express Terran launch generates 50 systems with three distinct non-human starting empires on separate homeworlds.
 - `GameHud`: Builds and positions all UI overlays (menubar, zoom controls, goto, page overlays).

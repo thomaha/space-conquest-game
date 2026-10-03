@@ -42,6 +42,8 @@ public final class ShipBlueprintFactory {
             errors.add("A new blueprint requires exactly one recognized main drive");
         if (!PropulsionCatalog.researched(specification.moduleIds(), owner.unlockedTechIds()))
             errors.add("The selected propulsion drive has not been researched");
+        if (!ShipComponentCatalog.powerResearched(specification.moduleIds(), owner.unlockedTechIds()))
+            errors.add("Nuclear fission is required for the selected reactor");
         if (specification.moduleIds().contains(PassengerStasis.MODULE_ID)
                 && !owner.unlockedTechIds().contains(PassengerStasis.TECHNOLOGY_ID))
             errors.add("Cryogenic stasis has not been researched");

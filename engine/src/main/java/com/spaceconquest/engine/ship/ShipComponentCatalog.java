@@ -9,10 +9,15 @@ import java.util.Set;
 
 /** Shared provisional component stats for player previews and authoritative blueprint construction. */
 public final class ShipComponentCatalog {
+    public static final String CHEMICAL_GENERATOR_ID = "mod_chemical_generator";
+    public static final String FISSION_REACTOR_ID = "mod_fission_reactor";
+    public static final List<String> POWER_MODULE_IDS = List.of(CHEMICAL_GENERATOR_ID, FISSION_REACTOR_ID);
     public static final Set<String> ROLES = Set.of(ShipRole.FIGHTER, ShipRole.EXPLORER, ShipRole.TROOP_TRANSPORT,
             ShipRole.CARGO_TRANSPORT, ShipRole.COLONY_SHIP, ShipRole.MINING_SHIP, ShipRole.ESCORT,
             ShipRole.COMBAT_SHIP, ShipRole.CARRIER_SHIP, ShipRole.CONSTRUCTION_SHIP);
     private static final Map<String, ShipModule> MODULES = Map.of(
+            CHEMICAL_GENERATOR_ID, new ShipModule(CHEMICAL_GENERATOR_ID, "Chemical auxiliary generator",
+                    "MEDIUM", 4, 4500, 0, 500, 0, 2, Map.of(), Map.of()),
             "mod_fission_reactor", new ShipModule("mod_fission_reactor", "Fission reactor tier 2",
                     "MEDIUM", 4, 3000, 0, 500, 0, 2, Map.of(), Map.of()),
             "mod_cargo_vault", new ShipModule("mod_cargo_vault", "Pressurized cargo vault",
@@ -37,9 +42,17 @@ public final class ShipComponentCatalog {
     }
 
     public static List<String> workbenchModules(String driveId, boolean stasis) {
-        List<String> ids = new ArrayList<>(List.of("mod_fission_reactor", driveId, "mod_cargo_vault",
+        return workbenchModules(driveId, stasis, CHEMICAL_GENERATOR_ID);
+    }
+
+    public static List<String> workbenchModules(String driveId, boolean stasis, String powerModuleId) {
+        List<String> ids = new ArrayList<>(List.of(powerModuleId, driveId, "mod_cargo_vault",
                 PropulsionCatalog.FUEL_TANK_MODULE_ID));
         if (stasis) ids.add(PassengerStasis.MODULE_ID);
         return List.copyOf(ids);
+    }
+
+    public static boolean powerResearched(List<String> modules, List<String> technologies) {
+        return !modules.contains(FISSION_REACTOR_ID) || technologies.contains("nuclear_fission");
     }
 }

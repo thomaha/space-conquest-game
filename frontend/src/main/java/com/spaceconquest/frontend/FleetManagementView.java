@@ -645,14 +645,17 @@ public class FleetManagementView {
         if (!targetCombo.getItems().isEmpty()) targetCombo.setValue(targetCombo.getItems().getFirst());
 
         Button moveBtn = new Button("Move fleet");
-        moveBtn.setDisable(targetCombo.getItems().isEmpty() || fleet.hasInterstellarOrder()
-                || fleet.location().inTransit());
         moveBtn.setStyle("-fx-background-color: #0984e3; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;");
+        VBox departurePreview = new VBox(4);
+        Runnable refreshDeparture = () -> FleetDeparturePreviewCard.refresh(departurePreview, moveBtn,
+                snapshot, fleet, targetCombo.getValue());
+        targetCombo.valueProperty().addListener((observable, old, selected) -> refreshDeparture.run());
+        refreshDeparture.run();
         moveBtn.setOnAction(e -> {
             if (humanController != null && snapshot != null) {
                 MoveFleetCommand command = new MoveFleetCommand(fleet.id(), targetCombo.getValue());
                 if (!command.validate(snapshot)) {
-                    feedbackLabel.setText("Departure unavailable. Check the fleet order and onboard passenger supplies.");
+                    feedbackLabel.setText("Departure unavailable. Check orders, propellant, launch service and passenger supplies.");
                     feedbackLabel.setTextFill(Color.SALMON);
                     return;
                 }
@@ -720,7 +723,7 @@ public class FleetManagementView {
             }
         }
 
-        card.getChildren().addAll(topRow, orderRow, createLocalOrders(fleet),
+        card.getChildren().addAll(topRow, orderRow, departurePreview, createLocalOrders(fleet),
                 createPassengerOrders(fleet), createTroopOrders(fleet),
                 createInvasionOrders(fleet), shipList);
         return card;

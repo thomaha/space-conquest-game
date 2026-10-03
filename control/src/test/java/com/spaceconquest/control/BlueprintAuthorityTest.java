@@ -79,12 +79,12 @@ class BlueprintAuthorityTest {
                 specification(valid, "steel", Double.NaN),
                 specification(valid, "steel", -1),
                 specification(valid, "steel", 11),
-                specification(List.of("mod_fission_reactor", "mod_chemical_rocket", "mod_cargo_vault"), "steel", 1),
+                specification(List.of("mod_chemical_generator", "mod_chemical_rocket", "mod_cargo_vault"), "steel", 1),
                 specification(List.of("mod_chemical_rocket", "mod_cargo_vault", "mod_propellant_tank"), "steel", 1),
-                specification(List.of("mod_fission_reactor", "mod_chemical_rocket", "mod_propellant_tank"), "steel", 1),
-                specification(List.of("mod_fission_reactor", "mod_chemical_rocket", "mod_chemical_rocket",
+                specification(List.of("mod_chemical_generator", "mod_chemical_rocket", "mod_propellant_tank"), "steel", 1),
+                specification(List.of("mod_chemical_generator", "mod_chemical_rocket", "mod_chemical_rocket",
                         "mod_cargo_vault", "mod_propellant_tank"), "steel", 1),
-                specification(List.of("mod_fission_reactor", "mod_chemical_rocket", "mod_cargo_vault",
+                specification(List.of("mod_chemical_generator", "mod_chemical_rocket", "mod_cargo_vault",
                         "mod_cargo_vault", "mod_cargo_vault", "mod_propellant_tank"), "steel", 1));
         var state = state();
         for (var request : cases) {
