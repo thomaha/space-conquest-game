@@ -66,6 +66,7 @@ public record ShipPowerProfile(double solarKw, double chemicalKw, double fission
         int capacity = com.spaceconquest.engine.habitation.PassengerStasis.capacity(design);
         long pods = design.equippedModuleIds().stream().filter("cryogenic_stasis_pod"::equals).count();
         double perPod = capacity > 0 && pods > 0 ? (double) capacity / pods : 100;
-        return hotelKw + 80 * Math.ceil(ship.passengerCount() / perPod);
+        // Preserve 80 kW at 100 seats, with small per-pod overhead and occupancy-scaled cooling.
+        return hotelKw + 2 * Math.ceil(ship.passengerCount() / perPod) + 78 * ship.passengerCount() / perPod;
     }
 }

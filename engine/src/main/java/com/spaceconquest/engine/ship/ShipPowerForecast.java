@@ -27,7 +27,7 @@ public final class ShipPowerForecast {
                 continue;
             }
             ShipPowerState initial = ShipPowerProcessor.reserves(ship), current = initial;
-            double essential = profile.essentialKw(ship, design), cargo = ShipPowerProcessor.cargoKw(profile, ship);
+            double essential = profile.essentialKw(ship, design), cargo = ShipPowerProcessor.cargoKw(profile, ship, design);
             double energy = 0;
             boolean ready = true;
             if (local != null) {
@@ -59,13 +59,12 @@ public final class ShipPowerForecast {
                     ready &= step.supplied(); current = step.state();
                 }
             }
-            double reserve = essential * ShipPowerProcessor.ARRIVAL_RESERVE_HOURS;
-            var reserveCheck = ShipPowerProcessor.interval(profile, current, ShipPowerProcessor.ARRIVAL_RESERVE_HOURS,
-                    0, essential, 0, 0);
-            ready &= reserveCheck.supplied();
-            results.add(new Readiness(ship.id(), true, ready, energy, reserve, current.batteryChargeKwh(),
+            var arrival = ShipArrivalReserve.environment(state, fleet, destination, crossing != null);
+            var reserveCheck = ShipArrivalReserve.check(profile, current, essential, cargo, arrival);
+            ready &= reserveCheck.ready();
+            results.add(new Readiness(ship.id(), true, ready, energy, reserveCheck.requiredKwh(), current.batteryChargeKwh(),
                     initial.fuelMassKg() - current.fuelMassKg(), ready
-                    ? "Electrical supply includes a 48-hour essential-load arrival reserve"
+                    ? "Electrical supply includes a 48-hour essential and cargo arrival reserve with destination eclipses"
                     : "Insufficient electrical energy, peak output or eclipse storage; resupply or change equipment"));
         }
         return List.copyOf(results);

@@ -21,7 +21,7 @@ class CargoDeteriorationTest {
     private ShipDesign design(double solar, double cargoKw) {
         var profile = new ShipPowerProfile(solar, 0, 0, 500, 100, 100, 0, 0, 2, 10, cargoKw, .65, Map.of());
         return new ShipDesign("design", "Ship", "owner", ShipRole.CARGO_TRANSPORT, "steel", List.of(), "steel", 0,
-                1000, 2000, 1000, 100, 1, 0, 2000, false, false, ShipManufacturingProfile.baseline(), profile);
+                1000, 100, 1000, 100, 1, 0, 2000, false, false, ShipManufacturingProfile.baseline(), profile);
     }
     private GameState state(double solar, double cargoKw, Map<String, Double> cargo) {
         var ship = new ShipInstance("ship", "design", "owner", 100, 0, 500, cargo).withPowerState(ShipPowerState.empty());
@@ -58,7 +58,9 @@ class CargoDeteriorationTest {
         assertEquals(100, ship(second).storedCargoKg().get("food_matrix"));
         var third = tick(second);
         assertEquals(100 * Math.sqrt(.95), ship(third).storedCargoKg().get("food_matrix"), 1e-9);
-        var restored = tick(third.withShipDesigns(List.of(design(12, 10))));
+        double restoredSupply = 2 + ShipPowerProcessor.cargoKw(third.shipDesigns().getFirst().powerProfile(),
+                ship(third), third.shipDesigns().getFirst());
+        var restored = tick(third.withShipDesigns(List.of(design(restoredSupply, 10))));
         assertEquals(ship(third).storedCargoKg(), ship(restored).storedCargoKg());
         assertEquals(36, ship(restored).powerState().cargoPreservation().exposureHours().get("food_matrix"), 1e-9);
         assertTrue(ship(restored).powerState().cargoPreservation().lostKgToday().isEmpty());

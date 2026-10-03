@@ -7,6 +7,7 @@ import com.spaceconquest.control.command.RecoverFleetTravelCommand;
 import com.spaceconquest.control.command.SetShipSolarArraysCommand;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.ship.Fleet;
+import com.spaceconquest.engine.ship.FlightRecoveryReadiness;
 import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.ShipInstance;
 import com.spaceconquest.engine.ship.ShipPowerProcessor;
@@ -26,7 +27,10 @@ final class ShipPowerCard {
     static VBox create(GameState state, Fleet fleet, ShipInstance ship, ShipDesign design,
                        HumanController controller, Label feedback) {
         VBox box = new VBox(5);
+        box.getChildren().add(RescueFeedbackCard.create(state, ship));
         box.getChildren().add(ShipSupplyTransferCard.create(state, fleet, ship, design, controller, feedback));
+        box.getChildren().add(RescueRendezvousCard.create(state, fleet, ship, design, controller, feedback));
+        addRecovery(box, state, fleet, controller, feedback);
         if (design == null || design.powerProfile() == null) {
             box.getChildren().add(label("Legacy electrical compatibility mode: reserves and endurance are unknown."));
             return box;
@@ -40,11 +44,10 @@ final class ShipPowerCard {
         var environment = fleet.location().inTransit()
                 ? ShipSolarEnvironment.journey(state, fleet, fleet.location().destination())
                 : ShipSolarEnvironment.at(state, fleet, fleet.location().current());
-        addRecovery(box, state, fleet, controller, feedback);
         box.getChildren().addAll(label(String.format("Electricity: %.1f/%.1f kWh battery | Generator supplies: %s",
                 power.batteryChargeKwh(), profile.batteryKwh(), power.generatorMaterialsKg())),
                 label(String.format("Loads: %.1f kW essential | %.1f kW cargo | %.1f kW during propulsion",
-                        profile.essentialKw(ship, design), ShipPowerProcessor.cargoKw(profile, ship), profile.driveKw())));
+                        profile.essentialKw(ship, design), ShipPowerProcessor.cargoKw(profile, ship, design), profile.driveKw())));
         if (profile.solarKw() > 0) {
             box.getChildren().add(label(String.format("Solar: %.1f kW in sunlight | %.3f times Sol at 1 AU | %s",
                     ShipPowerProcessor.solarKw(profile, power, environment), environment.fluxRelativeToEarth(), environment.description())));
@@ -113,7 +116,8 @@ final class ShipPowerCard {
                         fleet.flightMotion().positionMeters() / 1000, fleet.flightMotion().velocityMps())));
             var command = new RecoverFleetTravelCommand(fleet.id());
             var paused = command.pausedPreview(state);
-            var recovery = command.preview(state);
+            var readiness = paused == null ? FlightRecoveryReadiness.check(state, fleet) : null;
+            var recovery = readiness != null && readiness.ready() ? readiness.plan() : null;
             Button resume = new Button("Plan recovery to destination");
             resume.setDisable(controller == null || (paused == null ? recovery == null : !paused.ready()));
             resume.setOnAction(event -> {
@@ -129,9 +133,8 @@ final class ShipPowerCard {
                         paused.remainingDays(), paused.local() ? " | Maneuver fuel already committed" : "")));
                 if (!paused.ready()) paused.electrical().stream().filter(check -> !check.ready())
                         .forEach(check -> box.getChildren().add(label(check.explanation())));
-            } else box.getChildren().add(label(recovery == null
-                    ? "Recovery requires a reachable sublight destination, braking propellant and enough electricity."
-                    : String.format("Recovery: %.2f days | %.1f kg propellant",
+            } else if (!readiness.ready()) readiness.blockers().forEach(reason -> box.getChildren().add(label(reason)));
+            else box.getChildren().add(label(String.format("Ready to resume: %.2f days | %.1f kg propellant",
                     recovery.trajectory().totalSeconds() / 86400, recovery.fuelKg().values().stream().mapToDouble(Double::doubleValue).sum())));
         }
     }

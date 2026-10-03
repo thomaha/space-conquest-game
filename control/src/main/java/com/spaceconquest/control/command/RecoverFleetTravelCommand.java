@@ -3,6 +3,7 @@ package com.spaceconquest.control.command;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.FlightRecovery;
+import com.spaceconquest.engine.ship.FlightRecoveryReadiness;
 import com.spaceconquest.engine.ship.PausedTravelRecovery;
 
 /** Stages physical sublight replanning or resumption of a prepaid local or warp itinerary. */
@@ -10,8 +11,8 @@ public record RecoverFleetTravelCommand(String fleetId) implements GameCommand {
     public FlightRecovery.Plan preview(GameState state) {
         if (state == null || fleetId == null) return null;
         Fleet fleet = state.fleets().stream().filter(item -> fleetId.equals(item.id())).findFirst().orElse(null);
-        var plan = FlightRecovery.plan(state, fleet);
-        return plan != null && FlightRecovery.electricallyReady(state, fleet, plan) ? plan : null;
+        var readiness = FlightRecoveryReadiness.check(state, fleet);
+        return readiness.ready() ? readiness.plan() : null;
     }
     public PausedTravelRecovery.Preview pausedPreview(GameState state) {
         if (state == null || fleetId == null) return null;

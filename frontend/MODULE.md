@@ -8,6 +8,8 @@ All data presented must be tied to the actual data in the game world. Such that 
 All assignments made must be backed by actual data in the game world. Example: you cannot assign more scientists to perform research than available in the empire.
 
 ## Key components
+- `RescueFeedbackCard` displays the latest persisted rescue status on donor and receiver cards, including planned contact time during approach and distinct delivery, missed contact, changed-stock and power-failure results. `ShipPowerCard` shows authoritative recovery blockers or readiness after delivery.
+- `RescueRendezvousCard` offers donor selection and a requested supply transfer for disabled sublight ships. It reads the injected snapshot and stages `RescueFleetCommand`. Fleet status distinguishes rescue approach from destination recovery; existing supply controls also work at matched coasting contact.
 - Fleet ship power cards display per-material equivalent unpowered cargo hours and cargo lost on the last tick from the injected snapshot.
 - `ShipSupplyTransferCard`: Fleet ship cards offer same-owner emergency resupply from nearby ship cargo or compatible tanks. Controls select the donor, supply, source and total mixture mass and stage the validated transfer for the next tick. Legacy electrical designs can still receive recognized main-drive supplies.
 - `FleetDeparturePreviewCard`: Shows snapshot-based travel times, speed, propellant, drive reactor fuel, surface launch charges and electrical energy and arrival reserves. Electrical failures retain their explanation while disabling departure. Legacy electrical behavior is identified explicitly.

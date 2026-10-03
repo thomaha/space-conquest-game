@@ -23,6 +23,6 @@ public record SetShipSolarArraysCommand(String shipId, boolean deployed) impleme
         return ShipPowerResupply.replace(state, ship.withPowerState(new ShipPowerState(power.generatorMaterialsKg(),
                 power.chemicalMixture(), power.reactorFuel(), power.batteryChargeKwh(), deployed, power.arrayCondition(),
                 power.orientationFraction(), power.unmetEssentialHours(), power.unmetDriveKwh(), power.unmetCargoKwh(),
-                power.lastUnmetEssentialKwh(), power.chargedInputKwhToday(), power.cargoPreservation())));
+                power.lastUnmetEssentialKwh(), power.chargedInputKwhToday(), power.cargoPreservation(), power.rescueStatus())));
     }
 }

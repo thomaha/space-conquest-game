@@ -26,9 +26,13 @@ public final class ShipPowerProcessor {
                 environment.fluxRelativeToEarth() * state.arrayCondition() * state.orientationFraction());
     }
 
-    public static double cargoKw(ShipPowerProfile profile, ShipInstance ship) {
-        return ship.storedCargoKg().values().stream().anyMatch(quantity -> quantity > 0)
-                ? profile.cargoKw() : profile.cargoKw() * .1;
+    public static double cargoKw(ShipPowerProfile profile, ShipInstance ship, ShipDesign design) {
+        double preservationMass = ship.storedCargoKg().entrySet().stream()
+                .filter(entry -> Double.isFinite(entry.getValue()) && entry.getValue() > 0)
+                .mapToDouble(entry -> entry.getValue() * CargoDeterioration.loadFactor(entry.getKey())).sum();
+        double utilization = design.maxCargoMassKg() > 0 ? Math.clamp(preservationMass / design.maxCargoMassKg(), 0, 1)
+                : preservationMass > 0 ? 1 : 0;
+        return profile.cargoKw() * (.1 + .9 * utilization);
     }
 
     public static Interval interval(ShipPowerProfile profile, ShipPowerState original, double hours,
@@ -75,7 +79,7 @@ public final class ShipPowerProcessor {
                 original.unmetEssentialHours() + (essentialKw == 0 ? 0 : essentialMissing / essentialKw),
                 original.unmetDriveKwh() + driveMissing, original.unmetCargoKwh() + cargoMissing,
                 original.lastUnmetEssentialKwh() + essentialMissing, original.chargedInputKwhToday() + input,
-                original.cargoPreservation());
+                original.cargoPreservation(), original.rescueStatus());
         return new Interval(next, generated + input, essentialMissing, driveMissing, cargoMissing, firstUnpowered);
     }
 
@@ -107,7 +111,7 @@ public final class ShipPowerProcessor {
         if (fuelAvailable(profile, state, state.reactorFuel())) supply += profile.fissionKw();
         // Sustained trajectories cannot assume a finite battery supplies the entire burn.
         double propulsion = Math.min(profile.driveKw(), Math.max(0,
-                supply - profile.essentialKw(ship, design) - cargoKw(profile, ship)));
+                supply - profile.essentialKw(ship, design) - cargoKw(profile, ship, design)));
         var drive = PropulsionCatalog.mainDrive(design.equippedModuleIds());
         return drive == null ? 0 : Math.min(design.totalThrustN(),
                 2 * profile.electricDriveEfficiency() * propulsion * 1000 / drive.exhaustVelocityMps());
@@ -120,7 +124,7 @@ public final class ShipPowerProcessor {
     }
 
     public static List<Fleet> advanceDay(GameState state) {
-        return state.fleets().stream().map(fleet -> {
+        var updated = state.fleets().stream().map(fleet -> {
             Tick first = account(state, fleet, 24);
             double failure = first.firstUnpoweredHour();
             boolean active = fleet.hasInterstellarOrder() || fleet.location().inTransit();
@@ -133,6 +137,7 @@ public final class ShipPowerProcessor {
             Fleet powered = fleet.withShips(first.ships());
             return interrupted || recovery ? FlightRecovery.advance(powered, interrupted ? 0 : 24) : powered;
         }).toList();
+        return RescueRendezvous.complete(state, updated);
     }
 
     private record Tick(List<ShipInstance> ships, double firstUnpoweredHour) {}
@@ -147,7 +152,7 @@ public final class ShipPowerProcessor {
             ShipPowerState current = new ShipPowerState(prior.generatorMaterialsKg(), prior.chemicalMixture(),
                     prior.reactorFuel(), prior.batteryChargeKwh(), prior.arraysDeployed(), prior.arrayCondition(),
                     prior.orientationFraction(), prior.unmetEssentialHours(), 0, 0, 0, prior.chargedInputKwhToday(),
-                    prior.cargoPreservation());
+                    prior.cargoPreservation(), prior.rescueStatus());
             ShipSolarEnvironment environment = fleet.hasInterstellarOrder() && !fleet.location().inTransit()
                     ? ShipSolarEnvironment.DARK : fleet.location().inTransit()
                     ? ShipSolarEnvironment.journey(state, fleet, fleet.location().destination())
@@ -161,7 +166,7 @@ public final class ShipPowerProcessor {
                 boolean sunlight = middle % (environment.lightHours() + environment.darkHours()) < environment.lightHours();
                 var step = interval(profile, current, end - start,
                         sunlight ? solarKw(profile, current, environment) : 0,
-                        profile.essentialKw(ship, design), cargoKw(profile, ship),
+                        profile.essentialKw(ship, design), cargoKw(profile, ship, design),
                         middle < stopHour && burningAt(fleet, middle) ? profile.driveKw() : 0);
                 failure[0] = Math.min(failure[0], start + step.firstUnpoweredHour());
                 current = step.state();
@@ -169,7 +174,7 @@ public final class ShipPowerProcessor {
             return CargoDeterioration.advanceDay(ship.withPowerState(new ShipPowerState(current.generatorMaterialsKg(), current.chemicalMixture(),
                     current.reactorFuel(), current.batteryChargeKwh(), current.arraysDeployed(), current.arrayCondition(),
                     current.orientationFraction(), current.unmetEssentialHours(), current.unmetDriveKwh(),
-                    current.unmetCargoKwh(), current.lastUnmetEssentialKwh(), 0, current.cargoPreservation())), design);
+                    current.unmetCargoKwh(), current.lastUnmetEssentialKwh(), 0, current.cargoPreservation(), current.rescueStatus())), design);
         }).toList();
         return new Tick(ships, failure[0]);
     }

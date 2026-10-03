@@ -11,12 +11,18 @@ public record FlightMotion(double positionMeters, double velocityMps, Trajectory
     /** An analytic accelerate, coast and brake itinerary beginning at a nonzero velocity. */
     public record Trajectory(double startMeters, double initialVelocityMps, double accelerationMps2,
                              double peakMps, double accelerationSeconds, double coastSeconds,
-                             double brakingSeconds) {
+                             double brakingSeconds, double finalVelocityMps, RescueOrder rescueOrder) {
+        public Trajectory(double startMeters, double initialVelocityMps, double accelerationMps2,
+                          double peakMps, double accelerationSeconds, double coastSeconds, double brakingSeconds) {
+            this(startMeters, initialVelocityMps, accelerationMps2, peakMps, accelerationSeconds,
+                    coastSeconds, brakingSeconds, 0, null);
+        }
         public Trajectory {
             for (double value : new double[]{startMeters, initialVelocityMps, accelerationMps2,
-                    peakMps, accelerationSeconds, coastSeconds, brakingSeconds})
+                    peakMps, accelerationSeconds, coastSeconds, brakingSeconds, finalVelocityMps})
                 if (!Double.isFinite(value) || value < 0) throw new IllegalArgumentException("Invalid recovery trajectory");
             if (accelerationMps2 <= 0 || peakMps <= 0) throw new IllegalArgumentException("Invalid recovery thrust");
+            if (finalVelocityMps > peakMps) throw new IllegalArgumentException("Invalid matching velocity");
         }
         public double totalSeconds() { return accelerationSeconds + coastSeconds + brakingSeconds; }
         public double brakingStart() { return accelerationSeconds + coastSeconds; }
@@ -35,7 +41,8 @@ public record FlightMotion(double positionMeters, double velocityMps, Trajectory
                     + .5 * accelerationMps2 * accelerate * accelerate + peakMps * coast
                     + peakMps * brake - .5 * accelerationMps2 * brake * brake;
             double velocity = seconds < accelerationSeconds
-                    ? initialVelocityMps + accelerationMps2 * accelerate : Math.max(0, peakMps - accelerationMps2 * brake);
+                    ? initialVelocityMps + accelerationMps2 * accelerate
+                    : Math.max(finalVelocityMps, peakMps - accelerationMps2 * brake);
             return new FlightMotion(position, velocity, this, Math.min(seconds, totalSeconds()));
         }
     }

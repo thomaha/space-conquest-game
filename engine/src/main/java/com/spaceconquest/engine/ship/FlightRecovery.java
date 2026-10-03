@@ -68,19 +68,25 @@ public final class FlightRecovery {
     }
 
     public static boolean electricallyReady(GameState state, Fleet fleet, Plan plan) {
+        return electricallyReady(state, fleet, plan, fleet);
+    }
+
+    /** A rescue can earmark tank supplies while retaining the actual onboard load for its forecast. */
+    public static boolean electricallyReady(GameState state, Fleet fleet, Plan plan, Fleet supplyReserved) {
         if (plan == null) return false;
         for (ShipInstance ship : fleet.ships()) {
             var design = state.shipDesigns().stream().filter(item -> item.id().equals(ship.designId())).findFirst().orElseThrow();
             var profile = design.powerProfile();
             if (profile == null) continue;
-            var power = ShipPowerProcessor.reserves(ship);
-            double essential = profile.essentialKw(ship, design), cargo = ShipPowerProcessor.cargoKw(profile, ship);
+            var power = ShipPowerProcessor.reserves(supplyReserved.ships().stream()
+                    .filter(item -> item.id().equals(ship.id())).findFirst().orElseThrow());
+            double essential = profile.essentialKw(ship, design), cargo = ShipPowerProcessor.cargoKw(profile, ship, design);
             var trajectory = plan.trajectory();
             for (double[] phase : new double[][]{{trajectory.accelerationSeconds(), profile.driveKw(), cargo},
                     {trajectory.coastSeconds(), 0, cargo}, {trajectory.brakingSeconds(), profile.driveKw(), cargo},
                     {Math.ceil(trajectory.totalSeconds() / InterstellarTravel.SECONDS_PER_DAY)
                             * InterstellarTravel.SECONDS_PER_DAY - trajectory.totalSeconds(), 0, cargo},
-                    {ShipPowerProcessor.ARRIVAL_RESERVE_HOURS * 3600, 0, 0}}) {
+                    {ShipPowerProcessor.ARRIVAL_RESERVE_HOURS * 3600, 0, cargo}}) {
                 var interval = ShipPowerProcessor.interval(profile, power, phase[0] / 3600, 0, essential, phase[2], phase[1]);
                 if (!interval.supplied()) return false;
                 power = interval.state();
@@ -121,6 +127,13 @@ public final class FlightRecovery {
             fuelFraction = (trajectory.impulse(elapsed) - trajectory.impulse(previous.elapsedSeconds()))
                     / trajectory.impulse(trajectory.totalSeconds());
             if (elapsed + .000001 >= trajectory.totalSeconds()) {
+                if (trajectory.rescueOrder() != null) {
+                    double coast = Math.max(0, day - (trajectory.totalSeconds() - previous.elapsedSeconds()));
+                    var contact = new FlightMotion(next.positionMeters() + next.velocityMps() * coast,
+                            next.velocityMps(), trajectory, trajectory.totalSeconds());
+                    return copy(fleet.withShips(burn(fleet, fuelFraction)), Fleet.MODE_POWER_INTERRUPTED,
+                            contact, fleet.interstellarFuelBudgetKg());
+                }
                 return arrive(fleet.withShips(burn(fleet, fuelFraction)));
             }
         } else if (Fleet.MODE_SUBLIGHT.equals(fleet.interstellarMode()) && !fleet.location().inTransit()) {

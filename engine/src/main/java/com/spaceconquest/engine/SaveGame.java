@@ -91,7 +91,7 @@ public record SaveGame(
         List<FleetEngagementRecord> fleetEngagements,
         List<ApplicationOptimization> applicationOptimizations
 ) {
-    public static final int CURRENT_VERSION = 30;
+    public static final int CURRENT_VERSION = 32;
 
     public SaveGame {
         if (solarSystems == null) solarSystems = List.of();

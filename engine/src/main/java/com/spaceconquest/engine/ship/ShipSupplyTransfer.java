@@ -6,7 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-/** Provisional, lossless resupply at a shared stationary site. Quantities are total mixture mass. */
+/** Provisional, lossless resupply at a shared site or coasting contact. Quantities are total mixture mass. */
 public final class ShipSupplyTransfer {
     public enum Source {
         CARGO, TANK;
@@ -22,11 +22,8 @@ public final class ShipSupplyTransfer {
                 || source == null || destination == null || fuelId == null || !Double.isFinite(kg) || kg <= 0)
             return state;
         Fleet donorFleet = fleet(state, donorId), receiverFleet = fleet(state, receiverId);
-        if (donorFleet == null || receiverFleet == null || !stationary(donorFleet) || !stationary(receiverFleet)
-                || !Objects.equals(donorFleet.currentSystemId(), receiverFleet.currentSystemId())
-                || !donorFleet.location().current().equals(receiverFleet.location().current())
-                || !Objects.equals(donorFleet.ownerEntityId(), receiverFleet.ownerEntityId())) return state;
-        if (!knownSite(state, donorFleet)) return state;
+        if (donorFleet == null || receiverFleet == null || !coLocated(donorFleet, receiverFleet)) return state;
+        if (!RescueRendezvous.contact(donorFleet, receiverFleet) && !knownSite(state, donorFleet)) return state;
         ShipInstance donor = ship(donorFleet, donorId), receiver = ship(receiverFleet, receiverId);
         if (!Objects.equals(donor.ownerEntityId(), donorFleet.ownerEntityId())
                 || !Objects.equals(receiver.ownerEntityId(), receiverFleet.ownerEntityId())) return state;
@@ -72,6 +69,14 @@ public final class ShipSupplyTransfer {
         return state.withFleets(state.fleets().stream().map(fleet -> fleet.withShips(fleet.ships().stream()
                 .map(item -> item.id().equals(donorId) ? depleted : item.id().equals(receiverId) ? supplied : item)
                 .toList())).toList());
+    }
+
+    /** Physical transfer requires a shared stationary site or velocity-matched corridor contact. */
+    public static boolean coLocated(Fleet donor, Fleet receiver) {
+        return Objects.equals(donor.ownerEntityId(), receiver.ownerEntityId())
+                && (RescueRendezvous.contact(donor, receiver) || stationary(donor) && stationary(receiver)
+                && Objects.equals(donor.currentSystemId(), receiver.currentSystemId())
+                && donor.location().current().equals(receiver.location().current()));
     }
 
     /** Interrupted local journeys with zero progress are still at their departure site. */
@@ -125,7 +130,7 @@ public final class ShipSupplyTransfer {
         return new ShipPowerState(materials, chemical, reactor, power.batteryChargeKwh(), power.arraysDeployed(),
                 power.arrayCondition(), power.orientationFraction(), power.unmetEssentialHours(),
                 power.unmetDriveKwh(), power.unmetCargoKwh(), power.lastUnmetEssentialKwh(), power.chargedInputKwhToday(),
-                power.cargoPreservation());
+                power.cargoPreservation(), power.rescueStatus());
     }
 
     private static double compartmentMass(ShipPowerProfile profile, ShipPowerState power, boolean reactor) {

@@ -738,6 +738,10 @@ public class FleetManagementView {
                     ? String.format("Warp corridor %.1f%% complete", fleet.transitProgress() * 100)
                     : fleet.flightMotion() == null ? "Awaiting assistance"
                     : String.format("Coasting at %.1f m/s", fleet.flightMotion().velocityMps()));
+        if (Fleet.MODE_RECOVERY.equals(fleet.interstellarMode()) && fleet.flightMotion().trajectory().rescueOrder() != null)
+            return String.format("Rescue to %s | %.1f m/s | %.1f days remaining",
+                    fleet.flightMotion().trajectory().rescueOrder().targetFleetId(), fleet.flightMotion().velocityMps(),
+                    (fleet.flightMotion().trajectory().totalSeconds() - fleet.flightMotion().elapsedSeconds()) / 86400);
         if (Fleet.MODE_RECOVERY.equals(fleet.interstellarMode()))
             return String.format("Recovery to %s: %.1f%% | %.1f m/s", fleet.targetSystemId(),
                     fleet.transitProgress() * 100, fleet.flightMotion().velocityMps());

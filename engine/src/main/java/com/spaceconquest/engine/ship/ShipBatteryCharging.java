@@ -51,7 +51,7 @@ public final class ShipBatteryCharging {
         var next = new ShipPowerState(power.generatorMaterialsKg(), power.chemicalMixture(), power.reactorFuel(),
                 power.batteryChargeKwh() + stored, power.arraysDeployed(), power.arrayCondition(), power.orientationFraction(),
                 power.unmetEssentialHours(), power.unmetDriveKwh(), power.unmetCargoKwh(), power.lastUnmetEssentialKwh(),
-                power.chargedInputKwhToday() + inputKwh, power.cargoPreservation());
+                power.chargedInputKwhToday() + inputKwh, power.cargoPreservation(), power.rescueStatus());
         return ShipPowerResupply.replace(paid.toBuilder().powerGrids(grids).build(), ship.withPowerState(next));
     }
 

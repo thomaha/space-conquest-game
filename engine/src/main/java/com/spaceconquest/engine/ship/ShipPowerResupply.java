@@ -55,7 +55,7 @@ public final class ShipPowerResupply {
                 reactor ? fuelId : power.reactorFuel(), power.batteryChargeKwh(), power.arraysDeployed(),
                 power.arrayCondition(), power.orientationFraction(), power.unmetEssentialHours(),
                 power.unmetDriveKwh(), power.unmetCargoKwh(), power.lastUnmetEssentialKwh(), power.chargedInputKwhToday(),
-                power.cargoPreservation());
+                power.cargoPreservation(), power.rescueStatus());
         return replace(paid, ship.withPowerState(next));
     }
 
@@ -84,8 +84,9 @@ public final class ShipPowerResupply {
             String feed = profile.chemicalKw() > 0 ? power.chemicalMixture() : power.reactorFuel();
             var fuel = profile.fuels().get(feed);
             if (profile.chemicalKw() + profile.fissionKw() <= 0 || fuel == null) continue;
-            double energy = (profile.essentialKw(ship, design) + ShipPowerProcessor.cargoKw(profile, ship)
-                    + profile.driveKw()) * hours + profile.essentialKw(ship, design) * ShipPowerProcessor.ARRIVAL_RESERVE_HOURS;
+            double energy = (profile.essentialKw(ship, design) + ShipPowerProcessor.cargoKw(profile, ship, design)
+                    + profile.driveKw()) * hours + (profile.essentialKw(ship, design)
+                    + ShipPowerProcessor.cargoKw(profile, ship, design)) * ShipPowerProcessor.ARRIVAL_RESERVE_HOURS;
             double needed = energy / fuel.kwhPerKg() * 1.05 - compartmentMass(profile, power, fuel.oxidizerId() == null);
             if (needed > .000001) current = buy(current, ship.id(), source, feed, needed);
         }

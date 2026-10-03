@@ -19,7 +19,7 @@ import java.util.List;
 
 /** Emergency supply controls built from the current immutable snapshot. */
 final class ShipSupplyTransferCard {
-    private record Supply(ShipSupplyTransfer.Destination destination, String id, String label) {
+    record Supply(ShipSupplyTransfer.Destination destination, String id, String label) {
         @Override public String toString() { return label; }
     }
     private ShipSupplyTransferCard() {}
@@ -27,12 +27,10 @@ final class ShipSupplyTransferCard {
     static VBox create(GameState state, Fleet fleet, ShipInstance receiver, ShipDesign design,
                        HumanController controller, Label feedback) {
         VBox box = new VBox(5);
-        if (controller == null || design == null || !ShipSupplyTransfer.stationary(fleet)) return box;
+        if (controller == null || design == null) return box;
         ComboBox<String> donor = new ComboBox<>();
-        state.fleets().stream().filter(item -> ShipSupplyTransfer.stationary(item)
-                && item.currentSystemId().equals(fleet.currentSystemId())
-                && item.location().current().equals(fleet.location().current())
-                && item.ownerEntityId().equals(receiver.ownerEntityId())).flatMap(item -> item.ships().stream())
+        state.fleets().stream().filter(item -> ShipSupplyTransfer.coLocated(item, fleet))
+                .flatMap(item -> item.ships().stream())
                 .filter(ship -> !ship.id().equals(receiver.id()) && ship.ownerEntityId().equals(receiver.ownerEntityId()))
                 .map(ShipInstance::id).sorted().forEach(donor.getItems()::add);
         List<Supply> supplies = supplies(design);
@@ -52,7 +50,7 @@ final class ShipSupplyTransferCard {
             var command = new TransferShipSuppliesCommand(donor.getValue(), receiver.id(), source.getValue(),
                     selected.destination(), selected.id(), quantity.getValue());
             if (!command.validate(state)) {
-                feedback.setText("Transfer requires compatible donor stock, receiver capacity and the same stationary site and owner.");
+                feedback.setText("Transfer requires compatible stock, receiver capacity and a shared site or velocity-matched rescue contact.");
                 return;
             }
             controller.stageCommand(command);
@@ -64,7 +62,7 @@ final class ShipSupplyTransferCard {
         return box;
     }
 
-    private static List<Supply> supplies(ShipDesign design) {
+    static List<Supply> supplies(ShipDesign design) {
         List<Supply> result = new ArrayList<>();
         var profile = design.powerProfile();
         if (profile != null) profile.fuels().entrySet().stream()

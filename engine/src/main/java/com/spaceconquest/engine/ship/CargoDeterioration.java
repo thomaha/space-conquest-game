@@ -15,12 +15,17 @@ public final class CargoDeterioration {
 
     private CargoDeterioration() {}
     public static Rule rule(String materialId) { return RULES.get(materialId); }
+    public static double loadFactor(String materialId) {
+        if (rule(materialId) == null) return 0;
+        if ("agricultural_biomass".equals(materialId)) return .5;
+        return materialId.startsWith("liquid_") ? 2 : 1;
+    }
 
     /** Applies one day's final accounting, after any stopped-flight replay, never during a preview. */
     public static ShipInstance advanceDay(ShipInstance ship, ShipDesign design) {
         if (ship.powerState() == null || design.powerProfile() == null) return ship;
         var power = ship.powerState();
-        double cargoKw = ShipPowerProcessor.cargoKw(design.powerProfile(), ship);
+        double cargoKw = ShipPowerProcessor.cargoKw(design.powerProfile(), ship, design);
         double hours = cargoKw <= 0 ? 0 : Math.clamp(power.unmetCargoKwh() / cargoKw, 0, 24);
         var cargo = new HashMap<>(ship.storedCargoKg());
         Map<String, Double> exposure = new HashMap<>(), losses = new HashMap<>();

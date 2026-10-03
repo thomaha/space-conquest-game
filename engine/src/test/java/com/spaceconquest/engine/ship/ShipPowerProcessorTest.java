@@ -128,7 +128,7 @@ class ShipPowerProcessorTest {
         var plan = LocalTravel.plan(state, fleet, destination);
         var readiness = ShipPowerForecast.departure(state, fleet, destination, plan, null).getFirst();
         assertTrue(readiness.ready());
-        assertEquals(96, readiness.arrivalReserveKwh());
+        assertEquals(240, readiness.arrivalReserveKwh());
         var departure = LocalTravel.depart(fleet, destination, plan);
         for (int day = 0; day < 2; day++) {
             var powered = ShipPowerProcessor.advanceDay(state.withFleets(List.of(departure)));
