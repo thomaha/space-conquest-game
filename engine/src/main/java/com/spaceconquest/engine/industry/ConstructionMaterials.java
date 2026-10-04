@@ -105,7 +105,7 @@ public final class ConstructionMaterials {
                     ships.set(shipIndex, new ShipInstance(ship.id(), ship.designId(),
                             ship.ownerEntityId(), ship.currentHullHealth(), ship.currentShieldHealth(),
                             ship.currentFuelKg(), Map.copyOf(cargo), ship.passengerCount(),
-                            ship.passengerRaceId(), ship.transitMode(), ship.powerState()));
+                            ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState()));
                     changed = true;
                 }
             }

@@ -27,6 +27,7 @@ final class ShipPowerCard {
     static VBox create(GameState state, Fleet fleet, ShipInstance ship, ShipDesign design,
                        HumanController controller, Label feedback) {
         VBox box = new VBox(5);
+        box.getChildren().add(ShipSupplyStorageCard.create(state, fleet, ship, design, controller, feedback));
         box.getChildren().add(RescueFeedbackCard.create(state, ship));
         box.getChildren().add(ShipSupplyTransferCard.create(state, fleet, ship, design, controller, feedback));
         box.getChildren().add(RescueRendezvousCard.create(state, fleet, ship, design, controller, feedback));

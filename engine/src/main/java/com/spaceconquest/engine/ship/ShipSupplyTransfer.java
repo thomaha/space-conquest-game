@@ -9,8 +9,10 @@ import java.util.Objects;
 /** Provisional, lossless resupply at a shared site or coasting contact. Quantities are total mixture mass. */
 public final class ShipSupplyTransfer {
     public enum Source {
-        CARGO, TANK;
-        @Override public String toString() { return this == CARGO ? "Cargo stock" : "Fuel tank"; }
+        CARGO, TANK, SUPPLY_TANK;
+        @Override public String toString() { return switch (this) {
+            case CARGO -> "Cargo stock"; case TANK -> "Working fuel tank"; case SUPPLY_TANK -> "Dedicated supply tanks";
+        }; }
     }
     public enum Destination { ELECTRICAL_FUEL, PROPELLANT, DRIVE_REACTOR }
 
@@ -29,6 +31,7 @@ public final class ShipSupplyTransfer {
                 || !Objects.equals(receiver.ownerEntityId(), receiverFleet.ownerEntityId())) return state;
         ShipDesign donorDesign = design(state, donor), receiverDesign = design(state, receiver);
         if (donorDesign == null || receiverDesign == null) return state;
+        if (donor.supplyState().order() != null || receiver.supplyState().order() != null) return state;
         Map<String, Double> materials;
         ShipInstance supplied;
         switch (destination) {
@@ -57,7 +60,7 @@ public final class ShipSupplyTransfer {
             case DRIVE_REACTOR -> {
                 var drive = PropulsionCatalog.mainDrive(receiverDesign.equippedModuleIds());
                 if (drive == null || PropulsionCatalog.reactorFuel(drive.moduleId(), fuelId) == null
-                        || source != Source.CARGO || !validStock(receiver.storedCargoKg())
+                        || source == Source.TANK || !validStock(receiver.storedCargoKg())
                         || mass(receiver.storedCargoKg()) + kg > receiverDesign.maxCargoMassKg()) return state;
                 materials = Map.of(fuelId, kg);
                 supplied = copy(receiver, receiver.currentFuelKg(), add(receiver.storedCargoKg(), materials));
@@ -105,6 +108,7 @@ public final class ShipSupplyTransfer {
     private static ShipInstance withdraw(ShipInstance donor, ShipDesign design, Source source,
                                           Destination destination, String fuelId, double kg,
                                           Map<String, Double> materials) {
+        if (source == Source.SUPPLY_TANK) return ShipSupplyStorage.withdraw(donor, design, materials);
         if (source == Source.CARGO) {
             var cargo = subtract(donor.storedCargoKg(), materials);
             return cargo == null ? null : copy(donor, donor.currentFuelKg(), cargo);
@@ -167,7 +171,7 @@ public final class ShipSupplyTransfer {
     private static ShipInstance copy(ShipInstance ship, double fuel, Map<String, Double> cargo) {
         return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(),
                 ship.currentShieldHealth(), fuel, cargo, ship.passengerCount(), ship.passengerRaceId(),
-                ship.transitMode(), ship.powerState());
+                ship.transitMode(), ship.powerState(), ship.supplyState());
     }
     private static Fleet fleet(GameState state, String shipId) {
         return state.fleets().stream().filter(fleet -> fleet.ships().stream().anyMatch(ship -> shipId.equals(ship.id())))

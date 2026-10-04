@@ -40,6 +40,8 @@ public class FleetProcessor {
         if (fleet == null) return null;
         if (Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode())
                 || Fleet.MODE_RECOVERY.equals(fleet.interstellarMode())) return fleet;
+        double fueledHours = FlightFuelLimits.availableHours(fleet, 24);
+        if (fueledHours < 24 - 1e-9) return FlightRecovery.advance(fleet, fueledHours);
         // A failed controlled itinerary remains in space; it cannot claim braking or arrival.
         if ((fleet.hasInterstellarOrder() || fleet.location().inTransit())
                 && fleet.ships().stream().anyMatch(ship -> ship.powerState() != null
@@ -120,7 +122,8 @@ public class FleetProcessor {
                 targetSys.isEmpty() ? 0.0 : fleet.interstellarAccelerationMps2(),
                 elapsedDays,
                 targetSys.isEmpty() ? 0.0 : fleet.interstellarPeakSpeedMps(),
-                targetSys.isEmpty() ? java.util.Map.of() : fleet.interstellarFuelBudgetKg()
+                targetSys.isEmpty() ? java.util.Map.of() : fleet.interstellarFuelBudgetKg(),
+                null, targetSys.isEmpty() ? java.util.Map.of() : fleet.journeyPropulsion()
         );
     }
 
@@ -144,7 +147,7 @@ public class FleetProcessor {
                     ship.currentHullHealth(), ship.currentShieldHealth(),
                     Math.max(0.0, ship.currentFuelKg() - budget * deltaFraction),
                     ship.storedCargoKg(), ship.passengerCount(),
-                    ship.passengerRaceId(), ship.transitMode(), ship.powerState());
+                    ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState());
         }).toList();
     }
 
@@ -170,7 +173,7 @@ public class FleetProcessor {
                     Math.clamp(ship.currentHullHealth() + 5.0, 0.0, 100.0),
                     Math.clamp(ship.currentShieldHealth() + 10.0, 0.0, 100.0),
                     ship.currentFuelKg(), ship.storedCargoKg(), ship.passengerCount(),
-                    ship.passengerRaceId(), ship.transitMode(), ship.powerState())).toList();
+                    ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState())).toList();
         }
         return fleet.ships();
     }

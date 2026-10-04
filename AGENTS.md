@@ -1,4 +1,8 @@
 # Agent guidelines
+Codex can run any java command without asking permission
+Codex can also run any command to read the source code without asking permission
+Codex can run any mvn command without asking permission
+
 ## Package boundaries
 These are intended boundaries. Current integration gaps are recorded in the module `MODULE.md` files.
 - **`engine/src/main/java/com/spaceconquest/engine/`**: Contains core simulation logic and data models. It has no access to JavaFX or FXGL.

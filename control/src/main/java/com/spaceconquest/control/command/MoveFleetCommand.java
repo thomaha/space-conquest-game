@@ -9,6 +9,8 @@ import com.spaceconquest.engine.ship.InterstellarTravel;
 import com.spaceconquest.engine.ship.LocalTravel;
 import com.spaceconquest.engine.ship.FleetLocation;
 import com.spaceconquest.engine.ship.ShipPowerForecast;
+import com.spaceconquest.engine.ship.FleetPropulsionSupply;
+import com.spaceconquest.engine.ship.FleetReturnReserve;
 import com.spaceconquest.engine.logistics.LaunchService;
 
 import java.util.ArrayList;
@@ -26,11 +28,17 @@ public record MoveFleetCommand(
 ) implements GameCommand {
 
     public record DeparturePreview(LocalTravel.Plan local, InterstellarTravel.Plan crossing,
-                                   double launchCostCredits, List<ShipPowerForecast.Readiness> electrical) {
+                                   double launchCostCredits, List<ShipPowerForecast.Readiness> electrical,
+                                   double scheduledArrivalDays, FleetReturnReserve.Preview returnReserve) {
+        public DeparturePreview(LocalTravel.Plan local, InterstellarTravel.Plan crossing,
+                                double launchCostCredits, List<ShipPowerForecast.Readiness> electrical) {
+            this(local, crossing, launchCostCredits, electrical, 0, null);
+        }
         public DeparturePreview { electrical = List.copyOf(electrical); }
         public boolean ready() { return ShipPowerForecast.ready(electrical); }
         public double totalDays() {
-            return (local == null ? 0 : Math.ceil(local.days())) + Math.ceil(crossing.days());
+            return scheduledArrivalDays > 0 ? scheduledArrivalDays
+                    : (local == null ? 0 : Math.ceil(local.days())) + Math.ceil(crossing.days());
         }
     }
 
@@ -40,12 +48,15 @@ public record MoveFleetCommand(
 
     @Override
     public boolean validate(GameState state) {
-        var departure = preview(state);
+        var departure = preview(state, false);
         return departure != null && departure.ready();
     }
 
     /** Uses the same snapshot checks and departure fuel commitments as command execution. */
     public DeparturePreview preview(GameState state) {
+        return preview(state, true);
+    }
+    public DeparturePreview preview(GameState state, boolean includeReturn) {
         if (state == null || fleetId == null) {
             return null;
         }
@@ -74,16 +85,23 @@ public record MoveFleetCommand(
         Fleet departure = local == null ? fleet : LocalTravel.depart(fleet, deepSpace, local);
         InterstellarTravel.Plan plan = InterstellarTravel.plan(state, departure, targetSystemId);
         if (plan == null) return null;
-        var power = ShipPowerForecast.departure(state, fleet, deepSpace, local, plan);
+        var supply = local == null && Fleet.MODE_SUBLIGHT.equals(plan.mode()) && FleetPropulsionSupply.hasOrder(fleet)
+                ? FleetPropulsionSupply.forecast(state, fleet, plan) : null;
+        var power = supply == null ? ShipPowerForecast.departure(state, fleet, deepSpace, local, plan) : supply.electrical();
+        var projection = !includeReturn ? null : supply != null ? supply : local == null && Fleet.MODE_SUBLIGHT.equals(plan.mode())
+                && plan.propulsion().size() == fleet.ships().size() && fleet.ships().stream().allMatch(ship ->
+                state.shipDesigns().stream().anyMatch(design -> design.id().equals(ship.designId()) && design.powerProfile() != null))
+                ? FleetPropulsionSupply.forecast(state, fleet, plan) : null;
+        var reserve = includeReturn ? FleetReturnReserve.preview(state, fleet, targetSystemId, projection) : null;
         var preview = new DeparturePreview(local, plan,
-                LaunchService.payerOperatingCost(state, launch, fleet.ownerEntityId()), power);
+                LaunchService.payerOperatingCost(state, launch, fleet.ownerEntityId()), power, supply == null ? 0 : supply.days(), reserve);
         boolean passengers = state.passengerManifests().stream().anyMatch(manifest ->
                 fleet.ships().stream().anyMatch(ship -> ship.id().equals(manifest.shipId())));
         if (!passengers) return preview;
         try {
             return PassengerTransitProcessor.canSustainJourney(state, departure,
                     DataModelLoader.loadRaces(),
-                    plan.days()) ? preview : null;
+                    supply == null ? plan.days() : supply.days()) ? preview : null;
         } catch (IOException exception) {
             return null;
         }
@@ -123,7 +141,7 @@ public record MoveFleetCommand(
                         fueled.ships(), departure.location(),
                         plan.mode(), plan.days(), plan.distanceMeters(),
                         plan.accelerationMps2(), 0.0,
-                        plan.peakSpeedMps(), plan.fuelBudgetKg()
+                        plan.peakSpeedMps(), plan.fuelBudgetKg(), null, plan.propulsion()
                 ));
             } else {
                 updatedFleets.add(fleet);

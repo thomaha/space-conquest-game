@@ -22,7 +22,9 @@ public record TradeRoute(
         double onboardKg,
         double onboardCostCredits,
         double dailyOperatingResultCredits,
-        double cumulativeOperatingResultCredits
+        double cumulativeOperatingResultCredits,
+        boolean roaming,
+        String status
 ) {
     public static final String LOADING = "LOADING";
     public static final String DELIVERING = "DELIVERING";
@@ -30,6 +32,7 @@ public record TradeRoute(
 
     public TradeRoute {
         assignedFreighterIds = assignedFreighterIds == null ? List.of() : List.copyOf(assignedFreighterIds);
+        if (status == null) status = "";
         if (phase == null || phase.isBlank()) phase = LOADING;
         if (!Double.isFinite(onboardKg) || onboardKg < 0.0)
             throw new IllegalArgumentException("Invalid route cargo mass");
@@ -39,6 +42,17 @@ public record TradeRoute(
             throw new IllegalArgumentException("Invalid route financial balance");
     }
 
+    public TradeRoute(String id, String name, String ownerEntityId, String originEntityId,
+                      String destinationEntityId, String materialId, double transferAmountPerTurnKg,
+                      double minSourceInventoryThresholdKg, double maxDestinationCapacityKg,
+                      List<String> assignedFreighterIds, double totalVolumeMovedKg, boolean isActive,
+                      String phase, double onboardKg, double onboardCostCredits,
+                      double dailyOperatingResultCredits, double cumulativeOperatingResultCredits) {
+        this(id, name, ownerEntityId, originEntityId, destinationEntityId, materialId,
+                transferAmountPerTurnKg, minSourceInventoryThresholdKg, maxDestinationCapacityKg,
+                assignedFreighterIds, totalVolumeMovedKg, isActive, phase, onboardKg,
+                onboardCostCredits, dailyOperatingResultCredits, cumulativeOperatingResultCredits, false, "");
+    }
     public TradeRoute(String id, String name, String ownerEntityId, String originEntityId,
                       String destinationEntityId, String materialId, double transferAmountPerTurnKg,
                       double minSourceInventoryThresholdKg, double maxDestinationCapacityKg,
@@ -67,7 +81,7 @@ public record TradeRoute(
                 minSourceInventoryThresholdKg, maxDestinationCapacityKg,
                 assignedFreighterIds, totalVolumeMovedKg + movedKg, isActive,
                 newPhase, newOnboardKg, onboardCostCredits,
-                dailyOperatingResultCredits, cumulativeOperatingResultCredits);
+                dailyOperatingResultCredits, cumulativeOperatingResultCredits, roaming, status);
     }
 
     public TradeRoute withLoadedCargo(double massKg, double costCredits) {
@@ -76,7 +90,7 @@ public record TradeRoute(
                 minSourceInventoryThresholdKg, maxDestinationCapacityKg,
                 assignedFreighterIds, totalVolumeMovedKg, isActive,
                 DELIVERING, massKg, costCredits,
-                dailyOperatingResultCredits, cumulativeOperatingResultCredits);
+                dailyOperatingResultCredits, cumulativeOperatingResultCredits, roaming, status);
     }
 
     public TradeRoute withDeliveredCargo(double massKg, double revenueCredits,
@@ -93,7 +107,7 @@ public record TradeRoute(
                 remaining, remaining > 0.000001
                 ? Math.max(0.0, onboardCostCredits - cost) : 0.0,
                 dailyOperatingResultCredits + result,
-                cumulativeOperatingResultCredits + result);
+                cumulativeOperatingResultCredits + result, roaming, status);
     }
 
     public TradeRoute withOperatingCost(double costCredits) {
@@ -106,7 +120,7 @@ public record TradeRoute(
                 assignedFreighterIds, totalVolumeMovedKg, isActive,
                 phase, onboardKg, onboardCostCredits,
                 dailyOperatingResultCredits - costCredits,
-                cumulativeOperatingResultCredits - costCredits);
+                cumulativeOperatingResultCredits - costCredits, roaming, status);
     }
 
     /** Writes off missing paid freight without a second cash charge or claimed delivery. */
@@ -119,7 +133,7 @@ public record TradeRoute(
         return new TradeRoute(id, name, ownerEntityId, originEntityId, destinationEntityId, materialId,
                 transferAmountPerTurnKg, minSourceInventoryThresholdKg, maxDestinationCapacityKg,
                 assignedFreighterIds, totalVolumeMovedKg, isActive, remaining > 0 ? phase : RETURNING,
-                remaining, retainedCost, dailyOperatingResultCredits - loss, cumulativeOperatingResultCredits - loss);
+                remaining, retainedCost, dailyOperatingResultCredits - loss, cumulativeOperatingResultCredits - loss, roaming, status);
     }
 
     public TradeRoute resetDailyResult() {
@@ -128,7 +142,7 @@ public record TradeRoute(
                 minSourceInventoryThresholdKg, maxDestinationCapacityKg,
                 assignedFreighterIds, totalVolumeMovedKg, isActive,
                 phase, onboardKg, onboardCostCredits, 0.0,
-                cumulativeOperatingResultCredits);
+                cumulativeOperatingResultCredits, roaming, status);
     }
 
     public TradeRoute withDestination(String newDestinationEntityId) {
@@ -139,7 +153,7 @@ public record TradeRoute(
                 minSourceInventoryThresholdKg, maxDestinationCapacityKg,
                 assignedFreighterIds, totalVolumeMovedKg, isActive, phase,
                 onboardKg, onboardCostCredits, dailyOperatingResultCredits,
-                cumulativeOperatingResultCredits);
+                cumulativeOperatingResultCredits, roaming, status);
     }
 
     public TradeRoute withMarketChoice(String newMaterialId, String newDestinationEntityId) {
@@ -153,6 +167,27 @@ public record TradeRoute(
                 minSourceInventoryThresholdKg, maxDestinationCapacityKg,
                 assignedFreighterIds, totalVolumeMovedKg, isActive, phase,
                 onboardKg, onboardCostCredits, dailyOperatingResultCredits,
-                cumulativeOperatingResultCredits);
+                cumulativeOperatingResultCredits, roaming, status);
+    }
+
+    public TradeRoute withRoaming(boolean enabled) {
+        return new TradeRoute(id, name, ownerEntityId, originEntityId, destinationEntityId, materialId,
+                transferAmountPerTurnKg, minSourceInventoryThresholdKg, maxDestinationCapacityKg, assignedFreighterIds,
+                totalVolumeMovedKg, isActive, phase, onboardKg, onboardCostCredits, dailyOperatingResultCredits,
+                cumulativeOperatingResultCredits, enabled, status);
+    }
+
+    public TradeRoute withStatus(String message) {
+        return new TradeRoute(id, name, ownerEntityId, originEntityId, destinationEntityId, materialId,
+                transferAmountPerTurnKg, minSourceInventoryThresholdKg, maxDestinationCapacityKg, assignedFreighterIds,
+                totalVolumeMovedKg, isActive, phase, onboardKg, onboardCostCredits, dailyOperatingResultCredits,
+                cumulativeOperatingResultCredits, roaming, message);
+    }
+
+    public TradeRoute atNewOrigin(String hubId) {
+        return new TradeRoute(id, name, ownerEntityId, hubId, destinationEntityId, materialId,
+                transferAmountPerTurnKg, minSourceInventoryThresholdKg, maxDestinationCapacityKg, assignedFreighterIds,
+                totalVolumeMovedKg, isActive, LOADING, onboardKg, onboardCostCredits, dailyOperatingResultCredits,
+                cumulativeOperatingResultCredits, roaming, "At port; choosing the next trade after sale.");
     }
 }

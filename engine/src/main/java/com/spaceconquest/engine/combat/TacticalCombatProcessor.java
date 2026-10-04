@@ -427,8 +427,7 @@ public class TacticalCombatProcessor {
                 surviving.add(new ShipInstance(
                         ship.id(), ship.designId(), ship.ownerEntityId(),
                         hull, shields, ship.currentFuelKg(), ship.storedCargoKg(),
-                        ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState()
-                ));
+                        ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState()));
             }
         }
         return surviving;

@@ -41,8 +41,8 @@ public final class CargoDeterioration {
         });
         losses.forEach((id, loss) -> cargo.put(id, Math.max(0, cargo.get(id) - loss)));
         var preserved = power.withCargoPreservation(new CargoPreservationState(exposure, losses));
-        return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(),
+        return SupplyDeterioration.advanceDay(new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(),
                 ship.currentShieldHealth(), ship.currentFuelKg(), cargo, ship.passengerCount(), ship.passengerRaceId(),
-                ship.transitMode(), preserved);
+                ship.transitMode(), preserved, ship.supplyState()), design);
     }
 }

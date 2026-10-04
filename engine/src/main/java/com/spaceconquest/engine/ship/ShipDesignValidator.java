@@ -102,6 +102,8 @@ public class ShipDesignValidator {
     ) {
         List<String> errors = new ArrayList<>();
         ModuleAggregation agg = aggregateModules(modules);
+        double supplyCapacity = modules == null ? 0 : modules.stream()
+                .mapToDouble(module -> module.operationalStats().getOrDefault("supplyCapacityKg", 0.0)).sum();
         List<String> moduleIds = modules == null ? List.of()
                 : modules.stream().map(ShipModule::id).toList();
         if (!PropulsionCatalog.validConfiguration(moduleIds, agg.fuelCapacity()))
@@ -134,11 +136,11 @@ public class ShipDesignValidator {
                     agg.maxComplexity(), allowedComplexity));
         }
 
-        validateRoleRequirements(role, agg, errors);
+        validateRoleRequirements(role, agg, supplyCapacity, errors);
 
         double gravity = Math.max(0.1, homePlanetGravity);
         double atmosphere = Math.max(0.0, homeAtmospherePressure);
-        double maxLaunchMass = totalDryMass + agg.maxCargo() + agg.fuelCapacity();
+        double maxLaunchMass = totalDryMass + agg.maxCargo() + agg.fuelCapacity() + supplyCapacity;
         double minLaunchThrustRequiredN = maxLaunchMass * gravity * (1.0 + atmosphere);
         boolean isLaunchCapable = agg.thrust() >= minLaunchThrustRequiredN;
 
@@ -204,9 +206,9 @@ public class ShipDesignValidator {
         return (materialStrength / Math.max(1, totalSlotsAllocated)) * (1.0 - dryMassMod);
     }
 
-    private void validateRoleRequirements(String role, ModuleAggregation agg, List<String> errors) {
-        if (ShipRole.CARGO_TRANSPORT.equalsIgnoreCase(role) && agg.maxCargo() <= 0.0) {
-            errors.add("Cargo transport role requires at least one cargo vault module");
+    private void validateRoleRequirements(String role, ModuleAggregation agg, double supplyCapacity, List<String> errors) {
+        if (ShipRole.CARGO_TRANSPORT.equalsIgnoreCase(role) && agg.maxCargo() <= 0.0 && supplyCapacity <= 0) {
+            errors.add("Cargo transport role requires at least one cargo vault or dedicated supply storage module");
         }
         if (ShipRole.TROOP_TRANSPORT.equalsIgnoreCase(role) && agg.troopCapacity() <= 0.0) {
             errors.add("Troop transport role requires at least one troop transport bay module");

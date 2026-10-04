@@ -12,6 +12,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Spinner;
@@ -199,22 +200,32 @@ public class CommercialHubView {
         thresholdSpinner.setPrefWidth(90);
 
         Button establishBtn = new Button("Commission trade route");
+        CheckBox roaming = new CheckBox("Roaming: choose a new trade after selling");
+        roaming.setId("roaming-trade-mode");
+        roaming.setTextFill(Color.LIGHTCYAN);
+        roaming.selectedProperty().addListener((observable, old, selected) -> {
+            destCombo.setDisable(selected);
+            matCombo.setDisable(selected);
+            establishBtn.setDisable(activeHubs.size() < (selected ? 1 : 2) || freighterCombo.getItems().isEmpty());
+        });
         establishBtn.setDisable(activeHubs.size() < 2 || freighterCombo.getItems().isEmpty());
         establishBtn.setStyle("-fx-background-color: #e67e22; -fx-text-fill: white; -fx-font-weight: bold;");
         establishBtn.setOnAction(e -> {
             if (humanController != null) {
                 humanController.stageCommand(new CreateTradeRouteCommand(
                         playerEmpireId,
-                        originCombo.getValue() + " -> " + destCombo.getValue() + " (" + matCombo.getValue() + ")",
+                        roaming.isSelected() ? "Roaming trader at " + originCombo.getValue()
+                                : originCombo.getValue() + " -> " + destCombo.getValue() + " (" + matCombo.getValue() + ")",
                         originCombo.getValue(),
-                        destCombo.getValue(),
+                        roaming.isSelected() ? originCombo.getValue() : destCombo.getValue(),
                         matCombo.getValue(),
                         amountSpinner.getValue(),
                         thresholdSpinner.getValue(),
                         50000.0,
-                        List.of(freighterCombo.getValue())
+                        List.of(freighterCombo.getValue()), roaming.isSelected()
                 ));
-                feedbackLabel.setText("Commissioned trade route: " + matCombo.getValue() + " from " + originCombo.getValue() + " to " + destCombo.getValue());
+                feedbackLabel.setText(roaming.isSelected() ? "Queued roaming trader at " + originCombo.getValue()
+                        : "Queued trade route: " + matCombo.getValue() + " from " + originCombo.getValue() + " to " + destCombo.getValue());
                 feedbackLabel.setTextFill(Color.LIGHTGREEN);
             }
         });
@@ -235,7 +246,7 @@ public class CommercialHubView {
         grid.add(freighterCombo, 3, 2);
         grid.add(establishBtn, 2, 3, 2, 1);
 
-        section.getChildren().addAll(title, grid);
+        section.getChildren().addAll(title, roaming, grid);
         return section;
     }
 
@@ -287,6 +298,10 @@ public class CommercialHubView {
                 finances.setFill(r.dailyOperatingResultCredits() < 0.0 ? Color.SALMON : Color.LIGHTCYAN);
                 finances.setFont(Font.font("Verdana", 10));
                 VBox routeDetails = new VBox(2, info, finances);
+                Label mode = new Label(r.roaming() ? "Roaming trader" : "Fixed-origin route");
+                mode.setTextFill(Color.LIGHTCYAN);
+                routeDetails.getChildren().add(mode);
+                if (snapshot != null) routeDetails.getChildren().add(TradeLegStatusCard.create(snapshot, r));
                 HBox.setHgrow(routeDetails, Priority.ALWAYS);
 
                 if (r.isActive()) {

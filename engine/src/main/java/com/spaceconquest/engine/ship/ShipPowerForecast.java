@@ -13,6 +13,7 @@ public final class ShipPowerForecast {
 
     public static List<Readiness> departure(GameState state, Fleet fleet, FleetLocation.Site destination,
                                            LocalTravel.Plan local, InterstellarTravel.Plan crossing) {
+        if (FleetSupplySimulation.hasOrders(fleet)) return FleetSupplyForecast.departure(state, fleet, local, crossing);
         if (local != null && (!Double.isFinite(local.days()) || local.days() <= 0 || local.days() > 2))
             return List.of(new Readiness("fleet", true, false, 0, 0, 0, 0, "Unsupported local journey duration"));
         List<Readiness> results = new ArrayList<>();

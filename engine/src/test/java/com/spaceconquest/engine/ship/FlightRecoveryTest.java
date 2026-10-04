@@ -66,6 +66,52 @@ class FlightRecoveryTest {
         assertEquals(0, drifted.ships().getFirst().powerState().unmetDriveKwh());
     }
 
+    @ParameterizedTest @ValueSource(doubles = {100, 500500})
+    void propellantExhaustionStopsAccelerationAndBrakingAtTheActualTime(double start) {
+        var original = flight(start, 10000);
+        var ship = original.ships().getFirst();
+        var depleted = original.withShips(List.of(FleetPropulsionSupply.withFuel(ship, 5)));
+        double seconds = start + 100;
+        double velocity = InterstellarTravel.velocityMps(DISTANCE, ACCELERATION, PEAK, seconds);
+        var failed = tick(depleted);
+        assertEquals(Fleet.MODE_POWER_INTERRUPTED, failed.interstellarMode());
+        assertEquals(velocity, failed.flightMotion().velocityMps(), 1e-6);
+        assertEquals(InterstellarTravel.progress(DISTANCE, ACCELERATION, PEAK, seconds) * DISTANCE
+                + velocity * (86400 - 100), failed.flightMotion().positionMeters(), .01);
+        assertEquals(0, failed.ships().getFirst().currentFuelKg(), 1e-6);
+        var drifted = tick(failed);
+        assertEquals(velocity, drifted.flightMotion().velocityMps(), 1e-6);
+        assertEquals(failed.flightMotion().positionMeters() + velocity * 86400, drifted.flightMotion().positionMeters(), .01);
+        assertEquals("a", drifted.currentSystemId());
+        var movementOnly = new FleetProcessor().processFleetMovements(List.of(depleted), List.of(), List.of()).getFirst();
+        assertEquals(failed.flightMotion().positionMeters(), movementOnly.flightMotion().positionMeters(), .01);
+    }
+
+    @Test void emptyTankCoastsUntilBrakingIsRequiredThenCannotClaimArrival() {
+        var original = flight(5000, 10000);
+        var empty = original.withShips(List.of(FleetPropulsionSupply.withFuel(original.ships().getFirst(), 0)));
+        var coasting = tick(empty);
+        assertEquals(Fleet.MODE_SUBLIGHT, coasting.interstellarMode());
+        assertEquals(0, coasting.ships().getFirst().currentFuelKg());
+        for (int day = 0; day < 6; day++) coasting = tick(coasting);
+        assertEquals(Fleet.MODE_POWER_INTERRUPTED, coasting.interstellarMode());
+        assertEquals(PEAK, coasting.flightMotion().velocityMps(), 1e-6);
+        assertEquals("a", coasting.currentSystemId());
+    }
+
+    @Test void replacementTrajectoryAlsoStopsWhenItsPropellantIsExhausted() {
+        var original = flight(0, 10000);
+        var trajectory = new FlightMotion.Trajectory(100, 10, 1, 20, 10, 100, 20);
+        var recovering = FleetPropulsionSupply.motion(original.withShips(List.of(
+                FleetPropulsionSupply.withFuel(original.ships().getFirst(), 1))), Fleet.MODE_RECOVERY,
+                trajectory.at(0), Map.of("ship", 30.0), Map.of());
+        var failed = tick(recovering);
+        assertEquals(Fleet.MODE_POWER_INTERRUPTED, failed.interstellarMode());
+        assertEquals(11, failed.flightMotion().velocityMps(), 1e-6);
+        assertEquals(110.5 + 11 * (86400 - 1), failed.flightMotion().positionMeters(), .01);
+        assertEquals(0, failed.ships().getFirst().currentFuelKg(), 1e-6);
+    }
+
     @Test void recoveryUsesActualVelocityConsumesFuelAndBrakesBeforeArrival() {
         Fleet failed = restored(tick(flight(5000, .2)));
         var plan = FlightRecovery.plan(state(failed), failed);
@@ -75,11 +121,14 @@ class FlightRecoveryTest {
         assertEquals(DISTANCE, plan.trajectory().at(plan.trajectory().totalSeconds()).positionMeters(), .01);
         assertEquals(0, plan.trajectory().at(plan.trajectory().totalSeconds()).velocityMps(), .000001);
         Fleet recovering = FlightRecovery.depart(failed, plan);
+        assertEquals(plan.propulsion(), recovering.journeyPropulsion());
+        assertEquals(3400, recovering.journeyPropulsion().get("ship").exhaustVelocityMps());
         double originalFuel = recovering.ships().getFirst().currentFuelKg();
         for (int day = 0; day < 30 && recovering.hasInterstellarOrder(); day++) recovering = tick(recovering);
         assertEquals("b", recovering.currentSystemId());
         assertFalse(recovering.hasInterstellarOrder());
         assertNull(recovering.flightMotion());
+        assertTrue(recovering.journeyPropulsion().isEmpty());
         assertEquals(originalFuel - plan.fuelKg().get("ship"), recovering.ships().getFirst().currentFuelKg(), .00001);
         assertTrue(recovering.ships().getFirst().generatorFuelMassKg() < failed.ships().getFirst().generatorFuelMassKg());
     }

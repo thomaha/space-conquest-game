@@ -33,7 +33,7 @@ public record CancelTradeRouteCommand(
                         r.materialId(), r.transferAmountPerTurnKg(), r.minSourceInventoryThresholdKg(),
                         r.maxDestinationCapacityKg(), r.assignedFreighterIds(), r.totalVolumeMovedKg(),
                         false, r.phase(), r.onboardKg(), r.onboardCostCredits(),
-                        r.dailyOperatingResultCredits(), r.cumulativeOperatingResultCredits()
+                        r.dailyOperatingResultCredits(), r.cumulativeOperatingResultCredits(), r.roaming(), r.status()
                 ));
             } else {
                 updated.add(r);

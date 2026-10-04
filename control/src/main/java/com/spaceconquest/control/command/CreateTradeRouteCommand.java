@@ -20,8 +20,16 @@ public record CreateTradeRouteCommand(
         double transferAmountPerTurnKg,
         double minSourceThresholdKg,
         double maxDestinationCapacityKg,
-        List<String> assignedFreighterIds
+        List<String> assignedFreighterIds,
+        boolean roaming
 ) implements GameCommand {
+
+    public CreateTradeRouteCommand(String ownerEntityId, String name, String originEntityId, String destinationEntityId,
+                                   String materialId, double transferAmountPerTurnKg, double minSourceThresholdKg,
+                                   double maxDestinationCapacityKg, List<String> assignedFreighterIds) {
+        this(ownerEntityId, name, originEntityId, destinationEntityId, materialId, transferAmountPerTurnKg,
+                minSourceThresholdKg, maxDestinationCapacityKg, assignedFreighterIds, false);
+    }
 
     @Override
     public boolean validate(GameState state) {
@@ -30,7 +38,7 @@ public record CreateTradeRouteCommand(
                 || assignedFreighterIds == null || assignedFreighterIds.size() != 1) {
             return false;
         }
-        if (originEntityId.equals(destinationEntityId)
+        if ((!roaming && originEntityId.equals(destinationEntityId))
                 || (state.corporations().stream().noneMatch(item -> ownerEntityId.equals(item.id()))
                 && state.empires().stream().noneMatch(item -> ownerEntityId.equals(item.id())))
                 || state.commercialHubs().stream().noneMatch(hub -> originEntityId.equals(hub.id()))
@@ -73,7 +81,7 @@ public record CreateTradeRouteCommand(
                 maxDestinationCapacityKg > 0 ? maxDestinationCapacityKg : 50000.0,
                 assignedFreighterIds != null ? assignedFreighterIds : List.of(),
                 0.0, true
-        );
+        ).withRoaming(roaming);
 
         List<TradeRoute> updated = new ArrayList<>(state.tradeRoutes());
         updated.add(newRoute);

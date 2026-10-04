@@ -187,6 +187,7 @@ public class ShipDesignerView {
         content.getChildren().clear();
 
         content.getChildren().add(createDesignerWorkbenchSection());
+        content.getChildren().add(TankerDesignCard.create(snapshot, playerEmpireId, humanController, feedbackLabel));
         content.getChildren().add(createRegisteredBlueprintsSection());
     }
 
@@ -377,7 +378,7 @@ public class ShipDesignerView {
             return;
         }
         var specification = new ShipDesignSpecification("preview", "Preview", playerEmpireId,
-                role, hullMaterialId, ShipComponentCatalog.workbenchModules(selectedDrive.id(), stasisSelected, selectedPower.id()),
+                role, hullMaterialId, workbenchModules(selectedDrive.id(), stasisSelected, selectedPower.id()),
                 armorMaterialId, armorThickness);
         var evaluation = ShipBlueprintFactory.evaluate(snapshot, specification);
         if (evaluation.physics() != null)
@@ -430,7 +431,7 @@ public class ShipDesignerView {
                     : editingDesign.id();
             var specification = new ShipDesignSpecification(id, nameField.getText(), playerEmpireId,
                     roleCombo.getValue(), matCombo.getValue(),
-                    ShipComponentCatalog.workbenchModules(engineCombo.getValue().id(), stasisPod.isSelected(), powerCombo.getValue().id()),
+                    workbenchModules(engineCombo.getValue().id(), stasisPod.isSelected(), powerCombo.getValue().id()),
                     armorCombo.getValue(), armorSpinner.getValue());
             var evaluation = ShipBlueprintFactory.evaluate(snapshot, specification);
             if (!evaluation.valid()) {
@@ -531,5 +532,17 @@ public class ShipDesignerView {
         }
 
         return section;
+    }
+
+    private List<String> workbenchModules(String drive, boolean stasis, String power) {
+        List<String> modules = new ArrayList<>(ShipComponentCatalog.workbenchModules(drive, stasis, power));
+        ShipDesign editing = registeredDesigns.stream().filter(design -> design.id().equals(editingDesignId)).findFirst().orElse(null);
+        if (editing != null && com.spaceconquest.engine.ship.ShipSupplyCatalog.totalCapacity(editing) > 0) {
+            modules.remove("mod_cargo_vault");
+            editing.equippedModuleIds().stream().filter(id -> com.spaceconquest.engine.ship.ShipSupplyCatalog.STORAGE_IDS.contains(id)
+                    || com.spaceconquest.engine.ship.ShipSupplyCatalog.TRANSFER_PUMP.equals(id)
+                    || com.spaceconquest.engine.ship.ShipSupplyCatalog.SERVICE_HOLD.equals(id)).forEach(modules::add);
+        }
+        return List.copyOf(modules);
     }
 }

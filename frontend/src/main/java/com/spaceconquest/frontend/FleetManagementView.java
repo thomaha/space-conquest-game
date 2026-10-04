@@ -180,6 +180,8 @@ public class FleetManagementView {
         // 1. Shipyard Construction Queue Section
         content.getChildren().add(createShipyardQueueSection());
         content.getChildren().add(createOrbitalCargoSection());
+        content.getChildren().add(FleetOrganizationCard.create(snapshot, playerEmpireId, humanController, feedbackLabel));
+        content.getChildren().add(FleetFuelSharingCard.create(snapshot, playerEmpireId, humanController, feedbackLabel));
 
         // 2. Active Fleets Section
         content.getChildren().add(createActiveFleetsSection());
@@ -654,7 +656,7 @@ public class FleetManagementView {
         moveBtn.setOnAction(e -> {
             if (humanController != null && snapshot != null) {
                 MoveFleetCommand command = new MoveFleetCommand(fleet.id(), targetCombo.getValue());
-                if (!command.validate(snapshot)) {
+                if (!com.spaceconquest.engine.ship.FleetSupplySimulation.hasOrders(fleet) && !command.validate(snapshot)) {
                     feedbackLabel.setText("Departure unavailable. Check orders, propellant, launch service and passenger supplies.");
                     feedbackLabel.setTextFill(Color.SALMON);
                     return;

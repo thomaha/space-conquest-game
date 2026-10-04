@@ -75,7 +75,7 @@ public record LoadOrbitalCargoCommand(String shipId, String sourceBodyId,
         ships.set(ships.indexOf(ship), new ShipInstance(ship.id(), ship.designId(),
                 ship.ownerEntityId(), ship.currentHullHealth(), ship.currentShieldHealth(),
                 ship.currentFuelKg(), Map.copyOf(cargo), ship.passengerCount(),
-                ship.passengerRaceId(), ship.transitMode(), ship.powerState()));
+                ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState()));
         fleets.set(fleetIndex, fleet.withShips(ships));
         return paid.withFleets(fleets);
     }

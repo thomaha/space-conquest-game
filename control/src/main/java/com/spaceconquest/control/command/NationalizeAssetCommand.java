@@ -65,7 +65,7 @@ public record NationalizeAssetCommand(String empireId, String corporationId, Str
                 }
                 ShipInstance publicShip = new ShipInstance(ship.id(), ship.designId(), empireId,
                         ship.currentHullHealth(), ship.currentShieldHealth(), ship.currentFuelKg(),
-                        ship.storedCargoKg(), ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState());
+                        ship.storedCargoKg(), ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState());
                 fleets.add(new Fleet("fleet_nationalized_" + UUID.randomUUID(), "Nationalized fleet",
                         empireId, fleet.currentSystemId(), fleet.targetSystemId(), fleet.coordinateX(),
                         fleet.coordinateY(), fleet.transitProgress(), fleet.isInWarp(), fleet.fleetStance(),

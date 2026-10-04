@@ -50,7 +50,7 @@ public record SetFleetStanceCommand(
                         fleet.location(), fleet.interstellarMode(), fleet.interstellarTravelDays(),
                         fleet.interstellarDistanceMeters(), fleet.interstellarAccelerationMps2(),
                         fleet.interstellarElapsedDays(), fleet.interstellarPeakSpeedMps(),
-                        fleet.interstellarFuelBudgetKg(), fleet.flightMotion()
+                        fleet.interstellarFuelBudgetKg(), fleet.flightMotion(), fleet.journeyPropulsion()
                 ));
             } else {
                 updatedFleets.add(fleet);

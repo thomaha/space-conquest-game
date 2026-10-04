@@ -27,7 +27,8 @@ public record ShipInstance(
         int passengerCount,
         String passengerRaceId,
         String transitMode,
-        ShipPowerState powerState
+        ShipPowerState powerState,
+        ShipSupplyState supplyState
 ) {
     public static final String MODE_CONSCIOUS = "CONSCIOUS";
     public static final String MODE_CRYOGENIC_STASIS = "CRYOGENIC_STASIS";
@@ -36,6 +37,14 @@ public record ShipInstance(
         storedCargoKg = storedCargoKg == null ? Map.of() : Map.copyOf(storedCargoKg);
         if (transitMode == null) transitMode = MODE_CONSCIOUS;
         if (passengerRaceId == null) passengerRaceId = "";
+        if (supplyState == null) supplyState = ShipSupplyState.empty();
+    }
+
+    public ShipInstance(String id, String designId, String ownerEntityId, double currentHullHealth,
+                        double currentShieldHealth, double currentFuelKg, Map<String, Double> storedCargoKg,
+                        int passengerCount, String passengerRaceId, String transitMode, ShipPowerState powerState) {
+        this(id, designId, ownerEntityId, currentHullHealth, currentShieldHealth, currentFuelKg, storedCargoKg,
+                passengerCount, passengerRaceId, transitMode, powerState, ShipSupplyState.empty());
     }
 
     public ShipInstance(String id, String designId, String ownerEntityId, double currentHullHealth,
@@ -47,8 +56,15 @@ public record ShipInstance(
 
     public ShipInstance withPowerState(ShipPowerState power) {
         return new ShipInstance(id, designId, ownerEntityId, currentHullHealth, currentShieldHealth,
-                currentFuelKg, storedCargoKg, passengerCount, passengerRaceId, transitMode, power);
+                currentFuelKg, storedCargoKg, passengerCount, passengerRaceId, transitMode, power, supplyState);
     }
+
+    public ShipInstance withSupplyState(ShipSupplyState supply) {
+        return new ShipInstance(id, designId, ownerEntityId, currentHullHealth, currentShieldHealth,
+                currentFuelKg, storedCargoKg, passengerCount, passengerRaceId, transitMode, powerState, supply);
+    }
+
+    public double supplyFuelMassKg() { return supplyState.massKg(); }
 
     public double generatorFuelMassKg() { return powerState == null ? 0 : powerState.fuelMassKg(); }
 

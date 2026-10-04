@@ -125,14 +125,18 @@ public final class ShipPowerProcessor {
 
     public static List<Fleet> advanceDay(GameState state) {
         var updated = state.fleets().stream().map(fleet -> {
-            Tick first = account(state, fleet, 24);
-            double failure = first.firstUnpoweredHour();
+            fleet = FleetSupplySimulation.reconcile(fleet);
+            if (FleetPropulsionSupply.hasOrder(fleet) && (Fleet.MODE_SUBLIGHT.equals(fleet.interstellarMode())
+                    || Fleet.MODE_RECOVERY.equals(fleet.interstellarMode()))) return FleetPropulsionSupply.advanceDay(state, fleet);
+            double fueledHours = FlightFuelLimits.availableHours(fleet, 24);
+            Tick first = account(state, fleet, fueledHours);
+            double failure = Math.min(fueledHours < 24 ? fueledHours : Double.POSITIVE_INFINITY, first.firstUnpoweredHour());
             boolean active = fleet.hasInterstellarOrder() || fleet.location().inTransit();
             boolean interrupted = Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode());
             boolean recovery = Fleet.MODE_RECOVERY.equals(fleet.interstellarMode());
             if (active && failure < 24 && !interrupted) {
                 Tick stopped = account(state, fleet, failure);
-                return FlightRecovery.advance(fleet.withShips(stopped.ships()), failure);
+                return FleetSupplySimulation.reconcile(FlightRecovery.advance(fleet.withShips(stopped.ships()), failure));
             }
             Fleet powered = fleet.withShips(first.ships());
             return interrupted || recovery ? FlightRecovery.advance(powered, interrupted ? 0 : 24) : powered;

@@ -45,6 +45,8 @@ public final class ShipComponentCatalog {
 
     public static ShipModule module(String id) {
         if (id == null) return null;
+        ShipModule supply = ShipSupplyCatalog.module(id);
+        if (supply != null) return supply;
         if (PropulsionCatalog.FUEL_TANK_MODULE_ID.equals(id)) return PropulsionCatalog.fuelTankModule();
         ShipModule drive = PropulsionCatalog.module(id);
         return drive == null ? MODULES.get(id) : drive;

@@ -44,6 +44,9 @@ public final class ShipBlueprintFactory {
             errors.add("The selected propulsion drive has not been researched");
         if (!ShipComponentCatalog.powerResearched(specification.moduleIds(), owner.unlockedTechIds()))
             errors.add("The selected electrical source has not been researched");
+        if (specification.moduleIds().stream().anyMatch(id -> ShipSupplyCatalog.STORAGE_IDS.contains(id)
+                || ShipSupplyCatalog.TRANSFER_PUMP.equals(id)) && !owner.unlockedTechIds().contains("electricity"))
+            errors.add("Dedicated supply storage and transfer equipment require electricity research");
         if (specification.moduleIds().contains(PassengerStasis.MODULE_ID)
                 && !owner.unlockedTechIds().contains(PassengerStasis.TECHNOLOGY_ID))
             errors.add("Cryogenic stasis has not been researched");

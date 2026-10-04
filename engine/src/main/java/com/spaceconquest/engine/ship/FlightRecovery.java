@@ -8,8 +8,12 @@ import java.util.Map;
 /** Pure recovery planning and tick-owned motion. No rescue resources are invented. */
 public final class FlightRecovery {
     public record Plan(FlightMotion.Trajectory trajectory, Map<String, Double> fuelKg,
-                       Map<String, InterstellarTravel.ReactorFuelUse> reactorKg) {
-        public Plan { fuelKg = Map.copyOf(fuelKg); reactorKg = Map.copyOf(reactorKg); }
+                       Map<String, InterstellarTravel.ReactorFuelUse> reactorKg, Map<String, JourneyPropulsion> propulsion) {
+        public Plan(FlightMotion.Trajectory trajectory, Map<String, Double> fuelKg,
+                    Map<String, InterstellarTravel.ReactorFuelUse> reactorKg) {
+            this(trajectory, fuelKg, reactorKg, Map.of());
+        }
+        public Plan { fuelKg = Map.copyOf(fuelKg); reactorKg = Map.copyOf(reactorKg); propulsion = Map.copyOf(propulsion); }
     }
     private FlightRecovery() {}
 
@@ -30,7 +34,7 @@ public final class FlightRecovery {
             if (!Double.isFinite(design.totalDryMassKg()) || design.totalDryMassKg() <= 0
                     || !Double.isFinite(ship.currentFuelKg()) || ship.currentFuelKg() > design.fuelCapacityKg() + .000001
                     || ship.storedCargoKg().values().stream().anyMatch(value -> !Double.isFinite(value) || value < 0)) return null;
-            double mass = design.totalDryMassKg() + ship.currentFuelKg() + ship.generatorFuelMassKg()
+            double mass = design.totalDryMassKg() + ship.currentFuelKg() + ship.generatorFuelMassKg() + ship.supplyFuelMassKg()
                     + ship.storedCargoKg().values().stream().mapToDouble(Double::doubleValue).sum()
                     + ship.passengerCount() * 80.0;
             if (!Double.isFinite(mass) || mass <= ship.currentFuelKg() || ship.currentFuelKg() < 0) return null;
@@ -56,15 +60,18 @@ public final class FlightRecovery {
         var trajectory = new FlightMotion.Trajectory(motion.positionMeters(), velocity, acceleration, peak, accelerate, coast, brake);
         Map<String, Double> fuel = new HashMap<>();
         Map<String, InterstellarTravel.ReactorFuelUse> reactorFuel = new HashMap<>();
+        Map<String, JourneyPropulsion> propulsion = new HashMap<>();
         for (ShipInstance ship : fleet.ships()) {
             double quantity = masses.get(ship.id()) * -Math.expm1(-(2 * peak - velocity) / exhausts.get(ship.id()));
             if (quantity > ship.currentFuelKg() + .000001) return null;
             fuel.put(ship.id(), Math.min(quantity, ship.currentFuelKg()));
             var reactor = reactors.get(ship.id());
+            var design = state.shipDesigns().stream().filter(item -> item.id().equals(ship.designId())).findFirst().orElseThrow();
+            propulsion.put(ship.id(), JourneyPropulsion.capture(ship, PropulsionCatalog.mainDrive(design.equippedModuleIds()), reactor, quantity));
             if (reactor != null && reactor.kgPerPropellantKg() > 0)
                 reactorFuel.put(ship.id(), new InterstellarTravel.ReactorFuelUse(reactor.materialId(), quantity * reactor.kgPerPropellantKg()));
         }
-        return new Plan(trajectory, fuel, reactorFuel);
+        return new Plan(trajectory, fuel, reactorFuel, propulsion);
     }
 
     public static boolean electricallyReady(GameState state, Fleet fleet, Plan plan) {
@@ -99,8 +106,8 @@ public final class FlightRecovery {
         var trajectory = plan.trajectory();
         var fueled = InterstellarTravel.commitReactorFuel(fleet, new InterstellarTravel.Plan(Fleet.MODE_RECOVERY,
                 trajectory.totalSeconds() / InterstellarTravel.SECONDS_PER_DAY, fleet.interstellarDistanceMeters(),
-                trajectory.accelerationMps2(), trajectory.peakMps(), plan.fuelKg(), plan.reactorKg()));
-        return copy(fueled, Fleet.MODE_RECOVERY, trajectory.at(0), plan.fuelKg());
+                trajectory.accelerationMps2(), trajectory.peakMps(), plan.fuelKg(), plan.reactorKg(), plan.propulsion()));
+        return copy(fueled.withJourneyPropulsion(plan.propulsion()), Fleet.MODE_RECOVERY, trajectory.at(0), plan.fuelKg());
     }
 
     public static FlightMotion motion(Fleet fleet) {
@@ -113,6 +120,7 @@ public final class FlightRecovery {
 
     /** Advance powered motion up to the first failure, then coast for the rest of this day. */
     public static Fleet advance(Fleet fleet, double poweredHours) {
+        poweredHours = FlightFuelLimits.availableHours(fleet, poweredHours);
         if (fleet.location().inTransit() || Fleet.MODE_WARP.equals(fleet.interstellarMode())
                 || Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode()) && fleet.interstellarDistanceMeters() <= 0)
             return PausedTravelRecovery.interrupt(fleet, poweredHours);
@@ -159,7 +167,7 @@ public final class FlightRecovery {
         return fleet.ships().stream().map(ship -> new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(),
                 ship.currentHullHealth(), ship.currentShieldHealth(), Math.max(0, ship.currentFuelKg()
                 - fleet.interstellarFuelBudgetKg().getOrDefault(ship.id(), 0.0) * fraction), ship.storedCargoKg(),
-                ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState())).toList();
+                ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState())).toList();
     }
 
     private static Fleet arrive(Fleet fleet) {
@@ -174,6 +182,6 @@ public final class FlightRecovery {
                 : Math.clamp(motion.positionMeters() / fleet.interstellarDistanceMeters(), 0, 1), false,
                 fleet.fleetStance(), fleet.ships(), fleet.location(), mode, fleet.interstellarTravelDays(),
                 fleet.interstellarDistanceMeters(), fleet.interstellarAccelerationMps2(), fleet.interstellarElapsedDays(),
-                fleet.interstellarPeakSpeedMps(), budget, motion);
+                fleet.interstellarPeakSpeedMps(), budget, motion, fleet.journeyPropulsion());
     }
 }

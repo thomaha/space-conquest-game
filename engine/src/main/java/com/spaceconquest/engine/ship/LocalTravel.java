@@ -95,7 +95,7 @@ public final class LocalTravel {
             return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(),
                     ship.currentHullHealth(), ship.currentShieldHealth(),
                     Math.max(0.0, ship.currentFuelKg() - used), Map.copyOf(cargo),
-                    ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState());
+                    ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState());
         }).toList();
         return fleet.withShips(ships).withLocation(fleet.location().depart(destination, plan.days()));
     }
@@ -109,7 +109,7 @@ public final class LocalTravel {
         if (dryMass <= 0.0) return null;
         double payload = fleet.ships().stream().mapToDouble(ship ->
                 ship.storedCargoKg().values().stream().mapToDouble(Double::doubleValue).sum()
-                        + ship.currentFuelKg() + ship.generatorFuelMassKg() + ship.passengerCount() * 80.0).sum();
+                        + ship.currentFuelKg() + ship.generatorFuelMassKg() + ship.supplyFuelMassKg() + ship.passengerCount() * 80.0).sum();
         return LaunchService.choose(state, fleet.location().current().entityId(),
                 fleet.ownerEntityId(), Math.max(1.0, payload),
                 fleet.ships().stream().anyMatch(ship -> ship.passengerCount() > 0),
@@ -122,7 +122,7 @@ public final class LocalTravel {
     }
 
     private static double wetMass(ShipDesign design, ShipInstance ship) {
-        return design.totalDryMassKg() + ship.currentFuelKg() + ship.generatorFuelMassKg()
+        return design.totalDryMassKg() + ship.currentFuelKg() + ship.generatorFuelMassKg() + ship.supplyFuelMassKg()
                 + ship.storedCargoKg().values().stream().mapToDouble(Double::doubleValue).sum()
                 + ship.passengerCount() * 80.0;
     }

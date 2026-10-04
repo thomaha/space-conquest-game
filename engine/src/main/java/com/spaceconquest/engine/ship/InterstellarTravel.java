@@ -16,8 +16,13 @@ public final class InterstellarTravel {
     public record Plan(String mode, double days, double distanceMeters,
                        double accelerationMps2, double peakSpeedMps,
                        Map<String, Double> fuelBudgetKg,
-                       Map<String, ReactorFuelUse> reactorFuelBudgetKg) {
+                       Map<String, ReactorFuelUse> reactorFuelBudgetKg, Map<String, JourneyPropulsion> propulsion) {
+        public Plan(String mode, double days, double distanceMeters, double accelerationMps2,
+                    double peakSpeedMps, Map<String, Double> fuelBudgetKg, Map<String, ReactorFuelUse> reactorFuelBudgetKg) {
+            this(mode, days, distanceMeters, accelerationMps2, peakSpeedMps, fuelBudgetKg, reactorFuelBudgetKg, Map.of());
+        }
         public Plan {
+            propulsion = propulsion == null ? Map.of() : Map.copyOf(propulsion);
             fuelBudgetKg = fuelBudgetKg == null ? Map.of() : Map.copyOf(fuelBudgetKg);
             reactorFuelBudgetKg = reactorFuelBudgetKg == null ? Map.of()
                     : Map.copyOf(reactorFuelBudgetKg);
@@ -29,6 +34,13 @@ public final class InterstellarTravel {
     private InterstellarTravel() {}
 
     public static Plan plan(GameState state, Fleet fleet, String targetSystemId) {
+        return plan(state, fleet, targetSystemId, Map.of());
+    }
+
+    /** Keeps physical propellant aboard for destination approach without requiring a return itinerary. */
+    public static Plan plan(GameState state, Fleet fleet, String targetSystemId, Map<String, Double> arrivalPropellantKg) {
+        if (arrivalPropellantKg == null || arrivalPropellantKg.values().stream()
+                .anyMatch(value -> value == null || !Double.isFinite(value) || value < 0)) return null;
         SolarSystem origin = state.solarSystems().stream()
                 .filter(system -> system.id().equals(fleet.currentSystemId()))
                 .findFirst().orElseThrow();
@@ -68,14 +80,15 @@ public final class InterstellarTravel {
                     .filter(value -> Double.isFinite(value) && value > 0.0)
                     .mapToDouble(Double::doubleValue).sum();
             double mass = Math.max(1.0, design.totalDryMassKg()
-                    + Math.max(0.0, ship.currentFuelKg()) + ship.generatorFuelMassKg() + cargo
+                    + Math.max(0.0, ship.currentFuelKg()) + ship.generatorFuelMassKg() + ship.supplyFuelMassKg() + cargo
                     + Math.max(0, ship.passengerCount()) * 80.0);
             if (!Double.isFinite(mass)) return null;
             double thrust = ShipPowerProcessor.poweredThrust(design, ship, ShipSolarEnvironment.DARK);
             fleetAcceleration = Math.min(fleetAcceleration, thrust / mass);
             PropulsionCatalog.Drive drive = PropulsionCatalog.mainDrive(design.equippedModuleIds());
             if (drive != null) {
-                if (ship.currentFuelKg() <= 0.0 || mass <= ship.currentFuelKg()) return null;
+                double available = ship.currentFuelKg() - arrivalPropellantKg.getOrDefault(ship.id(), 0.0);
+                if (!Double.isFinite(available) || available <= 0.0 || mass <= available) return null;
                 PropulsionCatalog.ReactorFuel reactorFuel =
                         PropulsionCatalog.availableReactorFuel(drive, ship);
                 if (!PropulsionCatalog.reactorFuels(drive.moduleId()).isEmpty()
@@ -83,7 +96,7 @@ public final class InterstellarTravel {
                 double exhaust = drive.exhaustVelocityMps()
                         * (reactorFuel == null ? 1.0 : reactorFuel.exhaustMultiplier());
                 double deltaV = exhaust
-                        * Math.log(mass / (mass - ship.currentFuelKg()));
+                        * Math.log(mass / (mass - available));
                 fuelLimitedPeak = Math.min(fuelLimitedPeak, deltaV / 2.0);
                 wetMasses.put(ship.id(), mass);
                 drives.put(ship.id(), drive);
@@ -97,6 +110,7 @@ public final class InterstellarTravel {
         if (!Double.isFinite(seconds)) return null;
         Map<String, Double> fuelBudget = new HashMap<>();
         Map<String, ReactorFuelUse> reactorFuelBudget = new HashMap<>();
+        Map<String, JourneyPropulsion> propulsion = new HashMap<>();
         for (ShipInstance ship : fleet.ships()) {
             PropulsionCatalog.Drive drive = drives.get(ship.id());
             if (drive == null) continue;
@@ -104,16 +118,17 @@ public final class InterstellarTravel {
             PropulsionCatalog.ReactorFuel reactorFuel = reactorFuels.get(ship.id());
             double exhaust = drive.exhaustVelocityMps()
                     * (reactorFuel == null ? 1.0 : reactorFuel.exhaustMultiplier());
-            double propellantKg = Math.min(ship.currentFuelKg(),
+            double propellantKg = Math.min(ship.currentFuelKg() - arrivalPropellantKg.getOrDefault(ship.id(), 0.0),
                     mass * -Math.expm1(-2.0 * peak / exhaust));
             fuelBudget.put(ship.id(), propellantKg);
+            propulsion.put(ship.id(), JourneyPropulsion.capture(ship, drive, reactorFuel, propellantKg));
             if (reactorFuel != null && reactorFuel.kgPerPropellantKg() > 0.0)
                 reactorFuelBudget.put(ship.id(), new ReactorFuelUse(
                         reactorFuel.materialId(), propellantKg * reactorFuel.kgPerPropellantKg()));
         }
         return new Plan(Fleet.MODE_SUBLIGHT,
                 Math.max(1.0, seconds / SECONDS_PER_DAY),
-                distance, fleetAcceleration, peak, fuelBudget, reactorFuelBudget);
+                distance, fleetAcceleration, peak, fuelBudget, reactorFuelBudget, propulsion);
     }
 
     /** Commits reactor fuel for a leg at departure; propellant continues to burn daily. */
@@ -132,7 +147,7 @@ public final class InterstellarTravel {
             return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(),
                     ship.currentHullHealth(), ship.currentShieldHealth(),
                     ship.currentFuelKg(), Map.copyOf(cargo), ship.passengerCount(),
-                    ship.passengerRaceId(), ship.transitMode(), ship.powerState());
+                    ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState());
         }).toList());
     }
 

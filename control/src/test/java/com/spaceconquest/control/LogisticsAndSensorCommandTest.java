@@ -68,6 +68,17 @@ public class LogisticsAndSensorCommandTest {
         assertEquals(1, afterCancel.tradeRoutes().size());
         assertFalse(afterCancel.tradeRoutes().getFirst().isActive());
         assertTrue(new MoveFleetCommand(freighter.id(), "alpha").validate(afterCancel));
+
+        var roaming = new CreateTradeRouteCommand("terran_confederation", "Roaming trader", "hub_earth", "hub_earth",
+                "refined_iron", 2000, 1000, 20000, List.of("freighter_01"), true);
+        assertTrue(roaming.validate(state));
+        var roamingState = roaming.apply(state);
+        var roamingRoute = roamingState.tradeRoutes().getFirst();
+        assertTrue(roamingRoute.roaming());
+        assertFalse(route.roaming());
+        var stopped = new CancelTradeRouteCommand(roamingRoute.id(), "terran_confederation").apply(roamingState);
+        assertTrue(stopped.tradeRoutes().getFirst().roaming());
+        assertFalse(stopped.tradeRoutes().getFirst().isActive());
     }
 
     @Test

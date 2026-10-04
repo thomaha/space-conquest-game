@@ -104,6 +104,6 @@ public final class PausedTravelRecovery {
                 fleet.coordinateX(), fleet.coordinateY(), progress, Fleet.MODE_WARP.equals(mode) && !location.inTransit(),
                 fleet.fleetStance(), fleet.ships(), location,
                 mode, fleet.interstellarTravelDays(), fleet.interstellarDistanceMeters(), fleet.interstellarAccelerationMps2(),
-                elapsed, fleet.interstellarPeakSpeedMps(), fleet.interstellarFuelBudgetKg(), null);
+                elapsed, fleet.interstellarPeakSpeedMps(), fleet.interstellarFuelBudgetKg(), null, fleet.journeyPropulsion());
     }
 }
