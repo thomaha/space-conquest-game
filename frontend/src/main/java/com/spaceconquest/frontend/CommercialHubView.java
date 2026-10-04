@@ -152,7 +152,6 @@ public class CommercialHubView {
         VBox section = new VBox(8);
         section.setPadding(new Insets(12));
         section.setStyle("-fx-background-color: rgba(25, 45, 80, 0.75); -fx-background-radius: 8; -fx-border-color: #f39c12; -fx-border-width: 1; -fx-border-radius: 8;");
-
         Text title = new Text("Establish automated cargo logistics route");
         title.setFill(Color.ORANGE);
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 15));
@@ -288,7 +287,7 @@ public class CommercialHubView {
                 row.setStyle("-fx-background-color: rgba(30, 45, 70, 0.6); -fx-background-radius: 4;");
 
                 Text info = new Text(String.format("• [%s] %s | %,.0f kg/load %s | Delivered: %,.0f kg | %s, onboard %,.0f kg | %s",
-                        r.id(), r.name(), r.transferAmountPerTurnKg(), r.materialId(), r.totalVolumeMovedKg(),
+                        r.id(), r.name(), r.transferAmountPerTurnKg(), r.cargoManifest().size() > 1 ? "mixed cargo" : r.materialId(), r.totalVolumeMovedKg(),
                         r.phase(), r.onboardKg(), r.isActive() ? "ACTIVE" : "CLOSING"));
                 info.setFill(r.isActive() ? Color.LIGHTGREEN : Color.GRAY);
                 info.setFont(Font.font("Verdana", 11));
@@ -298,6 +297,13 @@ public class CommercialHubView {
                 finances.setFill(r.dailyOperatingResultCredits() < 0.0 ? Color.SALMON : Color.LIGHTCYAN);
                 finances.setFont(Font.font("Verdana", 10));
                 VBox routeDetails = new VBox(2, info, finances);
+                if (!r.cargoManifest().isEmpty()) {
+                    Label cargo = new Label(r.cargoManifest().entrySet().stream().sorted(java.util.Map.Entry.comparingByKey())
+                            .map(item -> String.format("%s: %,.2f kg", item.getKey(), item.getValue().massKg()))
+                            .collect(java.util.stream.Collectors.joining(" | ")));
+                    cargo.setTextFill(Color.LIGHTGRAY);
+                    routeDetails.getChildren().add(cargo);
+                }
                 Label mode = new Label(r.roaming() ? "Roaming trader" : "Fixed-origin route");
                 mode.setTextFill(Color.LIGHTCYAN);
                 routeDetails.getChildren().add(mode);

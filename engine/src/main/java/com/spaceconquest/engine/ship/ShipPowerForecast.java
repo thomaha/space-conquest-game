@@ -14,7 +14,7 @@ public final class ShipPowerForecast {
     public static List<Readiness> departure(GameState state, Fleet fleet, FleetLocation.Site destination,
                                            LocalTravel.Plan local, InterstellarTravel.Plan crossing) {
         if (FleetSupplySimulation.hasOrders(fleet)) return FleetSupplyForecast.departure(state, fleet, local, crossing);
-        if (local != null && (!Double.isFinite(local.days()) || local.days() <= 0 || local.days() > 2))
+        if (local != null && (!Double.isFinite(local.days() * 24) || local.days() <= 0))
             return List.of(new Readiness("fleet", true, false, 0, 0, 0, 0, "Unsupported local journey duration"));
         List<Readiness> results = new ArrayList<>();
         for (ShipInstance ship : fleet.ships()) {
@@ -35,18 +35,9 @@ public final class ShipPowerForecast {
                 var environment = ShipSolarEnvironment.journey(state, fleet, destination);
                 double hours = Math.ceil(local.days()) * 24;
                 energy += (essential + cargo + profile.driveKw()) * hours;
-                // Local travel lasts at most two days. Preserve each eclipse and charge-rate limit.
-                while (hours > .000001) {
-                    if (hours < Math.ceil(local.days()) * 24 && Math.abs(hours % 24) < .000001)
-                        current = current.withChargeInputToday(0);
-                    double light = Math.min(hours, environment.lightHours());
-                    var day = ShipPowerProcessor.interval(profile, current, light,
-                            ShipPowerProcessor.solarKw(profile, current, environment), essential, cargo, profile.driveKw());
-                    ready &= day.supplied(); current = day.state(); hours -= light;
-                    double dark = Math.min(hours, environment.darkHours());
-                    var night = ShipPowerProcessor.interval(profile, current, dark, 0, essential, cargo, profile.driveKw());
-                    ready &= night.supplied(); current = night.state(); hours -= dark;
-                }
+                var budget = ShipLocalPowerForecast.check(profile, current, hours, environment,
+                        essential, cargo, profile.driveKw());
+                ready &= budget.ready(); current = budget.state();
             }
             if (crossing != null) {
                 double hours = Math.ceil(crossing.days()) * 24;

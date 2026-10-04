@@ -47,11 +47,14 @@ public final class LocalTravel {
             double exhaust = drive.exhaustVelocityMps()
                     * (fuel == null ? 1.0 : fuel.exhaustMultiplier());
             double mass = wetMass(design, ship);
-            if (design.powerProfile() != null && design.equippedModuleIds().contains("mod_ion_drive")
-                    && ShipPowerProcessor.poweredThrust(design, ship,
-                    ShipSolarEnvironment.journey(state, fleet, destination)) * days * InterstellarTravel.SECONDS_PER_DAY
-                    < deltaV * mass) return null;
             if (!Double.isFinite(mass) || mass <= 0.0) return null;
+            double thrust = ShipPowerProcessor.poweredThrust(design, ship,
+                    ShipSolarEnvironment.journey(state, fleet, destination));
+            if (!Double.isFinite(thrust) || thrust <= 0.0) return null;
+            // Initial wet mass bounds the burn conservatively as propellant is consumed.
+            double maneuverDays = deltaV / thrust * mass / InterstellarTravel.SECONDS_PER_DAY;
+            if (!Double.isFinite(maneuverDays)) return null;
+            days = Math.max(days, Math.ceil(maneuverDays));
             double required = mass * -Math.expm1(-deltaV / exhaust);
             if (!Double.isFinite(required) || required <= 0.0
                     || ship.currentFuelKg() + EPSILON_KG < required) return null;

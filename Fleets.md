@@ -7,7 +7,7 @@ A fleet is a named collection of ships that travel and operate together. It can 
 - Movement orders apply to the whole fleet. Ships share the fleet's site, itinerary, progress and stance.
 - Physical sublight departures use the lowest loaded acceleration and the lowest fuel-supported peak speed among all members. Loaded mass includes propellant, generator stores, cargo and passengers. Faster ships throttle their travel to remain with the fleet.
 - Each ship supplies its own propulsion fuel, reactor feed and electricity. Adding an escort does not fill a freighter's tanks or improve its endurance. Every member must pass departure checks; a power failure stops shared thrust at the first failing ship.
-- Warp currently uses the owner's researched four-day corridor model. Local journeys use the existing shared one- or two-day site envelopes, with launch and maneuver checks applied to every member. Per-ship warp speeds and detailed local trajectories remain future rules.
+- Warp currently uses the owner's researched four-day corridor model. Local journeys retain one- or two-day site minimums and extend to the slowest member's loaded maneuver time, rounded up to whole days. Launch, propulsion and electrical checks apply to every member. Per-ship warp speeds and detailed local trajectories remain future rules.
 - Trade and passenger assignments refer to ship IDs and remain attached to those ships. A route carrier's escorts travel with it. A fleet can have at most one active trade route so separate automated routes cannot issue conflicting fleet orders.
 
 ## Organizing ships

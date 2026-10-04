@@ -150,4 +150,34 @@ class PausedTravelRecoveryTest {
         assertEquals("", arrived.interstellarMode());
         assertTrue(arrived.ships().getFirst().powerState().lastUnmetEssentialKwh() > 0);
     }
+
+    @Test void aLongPausedLocalJourneySurvivesSaveLoadAndResumesWithoutAnotherFuelCommitment() throws Exception {
+        var state = state(false, 22 * 3, 0, true);
+        var fleet = state.fleets().getFirst();
+        var destination = FleetLocation.Site.orbit("moon");
+        var plan = LocalTravel.plan(state, fleet, destination);
+        state = state.withFleets(List.of(LocalTravel.depart(fleet, destination,
+                new LocalTravel.Plan(10, plan.propellantKg(), plan.reactorFuelKg()))));
+        double paidFuel = state.fleets().getFirst().ships().getFirst().currentFuelKg();
+        var failed = tick(state);
+        fleet = failed.fleets().getFirst();
+        assertEquals(Fleet.MODE_POWER_INTERRUPTED, fleet.interstellarMode());
+        assertEquals(3.0 / 240, fleet.location().progress(), 1e-6);
+        var file = directory.resolve("long-local.scsave").toFile();
+        var manager = new SaveGameManager(directory);
+        manager.save(file, failed, 1, "2027-01-01T08:00:00");
+        state = manager.load(file).toGameState(0, "RUNNING");
+        assertEquals(failed.fleets(), state.fleets());
+        state = replacePower(state, power(6000, 0, true));
+        fleet = state.fleets().getFirst();
+        var preview = PausedTravelRecovery.preview(state, fleet);
+        assertNotNull(preview);
+        assertTrue(preview.ready());
+        assertEquals(10, preview.remainingDays());
+        state = state.withFleets(List.of(PausedTravelRecovery.resume(fleet, preview)));
+        for (int day = 0; day < 10; day++) state = tick(state);
+        assertTrue(state.fleets().getFirst().location().isAt(destination));
+        assertEquals(paidFuel, state.fleets().getFirst().ships().getFirst().currentFuelKg());
+        assertEquals("", state.fleets().getFirst().interstellarMode());
+    }
 }

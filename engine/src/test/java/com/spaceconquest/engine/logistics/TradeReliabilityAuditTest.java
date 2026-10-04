@@ -37,6 +37,7 @@ class TradeReliabilityAuditTest {
                 new Scenario("Roaming fuel shortages", true, true, "fuel", 1),
                 new Scenario("Roaming price collapse", true, false, "price", 1),
                 new Scenario("Roaming buyer cash drought", true, false, "cash", 1),
+                new Scenario("Fixed mixed-load trader", false, false, "mixed", 1),
                 new Scenario("Three competing roaming traders", true, true, "competition", 3))) rows.add(run(scenario));
         Path path = Path.of(System.getProperty("trade.report", "target/trade-reliability-report.md"));
         Files.createDirectories(path.toAbsolutePath().getParent());
@@ -230,14 +231,14 @@ class TradeReliabilityAuditTest {
             var hub = state.commercialHubs().get(index); var orders = new HashMap<>(hub.activeOrders());
             boolean collapse = scenario.shock().equals("price") && day % 90 >= 25 && day % 90 < 65;
             for (String material : List.of("steel", "refined_copper")) {
-                boolean producer = material.equals("steel") == (index != 1);
+                boolean producer = scenario.shock().equals("mixed") ? index != 1 : material.equals("steel") == (index != 1);
                 var old = orders.get(material);
                 double supply = old == null ? 0 : old.supplyKg();
                 if (refresh) {
                     double change = scenario.shock().equals("competition") ? 80 : 400;
                     supply = producer ? supply + change : Math.max(0, supply - change);
                 }
-                orders.put(material, new MarketOrder(material, supply, producer ? 0 : 1000,
+                orders.put(material, new MarketOrder(material, supply, producer ? 0 : scenario.shock().equals("mixed") ? 50 : 1000,
                         producer ? 1 : collapse ? 1 : 20, producer ? 0 : 1));
             }
             boolean drought = scenario.shock().equals("fuel") && day % 90 >= 20 && day % 90 < 70;

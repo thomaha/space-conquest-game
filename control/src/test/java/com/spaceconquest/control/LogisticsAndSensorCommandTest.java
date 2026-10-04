@@ -11,6 +11,7 @@ import com.spaceconquest.engine.Planet;
 import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.galaxy.FogOfWarState;
 import com.spaceconquest.engine.logistics.TradeRoute;
+import com.spaceconquest.engine.logistics.TradeCargo;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.ShipInstance;
@@ -23,6 +24,19 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class LogisticsAndSensorCommandTest {
+
+    @Test void cancellingMixedCargoPreservesEveryPaidLot() {
+        var route = new TradeRoute("route", "Mixed", "owner", "source", "buyer", "steel", 20, 0, 100,
+                List.of("ship"), 0, true).withRoaming(true).withLoadedManifest(Map.of(
+                        "steel", new TradeCargo(5, 10), "refined_copper", new TradeCargo(15, 45)));
+        var state = GameState.builder().tradeRoutes(List.of(route)).build();
+        var cancelled = new CancelTradeRouteCommand("route", "owner").apply(state).tradeRoutes().getFirst();
+        assertFalse(cancelled.isActive());
+        assertTrue(cancelled.roaming());
+        assertEquals(route.cargoManifest(), cancelled.cargoManifest());
+        assertEquals(20, cancelled.onboardKg());
+        assertEquals(55, cancelled.onboardCostCredits());
+    }
 
     @Test
     public void testCreateAndCancelTradeRouteCommand() {

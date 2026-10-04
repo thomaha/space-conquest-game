@@ -76,7 +76,9 @@ public class LogisticsProcessorTest {
                 List.of(drySource, destination))).state();
         assertTrue(blocked.fleets().getFirst().location().isAt(
                 FleetLocation.Site.docked(sourceStation.id())));
-        assertEquals(20, blocked.tradeRoutes().getFirst().onboardKg(), 0.001);
+        assertEquals(0, blocked.tradeRoutes().getFirst().onboardKg(), 0.001);
+        assertEquals(state.corporations(), blocked.corporations());
+        assertEquals(drySource, blocked.commercialHubs().getFirst());
     }
 
     @Test
@@ -144,7 +146,7 @@ public class LogisticsProcessorTest {
         GameState state = GameState.builder().orbitalStations(List.of(sourceStation,
                         destinationStation)).commercialHubs(List.of(source, destination))
                 .marketAccounts(List.of(new MarketAccount(source.id(), 0),
-                        new MarketAccount(destination.id(), 40)))
+                        new MarketAccount(destination.id(), 80)))
                 .corporations(List.of(corporation)).empires(List.of(empire))
                 .shipDesigns(List.of(design)).fleets(List.of(fleet))
                 .tradeRoutes(List.of(route)).build();
@@ -162,6 +164,9 @@ public class LogisticsProcessorTest {
         assertEquals(openingSteel, trackedMaterial(loaded, "steel"), 0.001);
         GameState arrived = loaded.withFleets(new FleetProcessor().processFleetMovements(
                 loaded.fleets(), List.of(), List.of()));
+        // A competing purchase spends buyer cash after departure, paying the source hub.
+        arrived = arrived.withMarketAccounts(List.of(new MarketAccount(source.id(), cash(arrived, source.id()) + 40),
+                new MarketAccount(destination.id(), 40)));
         GameState partlySold = processor.processTradeRoutes(arrived).state();
         assertEquals(10, partlySold.tradeRoutes().getFirst().onboardKg(), 0.001);
         assertEquals(20, partlySold.tradeRoutes().getFirst().onboardCostCredits(), 0.001);

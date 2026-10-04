@@ -54,12 +54,11 @@ public final class CorporateValuation {
                     || route.onboardKg() <= 0.0 || route.onboardCostCredits() <= 0.0
                     || route.assignedFreighterIds().isEmpty()) continue;
             String shipId = route.assignedFreighterIds().getFirst();
-            double loaded = state.fleets().stream().flatMap(fleet -> fleet.ships().stream())
+            var carrier = state.fleets().stream().flatMap(fleet -> fleet.ships().stream())
                     .filter(ship -> shipId.equals(ship.id()))
-                    .mapToDouble(ship -> ship.storedCargoKg().getOrDefault(route.materialId(), 0.0))
-                    .findFirst().orElse(0.0);
-            inventory += route.onboardCostCredits()
-                    * Math.clamp(loaded / route.onboardKg(), 0.0, 1.0);
+                    .findFirst().orElse(null);
+            if (carrier != null) for (var item : route.cargoManifest().entrySet())
+                inventory += item.getValue().remaining(carrier.storedCargoKg().getOrDefault(item.getKey(), 0.0)).costCredits();
         }
         double liabilities = state.corporateTaxAccounts().stream()
                 .filter(account -> corporation.id().equals(account.corporationId()))

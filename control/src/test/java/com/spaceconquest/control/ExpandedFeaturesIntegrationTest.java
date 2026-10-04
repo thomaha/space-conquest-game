@@ -114,12 +114,13 @@ public class ExpandedFeaturesIntegrationTest {
         assertEquals(1, stateAfterTurn.tradeRoutes().size());
         TradeRoute updatedRoute = stateAfterTurn.tradeRoutes().getFirst();
         assertEquals(0.0, updatedRoute.totalVolumeMovedKg(), 0.001);
-        assertEquals(1500.0, stateAfterTurn.fleets().getFirst().ships().getFirst()
+        // The market tick derives 160 kg/day demand from the buyer's current stockpile deficit.
+        assertEquals(160.0, stateAfterTurn.fleets().getFirst().ships().getFirst()
                 .storedCargoKg().get("refined_iron"), 0.001);
 
         CommercialHub updatedOrigin = stateAfterTurn.commercialHubs().stream()
                 .filter(h -> h.id().equals("hub_earth")).findFirst().orElseThrow();
-        assertEquals(3500.0, updatedOrigin.activeOrders().get("refined_iron").supplyKg(), 0.001);
+        assertEquals(4840.0, updatedOrigin.activeOrders().get("refined_iron").supplyKg(), 0.001);
 
         CommercialHub updatedDest = stateAfterTurn.commercialHubs().stream()
                 .filter(h -> h.id().equals("hub_mars")).findFirst().orElseThrow();
@@ -132,8 +133,8 @@ public class ExpandedFeaturesIntegrationTest {
         engine.stepTurn();
         engine.stepTurn();
         GameState delivered = engine.getGameState();
-        assertEquals(1500.0, delivered.tradeRoutes().getFirst().totalVolumeMovedKg(), 0.001);
-        assertEquals(1700.0, delivered.commercialHubs().stream()
+        assertEquals(160.0, delivered.tradeRoutes().getFirst().totalVolumeMovedKg(), 0.001);
+        assertEquals(360.0, delivered.commercialHubs().stream()
                 .filter(hub -> "hub_mars".equals(hub.id())).findFirst().orElseThrow()
                 .activeOrders().get("refined_iron").supplyKg(), 0.001);
     }

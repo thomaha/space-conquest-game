@@ -51,4 +51,44 @@ class LocalTravelTest {
         return new Fleet("fleet", "Fleet", "owner", "sol", "",
                 0, 0, 0, false, "PASSIVE", List.of(ship), FleetLocation.at(site));
     }
+
+    @Test
+    void aLoadedSlowMemberSetsTheDurationForTheWholeFleet() {
+        var design = new ShipDesign("slow", "Slow rocket", "owner", ShipRole.CARGO_TRANSPORT,
+                "steel", List.of("mod_chemical_rocket"), "steel", 0, 10_000, 50_000, 1000,
+                0, 1, 0, .1, false, false);
+        var fastDesign = new ShipDesign("fast", "Fast rocket", "owner", ShipRole.EXPLORER,
+                "steel", List.of("mod_chemical_rocket"), "steel", 0, 10_000, 0, 1000,
+                0, 1, 0, 10_000, false, false);
+        var state = GameState.builder().shipDesigns(List.of(design, fastDesign)).build();
+        var ship = new ShipInstance("slow", "slow", "owner", 100, 0, 1000, Map.of());
+        var origin = FleetLocation.Site.docked("port");
+        var destination = FleetLocation.Site.deepSpace();
+        var empty = LocalTravel.plan(state, fleet(ship, origin), destination);
+        var loaded = new ShipInstance("slow", "slow", "owner", 100, 0, 1000,
+                Map.of("steel", 20_000.0), 10, "human", "CONSCIOUS",
+                new ShipPowerState(Map.of("refined_uranium", 100.0), "rp1", "uranium",
+                        0, true, 1, 1, 0, 0, 0, 0, 0),
+                new ShipSupplyState(Map.of("hydrogen_gas", 1000.0), null, ""));
+        var fast = new ShipInstance("fast", "fast", "owner", 100, 0, 1000, Map.of());
+        var group = fleet(loaded, origin).withShips(List.of(fast, loaded));
+        var plan = LocalTravel.plan(state, group, destination);
+        assertNotNull(plan);
+        assertEquals(Math.ceil(50 * 32_900 / .1 / 86400), plan.days());
+        assertTrue(plan.days() > empty.days());
+        var departed = LocalTravel.depart(group, destination, plan);
+        assertEquals(plan.days(), departed.location().travelDays());
+        assertTrue(departed.location().advanceDays(2).inTransit());
+    }
+
+    @Test
+    void aRecognizedDriveWithoutThrustCannotAuthorizeAManeuver() {
+        var design = new ShipDesign("zero", "Disabled rocket", "owner", ShipRole.EXPLORER,
+                "steel", List.of("mod_chemical_rocket"), "steel", 0, 1000, 0, 1000,
+                0, 1, 0, 0, false, false);
+        var state = GameState.builder().shipDesigns(List.of(design)).build();
+        var fleet = fleet(new ShipInstance("ship", "zero", "owner", 100, 0, 1000, Map.of()),
+                FleetLocation.Site.orbit("earth"));
+        assertNull(LocalTravel.plan(state, fleet, FleetLocation.Site.deepSpace()));
+    }
 }

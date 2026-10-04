@@ -74,8 +74,22 @@ public final class ShipPowerResupply {
     /** Route automation pays for a conservative maneuver and arrival reserve before leaving its local hub. */
     public static GameState prepareLocal(GameState state, Fleet fleet, FleetLocation.Site destination) {
         GameState current = state;
-        double hours = Math.ceil(FleetLocation.travelDays(fleet.location().current(), destination)) * 24;
         String source = fleet.location().current().entityId();
+        // Purchased fuel adds mass and can extend a low-thrust maneuver. Recheck bounded paid previews.
+        for (int pass = 0; pass < 4; pass++) {
+            Fleet updated = current.fleets().stream().filter(item -> item.id().equals(fleet.id())).findFirst().orElse(null);
+            if (updated == null) return current;
+            var plan = LocalTravel.plan(current, updated, destination);
+            double days = plan == null ? FleetLocation.travelDays(updated.location().current(), destination) : plan.days();
+            GameState supplied = prepareLocalFuel(current, updated, source, Math.ceil(days) * 24);
+            if (supplied == current) return current;
+            current = supplied;
+        }
+        return current;
+    }
+
+    private static GameState prepareLocalFuel(GameState state, Fleet fleet, String source, double hours) {
+        GameState current = state;
         for (ShipInstance ship : fleet.ships()) {
             ShipDesign design = state.shipDesigns().stream().filter(item -> item.id().equals(ship.designId())).findFirst().orElse(null);
             if (design == null || design.powerProfile() == null) continue;
@@ -88,6 +102,8 @@ public final class ShipPowerResupply {
                     + profile.driveKw()) * hours + (profile.essentialKw(ship, design)
                     + ShipPowerProcessor.cargoKw(profile, ship, design)) * ShipPowerProcessor.ARRIVAL_RESERVE_HOURS;
             double needed = energy / fuel.kwhPerKg() * 1.05 - compartmentMass(profile, power, fuel.oxidizerId() == null);
+            double capacity = fuel.oxidizerId() == null ? profile.reactorTankKg() : profile.generatorTankKg();
+            needed = Math.min(needed, capacity - compartmentMass(profile, power, fuel.oxidizerId() == null));
             if (needed > .000001) current = buy(current, ship.id(), source, feed, needed);
         }
         return current;

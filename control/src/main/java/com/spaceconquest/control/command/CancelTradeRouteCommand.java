@@ -28,13 +28,7 @@ public record CancelTradeRouteCommand(
         List<TradeRoute> updated = new ArrayList<>();
         for (TradeRoute r : state.tradeRoutes()) {
             if (r.id().equals(routeId)) {
-                updated.add(new TradeRoute(
-                        r.id(), r.name(), r.ownerEntityId(), r.originEntityId(), r.destinationEntityId(),
-                        r.materialId(), r.transferAmountPerTurnKg(), r.minSourceInventoryThresholdKg(),
-                        r.maxDestinationCapacityKg(), r.assignedFreighterIds(), r.totalVolumeMovedKg(),
-                        false, r.phase(), r.onboardKg(), r.onboardCostCredits(),
-                        r.dailyOperatingResultCredits(), r.cumulativeOperatingResultCredits(), r.roaming(), r.status()
-                ));
+                updated.add(r.withActive(false));
             } else {
                 updated.add(r);
             }

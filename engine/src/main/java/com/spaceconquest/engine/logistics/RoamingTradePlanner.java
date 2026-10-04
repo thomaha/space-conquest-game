@@ -17,7 +17,6 @@ public final class RoamingTradePlanner {
         if (source == null) return new Selection(null, 0, 0, "Waiting: current trading port is unavailable.");
         Selection best = null;
         boolean bestResupply = false;
-        var processor = new LogisticsProcessor();
         for (var item : source.activeOrders().values().stream().sorted(Comparator.comparing(order -> order.resourceId())).toList()) {
             if (!Double.isFinite(item.pricePerKg()) || item.pricePerKg() < 0
                     || item.supplyKg() <= route.minSourceInventoryThresholdKg()) continue;
@@ -31,25 +30,31 @@ public final class RoamingTradePlanner {
                         .mapToDouble(account -> account.unsettledSalesCredits()).findFirst().orElse(0);
                 double maximumKg = Math.min(buyer.demandKg(), buyerCash / (buyer.pricePerKg() * IndustryMarketProcessor.WHOLESALE_SHARE));
                 if (!Double.isFinite(maximumKg) || maximumKg <= 1e-6) continue;
-                var shipment = processor.previewShipment(state, candidate, maximumKg);
-                if (shipment == null || shipment.preparedFleet() == null) continue;
-                var quote = RoamingTradeCost.quote(state, shipment.preparedFleet(), source, target);
-                if (quote == null) continue;
-                double tax = state.empires().stream().anyMatch(empire -> empire.controlledSystemIds()
-                        .contains(com.spaceconquest.engine.ship.FleetPositioning.systemForHub(state, target)))
-                        ? Math.clamp(target.transactionTariffRate(), 0, 1) : 0;
-                double sale = shipment.route().onboardKg() * buyer.pricePerKg() * IndustryMarketProcessor.WHOLESALE_SHARE;
-                double profit = sale * (1 - tax) - shipment.route().onboardKg() * item.pricePerKg()
-                        - quote.fuelCredits() - quote.launchCredits();
-                if (!Double.isFinite(profit) || profit <= 1e-6) continue;
+                var sized = TradeShipmentSizing.choose(state, candidate, maximumKg);
+                if (sized == null) continue;
+                var shipment = sized.shipment();
+                double profit = sized.profit();
                 boolean resupply = FleetPortReadiness.inspect(state, shipment.preparedFleet(), target).available();
                 if (best == null || resupply && !bestResupply || resupply == bestResupply
-                        && profit / quote.days() > best.profitCredits() / best.days()) {
+                        && profit / sized.days() > best.profitCredits() / best.days()) {
                     bestResupply = resupply;
-                    best = new Selection(shipment, profit, quote.days(), String.format(
-                            "Selected %s to %s: expected profit %,.1f credits over %,.0f days after fuel, electricity, launch and tariff costs.",
-                            item.resourceId(), target.id(), profit, quote.days()));
+                    best = new Selection(shipment, profit, sized.days(), String.format(
+                            "Selected %,.2f kg of %s to %s: expected profit %,.1f credits over %,.0f days after fuel, electricity, launch and tariff costs.",
+                            shipment.route().onboardKg(), item.resourceId(), target.id(), profit, sized.days()));
                 }
+            }
+        }
+        for (var target : state.commercialHubs().stream().sorted(Comparator.comparing(CommercialHub::id)).toList()) {
+            var mixed = TradeBasketPlanner.choose(state, route, fleet, target);
+            if (mixed == null) continue;
+            boolean resupply = FleetPortReadiness.inspect(state, mixed.shipment().preparedFleet(), target).available();
+            if (best == null || resupply && !bestResupply || resupply == bestResupply
+                    && mixed.profit() / mixed.days() > best.profitCredits() / best.days()) {
+                bestResupply = resupply;
+                best = new Selection(mixed.shipment(), mixed.profit(), mixed.days(), String.format(
+                        "Selected mixed load of %,.2f kg (%d goods) to %s: expected profit %,.1f credits over %,.0f days.",
+                        mixed.shipment().route().onboardKg(), mixed.shipment().route().cargoManifest().size(),
+                        target.id(), mixed.profit(), mixed.days()));
             }
         }
         return best == null ? new Selection(null, 0, 0,

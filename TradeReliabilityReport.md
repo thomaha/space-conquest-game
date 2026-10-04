@@ -11,6 +11,8 @@ Deterministic 360-day scenarios use modeled chemical freighters, actual power an
 - Expected and realized completed profit agree within 0.1 credits in stable markets. The price-collapse scenario realized 1,520 credits less than its departure estimate because sale prices changed while cargo was aboard.
 - Fuel shortages produced waits of up to 57 days. Traders resumed deliveries when usable supplies returned; no tanker rescue or fuel-free movement was used.
 - Waiting traders now buy real electrical supplies independently of new cargo purchases. These purchases remain conditional on stock, funds and tank capacity.
+- The mixed-load trader completed 120 shipments carrying steel and copper together under one 100 kg limit. It delivered 12,000 kg with no interrupted journeys or port outages. Purchase and fuel costs enter the ledger only for the selected candidate.
+- [The catalog and production audit](TradePropulsionReport.md) complements these nine scenarios with actual refinery transactions and realistic star separation probes.
 
 ## Reproduction
 
@@ -27,13 +29,14 @@ mvn test
 
 | Scenario | Ships | Departures | Sales completed | Delivered kg | Wait ship-days | Longest wait days | Interrupted fleets | Port outage ship-days | Main fuel kg | Electrical fuel kg | Expected completed profit | Realized completed profit | Sale-day cash result | Total route cash result | Unfinished trips |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Fixed local baseline | 1 | 120 | 120 | 12000 | 120 | 1 | 0 | 0 | 1269.0 | 20000.0 | 179990.8 | 179990.8 | 179993.0 | 179983.7 | 0 |
+| Fixed local baseline | 1 | 120 | 120 | 12000 | 120 | 1 | 0 | 0 | 2955.0 | 20000.0 | 179989.9 | 179989.9 | 179999.9 | 179977.2 | 0 |
 | Roaming local baseline | 1 | 180 | 180 | 18000 | 0 | 0 | 0 | 0 | 2309.9 | 17142.9 | 269984.8 | 269984.8 | 270000.0 | 269983.4 | 0 |
 | Roaming crossing baseline | 1 | 90 | 90 | 9000 | 0 | 0 | 0 | 0 | 88377.8 | 17213.5 | 134896.5 | 134896.6 | 135000.0 | 134894.6 | 0 |
 | Fixed fuel shortages | 1 | 21 | 20 | 2000 | 237 | 57 | 0 | 0 | 39383.4 | 12412.4 | 29977.0 | 29977.0 | 29978.3 | 29947.3 | 1 |
 | Roaming fuel shortages | 1 | 36 | 36 | 3600 | 216 | 56 | 0 | 0 | 35351.3 | 12028.3 | 53958.6 | 53958.6 | 54000.0 | 53952.8 | 0 |
 | Roaming price collapse | 1 | 101 | 100 | 10000 | 159 | 40 | 0 | 0 | 1315.9 | 13333.3 | 149991.5 | 148471.5 | 148480.0 | 148469.4 | 1 |
 | Roaming buyer cash drought | 1 | 80 | 80 | 8000 | 200 | 50 | 0 | 0 | 1033.0 | 12381.0 | 119993.3 | 119993.3 | 120000.0 | 119989.4 | 0 |
+| Fixed mixed-load trader | 1 | 120 | 120 | 12000 | 120 | 1 | 0 | 0 | 2955.0 | 20000.0 | 179989.9 | 179989.9 | 179999.9 | 179977.2 | 0 |
 | Three competing roaming traders | 3 | 60 | 60 | 4800 | 840 | 28 | 0 | 0 | 58919.8 | 31475.8 | 71931.0 | 71931.0 | 72000.0 | 71911.2 | 0 |
 
 ## Waiting reasons
@@ -45,6 +48,7 @@ mvn test
 - Roaming fuel shortages: {No viable profitable trade or source stock=216}
 - Roaming price collapse: {No viable profitable trade or source stock=159}
 - Roaming buyer cash drought: {No viable profitable trade or source stock=200}
+- Fixed mixed-load trader: {No viable profitable trade or source stock=120}
 - Three competing roaming traders: {No viable profitable trade or source stock=840}
 
 ## Per-trader completed shipments
@@ -56,6 +60,7 @@ mvn test
 - Roaming fuel shortages: {route_0=36}
 - Roaming price collapse: {route_0=100}
 - Roaming buyer cash drought: {route_0=80}
+- Fixed mixed-load trader: {route_0=120}
 - Three competing roaming traders: {route_0=20, route_1=20, route_2=20}
 
 ## Interpretation and limits

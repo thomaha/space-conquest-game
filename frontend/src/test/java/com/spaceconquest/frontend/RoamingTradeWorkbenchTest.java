@@ -28,6 +28,25 @@ class RoamingTradeWorkbenchTest {
         return Stream.concat(Stream.of(node), descendants);
     }
 
+    @Test void routeRowsDisplayBothGoodsFromTheImmutableManifest() throws Exception {
+        var route = new com.spaceconquest.engine.logistics.TradeRoute("route", "Mixed trader", "owner", "port", "buyer",
+                "steel", 20, 0, 100, List.of(), 0, true).withLoadedManifest(Map.of(
+                        "steel", new com.spaceconquest.engine.logistics.TradeCargo(5, 5),
+                        "refined_copper", new com.spaceconquest.engine.logistics.TradeCargo(15, 15)));
+        var state = GameState.builder().tradeRoutes(List.of(route))
+                .commercialHubs(List.of(new CommercialHub("port", "station", 0, 10000, 0, 10, Map.of()))).build();
+        var task = new FutureTask<Void>(() -> {
+            var view = new CommercialHubView(null);
+            view.setPlayerEmpireId("owner"); view.initializeAfterConstruction(); view.updateData(state); view.show(state.commercialHubs(), state.tradeRoutes());
+            assertTrue(nodes(view.getRoot()).filter(javafx.scene.control.Label.class::isInstance)
+                    .map(javafx.scene.control.Label.class::cast).anyMatch(label -> label.getText().contains("steel:")
+                            && label.getText().contains("refined_copper:")));
+            assertEquals(20, state.tradeRoutes().getFirst().onboardKg());
+            return null;
+        });
+        Platform.runLater(task); task.get(10, TimeUnit.SECONDS);
+    }
+
     @Test void onePortCanCommissionRoamingTradeAndOnlyStagesTheMutation() throws Exception {
         var design = new ShipDesign("design", "Freighter", "owner", ShipRole.CARGO_TRANSPORT, "steel", List.of(),
                 "steel", 0, 1000, 100, 0, 1, 0, 0, true, false);

@@ -50,7 +50,7 @@ public final class PausedTravelRecovery {
                     fleet.interstellarFuelBudgetKg(), Map.of());
         }
         double localDays = local ? (1 - fleet.location().progress()) * fleet.location().travelDays() : 0;
-        if (local && (localDays <= 0 || localDays > 2 || !validSite(state, fleet, fleet.location().current())
+        if (local && (!Double.isFinite(localDays) || localDays <= 0 || !validSite(state, fleet, fleet.location().current())
                 || !validSite(state, fleet, fleet.location().destination()))) return null;
         if (local && fleet.hasInterstellarOrder()
                 && (!fleet.location().destination().equals(FleetLocation.Site.deepSpace())
