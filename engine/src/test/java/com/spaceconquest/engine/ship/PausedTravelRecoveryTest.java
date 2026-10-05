@@ -51,7 +51,9 @@ class PausedTravelRecoveryTest {
     private GameState localDeparture(GameState state) {
         var fleet = state.fleets().getFirst();
         var destination = FleetLocation.Site.orbit("moon");
-        return state.withFleets(List.of(LocalTravel.depart(fleet, destination, LocalTravel.plan(state, fleet, destination))));
+        // An older saved local itinerary has a prepaid abstract maneuver and no physical flight state.
+        return state.withFleets(List.of(LocalTravel.depart(fleet, destination,
+                new LocalTravel.Plan(2, Map.of("ship", 10.0), Map.of()))));
     }
 
     @Test void localFailurePreservesPoweredProgressAndSolarRecoveryReusesPrepaidPropellant() {

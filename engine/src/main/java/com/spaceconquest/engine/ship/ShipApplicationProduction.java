@@ -22,7 +22,8 @@ public final class ShipApplicationProduction {
             Map.entry(ShipComponentCatalog.SOLAR_ARRAY_ID, "solar_power"),
             Map.entry(PassengerStasis.MODULE_ID, "cryogenic_stasis_pod"),
             Map.entry("mod_cargo_vault", "pressurized_cargo_holds"),
-            Map.entry("mod_cargo_hold_large", "pressurized_cargo_holds"));
+            Map.entry("mod_cargo_hold_large", "pressurized_cargo_holds"),
+            Map.entry(ChemicalFreighterCatalog.CARGO_HOLD, "pressurized_cargo_holds"));
 
     private ShipApplicationProduction() {}
 

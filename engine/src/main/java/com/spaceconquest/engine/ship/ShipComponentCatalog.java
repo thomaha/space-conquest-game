@@ -47,6 +47,8 @@ public final class ShipComponentCatalog {
         if (id == null) return null;
         ShipModule supply = ShipSupplyCatalog.module(id);
         if (supply != null) return supply;
+        ShipModule freighter = ChemicalFreighterCatalog.module(id);
+        if (freighter != null) return freighter;
         if (PropulsionCatalog.FUEL_TANK_MODULE_ID.equals(id)) return PropulsionCatalog.fuelTankModule();
         ShipModule drive = PropulsionCatalog.module(id);
         return drive == null ? MODULES.get(id) : drive;
@@ -61,8 +63,13 @@ public final class ShipComponentCatalog {
     }
 
     public static List<String> workbenchModules(String driveId, boolean stasis, String powerModuleId) {
+        return workbenchModules(driveId, stasis, powerModuleId, false);
+    }
+
+    public static List<String> workbenchModules(String driveId, boolean stasis, String powerModuleId, boolean solarSupport) {
         List<String> ids = new ArrayList<>(List.of(powerModuleId, driveId, "mod_cargo_vault",
                 PropulsionCatalog.FUEL_TANK_MODULE_ID, BATTERY_ID));
+        if (solarSupport && !SOLAR_ARRAY_ID.equals(powerModuleId)) ids.add(SOLAR_ARRAY_ID);
         if (CHEMICAL_GENERATOR_ID.equals(powerModuleId)) ids.add(GENERATOR_TANK_ID);
         if (FISSION_REACTOR_ID.equals(powerModuleId)) ids.add(REACTOR_TANK_ID);
         if (stasis) ids.add(PassengerStasis.MODULE_ID);

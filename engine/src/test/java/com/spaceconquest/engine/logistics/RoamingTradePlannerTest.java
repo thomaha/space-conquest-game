@@ -142,6 +142,9 @@ class RoamingTradePlannerTest {
         var fleet = initial.fleets().getFirst().withLocation(FleetLocation.at(FleetLocation.Site.orbit("earth")));
         var state = initial.toBuilder().solarSystems(List.of(new SolarSystem("sol", "Sol", "", 0, 0, 0,
                         SolarRadiation.SOLAR_MASS_KG, 1392000, "yellow", List.of(earth), List.of())))
+                .orbitalStations(initial.orbitalStations().stream().map(station -> new OrbitalStation(station.id(), station.name(),
+                        station.systemId(), "earth", station.ownerEntityId(), "PUBLIC_STATE", 10, List.of(), Map.of(),
+                        0, 0, 0, 0, 100, 100, "steel", 0, true)).toList())
                 .empires(List.of(initial.empires().getFirst(), new Empire("provider", "Launch provider", "human", "Individualist",
                         0, 0, List.of(), List.of(), Map.of(), List.of(), List.of())))
                 .commercialHubs(List.of(new CommercialHub(source.id(), "earth", 0, 100000, 20200, 10, source.activeOrders()),

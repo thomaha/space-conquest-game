@@ -49,9 +49,16 @@ public final class ShipPowerProcessor {
         // Each event exhausts one of two fuel feeds or the battery. Work is independent of journey length.
         while (remaining > 1e-9) {
             double chemicalEnergy = fuelEnergy(chemicalFuel, materials), reactorEnergy = fuelEnergy(reactorFuel, materials);
-            double chemical = chemicalEnergy > 1e-9 ? Math.min(profile.chemicalKw(), Math.max(0, load - solar)) : 0;
-            double reactor = reactorEnergy > 1e-9 ? Math.min(profile.fissionKw(), Math.max(0, load - solar - chemical)) : 0;
-            double battery = charge > 1e-9 ? Math.min(profile.dischargeKw(), Math.max(0, load - solar - chemical - reactor)) : 0;
+            // Save backup feed across eclipses unless the battery must cover a generator output shortfall.
+            double backupKw = Math.max(chemicalEnergy > 1e-9 ? profile.chemicalKw() : 0,
+                    reactorEnergy > 1e-9 ? profile.fissionKw() : 0);
+            boolean batteryFirst = profile.solarKw() > 0 && solar + backupKw >= load;
+            double battery = batteryFirst && charge > 1e-9
+                    ? Math.min(profile.dischargeKw(), Math.max(0, load - solar)) : 0;
+            double chemical = chemicalEnergy > 1e-9 ? Math.min(profile.chemicalKw(), Math.max(0, load - solar - battery)) : 0;
+            double reactor = reactorEnergy > 1e-9 ? Math.min(profile.fissionKw(), Math.max(0, load - solar - battery - chemical)) : 0;
+            if (!batteryFirst && charge > 1e-9)
+                battery = Math.min(profile.dischargeKw(), Math.max(0, load - solar - chemical - reactor));
             double duration = remaining;
             if (chemical > 0) duration = Math.min(duration, chemicalEnergy / chemical);
             if (reactor > 0) duration = Math.min(duration, reactorEnergy / reactor);
@@ -126,6 +133,18 @@ public final class ShipPowerProcessor {
     public static List<Fleet> advanceDay(GameState state) {
         var updated = state.fleets().stream().map(fleet -> {
             fleet = FleetSupplySimulation.reconcile(fleet);
+            if (fleet.location().orbitalFlight() != null) return OrbitalFlightProcessor.advanceDay(state, fleet);
+            if (fleet.location().localFlight() != null) {
+                var flight = fleet.location().localFlight();
+                double fueled = LocalFlightProcessor.availableHours(fleet, 24);
+                Tick budget = account(state, fleet, fueled);
+                double failure = Math.min(fueled < 24 ? fueled : Double.POSITIVE_INFINITY, budget.firstUnpoweredHour());
+                if (flight.interrupted()) return LocalFlightProcessor.advance(fleet.withShips(budget.ships()), 24, true);
+                double remaining = (flight.motion().trajectory().totalSeconds() - flight.motion().elapsedSeconds()) / 3600;
+                return failure < Math.min(24, remaining)
+                        ? LocalFlightProcessor.interrupt(fleet.withShips(account(state, fleet, failure).ships()), failure)
+                        : fleet.withShips(budget.ships());
+            }
             if (FleetPropulsionSupply.hasOrder(fleet) && (Fleet.MODE_SUBLIGHT.equals(fleet.interstellarMode())
                     || Fleet.MODE_RECOVERY.equals(fleet.interstellarMode()))) return FleetPropulsionSupply.advanceDay(state, fleet);
             double fueledHours = FlightFuelLimits.availableHours(fleet, 24);
@@ -141,6 +160,7 @@ public final class ShipPowerProcessor {
             Fleet powered = fleet.withShips(first.ships());
             return interrupted || recovery ? FlightRecovery.advance(powered, interrupted ? 0 : 24) : powered;
         }).toList();
+        updated = updated.stream().map(fleet -> MainTankThermalLoss.advanceDay(state, fleet)).toList();
         return RescueRendezvous.complete(state, updated);
     }
 
@@ -204,10 +224,20 @@ public final class ShipPowerProcessor {
             for (double boundary : new double[]{trajectory.accelerationSeconds(), trajectory.brakingStart(), trajectory.totalSeconds()})
                 times.add(Math.clamp((boundary - motion.elapsedSeconds()) / 3600, 0, 24));
         }
+        if (fleet.location().localFlight() != null) {
+            var motion = fleet.location().localFlight().motion();
+            var trajectory = motion.trajectory();
+            for (double boundary : new double[]{trajectory.accelerationSeconds(), trajectory.brakingStart(), trajectory.totalSeconds()})
+                times.add(Math.clamp((boundary - motion.elapsedSeconds()) / 3600, 0, 24));
+        }
         return List.copyOf(times);
     }
 
     private static boolean burningAt(Fleet fleet, double hour) {
+        if (fleet.location().localFlight() != null) {
+            var flight = fleet.location().localFlight();
+            return !flight.interrupted() && flight.motion().trajectory().burning(flight.motion().elapsedSeconds() + hour * 3600);
+        }
         if (Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode())) return false;
         if (Fleet.MODE_RECOVERY.equals(fleet.interstellarMode()))
             return fleet.flightMotion().trajectory().burning(fleet.flightMotion().elapsedSeconds() + hour * 3600);

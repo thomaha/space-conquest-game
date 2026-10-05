@@ -5,10 +5,10 @@ import com.spaceconquest.control.command.CommandQueue;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.ship.ShipBlueprintFactory;
+import com.spaceconquest.engine.ship.ChemicalFreighterCatalog;
 import com.spaceconquest.engine.ship.ShipComponentCatalog;
 import com.spaceconquest.engine.ship.ShipDesignSpecification;
 import com.spaceconquest.engine.ship.ShipRole;
-import com.spaceconquest.engine.ship.ShipModule;
 import com.spaceconquest.engine.technology.ApplicationOptimization;
 import com.spaceconquest.engine.technology.ResearchVarianceResult;
 import javafx.application.Platform;
@@ -30,6 +30,37 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ShipDesignerOutcomeTest {
+    @Test void chemicalFreighterPresetRegistersOnTickAndPreservesEquipmentWhenEditing() throws Exception {
+        var owner = new Empire("empire", "Empire", "human", "Individualist", 1e6, 0,
+                List.of(), List.of(), Map.of(), List.of("rocketry", "electricity", "solar_power", "industrial_production"), List.of());
+        var initial = GameState.builder().empires(List.of(owner)).build();
+        var queue = new CommandQueue();
+        var ready = new java.util.concurrent.CompletableFuture<VBox>();
+        onFxThread(() -> {
+            var card = ChemicalFreighterDesignCard.create(initial, "empire", new HumanController(queue), new Label());
+            var register = (Button) card.lookup("#register-chemical-freighter");
+            register.disabledProperty().addListener((observable, old, disabled) -> { if (!disabled) ready.complete(card); });
+            if (!register.isDisabled()) ready.complete(card);
+        });
+        var card = ready.get(10, TimeUnit.SECONDS);
+        onFxThread(() -> {
+            assertTrue(((Label) card.lookup("#chemical-freighter-preview")).getText().contains("120,000 kg"));
+            ((Button) card.lookup("#register-chemical-freighter")).fire();
+            assertTrue(initial.shipDesigns().isEmpty());
+            assertEquals(1, queue.size());
+        });
+        var registered = queue.drainAndExecute(initial);
+        assertEquals(ChemicalFreighterCatalog.modules("mod_chemical_rocket"), registered.shipDesigns().getFirst().equippedModuleIds());
+        onFxThread(() -> {
+            var view = view(queue, registered);
+            button(content(view), "Edit design").fire();
+            button(content(view), "Save blueprint changes").fire();
+            var edited = queue.drainAndExecute(registered);
+            assertEquals(registered.shipDesigns().getFirst().equippedModuleIds(), edited.shipDesigns().getFirst().equippedModuleIds());
+            assertEquals(120000, edited.shipDesigns().getFirst().fuelCapacityKg());
+            assertEquals(2500, edited.shipDesigns().getFirst().maxCargoMassKg());
+        });
+    }
     @BeforeAll
     static void initializeJavaFx() {
         try {
@@ -79,8 +110,7 @@ class ShipDesignerOutcomeTest {
         var grid = section.getChildren().stream().filter(GridPane.class::isInstance)
                 .map(GridPane.class::cast).findFirst().orElseThrow();
         return grid.getChildren().stream().filter(ComboBox.class::isInstance).map(node -> (ComboBox<?>) node)
-                .filter(combo -> combo.getValue() instanceof ShipModule module
-                        && ShipComponentCatalog.POWER_MODULE_IDS.contains(module.id())).findFirst().orElseThrow();
+                .filter(combo -> combo.getValue() instanceof ShipPowerOption).findFirst().orElseThrow();
     }
 
     private void onFxThread(Runnable assertions) throws Exception {
@@ -150,7 +180,7 @@ class ShipDesignerOutcomeTest {
             var view = view(queue, initial);
             assertEquals(1, powerCombo(view).getItems().size());
             assertEquals(ShipComponentCatalog.CHEMICAL_GENERATOR_ID,
-                    ((ShipModule) powerCombo(view).getValue()).id());
+                    ((ShipPowerOption) powerCombo(view).getValue()).primaryId());
             var owner = initial.empires().getFirst();
             var researched = new Empire(owner.id(), owner.name(), owner.raceId(), owner.societyStructure(),
                     owner.treasuryCredits(), owner.corporateTaxRate(), owner.controlledSystemIds(), owner.ministries(),
@@ -165,7 +195,47 @@ class ShipDesignerOutcomeTest {
                     .contains(ShipComponentCatalog.FISSION_REACTOR_ID));
             view.updateData(registered);
             button(content(view), "Edit design").fire();
-            assertEquals(ShipComponentCatalog.FISSION_REACTOR_ID, ((ShipModule) powerCombo(view).getValue()).id());
+            assertEquals(ShipComponentCatalog.FISSION_REACTOR_ID, ((ShipPowerOption) powerCombo(view).getValue()).primaryId());
+        });
+    }
+
+    @Test void combinedSolarBackupIsStagedAndPreservedWhenEditing() throws Exception {
+        onFxThread(() -> {
+            for (boolean nuclear : List.of(false, true)) {
+                var initial = state(true);
+                var owner = initial.empires().getFirst();
+                var technologies = new java.util.ArrayList<>(List.of("rocketry", "electricity", "solar_power"));
+                if (nuclear) technologies.add("nuclear_fission");
+                String backupId = nuclear ? ShipComponentCatalog.FISSION_REACTOR_ID : ShipComponentCatalog.CHEMICAL_GENERATOR_ID;
+                var solarOwner = new Empire(owner.id(), owner.name(), owner.raceId(), owner.societyStructure(),
+                        owner.treasuryCredits(), owner.corporateTaxRate(), owner.controlledSystemIds(), owner.ministries(),
+                        owner.systemGovernorAssignments(), technologies, owner.activeShipDesignIds());
+                initial = initial.toBuilder().empires(List.of(solarOwner)).build();
+                var queue = new CommandQueue();
+                var view = view(queue, initial);
+                var combo = powerCombo(view);
+                assertEquals(nuclear ? 5 : 3, combo.getItems().size());
+                int hybrid = -1;
+                for (int i = 0; i < combo.getItems().size(); i++)
+                    if (combo.getItems().get(i) instanceof ShipPowerOption option
+                            && option.solarSupport() && option.primaryId().equals(backupId)) hybrid = i;
+                assertTrue(hybrid >= 0);
+                combo.getSelectionModel().select(hybrid);
+                button(content(view), "Register blueprint design").fire();
+                assertTrue(initial.shipDesigns().isEmpty(), "The view must stage rather than mutate state.");
+                var registered = queue.drainAndExecute(initial);
+                var design = registered.shipDesigns().getFirst();
+                assertTrue(design.equippedModuleIds().containsAll(List.of(ShipComponentCatalog.SOLAR_ARRAY_ID,
+                        backupId, nuclear ? ShipComponentCatalog.REACTOR_TANK_ID : ShipComponentCatalog.GENERATOR_TANK_ID)));
+                assertEquals(120, design.powerProfile().solarKw());
+                assertEquals(500, nuclear ? design.powerProfile().fissionKw() : design.powerProfile().chemicalKw());
+                view.updateData(registered);
+                button(content(view), "Edit design").fire();
+                assertTrue(((ShipPowerOption) powerCombo(view).getValue()).solarSupport());
+                button(content(view), "Save blueprint changes").fire();
+                var edited = queue.drainAndExecute(registered);
+                assertEquals(design.equippedModuleIds(), edited.shipDesigns().getFirst().equippedModuleIds());
+            }
         });
     }
 }

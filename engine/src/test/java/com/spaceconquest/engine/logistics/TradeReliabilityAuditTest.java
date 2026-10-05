@@ -46,7 +46,7 @@ class TradeReliabilityAuditTest {
             assertTrue(row.interrupted.isEmpty(), row.scenario.name() + ": stranded fleets " + row.interrupted);
             assertTrue(row.completed > 2, row.scenario.name() + ": did not demonstrate repeated deliveries");
             assertTrue(Double.isFinite(row.cashResult));
-            if (!row.scenario.shock().equals("fuel")) assertEquals(0, row.portOutages, row.scenario.name());
+            assertEquals(0, row.portOutages, row.scenario.name());
             if (row.scenario.ships() > 1) assertEquals(row.scenario.ships(), row.completedByRoute.size(), "Every competing trader must complete a shipment.");
             if (!row.scenario.shock().equals("none")) assertTrue(row.waitDays > 0, row.scenario.name());
         }
@@ -74,7 +74,8 @@ class TradeReliabilityAuditTest {
             state = state.withFleets(movement.processFleetMovements(ShipPowerProcessor.advanceDay(state), List.of(), List.of()));
             consumed(prior, state, row);
             for (var fleet : state.fleets()) {
-                if (Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode())) row.interrupted.add(fleet.id());
+                if (Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode())
+                        || fleet.location().localFlight() != null && fleet.location().localFlight().interrupted()) row.interrupted.add(fleet.id());
                 if (!fleet.hasInterstellarOrder() && !fleet.location().inTransit() && fleet.ships().stream()
                         .anyMatch(ship -> ShipPowerProcessor.reserves(ship).lastUnmetEssentialKwh() > 1e-6)) row.portOutages++;
             }
@@ -263,7 +264,7 @@ class TradeReliabilityAuditTest {
         var text = new StringBuilder("# Trade reliability audit\n\n## Scope\n\n");
         text.append("Deterministic 360-day scenarios use modeled chemical freighters, actual power and movement ticks and paid logistics. ")
                 .append("The fixture injects production, destination consumption and buyer liquidity every 12 days. Fuel replacement prices stay at 0.001 credits/kg. Shocks explicitly alter goods prices, fuel stocks or buyer cash. ")
-                .append("Crossings cover one million meters rather than full light-year distances. No tanker rescue is provided.\n\n");
+                .append("Crossings cover one million meters rather than full light-year distances. Default 5% main-tank contingency targets are protected; automated traders never use emergency overrides. Port upkeep targets 60 days of stationary essential and cargo electricity, with paid partial purchases when stock or cash is limited. Port departures carry a 60-day arrival allowance when destination refill stock is insufficient or total scheduled travel exceeds two days. Short stocked trips retain the 48-hour arrival requirement. No tanker rescue is provided.\n\n");
         text.append("## Results\n\n| Scenario | Ships | Departures | Sales completed | Delivered kg | Wait ship-days | Longest wait days | Interrupted fleets | Port outage ship-days | Main fuel kg | Electrical fuel kg | Expected completed profit | Realized completed profit | Sale-day cash result | Total route cash result | Unfinished trips |\n")
                 .append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n");
         for (var row : rows) text.append(String.format(Locale.ROOT,
@@ -279,7 +280,7 @@ class TradeReliabilityAuditTest {
                 .append("Expected profit prices consumed working fuel at departure. Realized completed profit uses actual sale revenue, cargo cost and consumed working fuel through sale; idle-before-loading and empty-return fuel are excluded from that comparison. Sale-day cash results charge cargo and any same-day resupply or empty return purchases. ")
                 .append("Total route cash also includes tank top-ups with usable leftovers. These columns are not directly interchangeable. ")
                 .append("Waiting can drain stationary electrical stores even at a safe port. Interruptions count physical failed itineraries; port outages are reported separately. ")
-                .append("Main fuel totals include prepaid local burns, reconstructed from physical market withdrawals and working-store changes. ")
+                .append("Main fuel totals include actual physical local burns, reconstructed from physical market withdrawals and working-store changes. ")
                 .append("This audit excludes full economy production, diplomacy, passengers, combat, solar propulsion and market reservations.\n");
         return text.toString();
     }
@@ -293,7 +294,11 @@ class TradeReliabilityAuditTest {
         var updated = supplied.fleets().getFirst().ships().getFirst();
         var design = state.shipDesigns().getFirst(); var p = design.powerProfile();
         assertTrue(ShipArrivalReserve.check(p, updated.powerState(), p.essentialKw(updated, design),
-                ShipPowerProcessor.cargoKw(p, updated, design), ShipSolarEnvironment.DARK).ready());
+                ShipPowerProcessor.cargoKw(p, updated, design), ShipSolarEnvironment.DARK,
+                TradePortMaintenance.DWELL_RESERVE_HOURS).ready());
+        assertEquals(ship.currentFuelKg(), updated.currentFuelKg());
+        assertEquals(fleet.fuelPolicy(), supplied.fleets().getFirst().fuelPolicy());
+        assertSame(supplied, TradePortMaintenance.supply(supplied, supplied.fleets().getFirst()));
         assertTrue(supplied.empires().getFirst().treasuryCredits() < state.empires().getFirst().treasuryCredits());
         assertTrue(supplied.commercialHubs().getFirst().activeOrders().get("liquid_oxygen").supplyKg()
                 < state.commercialHubs().getFirst().activeOrders().get("liquid_oxygen").supplyKg());
@@ -304,5 +309,61 @@ class TradeReliabilityAuditTest {
         var distant = fleet.withLocation(FleetLocation.at(FleetLocation.Site.deepSpace()));
         var outside = state.withFleets(List.of(distant));
         assertSame(outside, TradePortMaintenance.supply(outside, distant));
+    }
+
+    @Test void portUpkeepBuysPartialReservesWhenStockOrCashCannotCoverTheTarget() {
+        var state = emptyWaitingTrader();
+        var hub = state.commercialHubs().getFirst();
+        var orders = new HashMap<>(hub.activeOrders());
+        orders.put("rp1_kerosene", new MarketOrder("rp1_kerosene", 28, 0, .001, 0));
+        orders.put("liquid_oxygen", new MarketOrder("liquid_oxygen", 72, 0, .001, 0));
+        var limited = state.withCommercialHubs(List.of(new CommercialHub(hub.id(), hub.entityId(), 0,
+                hub.storageCapacityKg(), 100, hub.logisticsRangeUnits(), orders)));
+        var supplied = TradePortMaintenance.supply(limited, limited.fleets().getFirst());
+        assertEquals(100, supplied.fleets().getFirst().ships().getFirst().generatorFuelMassKg(), 1e-5);
+        assertEquals(.1, limited.empires().getFirst().treasuryCredits()
+                - supplied.empires().getFirst().treasuryCredits(), 1e-6);
+        assertEquals(0, supplied.commercialHubs().getFirst().activeOrders().get("liquid_oxygen").supplyKg(), 1e-5);
+
+        var poor = state.withEmpires(List.of(new Empire("owner", "Owner", "human", "Individualist", .05, 0,
+                List.of("a", "b"), List.of(), Map.of(), List.of("rocketry"), List.of())));
+        var affordable = TradePortMaintenance.supply(poor, poor.fleets().getFirst());
+        assertEquals(50, affordable.fleets().getFirst().ships().getFirst().generatorFuelMassKg(), 1e-5);
+        assertEquals(0, affordable.empires().getFirst().treasuryCredits(), 1e-8);
+        assertEquals(1000, affordable.fleets().getFirst().ships().getFirst().currentFuelKg());
+    }
+
+    @Test void waitingDualPowerTraderUsesPaidReactorFeedDuringChemicalStockDrought() {
+        var state = emptyWaitingTrader();
+        var profile = new ShipPowerProfile(0, 100, 100, 0, 0, 0, 5000, 10, 1, 2, 0, .65,
+                Map.of("rp1", new ShipPowerProfile.Fuel("rp1_kerosene", "liquid_oxygen", .28, 1.008),
+                        "uranium", new ShipPowerProfile.Fuel("refined_uranium", null, 1, 6_000_000)));
+        var design = new ShipDesign("design", "Dual-power freighter", "owner", ShipRole.CARGO_TRANSPORT, "steel",
+                List.of("mod_chemical_rocket"), "steel", 0, 1000, 1000, 1000, 100, 1, 0, 2000,
+                false, false, ShipManufacturingProfile.baseline(), profile);
+        var hub = state.commercialHubs().getFirst();
+        var uranium = new MarketOrder("refined_uranium", 1, 0, 10, 0);
+        state = state.withShipDesigns(List.of(design)).withCommercialHubs(List.of(new CommercialHub(hub.id(),
+                hub.entityId(), 0, 100000, 1, 10, Map.of("refined_uranium", uranium))));
+        var supplied = TradePortMaintenance.supply(state, state.fleets().getFirst());
+        var ship = supplied.fleets().getFirst().ships().getFirst();
+        double purchased = ship.powerState().generatorMaterialsKg().get("refined_uranium");
+        assertTrue(purchased > 0);
+        assertEquals(purchased * 10, state.empires().getFirst().treasuryCredits()
+                - supplied.empires().getFirst().treasuryCredits(), 1e-6);
+        assertEquals(1 - purchased, supplied.commercialHubs().getFirst().activeOrders()
+                .get("refined_uranium").supplyKg(), 1e-9);
+        assertTrue(ShipArrivalReserve.check(profile, ship.powerState(), 1, 0, ShipSolarEnvironment.DARK,
+                TradePortMaintenance.DWELL_RESERVE_HOURS).ready());
+        assertEquals(1000, ship.currentFuelKg());
+        assertFalse(supplied.fleets().getFirst().location().inTransit());
+    }
+
+    private GameState emptyWaitingTrader() {
+        var scenario = new Scenario("Waiting", true, false, "none", 1);
+        var state = marketInputs(world(scenario), scenario, 0);
+        var fleet = state.fleets().getFirst();
+        return state.withFleets(List.of(fleet.withShips(List.of(fleet.ships().getFirst()
+                .withPowerState(ShipPowerState.empty())))));
     }
 }

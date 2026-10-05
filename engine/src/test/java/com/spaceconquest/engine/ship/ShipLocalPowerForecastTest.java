@@ -51,7 +51,7 @@ class ShipLocalPowerForecastTest {
             var destination = FleetLocation.Site.deepSpace("earth");
             var plan = new LocalTravel.Plan(120, Map.of(), Map.of());
             var check = ShipPowerForecast.departure(state, fleet, destination, plan, null).getFirst();
-            assertTrue(check.ready(), check.explanation());
+            assertTrue(check.ready(), "Solar " + profile.solarKw() + " kW: " + check.explanation());
             var original = fleet.ships().getFirst().powerState();
             state = state.withFleets(List.of(LocalTravel.depart(fleet, destination, plan)));
             for (int day = 0; day < 120; day++) {
@@ -121,8 +121,8 @@ class ShipLocalPowerForecastTest {
         var fleet = state.fleets().getFirst().withLocation(FleetLocation.at(FleetLocation.Site.docked("port")));
         state = state.toBuilder().shipDesigns(List.of(design)).fleets(List.of(fleet))
                 .orbitalStations(List.of(station)).empires(List.of(empire)).commercialHubs(List.of(hub)).build();
-        var destination = FleetLocation.Site.docked("other");
-        assertEquals(3, LocalTravel.plan(state, fleet, destination).days());
+        var destination = FleetLocation.Site.orbit("earth");
+        assertTrue(LocalTravel.plan(state, fleet, destination).days() > 3);
         var supplied = ShipPowerResupply.prepareLocal(state, fleet, destination);
         var updated = supplied.fleets().getFirst();
         var plan = LocalTravel.plan(supplied, updated, destination);

@@ -41,7 +41,7 @@ class EarlyRocketLifecycleTest {
                 0, List.of("a"), List.of(), Map.of(), research, List.of());
         var module = new StationModule("grid", "Yard", StationModule.TYPE_SHIPYARD_GRID,
                 5, 1000, 0, 0, Map.of(), "industrial_worker", 100, true, 100, 0);
-        var yard = new OrbitalStation("yard", "Yard", "a", "earth", "empire",
+        var yard = new OrbitalStation("yard", "Yard", "a", "", "empire",
                 OrbitalStation.OWNERSHIP_PUBLIC_STATE, 10, List.of(module), Map.of(),
                 0, 0, 0, 0, 100, 100, "steel", 1, true);
         var materials = Map.of("steel", stock("steel", 1), "refined_copper", stock("refined_copper", 1),
@@ -116,7 +116,7 @@ class EarlyRocketLifecycleTest {
         state = travel.apply(state);
         assertEquals(preview.crossing().days(), state.fleets().getFirst().interstellarTravelDays());
         assertEquals(preview.crossing().fuelBudgetKg(), state.fleets().getFirst().interstellarFuelBudgetKg());
-        assertEquals(beforeDeparture - preview.local().propellantKg().get(ship.id()),
+        assertEquals(beforeDeparture,
                 state.fleets().getFirst().ships().getFirst().currentFuelKg(), 0.001);
         assertEquals(Fleet.MODE_SUBLIGHT, state.fleets().getFirst().interstellarMode());
         assertFalse(state.fleets().getFirst().isInWarp());

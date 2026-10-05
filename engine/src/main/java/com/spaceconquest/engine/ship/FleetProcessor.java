@@ -38,6 +38,8 @@ public class FleetProcessor {
             List<DiplomaticRelation> relations
     ) {
         if (fleet == null) return null;
+        if (fleet.location().orbitalFlight() != null) return fleet;
+        if (fleet.location().localFlight() != null) return LocalFlightProcessor.movementTick(fleet);
         if (Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode())
                 || Fleet.MODE_RECOVERY.equals(fleet.interstellarMode())) return fleet;
         double fueledHours = FlightFuelLimits.availableHours(fleet, 24);
@@ -103,19 +105,8 @@ public class FleetProcessor {
             }
         }
 
-        return new Fleet(
-                fleet.id(),
-                fleet.name(),
-                fleet.ownerEntityId(),
-                currentSys,
-                targetSys,
-                posX,
-                posY,
-                progress,
-                inWarp,
-                fleet.fleetStance(),
-                updatedShips,
-                location,
+        return new Fleet(fleet.id(), fleet.name(), fleet.ownerEntityId(), currentSys, targetSys,
+                posX, posY, progress, inWarp, fleet.fleetStance(), updatedShips, location,
                 targetSys.isEmpty() ? "" : fleet.interstellarMode(),
                 targetSys.isEmpty() ? 0.0 : fleet.interstellarTravelDays(),
                 targetSys.isEmpty() ? 0.0 : fleet.interstellarDistanceMeters(),
@@ -124,7 +115,7 @@ public class FleetProcessor {
                 targetSys.isEmpty() ? 0.0 : fleet.interstellarPeakSpeedMps(),
                 targetSys.isEmpty() ? java.util.Map.of() : fleet.interstellarFuelBudgetKg(),
                 null, targetSys.isEmpty() ? java.util.Map.of() : fleet.journeyPropulsion()
-        );
+        ).withFuelPolicy(fleet.fuelPolicy());
     }
 
     private List<ShipInstance> burnSublightFuel(Fleet fleet, List<ShipInstance> ships,

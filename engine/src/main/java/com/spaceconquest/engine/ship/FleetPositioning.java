@@ -38,7 +38,7 @@ public final class FleetPositioning {
         String systemId = systemForHub(state, hub);
         return site != null && !fleet.hasInterstellarOrder()
                 && systemId != null && systemId.equals(fleet.currentSystemId())
-                && fleet.location().isAt(site);
+                && fleet.location().stationaryAt(site);
     }
 
     public static boolean atOrbitalSite(GameState state, Fleet fleet, String systemId,

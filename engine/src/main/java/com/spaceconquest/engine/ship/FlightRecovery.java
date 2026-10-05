@@ -44,7 +44,9 @@ public final class FlightRecovery {
             var reactor = PropulsionCatalog.availableReactorFuel(drive, ship);
             if (!PropulsionCatalog.reactorFuels(drive.moduleId()).isEmpty() && reactor == null) return null;
             double exhaust = drive.exhaustVelocityMps() * (reactor == null ? 1 : reactor.exhaustMultiplier());
-            deltaV = Math.min(deltaV, exhaust * Math.log(mass / (mass - ship.currentFuelKg())));
+            double usable = ship.currentFuelKg() - fleet.fuelPolicy().reserveKg(state, fleet, ship);
+            if (usable <= 0) return null;
+            deltaV = Math.min(deltaV, exhaust * Math.log(mass / (mass - usable)));
             masses.put(ship.id(), mass); exhausts.put(ship.id(), exhaust);
             if (reactor != null) reactors.put(ship.id(), reactor);
         }
@@ -67,7 +69,7 @@ public final class FlightRecovery {
             fuel.put(ship.id(), Math.min(quantity, ship.currentFuelKg()));
             var reactor = reactors.get(ship.id());
             var design = state.shipDesigns().stream().filter(item -> item.id().equals(ship.designId())).findFirst().orElseThrow();
-            propulsion.put(ship.id(), JourneyPropulsion.capture(ship, PropulsionCatalog.mainDrive(design.equippedModuleIds()), reactor, quantity));
+            propulsion.put(ship.id(), JourneyPropulsion.capture(ship, PropulsionCatalog.mainDrive(design.equippedModuleIds()), reactor, quantity).withProtectedPropellant(fleet.fuelPolicy().reserveKg(state, fleet, ship)));
             if (reactor != null && reactor.kgPerPropellantKg() > 0)
                 reactorFuel.put(ship.id(), new InterstellarTravel.ReactorFuelUse(reactor.materialId(), quantity * reactor.kgPerPropellantKg()));
         }
@@ -173,7 +175,7 @@ public final class FlightRecovery {
     private static Fleet arrive(Fleet fleet) {
         return new Fleet(fleet.id(), fleet.name(), fleet.ownerEntityId(), fleet.targetSystemId(), "",
                 fleet.coordinateX(), fleet.coordinateY(), 0, false, fleet.fleetStance(), fleet.ships(),
-                FleetLocation.at(FleetLocation.Site.deepSpace()), "", 0, 0, 0, 0, 0, Map.of(), null);
+                FleetLocation.at(FleetLocation.Site.deepSpace()), "", 0, 0, 0, 0, 0, Map.of(), null).withFuelPolicy(fleet.fuelPolicy());
     }
 
     private static Fleet copy(Fleet fleet, String mode, FlightMotion motion, Map<String, Double> budget) {
@@ -182,6 +184,6 @@ public final class FlightRecovery {
                 : Math.clamp(motion.positionMeters() / fleet.interstellarDistanceMeters(), 0, 1), false,
                 fleet.fleetStance(), fleet.ships(), fleet.location(), mode, fleet.interstellarTravelDays(),
                 fleet.interstellarDistanceMeters(), fleet.interstellarAccelerationMps2(), fleet.interstellarElapsedDays(),
-                fleet.interstellarPeakSpeedMps(), budget, motion, fleet.journeyPropulsion());
+                fleet.interstellarPeakSpeedMps(), budget, motion, fleet.journeyPropulsion()).withFuelPolicy(fleet.fuelPolicy());
     }
 }

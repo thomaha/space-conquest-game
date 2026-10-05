@@ -121,6 +121,8 @@ public class OrbitalStationView {
 
     private void renderContent() {
         content.getChildren().clear();
+        content.getChildren().add(OrbitalStationConstructionCard.create(gameState, playerEmpireId,
+                menubar == null ? null : menubar.getHumanController()));
 
         // 1. Orbital Stations Section
         content.getChildren().add(createStationsSection());
@@ -162,7 +164,10 @@ public class OrbitalStationView {
                 stats.setFill(Color.WHITE);
                 stats.setFont(Font.font("Verdana", 11));
 
-                sBox.getChildren().addAll(sTitle, stats);
+                Text parking = new Text(String.format("Parking altitude: %.0f km | %s", station.effectiveParkingAltitudeKm(),
+                        station.parkingAltitudeKm() == null ? "Legacy local travel compatibility" : "Orbital transfer planning enabled"));
+                parking.setFill(Color.LIGHTCYAN);
+                sBox.getChildren().addAll(sTitle, stats, parking);
                 if (gameState != null && station.modules().stream().anyMatch(module -> StationModule.TYPE_SOLAR_ARRAY.equalsIgnoreCase(module.type()))) {
                     Text sunlight = new Text(String.format("Solar illumination: %.3f times Sol at 1 AU",
                             SolarRadiation.stationFactor(gameState.solarSystems(), station)));

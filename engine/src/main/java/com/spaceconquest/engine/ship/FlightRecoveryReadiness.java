@@ -14,6 +14,8 @@ public final class FlightRecoveryReadiness {
     private FlightRecoveryReadiness() {}
 
     public static Check check(GameState state, Fleet fleet) {
+        if (fleet != null && fleet.location().orbitalFlight() != null)
+            return new Check(null, List.of(OrbitalTravel.recoveryProblem(fleet)));
         if (state == null || fleet == null || !Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode())
                 || fleet.location().inTransit() || !fleet.hasInterstellarOrder() || fleet.interstellarDistanceMeters() <= 0)
             return new Check(null, List.of("Physical recovery requires an interrupted sublight crossing."));
@@ -55,7 +57,7 @@ public final class FlightRecoveryReadiness {
         }
         var plan = FlightRecovery.plan(state, fleet);
         if (plan == null) {
-            if (blockers.isEmpty()) blockers.add("Remaining propulsion reserves or travel data cannot support an acceleration and braking itinerary.");
+            if (blockers.isEmpty()) blockers.add("Remaining propellant above the contingency target or travel data cannot support acceleration and braking. Resupply or explicitly authorize emergency use of contingency fuel.");
             return new Check(null, blockers);
         }
         for (ShipInstance ship : fleet.ships()) {

@@ -19,51 +19,51 @@ Targets coast at 100 m/s. Starting separation varies along a synthetic corridor 
 
 | Scenario | Payload (kg) | Planned contact days | Tick days | Main propellant used (kg) | Electrical fuel used (kg) | Drive reactor committed (kg) | Passengers at outcome | Outcome |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| Chemical supply at 10.000 million m | 1000.000000 | 0.281 | 1 | 15000.000 | 150.439817 | 0.000000 | 100/100 | DELIVERED |
-| Chemical supply at 1000.000 million m | 1000.000000 | 28.073 | 29 | 15000.000 | 4347.773150 | 0.000000 | 72/100 | DELIVERED |
+| Chemical supply at 10.000 million m | 1000.000000 | 0.301 | 1 | 14250.000 | 150.409311 | 0.000000 | 100/100 | DELIVERED |
+| Chemical supply at 1000.000 million m | 1000.000000 | 29.991 | 30 | 14250.000 | 4497.647406 | 0.000000 | 71/100 | DELIVERED |
 | Chemical supply at 10000.000 million m | 1000.000000 | — | — | — | — | — | — | Departure rejected |
 | Chemical supply at 149600.000 million m | 1000.000000 | — | — | — | — | — | — | Departure rejected |
-| Chemical supply, stasis | 1000.000000 | 28.073 | 29 | 15000.000 | 4347.773150 | 0.000000 | 47/100 | DELIVERED |
-| mod_chemical_rocket with fission electricity at 1000.000 million m | 0.010000 | 17.572 | 18 | 15000.000 | 0.000360 | 0.000000 | 83/100 | DELIVERED |
-| mod_chemical_rocket with fission electricity at 10000.000 million m | 0.010000 | 175.712 | 176 | 15000.000 | 0.003520 | 0.000000 | 0/100 | DELIVERED |
-| mod_fission_thruster with fission electricity at 1000.000 million m | 0.010000 | 6.710 | 7 | 15000.000 | 0.000141 | 15.000000 | 94/100 | DELIVERED |
-| mod_fission_thruster with fission electricity at 10000.000 million m | 0.010000 | 67.090 | 68 | 15000.000 | 0.001361 | 15.000000 | 21/100 | DELIVERED |
-| Fission electricity, stasis | 0.010000 | 6.710 | 7 | 15000.000 | 0.000141 | 15.000000 | 88/100 | DELIVERED |
-| Short chemical rescue, larger donation | 12000.000000 | 0.346 | 1 | 15000.000 | 489.856871 | 0.000000 | 100/100 | DELIVERED |
-| Nuclear thermal rescue, larger donation | 1.000000 | 6.710 | 7 | 15000.000 | 0.000141 | 15.000000 | 94/100 | DELIVERED |
-| Nuclear thermal rescue at 1 AU separation | 0.010000 | 1003.650 | — | — | — | — | — | Plan only |
-| Delivered but tiny electrical payload | 0.000001 | 17.572 | 18 | 15000.000 | 0.000360 | 0.000000 | 83/100 | DELIVERED |
-| Changed after departure: POWER_LOSS | 0.010000 | 17.572 | 1 | 0.000 | 0.000000 | 0.000000 | 100/100 | POWER_FAILED |
-| Changed after departure: TARGET_MOVES | 0.010000 | 17.572 | 18 | 15000.000 | 0.000360 | 0.000000 | 83/100 | MISSED_CONTACT |
-| Changed after departure: PAYLOAD_LOST | 0.010000 | 17.572 | 18 | 15000.000 | 0.000360 | 0.000000 | 83/100 | TRANSFER_REJECTED |
+| Chemical supply, stasis | 1000.000000 | 29.991 | 30 | 14250.000 | 4497.647406 | 0.000000 | 46/100 | DELIVERED |
+| mod_chemical_rocket with fission electricity at 1000.000 million m | 0.010000 | 18.811 | 19 | 14250.000 | 0.000380 | 0.000000 | 82/100 | DELIVERED |
+| mod_chemical_rocket with fission electricity at 10000.000 million m | 0.010000 | 188.107 | — | — | — | — | — | Plan only |
+| mod_fission_thruster with fission electricity at 1000.000 million m | 0.010000 | 7.156 | 8 | 14250.000 | 0.000161 | 14.250000 | 93/100 | DELIVERED |
+| mod_fission_thruster with fission electricity at 10000.000 million m | 0.010000 | 71.549 | 72 | 14250.000 | 0.001441 | 14.250000 | 13/100 | DELIVERED |
+| Fission electricity, stasis | 0.010000 | 7.156 | 8 | 14250.000 | 0.000161 | 14.250000 | 86/100 | DELIVERED |
+| Short chemical rescue, larger donation | 12000.000000 | 0.370 | 1 | 14250.000 | 489.827677 | 0.000000 | 100/100 | DELIVERED |
+| Nuclear thermal rescue, larger donation | 1.000000 | 7.156 | 8 | 14250.000 | 0.000161 | 14.250000 | 93/100 | DELIVERED |
+| Nuclear thermal rescue at 1 AU separation | 0.010000 | 1070.359 | — | — | — | — | — | Plan only |
+| Delivered but tiny electrical payload | 0.000001 | 18.811 | 19 | 14250.000 | 0.000380 | 0.000000 | 82/100 | DELIVERED |
+| Changed after departure: POWER_LOSS | 0.010000 | 18.811 | 1 | 0.000 | 0.000000 | 0.000000 | 100/100 | POWER_FAILED |
+| Changed after departure: TARGET_MOVES | 0.010000 | 18.811 | 19 | 14250.000 | 0.000380 | 0.000000 | 82/100 | MISSED_CONTACT |
+| Changed after departure: PAYLOAD_LOST | 0.010000 | 18.811 | 19 | 14250.000 | 0.000380 | 0.000000 | 82/100 | TRANSFER_REJECTED |
 
 ## Recovery after outcome
 
 | Scenario | Current receiver readiness |
 | --- | --- |
-| Chemical supply at 10.000 million m | receiver: electrical fuel, battery charge or output is insufficient for 1.72 days of travel plus the 48-hour essential and cargo reserve. |
-| Chemical supply at 1000.000 million m | receiver: electrical fuel, battery charge or output is insufficient for 171.17 days of travel plus the 48-hour essential and cargo reserve. |
+| Chemical supply at 10.000 million m | receiver: electrical fuel, battery charge or output is insufficient for 1.81 days of travel plus the 48-hour essential and cargo reserve. |
+| Chemical supply at 1000.000 million m | receiver: electrical fuel, battery charge or output is insufficient for 180.28 days of travel plus the 48-hour essential and cargo reserve. |
 | Chemical supply at 10000.000 million m | Not evaluated |
 | Chemical supply at 149600.000 million m | Not evaluated |
-| Chemical supply, stasis | receiver: electrical fuel, battery charge or output is insufficient for 169.34 days of travel plus the 48-hour essential and cargo reserve. |
-| mod_chemical_rocket with fission electricity at 1000.000 million m | receiver: electrical fuel, battery charge or output is insufficient for 163.83 days of travel plus the 48-hour essential and cargo reserve. |
-| mod_chemical_rocket with fission electricity at 10000.000 million m | receiver: electrical fuel, battery charge or output is insufficient for 1376.98 days of travel plus the 48-hour essential and cargo reserve. |
-| mod_fission_thruster with fission electricity at 1000.000 million m | receiver: electrical fuel, battery charge or output is insufficient for 71.08 days of travel plus the 48-hour essential and cargo reserve. |
-| mod_fission_thruster with fission electricity at 10000.000 million m | receiver: electrical fuel, battery charge or output is insufficient for 602.94 days of travel plus the 48-hour essential and cargo reserve. |
-| Fission electricity, stasis | receiver: electrical fuel, battery charge or output is insufficient for 72.25 days of travel plus the 48-hour essential and cargo reserve. |
-| Short chemical rescue, larger donation | receiver: electrical fuel, battery charge or output is insufficient for 2.05 days of travel plus the 48-hour essential and cargo reserve. |
+| Chemical supply, stasis | receiver: electrical fuel, battery charge or output is insufficient for 178.39 days of travel plus the 48-hour essential and cargo reserve. |
+| mod_chemical_rocket with fission electricity at 1000.000 million m | receiver: electrical fuel, battery charge or output is insufficient for 172.59 days of travel plus the 48-hour essential and cargo reserve. |
+| mod_chemical_rocket with fission electricity at 10000.000 million m | Not evaluated |
+| mod_fission_thruster with fission electricity at 1000.000 million m | receiver: electrical fuel, battery charge or output is insufficient for 74.99 days of travel plus the 48-hour essential and cargo reserve. |
+| mod_fission_thruster with fission electricity at 10000.000 million m | receiver: electrical fuel, battery charge or output is insufficient for 630.03 days of travel plus the 48-hour essential and cargo reserve. |
+| Fission electricity, stasis | receiver: electrical fuel, battery charge or output is insufficient for 76.11 days of travel plus the 48-hour essential and cargo reserve. |
+| Short chemical rescue, larger donation | receiver: electrical fuel, battery charge or output is insufficient for 2.16 days of travel plus the 48-hour essential and cargo reserve. |
 | Nuclear thermal rescue, larger donation | Ready |
 | Nuclear thermal rescue at 1 AU separation | Not evaluated |
-| Delivered but tiny electrical payload | receiver: electrical fuel, battery charge or output is insufficient for 163.83 days of travel plus the 48-hour essential and cargo reserve. |
-| Changed after departure: POWER_LOSS | receiver: electrical fuel, battery charge or output is insufficient for 175.92 days of travel plus the 48-hour essential and cargo reserve. |
-| Changed after departure: TARGET_MOVES | receiver: electrical fuel, battery charge or output is insufficient for 156.15 days of travel plus the 48-hour essential and cargo reserve. |
-| Changed after departure: PAYLOAD_LOST | receiver: electrical fuel, battery charge or output is insufficient for 163.83 days of travel plus the 48-hour essential and cargo reserve. |
+| Delivered but tiny electrical payload | receiver: electrical fuel, battery charge or output is insufficient for 172.59 days of travel plus the 48-hour essential and cargo reserve. |
+| Changed after departure: POWER_LOSS | receiver: electrical fuel, battery charge or output is insufficient for 185.85 days of travel plus the 48-hour essential and cargo reserve. |
+| Changed after departure: TARGET_MOVES | receiver: electrical fuel, battery charge or output is insufficient for 164.07 days of travel plus the 48-hour essential and cargo reserve. |
+| Changed after departure: PAYLOAD_LOST | receiver: electrical fuel, battery charge or output is insufficient for 172.59 days of travel plus the 48-hour essential and cargo reserve. |
 
 ## Tuning candidates
 
 - Compare conscious and stasis outage survival; stasis currently has a higher unpowered loss rate despite lower powered load.
 - Review chemical electrical storage and donation size: a successful transfer can still leave too little electricity for onward travel.
 - Compare chemical and nuclear thermal intercepts before changing thrust, exhaust velocity or main tank capacity.
-- Current minimum-time plans nearly empty the rescuer's main tank. Evaluate a return propellant reserve before treating rescue delivery as a sustainable round trip.
+- Intercept plans protect the fleet contingency reserve. An immediate return requires its own funded itinerary; contingency stock does not establish a sustainable round trip.
 - Inspect food deterioration alongside nutrition and electrical mortality on long approaches.
 - Keep missed contact, lost payload and power failure distinct from successful delivery.

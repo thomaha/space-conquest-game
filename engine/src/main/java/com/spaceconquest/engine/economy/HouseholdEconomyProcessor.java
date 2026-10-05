@@ -257,7 +257,7 @@ public class HouseholdEconomyProcessor {
                     station.currentShieldHealth(), station.maxShieldHealth(),
                     station.currentHullHealth(), station.maxHullHealth(),
                     station.armorMaterialId(), station.armorThicknessCm(),
-                    station.isOperational(), station.populations());
+                    station.isOperational(), station.populations(), station.parkingAltitudeKm());
         }).toList();
     }
 

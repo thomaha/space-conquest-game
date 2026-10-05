@@ -84,9 +84,12 @@ public final class ShipSupplyTransfer {
 
     /** Interrupted local journeys with zero progress are still at their departure site. */
     public static boolean stationary(Fleet fleet) {
+        if (fleet.location().orbitalFlight() != null) return fleet.location().orbitalFlight().atSource();
         if (fleet.isInWarp() || fleet.transitProgress() != 0 || fleet.interstellarElapsedDays() != 0
                 || fleet.flightMotion() != null) return false;
-        boolean interrupted = Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode());
+        boolean interrupted = Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode())
+                || fleet.location().localFlight() != null && fleet.location().localFlight().interrupted()
+                && fleet.location().localFlight().motion().velocityMps() == 0;
         return (!fleet.hasInterstellarOrder() || interrupted)
                 && (!fleet.location().inTransit() || interrupted && fleet.location().progress() == 0);
     }

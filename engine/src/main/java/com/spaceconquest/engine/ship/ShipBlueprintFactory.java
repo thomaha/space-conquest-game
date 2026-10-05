@@ -44,6 +44,10 @@ public final class ShipBlueprintFactory {
             errors.add("The selected propulsion drive has not been researched");
         if (!ShipComponentCatalog.powerResearched(specification.moduleIds(), owner.unlockedTechIds()))
             errors.add("The selected electrical source has not been researched");
+        if (!ChemicalFreighterCatalog.researched(specification.moduleIds(), owner.unlockedTechIds()))
+            errors.add("Compact freighter equipment requires electricity and industrial production research");
+        if (!ChemicalFreighterCatalog.compatible(specification.moduleIds()))
+            errors.add("The conditioned long-range tank requires a supported chemical mixture within its volume limit");
         if (specification.moduleIds().stream().anyMatch(id -> ShipSupplyCatalog.STORAGE_IDS.contains(id)
                 || ShipSupplyCatalog.TRANSFER_PUMP.equals(id)) && !owner.unlockedTechIds().contains("electricity"))
             errors.add("Dedicated supply storage and transfer equipment require electricity research");

@@ -22,13 +22,28 @@ final class RoamingTradeCost {
         }
         boolean crossing = !fleet.currentSystemId().equals(FleetPositioning.systemForHub(state, target));
         var firstSite = crossing ? FleetLocation.Site.deepSpace() : FleetPositioning.hubSite(state, target);
-        var local = LocalTravel.plan(state, fleet, firstSite);
+        var local = crossing ? TradeLegReadiness.departureLocal(state, fleet) : LocalTravel.plan(state, fleet, firstSite);
         if (local != null) {
             days += Math.ceil(local.days());
-            addPropellant(state, fleet, materials, local.propellantKg(), local.reactorFuelKg());
-            fleet = power(state, fleet, Math.ceil(local.days()) * 24, materials);
-            if (fleet == null) return null;
-            fleet = LocalTravel.depart(fleet, firstSite, local).withLocation(FleetLocation.at(firstSite));
+            if (local.orbital() != null) {
+                var arrival = LocalTravel.arrivalPreview(state, fleet, firstSite, local);
+                Map<String, Double> used = new HashMap<>();
+                Map<String, InterstellarTravel.ReactorFuelUse> feed = new HashMap<>();
+                for (var ship : fleet.ships()) {
+                    var after = arrival.ships().stream().filter(item -> item.id().equals(ship.id())).findFirst().orElseThrow();
+                    used.put(ship.id(), ship.currentFuelKg() - after.currentFuelKg());
+                    var planned = local.reactorFuelKg().get(ship.id());
+                    if (planned != null) feed.put(ship.id(), new InterstellarTravel.ReactorFuelUse(planned.materialId(),
+                            ship.storedCargoKg().getOrDefault(planned.materialId(), 0.0) - after.storedCargoKg().getOrDefault(planned.materialId(), 0.0)));
+                }
+                addPropellant(state, fleet, materials, used, feed);
+                generatorUse(fleet, arrival, materials); fleet = arrival;
+            } else {
+                addPropellant(state, fleet, materials, local.propellantKg(), local.reactorFuelKg());
+                fleet = localPower(state, fleet, firstSite, local, materials);
+                if (fleet == null) return null;
+                fleet = LocalTravel.projectedArrival(fleet, firstSite, local);
+            }
         } else if (!fleet.location().isAt(firstSite)) return null;
         if (crossing) {
             var plan = TradeLegReadiness.crossing(state, fleet, target);
@@ -45,12 +60,12 @@ final class RoamingTradeCost {
                 if (fleet == null) return null;
             }
             fleet = new Fleet(fleet.id(), fleet.name(), fleet.ownerEntityId(), FleetPositioning.systemForHub(state, target),
-                    "", 0, 0, 0, false, fleet.fleetStance(), fleet.ships(), FleetLocation.at(FleetLocation.Site.deepSpace()));
+                    "", 0, 0, 0, false, fleet.fleetStance(), fleet.ships(), FleetLocation.at(FleetLocation.Site.deepSpace())).withFuelPolicy(fleet.fuelPolicy());
             var dock = LocalTravel.plan(state, fleet, FleetPositioning.hubSite(state, target));
             if (dock == null) return null;
             days += Math.ceil(dock.days());
             addPropellant(state, fleet, materials, dock.propellantKg(), dock.reactorFuelKg());
-            if (power(state, fleet, Math.ceil(dock.days()) * 24, materials) == null) return null;
+            if (localPower(state, fleet, FleetPositioning.hubSite(state, target), dock, materials) == null) return null;
         }
         double fuel = 0;
         for (var item : materials.entrySet()) {
@@ -73,6 +88,18 @@ final class RoamingTradeCost {
             ships.add(ship.withPowerState(interval.state()));
         }
         var next = fleet.withShips(ships);
+        generatorUse(fleet, next, materials);
+        return next;
+    }
+
+    private static Fleet localPower(GameState state, Fleet fleet, FleetLocation.Site site, LocalTravel.Plan plan,
+                                    Map<String, Double> materials) {
+        for (var ship : fleet.ships()) {
+            var design = FleetSupplySimulation.design(state, ship);
+            if (design == null || design.powerProfile() == null
+                    || !LocalSpacePowerForecast.check(state, fleet, ship, design, site, plan).ready()) return null;
+        }
+        var next = LocalSpacePowerForecast.consume(state, fleet, site, plan);
         generatorUse(fleet, next, materials);
         return next;
     }

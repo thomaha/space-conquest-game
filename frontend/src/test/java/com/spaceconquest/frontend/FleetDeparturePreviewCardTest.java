@@ -6,6 +6,7 @@ import com.spaceconquest.control.command.CommandQueue;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.SolarSystem;
+import com.spaceconquest.engine.habitation.PassengerManifest;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.FleetLocation;
 import com.spaceconquest.engine.ship.FlightMotion;
@@ -63,6 +64,19 @@ class FleetDeparturePreviewCardTest {
         var task = new FutureTask<Void>(() -> { assertions.run(); return null; });
         Platform.runLater(task);
         task.get(10, TimeUnit.SECONDS);
+    }
+
+    @Test void emergencyPreviewDisclosesReserveShortfallAndRetainsElectricalGate() throws Exception {
+        onFxThread(() -> {
+            var state = state(false, 100);
+            var box = new VBox(); var move = new Button();
+            FleetDeparturePreviewCard.refresh(box, move, state, state.fleets().getFirst(), "b", true);
+            assertTrue(text(box).contains("Emergency override"));
+            assertTrue(text(box).contains("Contingency target"));
+            assertTrue(text(box).contains("Shortfall"));
+            assertTrue(move.isDisabled());
+            assertEquals(100, state.fleets().getFirst().ships().getFirst().currentFuelKg());
+        });
     }
 
     @Test
@@ -184,6 +198,37 @@ class FleetDeparturePreviewCardTest {
             assertTrue(resumed.isInWarp());
             assertEquals(.25, resumed.transitProgress());
             assertEquals(1, resumed.interstellarElapsedDays());
+        });
+    }
+
+    @Test void recoveryControlsExplainMissingPassengerSuppliesAndEnableAfterPhysicalRestocking() throws Exception {
+        onFxThread(() -> {
+            var initial = state(true, 0);
+            var original = initial.fleets().getFirst();
+            var power = new ShipPowerState(Map.of("rp1_kerosene", 4200.0, "liquid_oxygen", 10800.0),
+                    "rp1", "uranium", 0, true, 1, 1, 0, 0, 0, 0, 0);
+            var ship = new ShipInstance("ship", "blueprint", "empire", 100, 0, 0,
+                    Map.of(), 10, "human", ShipInstance.MODE_CONSCIOUS, power);
+            var fleet = new Fleet(original.id(), original.name(), "empire", "a", "b", 0, 0,
+                    .25, false, "PASSIVE", List.of(ship), FleetLocation.at(FleetLocation.Site.deepSpace()),
+                    Fleet.MODE_POWER_INTERRUPTED, 4, 0, 0, 1, 0, Map.of());
+            var state = initial.toBuilder().fleets(List.of(fleet)).passengerManifests(List.of(
+                    new PassengerManifest("ship", "source", "destination", "human", Map.of(30, 10L)))).build();
+            var controller = new HumanController(new CommandQueue());
+            var box = ShipPowerCard.create(state, fleet, ship, state.shipDesigns().getFirst(), controller, new Label());
+            var resume = box.getChildren().stream().filter(Button.class::isInstance).map(Button.class::cast)
+                    .filter(button -> button.getText().equals("Plan recovery to destination")).findFirst().orElseThrow();
+            assertTrue(resume.isDisabled());
+            assertTrue(box.getChildren().stream().filter(Label.class::isInstance).map(Label.class::cast)
+                    .anyMatch(label -> label.getText().contains("Booked passengers need carried supplies")));
+            var supplied = new ShipInstance("ship", "blueprint", "empire", 100, 0, 0,
+                    Map.of("oxygen_gas", 1.5, "food_matrix", 3.0), 10, "human", ShipInstance.MODE_CONSCIOUS, power);
+            fleet = fleet.withShips(List.of(supplied));
+            state = state.withFleets(List.of(fleet));
+            box = ShipPowerCard.create(state, fleet, supplied, state.shipDesigns().getFirst(), controller, new Label());
+            resume = box.getChildren().stream().filter(Button.class::isInstance).map(Button.class::cast)
+                    .filter(button -> button.getText().equals("Plan recovery to destination")).findFirst().orElseThrow();
+            assertFalse(resume.isDisabled());
         });
     }
 }

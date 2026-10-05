@@ -61,7 +61,7 @@ public class MacroStructureProcessor {
                     0.0, station.maxShieldHealth(),
                     station.currentHullHealth(), station.maxHullHealth(),
                     station.armorMaterialId(), station.armorThicknessCm(),
-                    false, station.populations()
+                    false, station.populations(), station.parkingAltitudeKm()
             );
             return new StationTurnResult(unpowered, 0.0, 0.0, Map.of());
         }
@@ -87,7 +87,7 @@ public class MacroStructureProcessor {
                 currentShield, station.maxShieldHealth(),
                 station.currentHullHealth(), station.maxHullHealth(),
                 station.armorMaterialId(), station.armorThicknessCm(),
-                true, station.populations()
+                true, station.populations(), station.parkingAltitudeKm()
         );
 
         return new StationTurnResult(updatedStation, collectedTariffs, researchPoints, producedMaterials);
@@ -204,7 +204,7 @@ public class MacroStructureProcessor {
                 project.plannedModule(), project.totalSlots(),
                 project.armorMaterialId(),
                 project.armorThicknessCm(), project.throughputCapacityKgPerTurn(),
-                project.isCompleted())).toList();
+                project.isCompleted(), project.parkingAltitudeKm())).toList();
         GameState updated = advanceConstructionProjects(GameState.builder()
                 .constructionProjects(owned).build());
         return new ConstructionTurnResult(updated.constructionProjects(),
@@ -263,7 +263,7 @@ public class MacroStructureProcessor {
                                 station.currentShieldHealth(), station.maxShieldHealth(),
                                 station.currentHullHealth(), station.maxHullHealth(),
                                 station.armorMaterialId(), station.armorThicknessCm(),
-                                station.isOperational(), station.populations()));
+                                station.isOperational(), station.populations(), station.parkingAltitudeKm()));
                         boolean commerceModule = StationModule.TYPE_COMMERCE.equalsIgnoreCase(
                                 project.plannedModule().type());
                         GameState hubCheckState = current;
@@ -284,7 +284,7 @@ public class MacroStructureProcessor {
                         step.consumedKg(), project.structureName(), project.ownershipType(),
                         project.targetStationId(), project.plannedModule(), project.totalSlots(),
                         project.armorMaterialId(), project.armorThicknessCm(),
-                        project.throughputCapacityKgPerTurn(), false));
+                        project.throughputCapacityKgPerTurn(), false, project.parkingAltitudeKm()));
             }
         }
         return current.toBuilder().constructionProjects(remaining).orbitalStations(stations)
@@ -346,7 +346,7 @@ public class MacroStructureProcessor {
                 500.0, 500.0,
                 1000.0, 1000.0,
                 proj.armorMaterialId(), proj.armorThicknessCm(),
-                true
+                true, List.of(), proj.parkingAltitudeKm()
         );
     }
 }

@@ -63,7 +63,7 @@ final class ShipPowerCard {
         if (power.unmetEssentialHours() > 0 || power.unmetDriveKwh() > 0 || power.unmetCargoKwh() > 0)
             box.getChildren().add(label(String.format("Power shortage: %.2f accumulated essential-load hours | %.1f kWh drive | %.1f kWh cargo",
                     power.unmetEssentialHours(), power.unmetDriveKwh(), power.unmetCargoKwh())));
-        if (controller == null || fleet.hasInterstellarOrder() || fleet.location().inTransit()) return box;
+        if (controller == null || fleet.hasInterstellarOrder() || fleet.location().underway()) return box;
         ComboBox<String> source = new ComboBox<>();
         state.commercialHubs().stream().map(hub -> hub.entityId()).forEach(source.getItems()::add);
         String current = fleet.location().current().entityId();
@@ -95,6 +95,7 @@ final class ShipPowerCard {
                 Math.min(100, profile.batteryKwh() / .9), 10);
         kwh.setEditable(true);
         Button charge = new Button("Buy stored grid electricity (kWh)");
+        charge.setId("buy-grid-electricity");
         charge.setOnAction(event -> {
             var command = new ChargeShipBatteryCommand(ship.id(), current, kwh.getValue());
             if (!command.validate(state)) {
@@ -110,8 +111,11 @@ final class ShipPowerCard {
 
     private static void addRecovery(VBox box, GameState state, Fleet fleet,
                                     HumanController controller, Label feedback) {
-        if (Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode())) {
-            box.getChildren().add(label("Travel interrupted by power loss. Recovery requires sufficient electricity for the remaining journey."));
+        if (Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode())
+                || fleet.location().localFlight() != null && fleet.location().localFlight().interrupted()) {
+            box.getChildren().add(label("Travel interrupted. Recovery requires funded propulsion, electricity and passenger supplies."));
+            if (fleet.location().localFlight() != null) box.getChildren().add(label(String.format("Local drift: %.1f km along route | %.1f m/s",
+                    fleet.location().localFlight().motion().positionMeters() / 1000, fleet.location().localFlight().motion().velocityMps())));
             if (!fleet.location().inTransit() && fleet.flightMotion() != null && fleet.interstellarDistanceMeters() > 0)
                 box.getChildren().add(label(String.format("Coasting: %.3f km along crossing | %.1f m/s",
                         fleet.flightMotion().positionMeters() / 1000, fleet.flightMotion().velocityMps())));
@@ -119,23 +123,37 @@ final class ShipPowerCard {
             var paused = command.pausedPreview(state);
             var readiness = paused == null ? FlightRecoveryReadiness.check(state, fleet) : null;
             var recovery = readiness != null && readiness.ready() ? readiness.plan() : null;
+            boolean passengersReady = paused != null ? command.passengersReady(state, paused.remainingDays())
+                    : recovery == null || command.passengersReady(state, recovery.trajectory().totalSeconds() / 86400);
             Button resume = new Button("Plan recovery to destination");
-            resume.setDisable(controller == null || (paused == null ? recovery == null : !paused.ready()));
+            resume.setDisable(controller == null || !passengersReady || (paused == null ? recovery == null : !paused.ready()));
             resume.setOnAction(event -> {
                 controller.stageCommand(command);
                 feedback.setText(paused == null ? "Queued recovery trajectory with powered braking."
                         : "Queued resumption of the remaining itinerary.");
             });
             box.getChildren().add(resume);
+            var emergency = new RecoverFleetTravelCommand(fleet.id(), true);
+            Button useReserve = new Button("Emergency recovery: use contingency fuel");
+            useReserve.setDisable(controller == null || !emergency.validate(state));
+            useReserve.setOnAction(event -> {
+                controller.stageCommand(emergency);
+                feedback.setText("Queued emergency recovery; contingency fuel may be consumed. Normal reserve policy remains unchanged.");
+            });
+            box.getChildren().add(useReserve);
+            if (!passengersReady) box.getChildren().add(label("Booked passengers need carried supplies for the remaining journey or valid stasis."));
             if (paused != null) {
                 box.getChildren().add(label(String.format("Paused %s: %.1f%% complete | %.0f days remaining%s",
                         paused.local() ? "local transfer" : "warp journey",
                         (paused.local() ? fleet.location().progress() : fleet.transitProgress()) * 100,
-                        paused.remainingDays(), paused.local() ? " | Maneuver fuel already committed" : "")));
+                        paused.remainingDays(), paused.physical() != null ? " | New funded braking trajectory"
+                                : paused.local() ? " | Maneuver fuel already committed" : "")));
                 if (!paused.ready()) paused.electrical().stream().filter(check -> !check.ready())
                         .forEach(check -> box.getChildren().add(label(check.explanation())));
-            } else if (!readiness.ready()) readiness.blockers().forEach(reason -> box.getChildren().add(label(reason)));
-            else box.getChildren().add(label(String.format("Ready to resume: %.2f days | %.1f kg propellant",
+            } else if (fleet.location().localFlight() != null)
+                box.getChildren().add(label("Local recovery cannot yet fund a forward braking trajectory. Check propulsion reserves and stopping distance; overshoot cannot return automatically."));
+            else if (!readiness.ready()) readiness.blockers().forEach(reason -> box.getChildren().add(label(reason)));
+            else if (passengersReady) box.getChildren().add(label(String.format("Ready to resume: %.2f days | %.1f kg propellant",
                     recovery.trajectory().totalSeconds() / 86400, recovery.fuelKg().values().stream().mapToDouble(Double::doubleValue).sum())));
         }
     }

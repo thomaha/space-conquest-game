@@ -73,7 +73,7 @@ public final class RescueRendezvous {
                     available.transitMode(), available.powerState(), available.supplyState());
             acceleration = Math.min(acceleration, ShipPowerProcessor.poweredThrust(design, powered, ShipSolarEnvironment.DARK) / mass);
             // Keep a tiny physical remainder so repeated phase subtraction cannot consume an earmarked tank donation.
-            double usableFuel = Math.max(0, available.currentFuelKg() - .000001);
+            double usableFuel = Math.max(0, available.currentFuelKg() - rescuer.fuelPolicy().reserveKg(state, rescuer, ship) - .000001);
             deltaV = Math.min(deltaV, exhaust * Math.log(mass / (mass - usableFuel)));
             masses.put(ship.id(), mass); exhausts.put(ship.id(), exhaust);
             if (reactor != null) reactors.put(ship.id(), reactor);
@@ -99,7 +99,7 @@ public final class RescueRendezvous {
             fuel.put(ship.id(), Math.min(quantity, available.currentFuelKg()));
             var reactor = reactors.get(ship.id());
             var design = state.shipDesigns().stream().filter(item -> item.id().equals(ship.designId())).findFirst().orElseThrow();
-            propulsion.put(ship.id(), JourneyPropulsion.capture(ship, PropulsionCatalog.mainDrive(design.equippedModuleIds()), reactor, quantity));
+            propulsion.put(ship.id(), JourneyPropulsion.capture(ship, PropulsionCatalog.mainDrive(design.equippedModuleIds()), reactor, quantity).withProtectedPropellant(rescuer.fuelPolicy().reserveKg(state, rescuer, ship)));
             if (reactor != null && reactor.kgPerPropellantKg() > 0) reactorFuel.put(ship.id(),
                     new InterstellarTravel.ReactorFuelUse(reactor.materialId(), quantity * reactor.kgPerPropellantKg()));
         }
@@ -182,6 +182,6 @@ public final class RescueRendezvous {
                 fleet.coordinateX(), fleet.coordinateY(), Math.clamp(motion.positionMeters() / target.interstellarDistanceMeters(), 0, 1),
                 false, fleet.fleetStance(), fleet.ships(), FleetLocation.at(FleetLocation.Site.deepSpace()), mode,
                 target.interstellarTravelDays(), target.interstellarDistanceMeters(), target.interstellarAccelerationMps2(),
-                0, target.interstellarPeakSpeedMps(), budget, motion, fleet.journeyPropulsion());
+                0, target.interstellarPeakSpeedMps(), budget, motion, fleet.journeyPropulsion()).withFuelPolicy(fleet.fuelPolicy());
     }
 }

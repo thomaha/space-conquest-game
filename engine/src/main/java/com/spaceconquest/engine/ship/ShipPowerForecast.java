@@ -32,11 +32,8 @@ public final class ShipPowerForecast {
             double energy = 0;
             boolean ready = true;
             if (local != null) {
-                var environment = ShipSolarEnvironment.journey(state, fleet, destination);
-                double hours = Math.ceil(local.days()) * 24;
-                energy += (essential + cargo + profile.driveKw()) * hours;
-                var budget = ShipLocalPowerForecast.check(profile, current, hours, environment,
-                        essential, cargo, profile.driveKw());
+                var budget = LocalSpacePowerForecast.check(state, fleet, ship, design, destination, local);
+                energy += budget.journeyKwh();
                 ready &= budget.ready(); current = budget.state();
             }
             if (crossing != null) {

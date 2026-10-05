@@ -215,7 +215,7 @@ class RescueBalanceAuditTest {
         text.append("\n## Tuning candidates\n\n- Compare conscious and stasis outage survival; stasis currently has a higher unpowered loss rate despite lower powered load.\n"
                 + "- Review chemical electrical storage and donation size: a successful transfer can still leave too little electricity for onward travel.\n"
                 + "- Compare chemical and nuclear thermal intercepts before changing thrust, exhaust velocity or main tank capacity.\n"
-                + "- Current minimum-time plans nearly empty the rescuer's main tank. Evaluate a return propellant reserve before treating rescue delivery as a sustainable round trip.\n"
+                + "- Intercept plans protect the fleet contingency reserve. An immediate return requires its own funded itinerary; contingency stock does not establish a sustainable round trip.\n"
                 + "- Inspect food deterioration alongside nutrition and electrical mortality on long approaches.\n"
                 + "- Keep missed contact, lost payload and power failure distinct from successful delivery.\n");
         return text.toString();

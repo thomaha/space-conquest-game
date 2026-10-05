@@ -54,7 +54,12 @@ public final class FleetOrganization {
         for (Fleet fleet : state.fleets()) {
             if (fleet.id().equals(sourceId)) {
                 if (!remaining.isEmpty()) fleets.add(copy(source, source.id(), source.name(), remaining, source.interstellarFuelBudgetKg()));
-            } else if (fleet.id().equals(targetId)) fleets.add(copy(target.withJourneyPropulsion(propulsion), target.id(), target.name(), joined, budget));
+            } else if (fleet.id().equals(targetId)) {
+                var location = target.location();
+                if (location.localFlight() != null) location = location.withFlight(location.localFlight().join(source.location().localFlight()));
+                if (location.orbitalFlight() != null) location = location.withOrbitalFlight(location.orbitalFlight().join(source.location().orbitalFlight()));
+                fleets.add(copy(target.withFuelPolicy(target.fuelPolicy().protectBoth(source.fuelPolicy())).withJourneyPropulsion(propulsion).withShips(joined).withLocation(location), target.id(), target.name(), joined, budget));
+            }
             else fleets.add(fleet);
         }
         return state.withFleets(fleets);
@@ -123,7 +128,7 @@ public final class FleetOrganization {
                 || !Objects.equals(source.currentSystemId(), target.currentSystemId())) return false;
         if (RescueRendezvous.contact(source, target)) return true;
         if (idle(source) && idle(target)) return source.location().current().equals(target.location().current());
-        return Objects.equals(source.targetSystemId(), target.targetSystemId()) && source.location().equals(target.location())
+        return Objects.equals(source.targetSystemId(), target.targetSystemId()) && source.location().together(target.location())
                 && source.interstellarMode().equals(target.interstellarMode()) && source.isInWarp() == target.isInWarp()
                 && source.transitProgress() == target.transitProgress() && Objects.equals(source.flightMotion(), target.flightMotion())
                 && source.interstellarDistanceMeters() == target.interstellarDistanceMeters()
@@ -149,6 +154,6 @@ public final class FleetOrganization {
         return new Fleet(id, name, fleet.ownerEntityId(), fleet.currentSystemId(), fleet.targetSystemId(),
                 fleet.coordinateX(), fleet.coordinateY(), fleet.transitProgress(), fleet.isInWarp(), fleet.fleetStance(), ships,
                 fleet.location(), fleet.interstellarMode(), fleet.interstellarTravelDays(), fleet.interstellarDistanceMeters(),
-                fleet.interstellarAccelerationMps2(), fleet.interstellarElapsedDays(), fleet.interstellarPeakSpeedMps(), retained, fleet.flightMotion(), propulsion);
+                fleet.interstellarAccelerationMps2(), fleet.interstellarElapsedDays(), fleet.interstellarPeakSpeedMps(), retained, fleet.flightMotion(), propulsion, fleet.fuelPolicy());
     }
 }

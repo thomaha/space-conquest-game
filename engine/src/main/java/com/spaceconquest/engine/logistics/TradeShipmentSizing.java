@@ -50,9 +50,7 @@ final class TradeShipmentSizing {
         if (!Double.isFinite(bid) || bid <= 0 || !Double.isFinite(seller.pricePerKg()) || seller.pricePerKg() < 0) return 0;
         double buyerCash = state.marketAccounts().stream().filter(account -> account.hubId().equals(target.id()))
                 .mapToDouble(account -> account.unsettledSalesCredits()).findFirst().orElse(0);
-        double ownerCash = state.corporations().stream().filter(owner -> owner.id().equals(route.ownerEntityId()))
-                .mapToDouble(owner -> owner.liquidCapitalReserves()).findFirst().orElseGet(() -> state.empires().stream()
-                        .filter(owner -> owner.id().equals(route.ownerEntityId())).mapToDouble(owner -> owner.treasuryCredits()).findFirst().orElse(0));
+        double ownerCash = ownerCash(state, route.ownerEntityId());
         double marketLimit = Math.min(buyer.demandKg(), Math.min(buyerCash / bid,
                 seller.pricePerKg() == 0 ? Double.POSITIVE_INFINITY : ownerCash / seller.pricePerKg()));
         double capacity = design.maxCargoMassKg() - ship.passengerCount() * 80
@@ -61,6 +59,12 @@ final class TradeShipmentSizing {
                 Math.min(route.maxDestinationCapacityKg() - buyer.supplyKg(), MarketStockpilePolicy.targetStockKg(buyer) - buyer.supplyKg()));
         return Math.min(marketLimit, Math.min(maximumKg, Math.min(route.transferAmountPerTurnKg(),
                 Math.min(seller.supplyKg() - route.minSourceInventoryThresholdKg(), Math.min(capacity, room)))));
+    }
+
+    static double ownerCash(GameState state, String ownerId) {
+        return state.corporations().stream().filter(owner -> owner.id().equals(ownerId))
+                .mapToDouble(owner -> owner.liquidCapitalReserves()).findFirst().orElseGet(() -> state.empires().stream()
+                        .filter(owner -> owner.id().equals(ownerId)).mapToDouble(owner -> owner.treasuryCredits()).findFirst().orElse(0));
     }
 
     private static Selection evaluate(GameState state, TradeRoute route, double maximumKg) {

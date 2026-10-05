@@ -188,6 +188,7 @@ public class ShipDesignerView {
 
         content.getChildren().add(createDesignerWorkbenchSection());
         content.getChildren().add(TankerDesignCard.create(snapshot, playerEmpireId, humanController, feedbackLabel));
+        content.getChildren().add(ChemicalFreighterDesignCard.create(snapshot, playerEmpireId, humanController, feedbackLabel));
         content.getChildren().add(createRegisteredBlueprintsSection());
     }
 
@@ -224,10 +225,8 @@ public class ShipDesignerView {
                 engineCombo.getItems().add(PropulsionCatalog.module(moduleId));
         }
         if (!engineCombo.getItems().isEmpty()) engineCombo.setValue(engineCombo.getItems().getFirst());
-        ComboBox<ShipModule> powerCombo = moduleCombo();
-        ShipComponentCatalog.POWER_MODULE_IDS.stream()
-                .filter(id -> ShipComponentCatalog.powerResearched(List.of(id), unlocked))
-                .map(ShipComponentCatalog::module).forEach(powerCombo.getItems()::add);
+        ComboBox<ShipPowerOption> powerCombo = new ComboBox<>();
+        powerCombo.getItems().addAll(ShipPowerOption.available(unlocked));
         powerCombo.setValue(powerCombo.getItems().getFirst());
         boolean stasisResearched = snapshot != null && snapshot.empires().stream()
                 .anyMatch(empire -> empire.id().equals(playerEmpireId)
@@ -251,7 +250,7 @@ public class ShipDesignerView {
             PropulsionCatalog.MAIN_DRIVE_IDS.stream()
                     .filter(editingDesign.equippedModuleIds()::contains)
                     .map(PropulsionCatalog::module).findFirst().ifPresent(engineCombo::setValue);
-            powerCombo.getItems().stream().filter(module -> editingDesign.equippedModuleIds().contains(module.id()))
+            powerCombo.getItems().stream().filter(option -> option.matches(editingDesign.equippedModuleIds()))
                     .findFirst().ifPresent(powerCombo::setValue);
             stasisPod.setSelected(editingDesign.equippedModuleIds()
                     .contains(PassengerStasis.MODULE_ID));
@@ -312,7 +311,7 @@ public class ShipDesignerView {
     private GridPane createWorkbenchForm(TextField nameField, ComboBox<String> roleCombo,
                                         ComboBox<String> matCombo, ComboBox<String> armorCombo,
                                         Spinner<Double> armorSpinner,
-                                        ComboBox<ShipModule> engineCombo, ComboBox<ShipModule> powerCombo) {
+                                        ComboBox<ShipModule> engineCombo, ComboBox<ShipPowerOption> powerCombo) {
         GridPane grid = new GridPane();
         grid.setHgap(12);
         grid.setVgap(8);
@@ -370,7 +369,7 @@ public class ShipDesignerView {
     private void refreshWorkbenchStats(VBox statsBox, VBox estimateBox, String role,
                                        String hullMaterialId,
                                        String armorMaterialId, double armorThickness,
-                                       ShipModule selectedDrive, ShipModule selectedPower, boolean stasisSelected) {
+                                       ShipModule selectedDrive, ShipPowerOption selectedPower, boolean stasisSelected) {
         statsBox.getChildren().clear();
         estimateBox.getChildren().clear();
         if (selectedDrive == null) {
@@ -378,7 +377,7 @@ public class ShipDesignerView {
             return;
         }
         var specification = new ShipDesignSpecification("preview", "Preview", playerEmpireId,
-                role, hullMaterialId, workbenchModules(selectedDrive.id(), stasisSelected, selectedPower.id()),
+                role, hullMaterialId, workbenchModules(selectedDrive.id(), stasisSelected, selectedPower),
                 armorMaterialId, armorThickness);
         var evaluation = ShipBlueprintFactory.evaluate(snapshot, specification);
         if (evaluation.physics() != null)
@@ -420,7 +419,7 @@ public class ShipDesignerView {
     private Button createSaveBlueprintButton(TextField nameField, ComboBox<String> roleCombo,
                                             ComboBox<String> matCombo, ComboBox<String> armorCombo,
                                             Spinner<Double> armorSpinner, CheckBox stasisPod,
-                                            ComboBox<ShipModule> engineCombo, ComboBox<ShipModule> powerCombo,
+                                            ComboBox<ShipModule> engineCombo, ComboBox<ShipPowerOption> powerCombo,
                                             ShipDesign editingDesign) {
         Button saveBlueprintBtn = new Button(editingDesign == null
                 ? "Register blueprint design" : "Save blueprint changes");
@@ -431,7 +430,7 @@ public class ShipDesignerView {
                     : editingDesign.id();
             var specification = new ShipDesignSpecification(id, nameField.getText(), playerEmpireId,
                     roleCombo.getValue(), matCombo.getValue(),
-                    workbenchModules(engineCombo.getValue().id(), stasisPod.isSelected(), powerCombo.getValue().id()),
+                    workbenchModules(engineCombo.getValue().id(), stasisPod.isSelected(), powerCombo.getValue()),
                     armorCombo.getValue(), armorSpinner.getValue());
             var evaluation = ShipBlueprintFactory.evaluate(snapshot, specification);
             if (!evaluation.valid()) {
@@ -534,9 +533,19 @@ public class ShipDesignerView {
         return section;
     }
 
-    private List<String> workbenchModules(String drive, boolean stasis, String power) {
-        List<String> modules = new ArrayList<>(ShipComponentCatalog.workbenchModules(drive, stasis, power));
+    private List<String> workbenchModules(String drive, boolean stasis, ShipPowerOption power) {
+        List<String> modules = new ArrayList<>(ShipComponentCatalog.workbenchModules(drive, stasis, power.primaryId(), power.solarSupport()));
         ShipDesign editing = registeredDesigns.stream().filter(design -> design.id().equals(editingDesignId)).findFirst().orElse(null);
+        if (editing != null && editing.equippedModuleIds().contains(com.spaceconquest.engine.ship.ChemicalFreighterCatalog.MAIN_TANK)) {
+            modules.remove("mod_cargo_vault");
+            modules.remove(PropulsionCatalog.FUEL_TANK_MODULE_ID);
+            modules.add(com.spaceconquest.engine.ship.ChemicalFreighterCatalog.CARGO_HOLD);
+              modules.add(com.spaceconquest.engine.ship.ChemicalFreighterCatalog.MAIN_TANK);
+              var ordered = new ArrayList<String>();
+              editing.equippedModuleIds().stream().filter(modules::contains).forEach(ordered::add);
+              modules.stream().filter(id -> !ordered.contains(id)).forEach(ordered::add);
+              modules = ordered;
+        }
         if (editing != null && com.spaceconquest.engine.ship.ShipSupplyCatalog.totalCapacity(editing) > 0) {
             modules.remove("mod_cargo_vault");
             editing.equippedModuleIds().stream().filter(id -> com.spaceconquest.engine.ship.ShipSupplyCatalog.STORAGE_IDS.contains(id)

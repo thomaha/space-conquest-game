@@ -25,15 +25,23 @@ public final class ShipArrivalReserve {
 
     public static Check check(ShipPowerProfile profile, ShipPowerState initial, double essentialKw,
                                double cargoKw, ShipSolarEnvironment environment) {
+        return check(profile, initial, essentialKw, cargoKw, environment, ShipPowerProcessor.ARRIVAL_RESERVE_HOURS);
+    }
+
+    /** Stationary reserve forecast with the same eclipse and daily charging rules as arrival checks. */
+    public static Check check(ShipPowerProfile profile, ShipPowerState initial, double essentialKw,
+                              double cargoKw, ShipSolarEnvironment environment, double reserveHours) {
+        if (!Double.isFinite(reserveHours) || reserveHours <= 0 || reserveHours > 24 * 365)
+            throw new IllegalArgumentException("Invalid stationary reserve horizon");
         ShipPowerState current = initial.withChargeInputToday(0);
         double elapsed = 0, period = environment.lightHours() + environment.darkHours();
         boolean ready = true;
-        while (elapsed < ShipPowerProcessor.ARRIVAL_RESERVE_HOURS - 1e-9) {
+        while (elapsed < reserveHours - 1e-9) {
             double phase = elapsed % period;
             boolean dark = phase < environment.darkHours();
             double phaseRemaining = (dark ? environment.darkHours() : period) - phase;
             double dayRemaining = 24 - elapsed % 24;
-            double hours = Math.min(phaseRemaining, Math.min(dayRemaining, ShipPowerProcessor.ARRIVAL_RESERVE_HOURS - elapsed));
+            double hours = Math.min(phaseRemaining, Math.min(dayRemaining, reserveHours - elapsed));
             var step = ShipPowerProcessor.interval(profile, current, hours,
                     dark ? 0 : ShipPowerProcessor.solarKw(profile, current, environment), essentialKw, cargoKw, 0);
             ready &= step.supplied();
@@ -41,6 +49,6 @@ public final class ShipArrivalReserve {
             elapsed += hours;
             if (Math.abs(elapsed % 24) < 1e-9) current = current.withChargeInputToday(0);
         }
-        return new Check(current, ready, (essentialKw + cargoKw) * ShipPowerProcessor.ARRIVAL_RESERVE_HOURS);
+        return new Check(current, ready, (essentialKw + cargoKw) * reserveHours);
     }
 }

@@ -196,7 +196,7 @@ public final class FleetPropulsionSupply {
                 Math.max(0, ship.currentFuelKg() - budget.getOrDefault(ship.id(), 0.0) * fraction))).toList();
         if (seconds + 1e-8 >= t.totalSeconds()) return new Fleet(fleet.id(), fleet.name(), fleet.ownerEntityId(),
                 fleet.targetSystemId(), "", fleet.coordinateX(), fleet.coordinateY(), 0, false, fleet.fleetStance(), ships,
-                FleetLocation.at(FleetLocation.Site.deepSpace()));
+                FleetLocation.at(FleetLocation.Site.deepSpace())).withFuelPolicy(fleet.fuelPolicy());
         return motion(fleet.withShips(ships), Fleet.MODE_RECOVERY, t.at(seconds), fleet.interstellarFuelBudgetKg(), fleet.journeyPropulsion());
     }
 
@@ -261,7 +261,7 @@ public final class FleetPropulsionSupply {
                 fleet.coordinateX(), fleet.coordinateY(), Math.clamp(motion.positionMeters() / fleet.interstellarDistanceMeters(), 0, 1),
                 false, fleet.fleetStance(), fleet.ships(), fleet.location(), mode, fleet.interstellarTravelDays(),
                 fleet.interstellarDistanceMeters(), fleet.interstellarAccelerationMps2(), fleet.interstellarElapsedDays(),
-                fleet.interstellarPeakSpeedMps(), budget, motion, propulsion);
+                fleet.interstellarPeakSpeedMps(), budget, motion, propulsion).withFuelPolicy(fleet.fuelPolicy());
     }
     static ShipInstance withFuel(ShipInstance ship, double fuel) {
         return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(), ship.currentShieldHealth(),

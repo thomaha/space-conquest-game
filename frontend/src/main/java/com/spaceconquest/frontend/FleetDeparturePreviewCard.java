@@ -20,13 +20,16 @@ final class FleetDeparturePreviewCard {
     private FleetDeparturePreviewCard() {}
 
     static void refresh(VBox box, Button move, GameState state, Fleet fleet, String target) {
+        refresh(box, move, state, fleet, target, false);
+    }
+    static void refresh(VBox box, Button move, GameState state, Fleet fleet, String target, boolean emergencyOverride) {
         box.getChildren().clear();
         Object version = new Object();
         box.getProperties().put(PREVIEW_VERSION, version);
         if (FleetSupplySimulation.hasOrders(fleet)) {
             move.setDisable(true);
             box.getChildren().add(line("Calculating scheduled supply and departure readiness…"));
-            CompletableFuture.supplyAsync(() -> new MoveFleetCommand(fleet.id(), target).preview(state))
+            CompletableFuture.supplyAsync(() -> new MoveFleetCommand(fleet.id(), target, emergencyOverride).preview(state))
                     .whenComplete((preview, failure) -> Platform.runLater(() -> {
                         if (box.getProperties().get(PREVIEW_VERSION) != version) return;
                         box.getChildren().clear();
@@ -38,12 +41,12 @@ final class FleetDeparturePreviewCard {
                     }));
             return;
         }
-        var preview = new MoveFleetCommand(fleet.id(), target).preview(state, false);
+        var preview = new MoveFleetCommand(fleet.id(), target, emergencyOverride).preview(state, false);
         render(box, move, preview);
         if (preview != null && preview.ready()) {
             Label pending = line("Calculating destination and return reserves…");
             box.getChildren().add(pending);
-            CompletableFuture.supplyAsync(() -> new MoveFleetCommand(fleet.id(), target).preview(state))
+            CompletableFuture.supplyAsync(() -> new MoveFleetCommand(fleet.id(), target, emergencyOverride).preview(state))
                     .whenComplete((complete, failure) -> Platform.runLater(() -> {
                         if (box.getProperties().get(PREVIEW_VERSION) != version) return;
                         box.getChildren().remove(pending);
@@ -56,9 +59,13 @@ final class FleetDeparturePreviewCard {
     private static void render(VBox box, Button move, MoveFleetCommand.DeparturePreview preview) {
         move.setDisable(preview == null || !preview.ready());
         if (preview == null) {
-            box.getChildren().add(line("Departure unavailable. Check orders, propulsion electricity, propellant, launch service and passenger supplies."));
+            box.getChildren().add(line("Departure unavailable. Check orders, propulsion electricity, propellant above the contingency target, launch service and passenger supplies."));
             return;
         }
+        if (preview.emergencyOverride()) box.getChildren().add(line("Emergency override: this order may consume contingency fuel."));
+        for (var fuel : preview.fuelReserves()) box.getChildren().add(line(String.format(
+                "%s: aboard %.1f kg | Planned burn %.1f kg | Arrival %.1f kg | Contingency target %.1f kg | Shortfall %.1f kg",
+                fuel.shipId(), fuel.departureKg(), fuel.plannedBurnKg(), fuel.arrivalKg(), fuel.protectedKg(), fuel.shortfallKg())));
         var crossing = preview.crossing();
         String mode = Fleet.MODE_WARP.equals(crossing.mode()) ? "Warp" : "Sublight";
         double localDays = preview.local() == null ? 0 : Math.ceil(preview.local().days());

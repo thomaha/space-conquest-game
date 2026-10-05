@@ -305,7 +305,10 @@ public class ShipCommandTest {
     @Test
     public void orbitalShipyardLifecycleRequiresResearchCargoAndPaidStaffing() {
         Empire original = initialState.empires().getFirst();
-        GameState researched = initialState.toBuilder().empires(List.of(new Empire(original.id(),
+        GameState researched = initialState.toBuilder().solarSystems(List.of(new SolarSystem("sol", "Sol", "", 0, 0, 0,
+                1.98847e30, 1.3927e6, "yellow", List.of(new Planet("earth", "Earth", "", 5.972e24, 9.81,
+                149597870, 0, 12742, "terrestrial", "breathable", true, 1, List.of(), List.of(), List.of())), List.of())))
+                .empires(List.of(new Empire(original.id(),
                 original.name(), original.raceId(), original.societyStructure(),
                 original.treasuryCredits(), original.corporateTaxRate(),
                 original.controlledSystemIds(), original.ministries(),

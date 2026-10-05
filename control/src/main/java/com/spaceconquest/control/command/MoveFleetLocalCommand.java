@@ -14,11 +14,22 @@ import java.util.List;
 
 /** Starts a timed journey between two sites in the fleet's current system. */
 public record MoveFleetLocalCommand(String fleetId, FleetLocation.Kind targetKind,
-                                    String targetEntityId) implements GameCommand {
+                                    String targetEntityId, boolean emergencyOverride, Double targetParkingAltitudeKm) implements GameCommand {
+    public MoveFleetLocalCommand(String fleetId, FleetLocation.Kind targetKind, String targetEntityId, boolean emergencyOverride) {
+        this(fleetId, targetKind, targetEntityId, emergencyOverride, null);
+    }
+    public MoveFleetLocalCommand(String fleetId, FleetLocation.Kind targetKind, String targetEntityId) {
+        this(fleetId, targetKind, targetEntityId, false);
+    }
+    private Fleet planningFleet(Fleet fleet) {
+        return emergencyOverride ? fleet.withFuelPolicy(new com.spaceconquest.engine.ship.FleetFuelPolicy(0, 0, 0)) : fleet;
+    }
     @Override
     public boolean validate(GameState state) {
         if (state == null || fleetId == null || targetKind == null || targetEntityId == null)
             return false;
+        if (targetParkingAltitudeKm != null && (targetKind != FleetLocation.Kind.ORBIT
+                || !Double.isFinite(targetParkingAltitudeKm) || targetParkingAltitudeKm <= 0)) return false;
         Fleet fleet = state.fleets().stream().filter(item -> fleetId.equals(item.id()))
                 .findFirst().orElse(null);
         if (fleet == null || fleet.isInWarp() || fleet.location().inTransit()
@@ -30,9 +41,10 @@ public record MoveFleetLocalCommand(String fleetId, FleetLocation.Kind targetKin
             return false;
         FleetLocation.Site destination = destination();
         if (fleet.location().isAt(destination)) return false;
-        var plan = LocalTravel.plan(state, fleet, destination);
+        var plan = LocalTravel.plan(state, planningFleet(fleet), destination);
         if (plan == null || !ShipPowerForecast.ready(
                 ShipPowerForecast.departure(state, fleet, destination, plan, null))) return false;
+        if (!PassengerDepartureReadiness.ready(state, fleet, plan.days())) return false;
         if (fleet.location().current().kind() == FleetLocation.Kind.SURFACE
                 && LocalTravel.surfaceLaunchPlan(state, fleet) == null) return false;
         if (targetKind == FleetLocation.Kind.DEEP_SPACE)
@@ -64,7 +76,7 @@ public record MoveFleetLocalCommand(String fleetId, FleetLocation.Kind targetKin
             Fleet fleet = fleets.get(index);
             if (!fleetId.equals(fleet.id())) continue;
             FleetLocation.Site destination = destination();
-            LocalTravel.Plan plan = LocalTravel.plan(paid, fleet, destination);
+            LocalTravel.Plan plan = LocalTravel.plan(paid, planningFleet(fleet), destination);
             fleets.set(index, LocalTravel.depart(fleet, destination, plan));
             break;
         }
@@ -72,6 +84,6 @@ public record MoveFleetLocalCommand(String fleetId, FleetLocation.Kind targetKin
     }
 
     private FleetLocation.Site destination() {
-        return new FleetLocation.Site(targetKind, targetEntityId);
+        return new FleetLocation.Site(targetKind, targetEntityId, targetParkingAltitudeKm);
     }
 }

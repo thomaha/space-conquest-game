@@ -19,7 +19,7 @@ public final class FleetReturnReserve {
                 ship.generatorFuelMassKg(), ship.supplyFuelMassKg())).toList();
         var returned = new Fleet(arrival.id(), arrival.name(), arrival.ownerEntityId(), destinationId, "", 0, 0, 0,
                 false, arrival.fleetStance(), arrival.ships().stream().map(ship -> ship.withSupplyState(ship.supplyState()
-                .withOrder(null, ship.supplyState().outcome()).withTimeline(null))).toList(), FleetLocation.at(FleetLocation.Site.deepSpace()));
+                .withOrder(null, ship.supplyState().outcome()).withTimeline(null))).toList(), FleetLocation.at(FleetLocation.Site.deepSpace())).withFuelPolicy(arrival.fuelPolicy());
         if (state.solarSystems().stream().noneMatch(system -> system.id().equals(destinationId)))
             return new Preview(reserves, false, 0, "The return destination is unknown.");
         var plan = InterstellarTravel.plan(state, returned, departed.currentSystemId());

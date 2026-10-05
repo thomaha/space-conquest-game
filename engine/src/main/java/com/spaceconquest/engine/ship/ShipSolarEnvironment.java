@@ -30,8 +30,16 @@ public record ShipSolarEnvironment(double fluxRelativeToEarth, double lightHours
                     "Unobstructed system-space sunlight at an approximate rendezvous distance");
         }
         String body = site.kind() == FleetLocation.Kind.DOCKED ? state.orbitalStations().stream()
-                .filter(station -> station.id().equals(site.entityId())).map(station -> station.planetOrbitId())
+                .filter(station -> station.id().equals(site.entityId()))
+                .map(station -> station.planetOrbitId() == null ? "" : station.planetOrbitId())
                 .findFirst().orElse("") : site.entityId();
+        if (site.kind() == FleetLocation.Kind.DOCKED && body.isBlank()) {
+            var position = LocalSiteGeometry.position(state, fleet.currentSystemId(), site);
+            if (position == null) return DARK;
+            double distance = Math.hypot(Math.hypot(position.xMeters(), position.yMeters()), position.zMeters()) / 1000;
+            return new ShipSolarEnvironment(SolarRadiation.factor(system, distance), 24, 0,
+                    "Unobstructed sunlight at a free station's representative position");
+        }
         double distance = SolarRadiation.bodyDistanceKm(system, body);
         if (!Double.isFinite(distance) || distance <= 0) return DARK;
         double flux = SolarRadiation.factor(system, distance);

@@ -58,7 +58,7 @@ class ShipPowerCommandTest {
                 List.of("a"), List.of(), Map.of(), technologies, List.of());
         var corp = new Corporation("corp", "Company", "empire", "yard", "LOGISTICS", 100_000,
                 List.of(), List.of("ship"), List.of());
-        var yard = new OrbitalStation("yard", "Yard", "a", "earth", "empire",
+        var yard = new OrbitalStation("yard", "Yard", "a", "", "empire",
                 OrbitalStation.OWNERSHIP_PUBLIC_STATE, 20, List.of(), Map.of(), 0, 0, 0, 0, 100, 100, "steel", 1, true);
         var orders = Map.of("rp1_kerosene", new MarketOrder("rp1_kerosene", 100_000, 0, 2, 0),
                 "liquid_oxygen", new MarketOrder("liquid_oxygen", 100_000, 0, 3, 0),

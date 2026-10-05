@@ -1,8 +1,6 @@
 package com.spaceconquest.control.command;
 
 import com.spaceconquest.engine.GameState;
-import com.spaceconquest.engine.DataModelLoader;
-import com.spaceconquest.engine.habitation.PassengerTransitProcessor;
 import com.spaceconquest.engine.logistics.TradeRoute;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.InterstellarTravel;
@@ -14,7 +12,6 @@ import com.spaceconquest.engine.ship.FleetReturnReserve;
 import com.spaceconquest.engine.logistics.LaunchService;
 
 import java.util.ArrayList;
-import java.io.IOException;
 import java.util.List;
 
 /**
@@ -24,17 +21,24 @@ public record MoveFleetCommand(
         String fleetId,
         String targetSystemId,
         double targetX,
-        double targetY
+        double targetY,
+        boolean emergencyOverride
 ) implements GameCommand {
 
     public record DeparturePreview(LocalTravel.Plan local, InterstellarTravel.Plan crossing,
                                    double launchCostCredits, List<ShipPowerForecast.Readiness> electrical,
-                                   double scheduledArrivalDays, FleetReturnReserve.Preview returnReserve) {
+                                   double scheduledArrivalDays, FleetReturnReserve.Preview returnReserve,
+                                   List<FuelReservePreview> fuelReserves, boolean emergencyOverride) {
+        public DeparturePreview(LocalTravel.Plan local, InterstellarTravel.Plan crossing,
+                                double launchCostCredits, List<ShipPowerForecast.Readiness> electrical,
+                                double scheduledArrivalDays, FleetReturnReserve.Preview returnReserve) {
+            this(local, crossing, launchCostCredits, electrical, scheduledArrivalDays, returnReserve, List.of(), false);
+        }
         public DeparturePreview(LocalTravel.Plan local, InterstellarTravel.Plan crossing,
                                 double launchCostCredits, List<ShipPowerForecast.Readiness> electrical) {
             this(local, crossing, launchCostCredits, electrical, 0, null);
         }
-        public DeparturePreview { electrical = List.copyOf(electrical); }
+        public DeparturePreview { electrical = List.copyOf(electrical); fuelReserves = List.copyOf(fuelReserves); }
         public boolean ready() { return ShipPowerForecast.ready(electrical); }
         public double totalDays() {
             return scheduledArrivalDays > 0 ? scheduledArrivalDays
@@ -42,6 +46,12 @@ public record MoveFleetCommand(
         }
     }
 
+    public MoveFleetCommand(String fleetId, String targetSystemId, double targetX, double targetY) {
+        this(fleetId, targetSystemId, targetX, targetY, false);
+    }
+    public MoveFleetCommand(String fleetId, String targetSystemId, boolean emergencyOverride) {
+        this(fleetId, targetSystemId, 0, 0, emergencyOverride);
+    }
     public MoveFleetCommand(String fleetId, String targetSystemId) {
         this(fleetId, targetSystemId, 0.0, 0.0);
     }
@@ -62,9 +72,10 @@ public record MoveFleetCommand(
         }
         if (targetSystemId == null || state.solarSystems().stream()
                 .noneMatch(system -> targetSystemId.equals(system.id()))) return null;
-        Fleet fleet = state.fleets().stream().filter(item -> fleetId.equals(item.id()))
+        Fleet selectedFleet = state.fleets().stream().filter(item -> fleetId.equals(item.id()))
                 .findFirst().orElse(null);
-        if (fleet == null) return null;
+        if (selectedFleet == null) return null;
+        Fleet fleet = planningFleet(selectedFleet);
         boolean valid = state.solarSystems().stream()
                 .anyMatch(system -> system.id().equals(fleet.currentSystemId()))
                 && !targetSystemId.equals(fleet.currentSystemId())
@@ -80,9 +91,9 @@ public record MoveFleetCommand(
                 ? LocalTravel.surfaceLaunchPlan(state, fleet) : null;
         if (fleet.location().current().kind() == FleetLocation.Kind.SURFACE && launch == null) return null;
         FleetLocation.Site deepSpace = FleetLocation.Site.deepSpace();
-        LocalTravel.Plan local = fleet.location().isAt(deepSpace) ? null : LocalTravel.plan(state, fleet, deepSpace);
+        LocalTravel.Plan local = fleet.location().isAt(deepSpace) ? null : localPlan(state, fleet);
         if (!fleet.location().isAt(deepSpace) && local == null) return null;
-        Fleet departure = local == null ? fleet : LocalTravel.depart(fleet, deepSpace, local);
+        Fleet departure = local == null ? fleet : LocalTravel.projectedArrival(fleet, deepSpace, local);
         InterstellarTravel.Plan plan = InterstellarTravel.plan(state, departure, targetSystemId);
         if (plan == null) return null;
         var supply = local == null && Fleet.MODE_SUBLIGHT.equals(plan.mode()) && FleetPropulsionSupply.hasOrder(fleet)
@@ -94,17 +105,10 @@ public record MoveFleetCommand(
                 ? FleetPropulsionSupply.forecast(state, fleet, plan) : null;
         var reserve = includeReturn ? FleetReturnReserve.preview(state, fleet, targetSystemId, projection) : null;
         var preview = new DeparturePreview(local, plan,
-                LaunchService.payerOperatingCost(state, launch, fleet.ownerEntityId()), power, supply == null ? 0 : supply.days(), reserve);
-        boolean passengers = state.passengerManifests().stream().anyMatch(manifest ->
-                fleet.ships().stream().anyMatch(ship -> ship.id().equals(manifest.shipId())));
-        if (!passengers) return preview;
-        try {
-            return PassengerTransitProcessor.canSustainJourney(state, departure,
-                    DataModelLoader.loadRaces(),
-                    supply == null ? plan.days() : supply.days()) ? preview : null;
-        } catch (IOException exception) {
-            return null;
-        }
+                LaunchService.payerOperatingCost(state, launch, fleet.ownerEntityId()), power, supply == null ? 0 : supply.days(), reserve,
+                FuelReservePreview.inspect(state, selectedFleet, local == null ? java.util.Map.of() : local.propellantKg(),
+                        plan.fuelBudgetKg(), supply == null ? null : supply.arrival()), emergencyOverride);
+        return PassengerDepartureReadiness.ready(state, departure, preview.totalDays()) ? preview : null;
     }
 
     @Override
@@ -123,8 +127,11 @@ public record MoveFleetCommand(
         List<Fleet> updatedFleets = new ArrayList<>();
         for (Fleet fleet : paid.fleets()) {
             if (fleet.id().equals(fleetId)) {
-                Fleet departure = localDeparture(paid, fleet);
-                InterstellarTravel.Plan plan = InterstellarTravel.plan(paid, departure,
+                Fleet departure = localDeparture(paid, planningFleet(fleet));
+                Fleet projected = departure.location().localFlight() == null ? departure
+                        : com.spaceconquest.engine.ship.LocalFlightProcessor.advance(departure,
+                        departure.location().travelDays() * 24, false).withLocation(FleetLocation.at(FleetLocation.Site.deepSpace()));
+                InterstellarTravel.Plan plan = InterstellarTravel.plan(paid, projected,
                         targetSystemId);
                 Fleet fueled = InterstellarTravel.commitReactorFuel(departure, plan);
                 updatedFleets.add(new Fleet(
@@ -142,7 +149,7 @@ public record MoveFleetCommand(
                         plan.mode(), plan.days(), plan.distanceMeters(),
                         plan.accelerationMps2(), 0.0,
                         plan.peakSpeedMps(), plan.fuelBudgetKg(), null, plan.propulsion()
-                ));
+                ).withFuelPolicy(fleet.fuelPolicy()));
             } else {
                 updatedFleets.add(fleet);
             }
@@ -153,10 +160,21 @@ public record MoveFleetCommand(
                 .build();
     }
 
+    private Fleet planningFleet(Fleet fleet) {
+        return emergencyOverride ? fleet.withFuelPolicy(new com.spaceconquest.engine.ship.FleetFuelPolicy(0, 0, 0)) : fleet;
+    }
+
     private Fleet localDeparture(GameState state, Fleet fleet) {
         FleetLocation.Site deepSpace = FleetLocation.Site.deepSpace();
         if (fleet.location().isAt(deepSpace)) return fleet;
-        LocalTravel.Plan plan = LocalTravel.plan(state, fleet, deepSpace);
+        LocalTravel.Plan plan = localPlan(state, fleet);
         return plan == null ? null : LocalTravel.depart(fleet, deepSpace, plan);
+    }
+
+    private LocalTravel.Plan localPlan(GameState state, Fleet fleet) {
+        var deepSpace = FleetLocation.Site.deepSpace();
+        var crossing = InterstellarTravel.plan(state, fleet.withLocation(FleetLocation.at(deepSpace)), targetSystemId);
+        double reserve = crossing != null && Fleet.MODE_SUBLIGHT.equals(crossing.mode()) ? .5 : 0;
+        return LocalTravel.planRetaining(state, fleet, deepSpace, reserve);
     }
 }

@@ -153,7 +153,8 @@ public final class FleetFuelSharing {
         ShipInstance before = ship(original, donorId), after = ship(next, donorId);
         ShipDesign design = design(original, before);
         if (design.powerProfile() == null) return false; // Unknown electrical endurance cannot protect a supplier.
-        double floor = Math.min(before.currentFuelKg(), design.fuelCapacityKg() * request.donorPropellantReserveFraction());
+        double floor = Math.min(before.currentFuelKg(), Math.max(design.fuelCapacityKg() * request.donorPropellantReserveFraction(),
+                fleet(original, donorId).fuelPolicy().reserveKg(original, fleet(original, donorId), before)));
         if (after.currentFuelKg() < floor) return false;
         var drive = PropulsionCatalog.mainDrive(design.equippedModuleIds());
         if (drive == null) return false;

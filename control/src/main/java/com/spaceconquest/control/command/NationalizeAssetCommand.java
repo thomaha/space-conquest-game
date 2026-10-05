@@ -74,7 +74,10 @@ public record NationalizeAssetCommand(String empireId, String corporationId, Str
                         fleet.interstellarAccelerationMps2(), fleet.interstellarElapsedDays(),
                         fleet.interstellarPeakSpeedMps(),
                         java.util.Map.of(ship.id(), fleet.interstellarFuelBudgetKg()
-                                .getOrDefault(ship.id(), 0.0)), fleet.flightMotion()));
+                                .getOrDefault(ship.id(), 0.0)), fleet.flightMotion())
+                        .withJourneyPropulsion(fleet.journeyPropulsion().containsKey(ship.id())
+                                ? java.util.Map.of(ship.id(), fleet.journeyPropulsion().get(ship.id())) : java.util.Map.of())
+                        .withFuelPolicy(fleet.fuelPolicy()));
             }
             if (!remaining.isEmpty()) {
                 fleets.add(fleet.withShips(remaining));

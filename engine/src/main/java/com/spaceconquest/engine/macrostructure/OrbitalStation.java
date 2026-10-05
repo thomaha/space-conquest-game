@@ -45,13 +45,16 @@ public record OrbitalStation(
         String armorMaterialId,
         double armorThicknessCm,
         boolean isOperational,
-        List<Population> populations
+        List<Population> populations,
+        Double parkingAltitudeKm
 ) {
     public static final String OWNERSHIP_PUBLIC_STATE = "PUBLIC_STATE";
     public static final String OWNERSHIP_PRIVATE_CORPORATE = "PRIVATE_CORPORATE";
     public static final String OWNERSHIP_HIVE_GRID = "HIVE_GRID";
 
     public OrbitalStation {
+        if (parkingAltitudeKm != null && (!Double.isFinite(parkingAltitudeKm) || parkingAltitudeKm <= 0))
+            throw new IllegalArgumentException("Parking altitude must be finite and above the surface");
         modules = modules == null ? List.of() : List.copyOf(modules);
         storedCargoKg = storedCargoKg == null ? Map.of() : Map.copyOf(storedCargoKg);
         populations = populations == null ? List.of() : List.copyOf(populations);
@@ -70,11 +73,30 @@ public record OrbitalStation(
                 armorMaterialId, armorThicknessCm, isOperational, List.of());
     }
 
+    public OrbitalStation(String id, String name, String systemId, String planetOrbitId, String ownerEntityId,
+                         String ownershipType, int totalSlots, List<StationModule> modules, Map<String, Double> storedCargoKg,
+                         double currentPowerGenerationKw, double currentPowerDemandKw, double currentShieldHealth,
+                         double maxShieldHealth, double currentHullHealth, double maxHullHealth, String armorMaterialId,
+                         double armorThicknessCm, boolean isOperational, List<Population> populations) {
+        this(id, name, systemId, planetOrbitId, ownerEntityId, ownershipType, totalSlots, modules, storedCargoKg,
+                currentPowerGenerationKw, currentPowerDemandKw, currentShieldHealth, maxShieldHealth,
+                currentHullHealth, maxHullHealth, armorMaterialId, armorThicknessCm, isOperational, populations, null);
+    }
+
+    public double effectiveParkingAltitudeKm() { return parkingAltitudeKm == null ? 500 : parkingAltitudeKm; }
+
+    public OrbitalStation withParkingAltitudeKm(Double altitude) {
+        return new OrbitalStation(id, name, systemId, planetOrbitId, ownerEntityId, ownershipType, totalSlots,
+                modules, storedCargoKg, currentPowerGenerationKw, currentPowerDemandKw, currentShieldHealth,
+                maxShieldHealth, currentHullHealth, maxHullHealth, armorMaterialId, armorThicknessCm,
+                isOperational, populations, altitude);
+    }
+
     public OrbitalStation withPopulations(List<Population> value) {
         return new OrbitalStation(id, name, systemId, planetOrbitId, ownerEntityId, ownershipType,
                 totalSlots, modules, storedCargoKg, currentPowerGenerationKw, currentPowerDemandKw,
                 currentShieldHealth, maxShieldHealth, currentHullHealth, maxHullHealth,
-                armorMaterialId, armorThicknessCm, isOperational, value);
+                armorMaterialId, armorThicknessCm, isOperational, value, parkingAltitudeKm);
     }
 
     public int getAllocatedSlots() {

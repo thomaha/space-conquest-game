@@ -2,11 +2,19 @@ package com.spaceconquest.engine.ship;
 
 /** Propulsion selected and paid for when a physical journey is planned. */
 public record JourneyPropulsion(String designId, String driveModuleId, double exhaustVelocityMps,
-                                String reactorFeedId, double committedReactorKg) {
+                                String reactorFeedId, double committedReactorKg, double protectedPropellantKg) {
+    public JourneyPropulsion(String designId, String driveModuleId, double exhaustVelocityMps,
+                             String reactorFeedId, double committedReactorKg) {
+        this(designId, driveModuleId, exhaustVelocityMps, reactorFeedId, committedReactorKg, 0);
+    }
+    public JourneyPropulsion withProtectedPropellant(double kg) {
+        return new JourneyPropulsion(designId, driveModuleId, exhaustVelocityMps, reactorFeedId, committedReactorKg, kg);
+    }
     public JourneyPropulsion {
         if (designId == null || designId.isBlank() || driveModuleId == null || driveModuleId.isBlank()
                 || !Double.isFinite(exhaustVelocityMps) || exhaustVelocityMps <= 0
                 || !Double.isFinite(committedReactorKg) || committedReactorKg < 0
+                || !Double.isFinite(protectedPropellantKg) || protectedPropellantKg < 0
                 || committedReactorKg > 0 && (reactorFeedId == null || reactorFeedId.isBlank()))
             throw new IllegalArgumentException("Invalid journey propulsion");
     }

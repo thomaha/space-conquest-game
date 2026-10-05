@@ -5,6 +5,7 @@ import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
 import com.spaceconquest.engine.industry.ConstructionMaterials;
 import com.spaceconquest.engine.macrostructure.ConstructionDeploymentProject;
 import com.spaceconquest.engine.macrostructure.OrbitalStation;
+import com.spaceconquest.engine.ship.OrbitalBody;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,8 +16,12 @@ import java.util.UUID;
 public record BuildOrbitalStationCommand(
         String name, String systemId, String planetOrbitId, String ownerEntityId,
         String ownershipType, int totalSlots, String armorMaterialId,
-        double armorThicknessCm
+        double armorThicknessCm, Double parkingAltitudeKm
 ) implements GameCommand {
+    public BuildOrbitalStationCommand(String name, String systemId, String planetOrbitId, String ownerEntityId,
+                                     String ownershipType, int totalSlots, String armorMaterialId, double armorThicknessCm) {
+        this(name, systemId, planetOrbitId, ownerEntityId, ownershipType, totalSlots, armorMaterialId, armorThicknessCm, 500.0);
+    }
     public BuildOrbitalStationCommand(String ownerEntityId, String systemId, String name) {
         this(name, systemId, "low_orbit", ownerEntityId,
                 OrbitalStation.OWNERSHIP_PUBLIC_STATE, 40, "steel", 5.0);
@@ -25,6 +30,7 @@ public record BuildOrbitalStationCommand(
     @Override
     public boolean validate(GameState state) {
         if (state == null || systemId == null || ownerEntityId == null || totalSlots <= 0) return false;
+        if (name == null || name.isBlank() || name.length() > 100) return false;
         boolean stateOwned = state.empires().stream().anyMatch(empire -> empire.id().equals(ownerEntityId)
                 && empire.controlledSystemIds().contains(systemId)
                 && empire.unlockedTechIds().contains("space_stations")
@@ -40,7 +46,7 @@ public record BuildOrbitalStationCommand(
                 : ownershipType == null || OrbitalStation.OWNERSHIP_PUBLIC_STATE.equals(ownershipType)
                 || OrbitalStation.OWNERSHIP_HIVE_GRID.equals(ownershipType);
         return (stateOwned || corporateOwned) && ownershipMatches
-                && resolvedOrbit(state) != null;
+                && resolvedOrbit(state) != null && validAltitude(state);
     }
 
     @Override
@@ -57,7 +63,7 @@ public record BuildOrbitalStationCommand(
                 name, ownershipType == null ? OrbitalStation.OWNERSHIP_PUBLIC_STATE : ownershipType,
                 null, null, totalSlots, armor,
                 armorThicknessCm > 0.0 ? armorThicknessCm : 5.0,
-                0.0, false);
+                0.0, false, parkingAltitudeKm);
         List<ConstructionDeploymentProject> projects = new ArrayList<>(state.constructionProjects());
         projects.add(project);
         return state.toBuilder().constructionProjects(projects).build();
@@ -73,5 +79,16 @@ public record BuildOrbitalStationCommand(
                 || ConstructionMaterials.systemForBody(state, planetOrbitId) != null
                 && systemId.equals(ConstructionMaterials.systemForBody(state, planetOrbitId))
                 ? planetOrbitId : null;
+    }
+
+    private boolean validAltitude(GameState state) {
+        if (parkingAltitudeKm == null || !Double.isFinite(parkingAltitudeKm) || parkingAltitudeKm <= 0) return false;
+        var system = state.solarSystems().stream().filter(item -> item.id().equals(systemId)).findFirst().orElse(null);
+        if (system == null) return false;
+        String bodyId = resolvedOrbit(state);
+        var planet = OrbitalBody.find(state, systemId, bodyId);
+        if (planet == null) return parkingAltitudeKm == 500;
+        double sphereKm = planet.sphereKm(system);
+        return Double.isFinite(sphereKm) && sphereKm > planet.diameter() / 2 + parkingAltitudeKm;
     }
 }

@@ -15,7 +15,7 @@ public final class ShipPowerResupply {
             return state;
         Fleet fleet = state.fleets().stream().filter(item -> item.ships().stream().anyMatch(ship -> ship.id().equals(shipId)))
                 .findFirst().orElse(null);
-        if (fleet == null || fleet.hasInterstellarOrder() || fleet.location().inTransit()) return state;
+        if (fleet == null || fleet.hasInterstellarOrder() || fleet.location().underway()) return state;
         ShipInstance ship = fleet.ships().stream().filter(item -> item.id().equals(shipId)).findFirst().orElseThrow();
         ShipDesign design = state.shipDesigns().stream().filter(item -> item.id().equals(ship.designId())).findFirst().orElse(null);
         if (design == null || design.powerProfile() == null || !ship.ownerEntityId().equals(fleet.ownerEntityId())) return state;
@@ -35,11 +35,11 @@ public final class ShipPowerResupply {
         if (sourceSystem == null) sourceSystem = state.orbitalStations().stream().filter(station -> station.id().equals(bodyId))
                 .map(station -> station.systemId()).findFirst().orElse(null);
         if (!fleet.currentSystemId().equals(sourceSystem)) return state;
-        boolean surface = fleet.location().isAt(FleetLocation.Site.surface(bodyId));
-        boolean dock = fleet.location().isAt(FleetLocation.Site.docked(bodyId));
-        boolean orbit = fleet.location().isAt(FleetLocation.Site.orbit(bodyId))
+        boolean surface = fleet.location().stationaryAt(FleetLocation.Site.surface(bodyId));
+        boolean dock = fleet.location().stationaryAt(FleetLocation.Site.docked(bodyId));
+        boolean orbit = fleet.location().stationaryAt(FleetLocation.Site.orbit(bodyId))
                 || state.orbitalStations().stream().anyMatch(station -> bodyId.equals(station.planetOrbitId())
-                && fleet.location().isAt(FleetLocation.Site.docked(station.id())));
+                && fleet.location().stationaryAt(FleetLocation.Site.docked(station.id())));
         if (!surface && !dock && !orbit) return state;
         var request = fuel.materials(kg);
         var purchase = ConstructionMaterials.buyUpTo(state, bodyId, ship.ownerEntityId(), request);
@@ -81,14 +81,17 @@ public final class ShipPowerResupply {
             if (updated == null) return current;
             var plan = LocalTravel.plan(current, updated, destination);
             double days = plan == null ? FleetLocation.travelDays(updated.location().current(), destination) : plan.days();
-            GameState supplied = prepareLocalFuel(current, updated, source, Math.ceil(days) * 24);
+            double burnHours = plan != null && plan.physical() != null
+                    ? (plan.physical().trajectory().accelerationSeconds() + plan.physical().trajectory().brakingSeconds()) / 3600
+                    : Math.ceil(days) * 24;
+            GameState supplied = prepareLocalFuel(current, updated, source, Math.ceil(days) * 24, burnHours);
             if (supplied == current) return current;
             current = supplied;
         }
         return current;
     }
 
-    private static GameState prepareLocalFuel(GameState state, Fleet fleet, String source, double hours) {
+    private static GameState prepareLocalFuel(GameState state, Fleet fleet, String source, double hours, double burnHours) {
         GameState current = state;
         for (ShipInstance ship : fleet.ships()) {
             ShipDesign design = state.shipDesigns().stream().filter(item -> item.id().equals(ship.designId())).findFirst().orElse(null);
@@ -98,8 +101,8 @@ public final class ShipPowerResupply {
             String feed = profile.chemicalKw() > 0 ? power.chemicalMixture() : power.reactorFuel();
             var fuel = profile.fuels().get(feed);
             if (profile.chemicalKw() + profile.fissionKw() <= 0 || fuel == null) continue;
-            double energy = (profile.essentialKw(ship, design) + ShipPowerProcessor.cargoKw(profile, ship, design)
-                    + profile.driveKw()) * hours + (profile.essentialKw(ship, design)
+            double energy = (profile.essentialKw(ship, design) + ShipPowerProcessor.cargoKw(profile, ship, design))
+                    * hours + profile.driveKw() * burnHours + (profile.essentialKw(ship, design)
                     + ShipPowerProcessor.cargoKw(profile, ship, design)) * ShipPowerProcessor.ARRIVAL_RESERVE_HOURS;
             double needed = energy / fuel.kwhPerKg() * 1.05 - compartmentMass(profile, power, fuel.oxidizerId() == null);
             double capacity = fuel.oxidizerId() == null ? profile.reactorTankKg() : profile.generatorTankKg();

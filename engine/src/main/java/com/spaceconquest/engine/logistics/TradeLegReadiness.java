@@ -12,6 +12,11 @@ public final class TradeLegReadiness {
     public record Report(boolean ready, String explanation) {}
     private TradeLegReadiness() {}
 
+    /** Provisional three-leg allocation retains two thirds for the crossing and destination approach. */
+    public static LocalTravel.Plan departureLocal(GameState state, Fleet fleet) {
+        return LocalTravel.planRetaining(state, fleet, FleetLocation.Site.deepSpace(), 2.0 / 3);
+    }
+
     public static InterstellarTravel.Plan crossing(GameState state, Fleet fleet, CommercialHub destination) {
         String system = FleetPositioning.systemForHub(state, destination);
         var site = FleetPositioning.hubSite(state, destination);
@@ -21,7 +26,10 @@ public final class TradeLegReadiness {
         for (var ship : fleet.ships()) {
             var design = FleetSupplySimulation.design(state, ship);
             if (design == null) return null;
-            approach.put(ship.id(), LocalTravel.requiredPropellantKg(design, ship, FleetLocation.Site.deepSpace(), site) * 1.05);
+            double reserve = LocalTravel.requiredPropellantKg(design, ship, FleetLocation.Site.deepSpace(), site) * 1.05;
+            if (site.kind() != FleetLocation.Kind.SURFACE && LocalSiteGeometry.position(state, system, site) != null)
+                reserve = Math.max(reserve, ship.currentFuelKg() / 2);
+            approach.put(ship.id(), reserve);
         }
         return InterstellarTravel.plan(state, fleet, system, approach);
     }
@@ -37,18 +45,26 @@ public final class TradeLegReadiness {
         if (FleetPositioning.atHub(state, fleet, destination)) return new Report(true, "At the trading port.");
         if (system.equals(fleet.currentSystemId())) {
             var local = LocalTravel.plan(state, fleet, site);
-            return new Report(local != null && ShipPowerForecast.ready(ShipPowerForecast.departure(state, fleet, site, local, null)),
-                    local == null ? "Waiting: local maneuver propellant or drive feed is insufficient."
-                            : "Local leg requires electricity and an arrival reserve.");
+            if (local == null) {
+                if (OrbitalTravel.applies(state, fleet, site))
+                    return new Report(false, "Waiting: " + OrbitalTravel.preview(state, fleet, site).problem());
+                return new Report(false, "Waiting: local maneuver propellant or drive feed is insufficient.");
+            }
+            if (!ShipPowerForecast.ready(ShipPowerForecast.departure(state, fleet, site, local, null)))
+                return new Report(false, "Local leg requires electricity and an arrival reserve.");
+            var arrival = LocalTravel.arrivalPreview(state, fleet, site, local);
+            return TradeArrivalReadiness.inspect(state, fleet, arrival, destination, Math.ceil(local.days()));
         }
         Fleet crossingFleet = fleet;
+        double journeyDays = 0;
         if (!fleet.location().isAt(FleetLocation.Site.deepSpace())) {
-            var local = LocalTravel.plan(state, fleet, FleetLocation.Site.deepSpace());
+            var local = departureLocal(state, fleet);
             if (local == null) return new Report(false, "Waiting: departure maneuver propellant or drive feed is insufficient.");
-            crossingFleet = LocalTravel.depart(fleet, FleetLocation.Site.deepSpace(), local)
-                    .withLocation(FleetLocation.at(FleetLocation.Site.deepSpace()));
-            crossingFleet = consumeLocal(state, crossingFleet, Math.ceil(local.days()) * 24);
-            if (crossingFleet == null) return new Report(false, "Waiting: departure maneuver electricity is insufficient.");
+            if (!ShipPowerForecast.ready(ShipPowerForecast.departure(state, fleet, FleetLocation.Site.deepSpace(), local, null)))
+                return new Report(false, "Waiting: departure maneuver electricity is insufficient.");
+            crossingFleet = LocalSpacePowerForecast.consume(state, fleet, FleetLocation.Site.deepSpace(), local);
+            crossingFleet = LocalTravel.projectedArrival(crossingFleet, FleetLocation.Site.deepSpace(), local);
+            journeyDays += Math.ceil(local.days());
         }
         var plan = crossing(state, crossingFleet, destination);
         if (plan == null) return new Report(false, "Waiting: crossing propellant or reactor feed cannot retain destination approach fuel.");
@@ -71,12 +87,14 @@ public final class TradeLegReadiness {
             if (arrival == null) return new Report(false, "Waiting: warp electricity is insufficient.");
         }
         arrival = new Fleet(arrival.id(), arrival.name(), arrival.ownerEntityId(), system, "", 0, 0, 0,
-                false, arrival.fleetStance(), arrival.ships(), FleetLocation.at(FleetLocation.Site.deepSpace()));
+                false, arrival.fleetStance(), arrival.ships(), FleetLocation.at(FleetLocation.Site.deepSpace())).withFuelPolicy(arrival.fuelPolicy());
         var dock = LocalTravel.plan(state, arrival, site);
         if (dock == null) return new Report(false, "Waiting: destination approach propellant or reactor feed is insufficient.");
         if (!ShipPowerForecast.ready(ShipPowerForecast.departure(state, arrival, site, dock, null)))
             return new Report(false, "Waiting: destination approach electricity and 48-hour port reserve are insufficient.");
-        return new Report(true, "Next port is reachable with powered braking, approach fuel and an electrical arrival reserve.");
+        arrival = LocalTravel.arrivalPreview(state, arrival, site, dock);
+        return TradeArrivalReadiness.inspect(state, fleet, arrival, destination,
+                journeyDays + Math.ceil(plan.days()) + Math.ceil(dock.days()));
     }
 
     private static Fleet consumeLocal(GameState state, Fleet fleet, double hours) {
@@ -95,7 +113,8 @@ public final class TradeLegReadiness {
 
     /** Purchases only at the current physical port and rolls back if the complete next leg stays unsafe. */
     public static GameState prepare(GameState state, Fleet fleet, CommercialHub destination) {
-        if (inspect(state, fleet, destination).ready()) return state;
+        if (inspect(state, fleet, destination).ready()) return fasterLocalDeparture(state, fleet, destination);
+        if (fleet.hasInterstellarOrder() || fleet.location().inTransit()) return state;
         if (fleet.location().current().kind() == FleetLocation.Kind.DEEP_SPACE) return state;
         String source = fleet.location().current().entityId();
         GameState current = state;
@@ -119,11 +138,34 @@ public final class TradeLegReadiness {
         return inspect(current, find(current, fleet.id()), destination).ready() ? current : state;
     }
 
+    /** Retain a paid local top-up only when it removes scheduled travel days and remains safe. */
+    private static GameState fasterLocalDeparture(GameState state, Fleet fleet, CommercialHub destination) {
+        if (destination == null || !fleet.currentSystemId().equals(FleetPositioning.systemForHub(state, destination))
+                || FleetPositioning.atHub(state, fleet, destination)
+                || fleet.location().current().kind() == FleetLocation.Kind.DEEP_SPACE) return state;
+        var site = FleetPositioning.hubSite(state, destination);
+        var original = LocalTravel.plan(state, fleet, site);
+        if (original == null || original.physical() == null || Math.ceil(original.days()) <= 1) return state;
+        GameState candidate = state;
+        String source = fleet.location().current().entityId();
+        for (var ship : fleet.ships()) {
+            var design = FleetSupplySimulation.design(candidate, ship);
+            if (design == null) return state;
+            candidate = buyLargest(candidate, ship.id(), source, design.fuelCapacityKg() - ship.currentFuelKg(), null);
+        }
+        if (candidate == state) return state;
+        candidate = ShipPowerResupply.prepareLocal(candidate, find(candidate, fleet.id()), site);
+        var updated = find(candidate, fleet.id());
+        var plan = LocalTravel.plan(candidate, updated, site);
+        return plan != null && Math.ceil(plan.days()) < Math.ceil(original.days())
+                && inspect(candidate, updated, destination).ready() ? candidate : state;
+    }
+
     private static Fleet find(GameState state, String id) {
         return state.fleets().stream().filter(item -> item.id().equals(id)).findFirst().orElseThrow();
     }
 
-    private static GameState buyLargest(GameState state, String ship, String source, double kg, String electricalFeed) {
+    static GameState buyLargest(GameState state, String ship, String source, double kg, String electricalFeed) {
         var full = buy(state, ship, source, kg, electricalFeed);
         if (full != state) return full;
         double low = 0, high = kg;

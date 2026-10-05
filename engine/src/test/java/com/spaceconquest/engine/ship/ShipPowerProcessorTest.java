@@ -105,6 +105,70 @@ class ShipPowerProcessorTest {
         assertEquals(10, dark.unmetEssentialKwh(), .000001);
     }
 
+    private ShipPowerProfile hybridProfile() {
+        var modules = new java.util.ArrayList<>(ShipComponentCatalog.workbenchModules(
+                "mod_chemical_rocket", false, ShipComponentCatalog.CHEMICAL_GENERATOR_ID));
+        modules.add(ShipComponentCatalog.SOLAR_ARRAY_ID);
+        return ShipPowerProfile.capture(modules.stream().map(ShipComponentCatalog::module).toList());
+    }
+
+    @Test void solarBatteryCoversEclipsesBeforeBackupFuelIsSpent() {
+        var profile = hybridProfile();
+        var initial = reserves(1000, 500);
+        var eclipse = ShipPowerProcessor.interval(profile, initial, 2, 0, 20, 30, 0);
+        assertTrue(eclipse.supplied());
+        assertEquals(400, eclipse.state().batteryChargeKwh(), .000001);
+        assertEquals(initial.generatorMaterialsKg(), eclipse.state().generatorMaterialsKg());
+        var daylight = ShipPowerProcessor.interval(profile, eclipse.state(), 2, 120, 20, 30, 0);
+        assertEquals(500, daylight.state().batteryChargeKwh(), .000001);
+        assertEquals(100 / .9, daylight.state().chargedInputKwhToday(), .000001);
+        assertEquals(initial.generatorMaterialsKg(), daylight.state().generatorMaterialsKg());
+    }
+
+    @Test void backupTakesOverAtBatteryDepletionAndExhaustionHasAHardCutoff() {
+        var profile = hybridProfile();
+        var supplied = ShipPowerProcessor.interval(profile, reserves(1000, 500), 12, 0, 20, 30, 0);
+        assertTrue(supplied.supplied());
+        assertEquals(0, supplied.state().batteryChargeKwh(), .000001);
+        assertEquals(100, supplied.generatedKwh(), .000001);
+        assertEquals(1000 - 100 / 1.008, supplied.state().fuelMassKg(), .000001);
+        var depleted = ShipPowerProcessor.interval(profile, reserves(50 / 1.008, 500), 12, 0, 50, 0, 0);
+        assertFalse(depleted.supplied());
+        assertEquals(11, depleted.firstUnpoweredHour(), .000001);
+        assertEquals(50, depleted.unmetEssentialKwh(), .000001);
+    }
+
+    @Test void backupSuppliesPeakDemandBeyondBatteryDischargeLimit() {
+        var profile = hybridProfile();
+        var result = ShipPowerProcessor.interval(profile, reserves(1000, 500), 1, 0, 250, 0, 0);
+        assertTrue(result.supplied());
+        assertEquals(300, result.state().batteryChargeKwh(), .000001);
+        assertEquals(50, result.generatedKwh(), .000001);
+        assertEquals(1000 - 50 / 1.008, result.state().fuelMassKg(), .000001);
+    }
+
+    @Test void undersizedBackupPreservesBatteryForItsOutputShortfall() {
+        var original = hybridProfile();
+        var profile = new ShipPowerProfile(120, 20, 0, 500, 100, 200,
+                15_000, 0, 2, 20, 30, .65, original.fuels());
+        var result = ShipPowerProcessor.interval(profile, reserves(1000, 500), 6, 0, 50, 0, 0);
+        assertTrue(result.supplied());
+        assertEquals(320, result.state().batteryChargeKwh(), .000001);
+        assertEquals(120, result.generatedKwh(), .000001);
+        assertEquals(1000 - 120 / 1.008, result.state().fuelMassKg(), .000001);
+    }
+
+    @Test void weakSunlightUsesStoredEnergyThenPaysOnlyTheRemainingDeficit() {
+        var profile = hybridProfile();
+        var result = ShipPowerProcessor.interval(profile, reserves(1000, 500), 24, 5, 20, 30, 0);
+        assertTrue(result.supplied());
+        assertEquals(0, result.state().batteryChargeKwh(), .000001);
+        assertEquals(1000 - 580 / 1.008, result.state().fuelMassKg(), .000001);
+        var design = design(profile, "mod_chemical_rocket");
+        assertEquals(design.totalThrustN(), ShipPowerProcessor.poweredThrust(design,
+                ship(ShipPowerState.empty()), ShipSolarEnvironment.DARK));
+    }
+
     @Test void solarFluxUsesParentPlanetDistanceForMoonsAndFallsWithDistance() {
         var profile = profile(ShipComponentCatalog.SOLAR_ARRAY_ID, "mod_chemical_rocket");
         var fleet = fleet(ship(ShipPowerState.empty()));
@@ -130,7 +194,7 @@ class ShipPowerProcessorTest {
         assertTrue(readiness.ready());
         assertEquals(240, readiness.arrivalReserveKwh());
         var departure = LocalTravel.depart(fleet, destination, plan);
-        for (int day = 0; day < 2; day++) {
+        for (int day = 0; day < Math.ceil(plan.days()); day++) {
             var powered = ShipPowerProcessor.advanceDay(state.withFleets(List.of(departure)));
             departure = new FleetProcessor().processFleetMovements(powered, List.of(), List.of()).getFirst();
         }

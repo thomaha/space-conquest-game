@@ -45,18 +45,19 @@ public final class FleetSupplyReplanning {
         for (var ship : fleet.ships()) {
             var saved = fleet.journeyPropulsion().get(ship.id());
             double kg = masses.get(ship.id()) * -Math.expm1(-velocity / saved.exhaustVelocityMps());
-            if (!Double.isFinite(kg) || kg > ship.currentFuelKg() + 1e-6) return null;
+            if (!Double.isFinite(kg) || kg + saved.protectedPropellantKg() > ship.currentFuelKg() + 1e-6) return null;
             fuel.put(ship.id(), Math.min(kg, ship.currentFuelKg()));
             var feed = saved.reactorFeedId() == null ? null : PropulsionCatalog.reactorFuel(saved.driveModuleId(), saved.reactorFeedId());
             if (!PropulsionCatalog.reactorFuels(saved.driveModuleId()).isEmpty() && feed == null) return null;
             double needed = feed == null ? 0 : kg * feed.kgPerPropellantKg();
             double extra = Math.max(0, needed - saved.committedReactorKg() * (1 - oldFraction));
             if (extra > 0) {
-                if (ship.storedCargoKg().getOrDefault(feed.materialId(), 0.0) + 1e-6 < extra) return null;
+                if (ship.storedCargoKg().getOrDefault(feed.materialId(), 0.0) + 1e-6
+                        < extra + saved.protectedPropellantKg() * feed.kgPerPropellantKg()) return null;
                 additionalFeed.put(ship.id(), new InterstellarTravel.ReactorFuelUse(feed.materialId(), extra));
             }
             propulsion.put(ship.id(), new JourneyPropulsion(saved.designId(), saved.driveModuleId(),
-                    saved.exhaustVelocityMps(), saved.reactorFeedId(), needed));
+                    saved.exhaustVelocityMps(), saved.reactorFeedId(), needed, saved.protectedPropellantKg()));
         }
         var paid = InterstellarTravel.commitReactorFuel(fleet, new InterstellarTravel.Plan(Fleet.MODE_RECOVERY,
                 trajectory.totalSeconds() / 86400, fleet.interstellarDistanceMeters(), acceleration, velocity,

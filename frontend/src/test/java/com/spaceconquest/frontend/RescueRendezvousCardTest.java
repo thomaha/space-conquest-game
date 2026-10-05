@@ -37,7 +37,7 @@ class RescueRendezvousCardTest {
             var profile = new ShipPowerProfile(0, 0, 100, 0, 0, 0, 0, 10, 2, 20, 0, .65,
                     Map.of("uranium", new ShipPowerProfile.Fuel("refined_uranium", null, 1, 6e6)));
             var design = new ShipDesign("design", "Ship", "owner", ShipRole.EXPLORER, "steel",
-                    List.of("mod_chemical_rocket"), "steel", 0, 1000, 1000, 100000, 100, 1, 0, 2000,
+                    List.of("mod_chemical_rocket"), "steel", 0, 1000, 1000, 2000, 100, 1, 0, 2000,
                     false, false, ShipManufacturingProfile.baseline(), profile);
             var donor = new ShipInstance("donor", "design", "owner", 100, 0, 2000,
                     Map.of("refined_uranium", 2.0)).withPowerState(new ShipPowerState(Map.of("refined_uranium", 1.0),

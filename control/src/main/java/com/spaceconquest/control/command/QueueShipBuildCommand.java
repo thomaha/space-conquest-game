@@ -11,6 +11,7 @@ import com.spaceconquest.engine.ship.ShipConstructionRequirements;
 import com.spaceconquest.engine.ship.ShipyardWorkCapacity;
 import com.spaceconquest.engine.ship.ShipManufacturingCapacity;
 import com.spaceconquest.engine.ship.ShipComponentCatalog;
+import com.spaceconquest.engine.ship.ChemicalFreighterCatalog;
 import com.spaceconquest.engine.macrostructure.StationModule;
 
 import java.util.ArrayList;
@@ -38,6 +39,8 @@ public record QueueShipBuildCommand(String ownerEntityId, String designId,
                 && PropulsionCatalog.researched(design.equippedModuleIds(),
                 owner.unlockedTechIds())
                 && ShipComponentCatalog.powerResearched(design.equippedModuleIds(), owner.unlockedTechIds())
+                && ChemicalFreighterCatalog.researched(design.equippedModuleIds(), owner.unlockedTechIds())
+                && ChemicalFreighterCatalog.compatible(design.equippedModuleIds())
                 && PropulsionCatalog.validConfiguration(design.equippedModuleIds(),
                 design.fuelCapacityKg())
                 && !design.isProprietaryCorporateDesign());
@@ -73,6 +76,7 @@ public record QueueShipBuildCommand(String ownerEntityId, String designId,
                 .filter(station -> ShipManufacturingCapacity.forYard(state, ownerEntityId, systemId, station.id()) >= complexity)
                 .map(station -> station.id()).findFirst().orElse(null);
         if (orbital != null) return orbital;
+        if (design != null && design.equippedModuleIds().contains(ChemicalFreighterCatalog.MAIN_TANK)) return null;
         return state.solarSystems().stream().filter(system -> systemId.equals(system.id()))
                 .flatMap(system -> system.planets().stream()
                         .flatMap(planet -> java.util.stream.Stream.concat(

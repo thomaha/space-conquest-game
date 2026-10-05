@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Plans and commits a provisional maneuver budget for one local journey. */
+/** Plans physical space travel or a compatible abstract surface/legacy maneuver. */
 public final class LocalTravel {
     private static final double DOCKING_DELTA_V_MPS = 10.0;
     private static final double ORBITAL_DELTA_V_MPS = 30.0;
@@ -15,7 +15,16 @@ public final class LocalTravel {
     private static final double EPSILON_KG = 0.000001;
 
     public record Plan(double days, Map<String, Double> propellantKg,
-                       Map<String, InterstellarTravel.ReactorFuelUse> reactorFuelKg) {
+                       Map<String, InterstellarTravel.ReactorFuelUse> reactorFuelKg, LocalSpaceTravel.Plan physical,
+                       OrbitalFlight.Itinerary orbital) {
+        public Plan(double days, Map<String, Double> propellantKg,
+                    Map<String, InterstellarTravel.ReactorFuelUse> reactorFuelKg, LocalSpaceTravel.Plan physical) {
+            this(days, propellantKg, reactorFuelKg, physical, null);
+        }
+        public Plan(double days, Map<String, Double> propellantKg,
+                    Map<String, InterstellarTravel.ReactorFuelUse> reactorFuelKg) {
+            this(days, propellantKg, reactorFuelKg, null);
+        }
         public Plan {
             propellantKg = Map.copyOf(propellantKg);
             reactorFuelKg = Map.copyOf(reactorFuelKg);
@@ -24,11 +33,31 @@ public final class LocalTravel {
 
     private LocalTravel() {}
 
+    /** An explicit onward-leg allocation changes peak speed without inventing additional fuel. */
+    public static Plan planRetaining(GameState state, Fleet fleet, FleetLocation.Site destination, double reserveFraction) {
+        if (!Double.isFinite(reserveFraction) || reserveFraction < 0 || reserveFraction >= 1) return null;
+        var plan = plan(state, fleet, destination);
+        if (plan == null || plan.physical() == null || reserveFraction == 0) return plan;
+        Map<String, Double> reserve = new HashMap<>();
+        fleet.ships().forEach(ship -> reserve.put(ship.id(), ship.currentFuelKg() * reserveFraction));
+        var physical = LocalSpaceTravel.plan(state, fleet, destination, reserve);
+        return physical == null ? null : new Plan(physical.days(), physical.propellantKg(), physical.reactorFuelKg(), physical);
+    }
+
     public static Plan plan(GameState state, Fleet fleet, FleetLocation.Site destination) {
         if (state == null || fleet == null || destination == null
                 || fleet.location().inTransit() || fleet.location().current().equals(destination))
             return null;
         FleetLocation.Site origin = fleet.location().current();
+        if (OrbitalTravel.applies(state, fleet, destination)) return OrbitalTravel.preview(state, fleet, destination).plan();
+        if (!state.solarSystems().isEmpty() && origin.kind() != FleetLocation.Kind.SURFACE && destination.kind() != FleetLocation.Kind.SURFACE
+                && !fleet.ships().isEmpty() && fleet.ships().stream().allMatch(ship -> {
+                    var blueprint = design(state, ship);
+                    return blueprint != null && PropulsionCatalog.mainDrive(blueprint.equippedModuleIds()) != null;
+                })) {
+            var physical = LocalSpaceTravel.plan(state, fleet, destination);
+            return physical == null ? null : new Plan(physical.days(), physical.propellantKg(), physical.reactorFuelKg(), physical);
+        }
         double days = FleetLocation.travelDays(origin, destination);
         double deltaV = deltaV(origin, destination);
         Map<String, Double> propellant = new HashMap<>();
@@ -57,7 +86,7 @@ public final class LocalTravel {
             days = Math.max(days, Math.ceil(maneuverDays));
             double required = mass * -Math.expm1(-deltaV / exhaust);
             if (!Double.isFinite(required) || required <= 0.0
-                    || ship.currentFuelKg() + EPSILON_KG < required) return null;
+                    || ship.currentFuelKg() + EPSILON_KG < required + fleet.fuelPolicy().reserveKg(state, fleet, ship)) return null;
             propellant.put(ship.id(), required);
             if (fuel != null && fuel.kgPerPropellantKg() > 0.0) {
                 double reactorKg = required * fuel.kgPerPropellantKg();
@@ -85,8 +114,12 @@ public final class LocalTravel {
     }
 
     public static Fleet depart(Fleet fleet, FleetLocation.Site destination, Plan plan) {
+        if (plan.orbital() != null) return fleet.withLocation(fleet.location().depart(destination, plan.days())
+                .withOrbitalFlight(new OrbitalFlight(plan.orbital(), 0, 0, OrbitalFlight.Status.WAITING,
+                        plan.orbital().maneuvers().size() == 1 ? "Preparing funded docking or undocking approach"
+                                : plan.orbital().parkingTransfer() ? "Preparing parking transfer" : "Waiting for launch window")));
         List<ShipInstance> ships = fleet.ships().stream().map(ship -> {
-            double used = plan.propellantKg().getOrDefault(ship.id(), 0.0);
+            double used = plan.physical() == null ? plan.propellantKg().getOrDefault(ship.id(), 0.0) : 0;
             InterstellarTravel.ReactorFuelUse reactor = plan.reactorFuelKg().get(ship.id());
             Map<String, Double> cargo = new HashMap<>(ship.storedCargoKg());
             if (reactor != null) {
@@ -100,7 +133,25 @@ public final class LocalTravel {
                     Math.max(0.0, ship.currentFuelKg() - used), Map.copyOf(cargo),
                     ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState());
         }).toList();
-        return fleet.withShips(ships).withLocation(fleet.location().depart(destination, plan.days()));
+        var location = fleet.location().depart(destination, plan.days());
+        if (plan.physical() != null) location = location.withFlight(new LocalFlight(plan.physical().geometry(),
+                plan.physical().trajectory().at(0), plan.propellantKg(), plan.physical().propulsion(), false, false));
+        return fleet.withShips(ships).withLocation(location);
+    }
+
+    /** Immutable arrival projection for planning a subsequent leg; does not advance the live fleet. */
+    public static Fleet arrivalPreview(GameState state, Fleet fleet, FleetLocation.Site destination, Plan plan) {
+        if (plan.orbital() == null) return projectedArrival(LocalSpacePowerForecast.consume(state, fleet, destination, plan), destination, plan);
+        return fleet.withShips(fleet.ships().stream().map(ship -> OrbitalPowerAccounting.projection(ship,
+                FleetSupplySimulation.design(state, ship), plan.orbital(), 0, 0).ship()).toList()).withLocation(FleetLocation.at(destination));
+    }
+
+    /** Conservative budget-only projection; full electrical orbital prediction uses arrivalPreview. */
+    public static Fleet projectedArrival(Fleet fleet, FleetLocation.Site destination, Plan plan) {
+        if (plan.orbital() != null) return OrbitalFlightProcessor.projectedArrival(fleet, destination, plan);
+        Fleet departure = depart(fleet, destination, plan);
+        if (plan.physical() != null) departure = LocalFlightProcessor.advance(departure, plan.days() * 24, false);
+        return departure.withLocation(FleetLocation.at(destination));
     }
 
     public static LaunchService.Plan surfaceLaunchPlan(GameState state, Fleet fleet) {

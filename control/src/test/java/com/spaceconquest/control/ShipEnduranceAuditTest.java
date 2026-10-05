@@ -189,7 +189,8 @@ class ShipEnduranceAuditTest {
         int days = 0;
         if (plannedDays <= MAX_SIMULATED_DAYS) for (; days < plannedDays; days++) {
             current = tick(current);
-            interrupted |= Fleet.MODE_POWER_INTERRUPTED.equals(fleet(current).interstellarMode());
+            interrupted |= Fleet.MODE_POWER_INTERRUPTED.equals(fleet(current).interstellarMode())
+                    || fleet(current).location().localFlight() != null && fleet(current).location().localFlight().interrupted();
         }
         boolean arrived = days > 0 && (scenario.crossingLy() > 0 ? fleet(current).currentSystemId().equals("b")
                 : fleet(current).location().isAt(fixture.destination()));
@@ -247,13 +248,16 @@ class ShipEnduranceAuditTest {
         var supplied = transfer.apply(rendezvous);
         var recover = new RecoverFleetTravelCommand("fleet");
         assertTrue(recover.validate(supplied));
-        var arrived = tick(tick(recover.apply(supplied)));
+        var preview = recover.pausedPreview(supplied);
+        assertNotNull(preview.physical());
+        var arrived = recover.apply(supplied);
+        for (int day = 0; day < preview.remainingDays(); day++) arrived = tick(arrived);
         assertTrue(fleet(arrived).location().isAt(fixture.destination()));
         assertEquals(902.5, ship(arrived).storedCargoKg().get("food_matrix"), 1e-6);
-        assertEquals(ship(stopped).currentFuelKg(), ship(arrived).currentFuelKg(), 1e-6);
+        assertEquals(ship(stopped).currentFuelKg() - preview.physical().propellantKg().get("ship"), ship(arrived).currentFuelKg(), 1e-6);
         assertEquals(0, arrived.fleets().get(1).ships().getFirst().storedCargoKg().values().stream().mapToDouble(Double::doubleValue).sum(), 1e-6);
-        return String.format(Locale.ROOT, "Three unpowered days spoil 97.5 kg from 1,000 kg of food. A stationary donor transfers 4,000 kg of RP-1/LOX from cargo, then recovery completes the original two-day local leg. Arrival retains 902.5 kg of food, %.2f kg of generator supplies and %.2f kg of main propellant. Recovery spends no second maneuver commitment.\n",
-                ship(arrived).generatorFuelMassKg(), ship(arrived).currentFuelKg());
+        return String.format(Locale.ROOT, "Three unpowered days spoil 97.5 kg from 1,000 kg of food. A stationary donor transfers 4,000 kg of RP-1/LOX from cargo, then a new physical local recovery completes in %.0f scheduled days. Arrival retains 902.5 kg of food, %.2f kg of generator supplies and %.2f kg of main propellant. Main propellant is consumed during the actual recovery burns.\n",
+                preview.remainingDays(), ship(arrived).generatorFuelMassKg(), ship(arrived).currentFuelKg());
     }
 
     private String report(List<Measurement> results, String recovery) {
@@ -263,7 +267,7 @@ class ShipEnduranceAuditTest {
                 .append("The default output is `control/target/ship-endurance-report.md`. Add `-Dendurance.report=../ShipEnduranceReport.md` to refresh this checked-in report. Rows and arithmetic are deterministic; there is no wall-clock timestamp.\n\n")
                 .append("## Scope and assumptions\n\n")
                 .append("All blueprints pass the normal catalog builder with unoptimized steel hulls, a 500 kWh fully charged battery, a 15,000 kg full propulsion tank and the workbench cargo vault. Fueled sources use a full dedicated compartment except the explicitly under-supplied row. Food loads start at 1,000 kg except the 30,000 kg full-hold row; empty holds use standby draw. Stasis rows use one occupied 100-seat pod and a tier 3 manufacturing fixture. Solar stasis requires two panels to pass the builder's 1 AU static power check. Passenger counts are fixed electrical load probes; nutritional consumption, casualties and ticket economics are excluded. No simulation runs on the UI thread.\n\n")
-                .append("Local trips are two-day planet-to-moon orbital transfers except the one-day atmospheric landing. Stellar strength uses the existing mass-to-luminosity relation. Crossings marked synthetic span 5 billion metres, far shorter than actual star separation. The 1-light-year cases run the bounded analytic forecast only when the journey exceeds 180 days; no arrival or daily endurance is asserted for them.\n\n")
+                .append("Local planet-to-moon transfers use deterministic geometry and loaded acceleration, coasting and braking. Stationary departures conserve fuel within the earliest funded arrival day while protecting the default 5% main-tank contingency target. Atmospheric landing retains its one-day abstract phase. Stellar strength uses the existing mass-to-luminosity relation. Crossings marked synthetic span 5 billion metres, far shorter than actual star separation. All cases exceeding 180 days remain bounded analytic plan-only probes; no arrival or daily endurance is asserted for them.\n\n")
                 .append("Rejected short scenarios are deliberately forced through engine tick processing to diagnose depletion. Normal commands still reject them. Readiness includes a separate 48-hour essential and cargo reserve. Known local arrivals use destination sunlight with an initial eclipse; interstellar and unknown arrivals assume darkness. Forecast fuel use describes the journey alone; checking the reserve consumes no actual stock.\n\n")
                 .append("## Journey outcomes\n\n| Scenario | Planned days | Sunlit solar kW | Essential / cargo / drive kW | Command ready | Actual outcome |\n| --- | ---: | ---: | --- | --- | --- |\n");
         for (Measurement r : results) text.append(String.format(Locale.ROOT, "| %s | %.2f | %.2f | %.1f / %.1f / %.1f | %s | %s |\n",

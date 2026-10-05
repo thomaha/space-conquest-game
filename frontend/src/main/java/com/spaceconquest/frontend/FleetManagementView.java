@@ -27,6 +27,7 @@ import com.spaceconquest.engine.ship.ShipyardWorkCapacity;
 import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.FleetLocation;
+import com.spaceconquest.engine.ship.FleetPositioning;
 import com.spaceconquest.engine.ship.ShipInstance;
 import com.spaceconquest.engine.ship.InterstellarTravel;
 import com.spaceconquest.engine.ship.ShipRole;
@@ -472,6 +473,8 @@ public class FleetManagementView {
         title.setTextFill(Color.LIGHTCYAN);
         ComboBox<String> shipCombo = new ComboBox<>();
         ComboBox<String> bodyCombo = new ComboBox<>();
+        shipCombo.setId("ship-supply-carrier");
+        bodyCombo.setId("ship-supply-source");
         ComboBox<String> materialCombo = new ComboBox<>();
         ComboBox<String> reactorFuelCombo = new ComboBox<>();
         Spinner<Integer> quantity = new Spinner<>(1, 100_000, 100, 100);
@@ -479,7 +482,7 @@ public class FleetManagementView {
         quantity.setPrefWidth(110);
         if (snapshot != null) {
             snapshot.fleets().stream().filter(fleet -> playerEmpireId.equals(fleet.ownerEntityId())
-                    && !fleet.hasInterstellarOrder() && !fleet.location().inTransit())
+                    && !fleet.hasInterstellarOrder() && !fleet.location().underway())
                     .flatMap(fleet -> fleet.ships().stream())
                     .map(ShipInstance::id).forEach(shipCombo.getItems()::add);
         }
@@ -514,6 +517,7 @@ public class FleetManagementView {
             feedbackLabel.setTextFill(Color.LIGHTGREEN);
         });
         Button refuel = new Button("Buy and refuel");
+        refuel.setId("buy-main-propellant");
         refuel.setDisable(shipCombo.getItems().isEmpty());
         refuel.setOnAction(event -> refuelShip(shipCombo.getValue(), bodyCombo.getValue(),
                 quantity.getValue(), reactorFuelCombo.getValue()));
@@ -584,14 +588,15 @@ public class FleetManagementView {
         Fleet fleet = snapshot.fleets().stream().filter(item -> item.ships().stream()
                 .anyMatch(ship -> shipId.equals(ship.id()))).findFirst().orElse(null);
         String systemId = fleet == null ? null : fleet.currentSystemId();
-        snapshot.commercialHubs().stream().map(CommercialHub::entityId)
-                .filter(body -> systemId != null && systemId.equals(
-                        ConstructionMaterials.systemForBody(snapshot, body)))
-                .filter(body -> fleet.location().isAt(FleetLocation.Site.surface(body))
-                        || fleet.location().isAt(FleetLocation.Site.orbit(body))
+        snapshot.commercialHubs().stream()
+                .filter(hub -> systemId != null && systemId.equals(FleetPositioning.systemForHub(snapshot, hub)))
+                .map(CommercialHub::entityId)
+                .filter(body -> fleet.location().stationaryAt(FleetLocation.Site.surface(body))
+                        || fleet.location().stationaryAt(FleetLocation.Site.orbit(body))
+                        || fleet.location().stationaryAt(FleetLocation.Site.docked(body))
                         || snapshot.orbitalStations().stream().anyMatch(station ->
                         body.equals(station.planetOrbitId())
-                                && fleet.location().isAt(FleetLocation.Site.docked(station.id()))))
+                                && fleet.location().stationaryAt(FleetLocation.Site.docked(station.id()))))
                 .distinct().forEach(bodyCombo.getItems()::add);
         if (!bodyCombo.getItems().isEmpty()) bodyCombo.setValue(bodyCombo.getItems().getFirst());
     }
@@ -637,54 +642,8 @@ public class FleetManagementView {
 
         topRow.getChildren().addAll(nameText, locationText);
 
-        HBox orderRow = new HBox(10);
-        orderRow.setAlignment(Pos.CENTER_LEFT);
-
-        ComboBox<String> targetCombo = new ComboBox<>();
-        if (snapshot != null) snapshot.solarSystems().stream().map(system -> system.id())
-                .filter(id -> !id.equals(fleet.currentSystemId()))
-                .forEach(targetCombo.getItems()::add);
-        if (!targetCombo.getItems().isEmpty()) targetCombo.setValue(targetCombo.getItems().getFirst());
-
-        Button moveBtn = new Button("Move fleet");
-        moveBtn.setStyle("-fx-background-color: #0984e3; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;");
         VBox departurePreview = new VBox(4);
-        Runnable refreshDeparture = () -> FleetDeparturePreviewCard.refresh(departurePreview, moveBtn,
-                snapshot, fleet, targetCombo.getValue());
-        targetCombo.valueProperty().addListener((observable, old, selected) -> refreshDeparture.run());
-        refreshDeparture.run();
-        moveBtn.setOnAction(e -> {
-            if (humanController != null && snapshot != null) {
-                MoveFleetCommand command = new MoveFleetCommand(fleet.id(), targetCombo.getValue());
-                if (!com.spaceconquest.engine.ship.FleetSupplySimulation.hasOrders(fleet) && !command.validate(snapshot)) {
-                    feedbackLabel.setText("Departure unavailable. Check orders, propellant, launch service and passenger supplies.");
-                    feedbackLabel.setTextFill(Color.SALMON);
-                    return;
-                }
-                humanController.stageCommand(command);
-                feedbackLabel.setText("Queued interstellar departure of " + fleet.name()
-                        + " to " + targetCombo.getValue().toUpperCase());
-                feedbackLabel.setTextFill(Color.LIGHTGREEN);
-            }
-        });
-
-        ComboBox<String> stanceCombo = new ComboBox<>();
-        stanceCombo.getItems().addAll("PASSIVE", "AGGRESSIVE", "PATROL", "ESCORT");
-        stanceCombo.setValue(fleet.fleetStance() != null ? fleet.fleetStance() : "PASSIVE");
-
-        Button stanceBtn = new Button("Set stance");
-        stanceBtn.setStyle("-fx-background-color: #00b894; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;");
-        stanceBtn.setOnAction(e -> {
-            if (humanController != null) {
-                humanController.stageCommand(new SetFleetStanceCommand(
-                        fleet.id(), stanceCombo.getValue()
-                ));
-                feedbackLabel.setText("Updated operational stance for fleet " + fleet.name() + " to " + stanceCombo.getValue());
-                feedbackLabel.setTextFill(Color.LIGHTGREEN);
-            }
-        });
-
-        orderRow.getChildren().addAll(new Label("Travel to:"), targetCombo, moveBtn, new Label("Stance:"), stanceCombo, stanceBtn);
+        HBox orderRow = createInterstellarOrders(fleet, departurePreview);
 
         VBox shipList = new VBox(4);
         shipList.setPadding(new Insets(4, 0, 0, 10));
@@ -726,13 +685,17 @@ public class FleetManagementView {
             }
         }
 
-        card.getChildren().addAll(topRow, orderRow, departurePreview, createLocalOrders(fleet),
+        card.getChildren().addAll(topRow, OrbitalTravelCard.status(fleet, humanController, feedbackLabel), FleetFuelReserveCard.create(snapshot, fleet, humanController, feedbackLabel), orderRow, departurePreview, createLocalOrders(fleet),
                 createPassengerOrders(fleet), createTroopOrders(fleet),
                 createInvasionOrders(fleet), shipList);
         return card;
     }
 
     private String locationLabel(Fleet fleet) {
+        if (fleet.location().orbitalFlight() != null) return "Orbital " + fleet.location().orbitalFlight().status();
+        if (fleet.location().localFlight() != null && fleet.location().localFlight().interrupted())
+            return String.format("Local flight interrupted | Coasting at %.1f m/s | %.1f%% along route",
+                    fleet.location().localFlight().motion().velocityMps(), fleet.location().progress() * 100);
         if (Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode()))
             return "Power interrupted | " + (fleet.location().inTransit()
                     ? String.format("Local transfer %.1f%% complete", fleet.location().progress() * 100)
@@ -774,6 +737,61 @@ public class FleetManagementView {
         return fleet.currentSystemId() + ": " + current;
     }
 
+    private HBox createInterstellarOrders(Fleet fleet, VBox departurePreview) {
+        HBox orderRow = new HBox(10);
+        orderRow.setAlignment(Pos.CENTER_LEFT);
+
+        ComboBox<String> targetCombo = new ComboBox<>();
+        if (snapshot != null) snapshot.solarSystems().stream().map(system -> system.id())
+                .filter(id -> !id.equals(fleet.currentSystemId()))
+                .forEach(targetCombo.getItems()::add);
+        if (!targetCombo.getItems().isEmpty()) targetCombo.setValue(targetCombo.getItems().getFirst());
+
+        Button moveBtn = new Button("Move fleet");
+        moveBtn.setStyle("-fx-background-color: #0984e3; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;");
+
+        javafx.scene.control.CheckBox emergency = new javafx.scene.control.CheckBox("Emergency: use contingency fuel");
+        Runnable refreshDeparture = () -> FleetDeparturePreviewCard.refresh(departurePreview, moveBtn,
+                snapshot, fleet, targetCombo.getValue(), emergency.isSelected());
+        targetCombo.valueProperty().addListener((observable, old, selected) -> refreshDeparture.run());
+        emergency.selectedProperty().addListener((observable, old, selected) -> refreshDeparture.run());
+        refreshDeparture.run();
+        moveBtn.setOnAction(e -> {
+            if (humanController != null && snapshot != null) {
+                MoveFleetCommand command = new MoveFleetCommand(fleet.id(), targetCombo.getValue(), emergency.isSelected());
+                if (!com.spaceconquest.engine.ship.FleetSupplySimulation.hasOrders(fleet) && !command.validate(snapshot)) {
+                    feedbackLabel.setText("Departure unavailable. Check orders, propellant, launch service and passenger supplies.");
+                    feedbackLabel.setTextFill(Color.SALMON);
+                    return;
+                }
+                humanController.stageCommand(command);
+                feedbackLabel.setText("Queued interstellar departure of " + fleet.name()
+                        + " to " + targetCombo.getValue().toUpperCase());
+                feedbackLabel.setTextFill(Color.LIGHTGREEN);
+            }
+        });
+
+        ComboBox<String> stanceCombo = new ComboBox<>();
+        stanceCombo.getItems().addAll("PASSIVE", "AGGRESSIVE", "PATROL", "ESCORT");
+        stanceCombo.setValue(fleet.fleetStance() != null ? fleet.fleetStance() : "PASSIVE");
+
+        Button stanceBtn = new Button("Set stance");
+        stanceBtn.setStyle("-fx-background-color: #00b894; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;");
+        stanceBtn.setOnAction(e -> {
+            if (humanController != null) {
+                humanController.stageCommand(new SetFleetStanceCommand(
+                        fleet.id(), stanceCombo.getValue()
+                ));
+                feedbackLabel.setText("Updated operational stance for fleet " + fleet.name() + " to " + stanceCombo.getValue());
+                feedbackLabel.setTextFill(Color.LIGHTGREEN);
+            }
+        });
+
+        orderRow.getChildren().addAll(new Label("Travel to:"), targetCombo, moveBtn, emergency, new Label("Stance:"), stanceCombo, stanceBtn);
+
+        return orderRow;
+    }
+
     private HBox createLocalOrders(Fleet fleet) {
         ComboBox<FleetLocation.Site> sites = new ComboBox<>();
         if (snapshot != null) {
@@ -781,7 +799,7 @@ public class FleetManagementView {
                     system.id().equals(fleet.currentSystemId())).findFirst().ifPresent(system ->
                     system.planets().forEach(planet -> {
                         sites.getItems().add(FleetLocation.Site.surface(planet.id()));
-                        sites.getItems().add(FleetLocation.Site.orbit(planet.id()));
+                        sites.getItems().add(FleetLocation.Site.orbit(planet.id(), 500));
                         planet.moons().forEach(moon -> {
                             sites.getItems().add(FleetLocation.Site.surface(moon.id()));
                             sites.getItems().add(FleetLocation.Site.orbit(moon.id()));
@@ -799,18 +817,23 @@ public class FleetManagementView {
                 .filter(site -> !sites.getItems().contains(site))
                 .forEach(sites.getItems()::add);
         if (!sites.getItems().isEmpty()) sites.setValue(sites.getItems().getFirst());
+        javafx.scene.control.CheckBox emergency = new javafx.scene.control.CheckBox("Emergency: use contingency fuel");
+        Label fuelPreview = new Label();
+        fuelPreview.setWrapText(true);
         Button move = new Button("Move locally");
-        move.setDisable(fleet.isInWarp() || fleet.location().inTransit()
-                || fleet.targetSystemId() != null && !fleet.targetSystemId().isBlank());
+        Runnable refreshFuel = () -> OrbitalTravelCard.refresh(fuelPreview, move, snapshot, fleet, sites.getValue(), emergency.isSelected());
+        sites.valueProperty().addListener((observable, old, selected) -> refreshFuel.run());
+        emergency.selectedProperty().addListener((observable, old, selected) -> refreshFuel.run());
+        refreshFuel.run();
         move.setOnAction(event -> {
             if (humanController == null || sites.getValue() == null) return;
             FleetLocation.Site site = sites.getValue();
             humanController.stageCommand(new MoveFleetLocalCommand(fleet.id(), site.kind(),
-                    site.entityId()));
+                    site.entityId(), emergency.isSelected(), site.parkingAltitudeKm()));
             feedbackLabel.setText("Queued local movement to " + site.kind() + " " + site.entityId());
             feedbackLabel.setTextFill(Color.LIGHTGREEN);
         });
-        return new HBox(8, new Label("Local destination:"), sites, move);
+        return new HBox(8, new Label("Local destination:"), sites, move, emergency, fuelPreview);
     }
 
     private HBox createPassengerOrders(Fleet fleet) {

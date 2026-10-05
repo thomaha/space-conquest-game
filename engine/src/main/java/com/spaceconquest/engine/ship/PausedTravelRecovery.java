@@ -6,16 +6,32 @@ import com.spaceconquest.engine.industry.ConstructionMaterials;
 import java.util.List;
 import java.util.Map;
 
-/** Recovery of the existing abstract local and warp itineraries, preserving paid maneuver budgets. */
+/** Replans physical local drift or resumes older prepaid local and warp itineraries. */
 public final class PausedTravelRecovery {
     public record Preview(boolean local, String mode, double remainingDays,
-                          List<ShipPowerForecast.Readiness> electrical) {
+                          List<ShipPowerForecast.Readiness> electrical, LocalSpaceTravel.Plan physical) {
+        public Preview(boolean local, String mode, double remainingDays, List<ShipPowerForecast.Readiness> electrical) {
+            this(local, mode, remainingDays, electrical, null);
+        }
         public Preview { electrical = List.copyOf(electrical); }
         public boolean ready() { return ShipPowerForecast.ready(electrical); }
     }
     private PausedTravelRecovery() {}
 
     public static Preview preview(GameState state, Fleet fleet) {
+        if (fleet != null && fleet.location().orbitalFlight() != null) return null;
+        if (state != null && fleet != null && fleet.location().localFlight() != null) {
+            var plan = LocalSpaceTravel.recovery(state, fleet);
+            if (plan == null) return null;
+            var local = new LocalTravel.Plan(plan.days(), plan.propellantKg(), plan.reactorFuelKg(), plan);
+            InterstellarTravel.Plan crossing = fleet.hasInterstellarOrder() ? new InterstellarTravel.Plan(fleet.interstellarMode(),
+                    fleet.interstellarTravelDays(), fleet.interstellarDistanceMeters(), fleet.interstellarAccelerationMps2(),
+                    fleet.interstellarPeakSpeedMps(), fleet.interstellarFuelBudgetKg(), Map.of()) : null;
+            if (crossing != null && fleet.ships().stream().anyMatch(ship -> ship.currentFuelKg() + .000001
+                    < plan.propellantKg().getOrDefault(ship.id(), 0.0) + fleet.interstellarFuelBudgetKg().getOrDefault(ship.id(), 0.0))) return null;
+            return new Preview(true, fleet.interstellarMode(), Math.ceil(plan.days()) + (crossing == null ? 0 : Math.ceil(crossing.days())),
+                    ShipPowerForecast.departure(state, fleet, fleet.location().destination(), local, crossing), plan);
+        }
         if (state == null || fleet == null || fleet.ships().isEmpty()
                 || !Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode())) return null;
         boolean local = fleet.location().inTransit();
@@ -81,6 +97,7 @@ public final class PausedTravelRecovery {
     }
 
     public static Fleet resume(Fleet fleet, Preview preview) {
+        if (preview.physical() != null) return LocalSpaceTravel.resume(fleet, preview.physical());
         return copy(fleet, fleet.location(), preview.mode(), fleet.interstellarElapsedDays(), fleet.transitProgress());
     }
 
@@ -95,7 +112,7 @@ public final class PausedTravelRecovery {
         double elapsed = fleet.interstellarElapsedDays() + poweredHours / 24;
         double days = fleet.interstellarTravelDays() > 0 ? fleet.interstellarTravelDays() : InterstellarTravel.WARP_DAYS;
         if (elapsed >= days) return new Fleet(fleet.id(), fleet.name(), fleet.ownerEntityId(), fleet.targetSystemId(), "",
-                fleet.coordinateX(), fleet.coordinateY(), 0, false, fleet.fleetStance(), fleet.ships(), fleet.location(), "", 0);
+                fleet.coordinateX(), fleet.coordinateY(), 0, false, fleet.fleetStance(), fleet.ships(), fleet.location(), "", 0).withFuelPolicy(fleet.fuelPolicy());
         return copy(fleet, fleet.location(), Fleet.MODE_POWER_INTERRUPTED, elapsed, Math.clamp(elapsed / days, 0, 1));
     }
 
@@ -104,6 +121,6 @@ public final class PausedTravelRecovery {
                 fleet.coordinateX(), fleet.coordinateY(), progress, Fleet.MODE_WARP.equals(mode) && !location.inTransit(),
                 fleet.fleetStance(), fleet.ships(), location,
                 mode, fleet.interstellarTravelDays(), fleet.interstellarDistanceMeters(), fleet.interstellarAccelerationMps2(),
-                elapsed, fleet.interstellarPeakSpeedMps(), fleet.interstellarFuelBudgetKg(), null, fleet.journeyPropulsion());
+                elapsed, fleet.interstellarPeakSpeedMps(), fleet.interstellarFuelBudgetKg(), null, fleet.journeyPropulsion()).withFuelPolicy(fleet.fuelPolicy());
     }
 }

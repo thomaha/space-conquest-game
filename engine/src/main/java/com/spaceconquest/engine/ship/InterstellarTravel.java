@@ -54,12 +54,52 @@ public final class InterstellarTravel {
                 empire.id().equals(empireId) && empire.unlockedTechIds().contains("warp"));
         if (warp) return new Plan(Fleet.MODE_WARP, WARP_DAYS, 0.0, 0.0, 0.0,
                 Map.of(), Map.of());
+        Map<String, Double> protectedKg = new HashMap<>(arrivalPropellantKg);
+        fleet.ships().forEach(ship -> protectedKg.merge(ship.id(), fleet.fuelPolicy().reserveKg(state, fleet, ship), Double::sum));
         double dx = destination.x() - origin.x();
         double dy = destination.y() - origin.y();
         double dz = destination.z() - origin.z();
         double distance = Math.max(1.0, Math.sqrt(dx * dx + dy * dy + dz * dz)
                 * METERS_PER_LIGHT_YEAR);
         if (!Double.isFinite(distance)) return null;
+        var capability = capabilities(state, fleet, protectedKg);
+        if (capability == null) return null;
+        double fleetAcceleration = capability.acceleration(), fuelLimitedPeak = capability.peak();
+        var wetMasses = capability.masses();
+        var drives = capability.drives();
+        var reactorFuels = capability.feeds();
+        double peak = Math.min(fuelLimitedPeak, Math.sqrt(distance * fleetAcceleration));
+        if (!Double.isFinite(peak) || peak <= 0.0) return null;
+        double seconds = travelSeconds(distance, fleetAcceleration, peak);
+        if (!Double.isFinite(seconds)) return null;
+        Map<String, Double> fuelBudget = new HashMap<>();
+        Map<String, ReactorFuelUse> reactorFuelBudget = new HashMap<>();
+        Map<String, JourneyPropulsion> propulsion = new HashMap<>();
+        for (ShipInstance ship : fleet.ships()) {
+            PropulsionCatalog.Drive drive = drives.get(ship.id());
+            if (drive == null) continue;
+            double mass = wetMasses.get(ship.id());
+            PropulsionCatalog.ReactorFuel reactorFuel = reactorFuels.get(ship.id());
+            double exhaust = drive.exhaustVelocityMps()
+                    * (reactorFuel == null ? 1.0 : reactorFuel.exhaustMultiplier());
+            double propellantKg = Math.min(ship.currentFuelKg() - protectedKg.getOrDefault(ship.id(), 0.0),
+                    mass * -Math.expm1(-2.0 * peak / exhaust));
+            fuelBudget.put(ship.id(), propellantKg);
+            propulsion.put(ship.id(), JourneyPropulsion.capture(ship, drive, reactorFuel, propellantKg).withProtectedPropellant(fleet.fuelPolicy().reserveKg(state, fleet, ship)));
+            if (reactorFuel != null && reactorFuel.kgPerPropellantKg() > 0.0)
+                reactorFuelBudget.put(ship.id(), new ReactorFuelUse(
+                        reactorFuel.materialId(), propellantKg * reactorFuel.kgPerPropellantKg()));
+        }
+        return new Plan(Fleet.MODE_SUBLIGHT,
+                Math.max(1.0, seconds / SECONDS_PER_DAY),
+                distance, fleetAcceleration, peak, fuelBudget, reactorFuelBudget, propulsion);
+    }
+
+    private record Capabilities(double acceleration, double peak, Map<String, Double> masses,
+                                Map<String, PropulsionCatalog.Drive> drives,
+                                Map<String, PropulsionCatalog.ReactorFuel> feeds) {}
+
+    private static Capabilities capabilities(GameState state, Fleet fleet, Map<String, Double> protectedKg) {
         double fleetAcceleration = Double.POSITIVE_INFINITY;
         double fuelLimitedPeak = MAX_CRUISE_MPS;
         Map<String, Double> wetMasses = new HashMap<>();
@@ -87,7 +127,7 @@ public final class InterstellarTravel {
             fleetAcceleration = Math.min(fleetAcceleration, thrust / mass);
             PropulsionCatalog.Drive drive = PropulsionCatalog.mainDrive(design.equippedModuleIds());
             if (drive != null) {
-                double available = ship.currentFuelKg() - arrivalPropellantKg.getOrDefault(ship.id(), 0.0);
+                double available = ship.currentFuelKg() - protectedKg.getOrDefault(ship.id(), 0.0);
                 if (!Double.isFinite(available) || available <= 0.0 || mass <= available) return null;
                 PropulsionCatalog.ReactorFuel reactorFuel =
                         PropulsionCatalog.availableReactorFuel(drive, ship);
@@ -104,31 +144,7 @@ public final class InterstellarTravel {
             }
         }
         if (!Double.isFinite(fleetAcceleration) || fleetAcceleration <= 0.0) return null;
-        double peak = Math.min(fuelLimitedPeak, Math.sqrt(distance * fleetAcceleration));
-        if (!Double.isFinite(peak) || peak <= 0.0) return null;
-        double seconds = travelSeconds(distance, fleetAcceleration, peak);
-        if (!Double.isFinite(seconds)) return null;
-        Map<String, Double> fuelBudget = new HashMap<>();
-        Map<String, ReactorFuelUse> reactorFuelBudget = new HashMap<>();
-        Map<String, JourneyPropulsion> propulsion = new HashMap<>();
-        for (ShipInstance ship : fleet.ships()) {
-            PropulsionCatalog.Drive drive = drives.get(ship.id());
-            if (drive == null) continue;
-            double mass = wetMasses.get(ship.id());
-            PropulsionCatalog.ReactorFuel reactorFuel = reactorFuels.get(ship.id());
-            double exhaust = drive.exhaustVelocityMps()
-                    * (reactorFuel == null ? 1.0 : reactorFuel.exhaustMultiplier());
-            double propellantKg = Math.min(ship.currentFuelKg() - arrivalPropellantKg.getOrDefault(ship.id(), 0.0),
-                    mass * -Math.expm1(-2.0 * peak / exhaust));
-            fuelBudget.put(ship.id(), propellantKg);
-            propulsion.put(ship.id(), JourneyPropulsion.capture(ship, drive, reactorFuel, propellantKg));
-            if (reactorFuel != null && reactorFuel.kgPerPropellantKg() > 0.0)
-                reactorFuelBudget.put(ship.id(), new ReactorFuelUse(
-                        reactorFuel.materialId(), propellantKg * reactorFuel.kgPerPropellantKg()));
-        }
-        return new Plan(Fleet.MODE_SUBLIGHT,
-                Math.max(1.0, seconds / SECONDS_PER_DAY),
-                distance, fleetAcceleration, peak, fuelBudget, reactorFuelBudget, propulsion);
+        return new Capabilities(fleetAcceleration, fuelLimitedPeak, wetMasses, drives, reactorFuels);
     }
 
     /** Commits reactor fuel for a leg at departure; propellant continues to burn daily. */

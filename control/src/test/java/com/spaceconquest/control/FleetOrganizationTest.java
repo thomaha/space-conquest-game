@@ -37,7 +37,7 @@ class FleetOrganizationTest {
     @TempDir Path directory;
     private ShipDesign design(String id, String role, double thrust) {
         return new ShipDesign(id, id, "owner", role, "steel", List.of("mod_chemical_rocket"), "steel", 0,
-                1000, 30000, thrust, 100, 1, 0, 2000, false, false, ShipManufacturingProfile.baseline(), null);
+                1000, 30000, 1000, 100, 1, 0, thrust, false, false, ShipManufacturingProfile.baseline(), null);
     }
     private GameState state() {
         var fighter = new ShipInstance("fighter", "fast", "owner", 92, 15, 1000, Map.of("steel", 25.0));

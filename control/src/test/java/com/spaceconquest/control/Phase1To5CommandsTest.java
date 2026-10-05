@@ -33,10 +33,10 @@ class Phase1To5CommandsTest {
                 .turn(1)
                 .status("RUNNING")
                 .solarSystems(List.of(
-                new SolarSystem("sol", "Sol System", "", 0, 0, 0, 1.0, 1.0, "Yellow",
-                        List.of(new Planet("earth", "Earth", "", 1, 1, 1, 0, 1,
+                new SolarSystem("sol", "Sol System", "", 0, 0, 0, 1.98847e30, 1.3927e6, "Yellow",
+                        List.of(new Planet("earth", "Earth", "", 5.972e24, 9.81, 149597870, 0, 12742,
                                 "terrestrial", "breathable", true, 1, List.of(), List.of(), List.of()),
-                                new Planet("mars", "Mars", "", 1, 1, 1, 0, 0,
+                                new Planet("mars", "Mars", "", 6.417e23, 3.72, 227939200, 1.85, 6779,
                                         "terrestrial", "none", false, 1, List.of(), List.of(), List.of())), List.of())
         ))
                 .empires(List.of(new Empire("terran_confederation", "Terran", "human",

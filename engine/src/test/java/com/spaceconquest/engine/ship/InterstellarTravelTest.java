@@ -66,7 +66,7 @@ class InterstellarTravelTest {
     void documentedDriveLimitsCruiseSpeedAndReservesFuelForBraking() {
         ShipDesign chemical = new ShipDesign("chemical", "Chemical", "owner",
                 ShipRole.CARGO_TRANSPORT, "steel", List.of("mod_chemical_rocket"),
-                "steel", 0, 10_000, 30_000, 0, 1, 0, 500_000, true, false);
+                "steel", 0, 10_000, 30_000, 100, 0, 1, 0, 500_000, true, false);
         ShipInstance ship = new ShipInstance("ship", chemical.id(), "owner", 100, 0,
                 100, Map.of());
         GameState state = GameState.builder().solarSystems(List.of(
@@ -97,10 +97,10 @@ class InterstellarTravelTest {
     void fissionNeedsRadioactiveFuelAndFusionIsotopesImproveRange() {
         ShipDesign fission = new ShipDesign("fission", "Fission", "owner",
                 ShipRole.CARGO_TRANSPORT, "steel", List.of("mod_fission_thruster"),
-                "steel", 0, 10_000, 30_000, 0, 1, 0, 500_000, true, false);
+                "steel", 0, 10_000, 30_000, 100, 0, 1, 0, 500_000, true, false);
         ShipDesign fusion = new ShipDesign("fusion", "Fusion", "owner",
                 ShipRole.CARGO_TRANSPORT, "steel", List.of("mod_fusion_drive"),
-                "steel", 0, 10_000, 30_000, 0, 1, 0, 500_000, true, false);
+                "steel", 0, 10_000, 30_000, 100, 0, 1, 0, 500_000, true, false);
         GameState state = GameState.builder().solarSystems(List.of(
                 new SolarSystem("a", "A", "", 0, 0, 0, 1, 1, "Yellow", List.of(), List.of()),
                 new SolarSystem("b", "B", "", 0.001, 0, 0, 1, 1, "Yellow", List.of(), List.of())))

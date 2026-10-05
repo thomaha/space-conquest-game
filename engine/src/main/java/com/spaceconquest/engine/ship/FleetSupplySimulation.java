@@ -92,7 +92,7 @@ public final class FleetSupplySimulation {
     public static Fleet planned(Fleet fleet, InterstellarTravel.Plan plan) {
         return new Fleet(fleet.id(), fleet.name(), fleet.ownerEntityId(), fleet.currentSystemId(), "forecast_destination", 0, 0, 0,
                 false, fleet.fleetStance(), InterstellarTravel.commitReactorFuel(fleet, plan).ships(), fleet.location(), plan.mode(), plan.days(),
-                plan.distanceMeters(), plan.accelerationMps2(), 0, plan.peakSpeedMps(), plan.fuelBudgetKg(), null, plan.propulsion());
+                plan.distanceMeters(), plan.accelerationMps2(), 0, plan.peakSpeedMps(), plan.fuelBudgetKg(), null, plan.propulsion()).withFuelPolicy(fleet.fuelPolicy());
     }
     public static double totalHours(Fleet fleet) {
         return InterstellarTravel.travelSeconds(fleet.interstellarDistanceMeters(), fleet.interstellarAccelerationMps2(), fleet.interstellarPeakSpeedMps()) / 3600;

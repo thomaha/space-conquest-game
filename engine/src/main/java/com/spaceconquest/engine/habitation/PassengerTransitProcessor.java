@@ -10,7 +10,6 @@ import com.spaceconquest.engine.SolarSystem;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.FleetLocation;
 import com.spaceconquest.engine.ship.ShipInstance;
-import com.spaceconquest.engine.habitation.PassengerLogisticsResult;
 import com.spaceconquest.engine.DiplomaticRelation;
 import com.spaceconquest.engine.economy.HouseholdAccount;
 import com.spaceconquest.engine.economy.HouseholdEmployment;
@@ -222,17 +221,21 @@ public final class PassengerTransitProcessor {
         return disembarkArrivals(supplied);
     }
 
-    /** Checks an interstellar booking against carried supplies through departure and arrival. */
+    /** Checks booked passengers against actual scheduled days, without reserving or consuming supplies. */
     public static boolean canSustainJourney(GameState state, Fleet fleet, List<Race> races,
-                                            double crossingDays) {
-        double days = Math.ceil(crossingDays) + 4.0;
+                                            double journeyDays) {
+        if (state == null || fleet == null || races == null || !Double.isFinite(journeyDays) || journeyDays < 0)
+            return false;
+        double days = Math.ceil(journeyDays);
         PopulationProcessor needs = new PopulationProcessor();
         for (PassengerManifest manifest : state.passengerManifests()) {
             ShipInstance ship = fleet.ships().stream()
                     .filter(item -> item.id().equals(manifest.shipId()))
                     .findFirst().orElse(null);
             if (ship == null) continue;
-            if (ShipInstance.MODE_CRYOGENIC_STASIS.equals(ship.transitMode())) {
+            if (manifest.headcount() != ship.passengerCount()
+                    || !manifest.raceId().equals(ship.passengerRaceId())) return false;
+            if (ShipInstance.MODE_CRYOGENIC_STASIS.equalsIgnoreCase(ship.transitMode())) {
                 if (!PassengerStasis.availableFor(state, ship, (int) manifest.headcount()))
                     return false;
                 continue;
@@ -242,8 +245,10 @@ public final class PassengerTransitProcessor {
             if (race == null) return false;
             for (var need : needs.calculateDailyNutrientRequirements(manifest.headcount(), race)
                     .entrySet()) {
-                if (ship.storedCargoKg().getOrDefault(need.getKey(), 0.0) + 0.000001
-                        < need.getValue() * days) return false;
+                double required = need.getValue() * days;
+                double available = ship.storedCargoKg().getOrDefault(need.getKey(), 0.0);
+                if (!Double.isFinite(required) || !Double.isFinite(available) || available < 0
+                        || available + 1e-9 < required) return false;
             }
         }
         return true;

@@ -7,7 +7,7 @@ A fleet is a named collection of ships that travel and operate together. It can 
 - Movement orders apply to the whole fleet. Ships share the fleet's site, itinerary, progress and stance.
 - Physical sublight departures use the lowest loaded acceleration and the lowest fuel-supported peak speed among all members. Loaded mass includes propellant, generator stores, cargo and passengers. Faster ships throttle their travel to remain with the fleet.
 - Each ship supplies its own propulsion fuel, reactor feed and electricity. Adding an escort does not fill a freighter's tanks or improve its endurance. Every member must pass departure checks; a power failure stops shared thrust at the first failing ship.
-- Warp currently uses the owner's researched four-day corridor model. Local journeys retain one- or two-day site minimums and extend to the slowest member's loaded maneuver time, rounded up to whole days. Launch, propulsion and electrical checks apply to every member. Per-ship warp speeds and detailed local trajectories remain future rules.
+- Warp currently uses the owner's researched four-day corridor model. Recognized local space journeys use frozen representative distance and the slowest loaded acceleration with funded acceleration, coasting and braking. Main propellant burns during powered phases; scheduled arrivals round up to daily ticks. Surface transfers and older prepaid local itineraries retain their abstract rules. See [LocalTravel.md](LocalTravel.md). Per-ship warp speeds and exact orbital motion remain future rules.
 - Trade and passenger assignments refer to ship IDs and remain attached to those ships. A route carrier's escorts travel with it. A fleet can have at most one active trade route so separate automated routes cannot issue conflicting fleet orders.
 
 ## Organizing ships
@@ -41,7 +41,7 @@ An inherited journey retains its existing speed and trajectory. A later departur
 
 ## Persistence and provisional limits
 
-Fleet membership, names, ship state and inherited travel profiles use the existing save format. No save version change is needed for organization commands. Save/load tests verify that split groups consume the same next-day propellant as their original shared itinerary.
+Save version 39 adds physical local geometry, motion and per-ship propulsion commitments to fleet location state. Organization commands partition these commitments and inherit the shared motion. Compatible joins combine their per-ship budgets. Save/load tests retain actual local drift and controlled trajectories; older prepaid local journeys continue without another departure charge.
 
 Role combinations and all travel coefficients remain subject to tuning. Fleet organization currently requires a shared owner; allied fleets and mixed empire/corporation command arrangements need separate rules. Formation geometry, fleet officers, ship-to-ship towing and in-flight trajectory changes after a split remain future work.
 
@@ -49,4 +49,10 @@ Role combinations and all travel coefficients remain subject to tuning. Fleet or
 
 Plan the next leg through the destination port by default. Return planning is optional and ships may choose their next trade after selling cargo and checking local resupply. Compatible destination stock is advisory until a paid local purchase succeeds. Automated trade retains approach fuel and an electrical arrival reserve. See [FleetSupply.md](FleetSupply.md) for the implemented checks.
 
+Booked passenger ships must carry their own species supplies for each issued local or crossing order. Recovery checks only the remaining itinerary against current stores; waiting passengers continue to consume. Valid stasis requires research and pod capacity and retains its electrical demand. The detailed rules are in [FleetSupply.md](FleetSupply.md).
+
 When a member exhausts propulsion fuel, the fleet cannot continue shared acceleration or powered braking. Its actual velocity persists as ballistic drift; there is no fuel-free reduced-speed travel mode. A new feasible recovery plan or assistance is required to regain controlled motion.
+
+## Orbital itinerary preservation
+
+Orbital fleets share frozen launch timing, coast and maneuver events limited by every member's funded burn capability. Splits retain the same motion and partition saved per-ship budgets; merges require identical orbital itineraries and cursors. Membership changes never repeat a paid burn or rewrite the epoch. Parking altitude survives all copies and save/load. See [OrbitalTransfers.md](OrbitalTransfers.md).

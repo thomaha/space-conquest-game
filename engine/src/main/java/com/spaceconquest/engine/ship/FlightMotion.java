@@ -1,6 +1,6 @@
 package com.spaceconquest.engine.ship;
 
-/** Position along the original crossing, including drift beyond its destination. */
+/** Position along the original route, including drift beyond its destination. */
 public record FlightMotion(double positionMeters, double velocityMps, Trajectory trajectory,
                            double elapsedSeconds) {
     public FlightMotion {

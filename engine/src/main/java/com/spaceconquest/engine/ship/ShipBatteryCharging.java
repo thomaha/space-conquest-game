@@ -16,9 +16,9 @@ public final class ShipBatteryCharging {
         if (state == null || shipId == null || sourceId == null || !Double.isFinite(inputKwh) || inputKwh <= 0) return state;
         Fleet fleet = state.fleets().stream().filter(item -> item.ships().stream().anyMatch(ship -> ship.id().equals(shipId)))
                 .findFirst().orElse(null);
-        if (fleet == null || fleet.hasInterstellarOrder() || fleet.location().inTransit()
-                || !(fleet.location().isAt(FleetLocation.Site.surface(sourceId))
-                || fleet.location().isAt(FleetLocation.Site.docked(sourceId)))) return state;
+        if (fleet == null || fleet.hasInterstellarOrder() || fleet.location().underway()
+                || !(fleet.location().stationaryAt(FleetLocation.Site.surface(sourceId))
+                || fleet.location().stationaryAt(FleetLocation.Site.docked(sourceId)))) return state;
         var ship = fleet.ships().stream().filter(item -> item.id().equals(shipId)).findFirst().orElseThrow();
         var design = state.shipDesigns().stream().filter(item -> item.id().equals(ship.designId())).findFirst().orElse(null);
         if (design == null || design.powerProfile() == null || !ship.ownerEntityId().equals(fleet.ownerEntityId())) return state;

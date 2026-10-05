@@ -47,9 +47,8 @@ class TradePropulsionAuditTest {
         var local = LocalTravel.plan(state, fleet, FleetLocation.Site.docked(target.entityId()));
         double days = local == null ? 0 : local.days();
         if (scenario.crossing()) {
-            var departure = LocalTravel.plan(state, fleet, FleetLocation.Site.deepSpace());
-            var outbound = departure == null ? null : LocalTravel.depart(fleet, FleetLocation.Site.deepSpace(), departure)
-                    .withLocation(FleetLocation.at(FleetLocation.Site.deepSpace()));
+            var departure = TradeLegReadiness.departureLocal(state, fleet);
+            var outbound = departure == null ? null : LocalTravel.projectedArrival(fleet, FleetLocation.Site.deepSpace(), departure);
             var plan = outbound == null ? null : TradeLegReadiness.crossing(state, outbound, target);
             days = plan == null ? 0 : Math.ceil(plan.days());
         }
@@ -66,6 +65,7 @@ class TradePropulsionAuditTest {
             state = state.withFleets(movement.processFleetMovements(ShipPowerProcessor.advanceDay(state), List.of(), List.of()));
             fleet = state.fleets().getFirst();
             assertNotEquals(Fleet.MODE_POWER_INTERRUPTED, fleet.interstellarMode(), scenario.toString());
+            assertTrue(fleet.location().localFlight() == null || !fleet.location().localFlight().interrupted(), scenario.toString());
             if (!fleet.hasInterstellarOrder() && !fleet.location().inTransit()
                     && fleet.ships().getFirst().powerState().lastUnmetEssentialKwh() > 1e-6) outages++;
             double before = state.tradeRoutes().getFirst().onboardKg();
@@ -129,11 +129,12 @@ class TradePropulsionAuditTest {
 
     private String report(List<Measurement> rows) {
         var text = new StringBuilder("# Catalog trade and production audit\n\n");
-        text.append("Six 360-day probes use blueprints built by the normal catalog. Local station travel uses provisional site minimums extended by available thrust and loaded mass. Crossing probes place stars one light-year apart. Fuel factories use the real paid industry processor with finite input stocks; finished chemical and electrical reactor fuels start at zero in port markets. Hydrogen and MPD propellant have explicit opening stocks. Powered staff are fixture inputs and production pauses on days 20-79; wages and grid generation are not simulated. Opening ship tanks, factory operating cash and buyer cash are explicit seeds. Ports start with opposing steel and copper stocks. No goods, fuel or cash is replenished externally during the run.\n\n")
+        text.append("Six 360-day probes use blueprints built by the normal catalog. Local station travel uses deterministic representative geometry and loaded acceleration, coasting and braking. Stationary departures conserve fuel within the earliest funded arrival day; displayed local durations approach that daily boundary. Default 5% main-tank contingency targets remain protected. Crossing probes place stars one light-year apart. Fuel factories use the real paid industry processor with finite input stocks; finished chemical and electrical reactor fuels start at zero in port markets. Hydrogen and MPD propellant have explicit opening stocks. Powered staff are fixture inputs and production pauses on days 20-79; wages and grid generation are not simulated. Opening ship tanks, factory operating cash and buyer cash are explicit seeds. Ports start with opposing steel and copper stocks. No goods, fuel or cash is replenished externally during the run.\n\n")
                 .append("| Drive | Destination | Initial next-leg readiness | Unloaded local/crossing days | Departures | Sold kg | Port outage days | Factory output kg | Paid industrial input credits | Voyage unfinished | Final owner cash |\n")
                 .append("|---|---|---|---:|---:|---:|---:|---:|---:|---|---:|\n");
-        for (var row : rows) text.append(String.format(Locale.ROOT, "| %s | %s | %s | %.0f | %d | %.0f | %d | %.0f | %.1f | %s | %.1f |\n",
-                row.scenario().drive(), row.scenario().crossing() ? "1 light-year" : "Local station", row.initiallyReady(), row.plannedDays(),
+        for (var row : rows) text.append(String.format(Locale.ROOT, "| %s | %s | %s | %s | %d | %.0f | %d | %.0f | %.1f | %s | %.1f |\n",
+                row.scenario().drive(), row.scenario().crossing() ? "1 light-year" : "Local station", row.initiallyReady(),
+                row.plannedDays() > 0 ? String.format(Locale.ROOT, "%.4f", row.plannedDays()) : "Unavailable",
                 row.departures(), row.sold(), row.portOutages(), row.produced(), row.inputCosts(), row.unfinished(), row.finalCash()));
         text.append("\n## Initial readiness explanations\n\n");
         for (var row : rows) text.append("- ").append(row.scenario().drive()).append(row.scenario().crossing() ? " at 1 light-year: " : " locally: ").append(row.readiness()).append('\n');

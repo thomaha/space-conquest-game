@@ -38,7 +38,7 @@ public final class ShipFueling {
         if (sourceSystemId == null) sourceSystemId = state.orbitalStations().stream()
                 .filter(station -> bodyId.equals(station.id()))
                 .map(station -> station.systemId()).findFirst().orElse(null);
-        if (fleet == null || fleet.hasInterstellarOrder() || fleet.location().inTransit()
+        if (fleet == null || fleet.hasInterstellarOrder() || fleet.location().underway()
                 || !fleet.currentSystemId().equals(sourceSystemId))
             return state;
         ShipInstance ship = fleet.ships().stream().filter(item -> shipId.equals(item.id()))
@@ -62,12 +62,12 @@ public final class ShipFueling {
         double cargoKg = ship.storedCargoKg().values().stream()
                 .mapToDouble(Double::doubleValue).sum();
         if (cargoKg + reactorKg > design.maxCargoMassKg() + 0.000001) return state;
-        boolean surface = fleet.location().isAt(FleetLocation.Site.surface(bodyId));
-        boolean stationHub = fleet.location().isAt(FleetLocation.Site.docked(bodyId));
-        boolean orbit = fleet.location().isAt(FleetLocation.Site.orbit(bodyId))
+        boolean surface = fleet.location().stationaryAt(FleetLocation.Site.surface(bodyId));
+        boolean stationHub = fleet.location().stationaryAt(FleetLocation.Site.docked(bodyId));
+        boolean orbit = fleet.location().stationaryAt(FleetLocation.Site.orbit(bodyId))
                 || state.orbitalStations().stream().anyMatch(station ->
                 bodyId.equals(station.planetOrbitId())
-                        && fleet.location().isAt(FleetLocation.Site.docked(station.id())));
+                        && fleet.location().stationaryAt(FleetLocation.Site.docked(station.id())));
         if (!surface && !orbit && !stationHub) return state;
         Map<String, Double> request = new HashMap<>();
         request.putAll(drive.propellantMaterials(quantityKg));

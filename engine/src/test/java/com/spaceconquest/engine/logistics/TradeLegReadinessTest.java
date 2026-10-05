@@ -52,9 +52,8 @@ class TradeLegReadinessTest {
         var fleet = state.fleets().getFirst();
         var destination = state.commercialHubs().getLast();
         assertTrue(TradeLegReadiness.inspect(state, fleet, destination).ready());
-        var local = LocalTravel.plan(state, fleet, FleetLocation.Site.deepSpace());
-        var departed = LocalTravel.depart(fleet, FleetLocation.Site.deepSpace(), local)
-                .withLocation(FleetLocation.at(FleetLocation.Site.deepSpace()));
+        var local = TradeLegReadiness.departureLocal(state, fleet);
+        var departed = LocalTravel.projectedArrival(fleet, FleetLocation.Site.deepSpace(), local);
         var plan = TradeLegReadiness.crossing(state, departed, destination);
         assertNotNull(plan);
         double remaining = departed.ships().getFirst().currentFuelKg() - plan.fuelBudgetKg().get("ship");
@@ -78,6 +77,59 @@ class TradeLegReadinessTest {
         var poor = stocked.withEmpires(List.of(new Empire("owner", "Owner", "human", "Individualist", 0, 0,
                 List.of(), List.of(), Map.of(), List.of("rocketry"), List.of())));
         assertSame(poor, TradeLegReadiness.prepare(poor, poor.fleets().getFirst(), poor.commercialHubs().getLast()));
+    }
+
+    private GameState localState(double mainFuel, boolean stock) {
+        var state = state(mainFuel, 4000, stock);
+        return state.withCommercialHubs(List.of(state.commercialHubs().getFirst(),
+                port("destination", "station_c", false, 10)));
+    }
+
+    @Test void safeSlowLocalLegBuysRealFuelOnlyWhenItImprovesArrivalDay() {
+        var state = localState(51, true); var fleet = state.fleets().getFirst();
+        var target = state.commercialHubs().getLast(); var site = FleetPositioning.hubSite(state, target);
+        assertTrue(TradeLegReadiness.inspect(state, fleet, target).ready());
+        double oldDays = Math.ceil(LocalTravel.plan(state, fleet, site).days());
+        assertTrue(oldDays > 1);
+        var paid = TradeLegReadiness.prepare(state, fleet, target);
+        var prepared = paid.fleets().getFirst();
+        assertTrue(TradeLegReadiness.inspect(paid, prepared, target).ready());
+        assertTrue(Math.ceil(LocalTravel.plan(paid, prepared, site).days()) < oldDays);
+        double purchased = prepared.ships().getFirst().currentFuelKg() - 51;
+        assertTrue(purchased > 0);
+        assertEquals(purchased * .28, 10000 - paid.commercialHubs().getFirst().activeOrders().get("rp1_kerosene").supplyKg(), 1e-6);
+        assertEquals(purchased * .72, 10000 - paid.commercialHubs().getFirst().activeOrders().get("liquid_oxygen").supplyKg(), 1e-6);
+        assertEquals(purchased, state.empires().getFirst().treasuryCredits() - paid.empires().getFirst().treasuryCredits(), 1e-6);
+        assertSame(paid, TradeLegReadiness.prepare(paid, prepared, target));
+    }
+
+    @Test void unavailableOptionalTopUpPreservesAnAlreadySafeDeparture() {
+        var dry = localState(51, false);
+        assertTrue(TradeLegReadiness.inspect(dry, dry.fleets().getFirst(), dry.commercialHubs().getLast()).ready());
+        assertSame(dry, TradeLegReadiness.prepare(dry, dry.fleets().getFirst(), dry.commercialHubs().getLast()));
+        var stocked = localState(51, true);
+        var poor = stocked.withEmpires(List.of(new Empire("owner", "Owner", "human", "Individualist", 0, 0,
+                List.of(), List.of(), Map.of(), List.of("rocketry"), List.of())));
+        assertSame(poor, TradeLegReadiness.prepare(poor, poor.fleets().getFirst(), poor.commercialHubs().getLast()));
+    }
+
+    @Test void emptyReturnRefillsAgainstCompletePhysicalLegAndChargesItsRoute() {
+        var state = localState(50.01, true);
+        assertNotNull(LocalTravel.plan(state, state.fleets().getFirst(), FleetLocation.Site.docked("station_c")));
+        assertFalse(TradeLegReadiness.inspect(state, state.fleets().getFirst(), state.commercialHubs().getLast()).ready());
+        var route = new TradeRoute("route", "Trade", "owner", "destination", "source", "steel", 20, 0, 100,
+                List.of("ship"), 0, true).withTrip(TradeRoute.RETURNING, 0, 0);
+        state = state.withTradeRoutes(List.of(route));
+        var next = new LogisticsProcessor().processTradeRoutes(state).state();
+        var fleet = next.fleets().getFirst();
+        assertTrue(fleet.location().inTransit());
+        assertEquals(FleetLocation.Site.docked("station_c"), fleet.location().destination());
+        assertTrue(next.tradeRoutes().getFirst().dailyOperatingResultCredits() < 0);
+        assertTrue(next.empires().getFirst().treasuryCredits() < state.empires().getFirst().treasuryCredits());
+        for (int day = 0; day < Math.ceil(fleet.location().travelDays()); day++)
+            next = next.withFleets(new FleetProcessor().processFleetMovements(ShipPowerProcessor.advanceDay(next), List.of(), List.of()));
+        assertTrue(next.fleets().getFirst().location().isAt(FleetLocation.Site.docked("station_c")));
+        assertEquals(0, next.tradeRoutes().getFirst().totalVolumeMovedKg());
     }
 
     @Test void marketChoicePrefersAStockedProfitablePortAndChargesResupplyToTheRoute() {
@@ -119,19 +171,104 @@ class TradeLegReadinessTest {
         assertTrue(found, "A crossing-funded ship must still be rejected when its port approach is not funded.");
     }
 
+    @Test void shortDepartureToDryPortCarriesDwellElectricityOrRollsBackPaidTrials() {
+        var state = state(1000, 100, false).withCommercialHubs(List.of(port("source", "station_a", false, 1),
+                port("destination", "station_c", false, 10)));
+        var fleet = state.fleets().getFirst(); var target = state.commercialHubs().getLast();
+        var site = FleetPositioning.hubSite(state, target);
+        var plan = LocalTravel.plan(state, fleet, site);
+        assertTrue(ShipPowerForecast.ready(ShipPowerForecast.departure(state, fleet, site, plan, null)));
+        var blocked = TradeLegReadiness.inspect(state, fleet, target);
+        assertFalse(blocked.ready());
+        assertTrue(blocked.explanation().contains("60-day"));
+        assertSame(state, TradeLegReadiness.prepare(state, fleet, target));
+
+        var stockedSource = state.withCommercialHubs(List.of(port("source", "station_a", true, 1), target));
+        var funded = TradeLegReadiness.prepare(stockedSource, fleet, target);
+        assertTrue(TradeLegReadiness.inspect(funded, funded.fleets().getFirst(), target).ready());
+        var prepared = funded.fleets().getFirst();
+        plan = LocalTravel.plan(funded, prepared, site);
+        var arrival = LocalTravel.projectedArrival(LocalSpacePowerForecast.consume(funded, prepared, site, plan), site, plan);
+        var ship = arrival.ships().getFirst(); var profile = state.shipDesigns().getFirst().powerProfile();
+        assertTrue(ShipArrivalReserve.check(profile, ship.powerState(), 1, 0, ShipSolarEnvironment.DARK,
+                TradePortMaintenance.DWELL_RESERVE_HOURS).ready());
+        assertTrue(funded.empires().getFirst().treasuryCredits() < stockedSource.empires().getFirst().treasuryCredits());
+        assertEquals(stockedSource.commercialHubs().getLast(), funded.commercialHubs().getLast());
+        assertEquals(fleet.fuelPolicy(), prepared.fuelPolicy());
+        assertFalse(prepared.location().inTransit());
+    }
+
+    @Test void shortStockedDestinationKeepsNormalArrivalRequirement() {
+        var state = state(1000, 100, false).withCommercialHubs(List.of(port("source", "station_a", false, 1),
+                port("destination", "station_c", true, 10)));
+        var fleet = state.fleets().getFirst();
+        assertTrue(TradeLegReadiness.inspect(state, fleet, state.commercialHubs().getLast()).ready());
+        assertSame(state, TradeLegReadiness.prepare(state, fleet, state.commercialHubs().getLast()));
+    }
+
+    @Test void longerJourneyCarriesDwellInsuranceEvenWithPostedDestinationStock() {
+        var state = state(1000, 4000, false);
+        var arrival = state.fleets().getFirst().withLocation(FleetLocation.at(FleetLocation.Site.docked("station_c")));
+        var ship = arrival.ships().getFirst();
+        var limited = new ShipPowerState(Map.of("rp1_kerosene", 28.0, "liquid_oxygen", 72.0),
+                "rp1", "uranium", 0, true, 1, 1, 0, 0, 0, 0, 0);
+        arrival = arrival.withShips(List.of(ship.withPowerState(limited)));
+        var target = port("destination", "station_c", true, 10);
+        assertTrue(TradeArrivalReadiness.inspect(state, state.fleets().getFirst(), arrival, target, 2).ready());
+        assertFalse(TradeArrivalReadiness.inspect(state, state.fleets().getFirst(), arrival, target, 3).ready());
+        assertTrue(TradeArrivalReadiness.inspect(state, state.fleets().getFirst(),
+                arrival.withShips(List.of(ship)), target, 3).ready());
+    }
+
+    @Test void discoveredShortageDoesNotBlockAnAlreadyFundedApproachFromSystemSpace() {
+        var state = state(1000, 100, false);
+        var fleet = state.fleets().getFirst().withLocation(FleetLocation.at(FleetLocation.Site.deepSpace()));
+        var arrival = fleet.withLocation(FleetLocation.at(FleetLocation.Site.docked("station_b")));
+        assertTrue(TradeArrivalReadiness.inspect(state, fleet, arrival, state.commercialHubs().getLast(), 10).ready());
+        assertFalse(TradeArrivalReadiness.inspect(state, state.fleets().getFirst(), arrival,
+                state.commercialHubs().getLast(), 10).ready());
+    }
+
+    @Test void queuedCrossingUsesDeparturePowerConsumptionAndMatchesItsPreview() {
+        var state = state(1000, 4000, false).withTradeRoutes(List.of(new TradeRoute("route", "Trade", "owner",
+                "source", "destination", "steel", 20, 0, 100, List.of("ship"), 0, true)));
+        var departed = new LogisticsProcessor().processTradeRoutes(state).state();
+        var actual = departed.fleets().getFirst();
+        assertTrue(actual.hasInterstellarOrder());
+        assertTrue(actual.location().inTransit());
+        var launch = state.fleets().getFirst().withShips(actual.ships());
+        var local = TradeLegReadiness.departureLocal(departed, launch);
+        var powerConsumed = LocalSpacePowerForecast.consume(departed, launch, FleetLocation.Site.deepSpace(), local);
+        assertTrue(powerConsumed.ships().getFirst().generatorFuelMassKg() < launch.ships().getFirst().generatorFuelMassKg());
+        var crossingFleet = LocalTravel.projectedArrival(powerConsumed, FleetLocation.Site.deepSpace(), local);
+        var expected = TradeLegReadiness.crossing(departed, crossingFleet, departed.commercialHubs().getLast());
+        assertNotNull(expected);
+        assertEquals(expected.days(), actual.interstellarTravelDays(), 1e-9);
+        assertEquals(expected.accelerationMps2(), actual.interstellarAccelerationMps2(), 1e-9);
+        assertEquals(expected.peakSpeedMps(), actual.interstellarPeakSpeedMps(), 1e-9);
+        assertEquals(expected.fuelBudgetKg(), actual.interstellarFuelBudgetKg());
+    }
+
     @Test void automatedOneWayShipmentActuallyDocksAndSellsBeforeConsideringAnotherLeg() {
         var state = state(0, 0, true).withTradeRoutes(List.of(new TradeRoute("route", "Trade", "owner",
                 "source", "destination", "steel", 20, 0, 100, List.of("ship"), 0, true)));
         var logistics = new LogisticsProcessor();
         var movement = new FleetProcessor();
-        for (int day = 0; day < 20 && state.tradeRoutes().getFirst().totalVolumeMovedKg() == 0; day++) {
+        boolean dockedBeforeSale = false;
+        for (int day = 0; day < 180 && state.tradeRoutes().getFirst().totalVolumeMovedKg() == 0; day++) {
+            if (state.fleets().getFirst().location().isAt(FleetLocation.Site.docked("station_b"))) {
+                dockedBeforeSale = true;
+                assertTrue(state.fleets().getFirst().ships().getFirst().currentFuelKg() >= 50 - 1e-6,
+                        "Departure, crossing and approach must leave the contingency reserve aboard.");
+                assertEquals(20, state.tradeRoutes().getFirst().onboardKg());
+                assertEquals(0, state.tradeRoutes().getFirst().totalVolumeMovedKg());
+            }
             state = logistics.processTradeRoutes(state).state();
             state = state.withFleets(movement.processFleetMovements(ShipPowerProcessor.advanceDay(state), List.of(), List.of()));
         }
         assertEquals(20, state.tradeRoutes().getFirst().totalVolumeMovedKg(), 1e-6);
         assertEquals(0, state.tradeRoutes().getFirst().onboardKg());
-        assertTrue(state.fleets().getFirst().location().isAt(FleetLocation.Site.docked("station_b")));
-        assertFalse(state.fleets().getFirst().hasInterstellarOrder());
+        assertTrue(dockedBeforeSale);
         assertEquals(TradeRoute.RETURNING, state.tradeRoutes().getFirst().phase());
         assertTrue(state.fleets().getFirst().ships().getFirst().generatorFuelMassKg() > 0);
     }

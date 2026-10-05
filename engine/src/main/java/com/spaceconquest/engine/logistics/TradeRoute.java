@@ -32,6 +32,7 @@ public record TradeRoute(
     public static final String LOADING = "LOADING";
     public static final String DELIVERING = "DELIVERING";
     public static final String RETURNING = "RETURNING";
+    public static final String REPOSITIONING = "REPOSITIONING";
 
     public TradeRoute {
         assignedFreighterIds = assignedFreighterIds == null ? List.of() : List.copyOf(assignedFreighterIds);
@@ -241,6 +242,16 @@ public record TradeRoute(
                 transferAmountPerTurnKg, minSourceInventoryThresholdKg, maxDestinationCapacityKg, assignedFreighterIds,
                 totalVolumeMovedKg, isActive, LOADING, onboardKg, onboardCostCredits, dailyOperatingResultCredits,
                 cumulativeOperatingResultCredits, roaming, "At port; choosing the next trade after sale.", cargoManifest);
+    }
+
+    /** An empty paid stop does not buy cargo or claim any delivered volume. */
+    public TradeRoute withRepositioning(String hubId) {
+        if (onboardKg > 0 || hubId == null || hubId.isBlank())
+            throw new IllegalArgumentException("An intermediate stop requires an empty manifest and a port");
+        return new TradeRoute(id, name, ownerEntityId, originEntityId, hubId, materialId,
+                transferAmountPerTurnKg, minSourceInventoryThresholdKg, maxDestinationCapacityKg, assignedFreighterIds,
+                totalVolumeMovedKg, isActive, REPOSITIONING, 0, 0, dailyOperatingResultCredits,
+                cumulativeOperatingResultCredits, roaming, status, cargoManifest);
     }
 
     public TradeRoute withLoadedManifest(Map<String, TradeCargo> manifest) {

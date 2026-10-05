@@ -35,7 +35,8 @@ public record ConstructionDeploymentProject(
         String armorMaterialId,
         double armorThicknessCm,
         double throughputCapacityKgPerTurn,
-        boolean isCompleted
+        boolean isCompleted,
+        Double parkingAltitudeKm
 ) {
     public static final String TYPE_ORBITAL_STATION = "ORBITAL_STATION";
     public static final String TYPE_SPACE_ELEVATOR = "SPACE_ELEVATOR";
@@ -43,8 +44,21 @@ public record ConstructionDeploymentProject(
     public static final String TYPE_STATION_MODULE = "STATION_MODULE";
 
     public ConstructionDeploymentProject {
+        if (parkingAltitudeKm != null && (!Double.isFinite(parkingAltitudeKm) || parkingAltitudeKm <= 0))
+            throw new IllegalArgumentException("Parking altitude must be finite and positive");
         requiredMaterialsKg = requiredMaterialsKg == null ? Map.of() : Map.copyOf(requiredMaterialsKg);
         consumedMaterialsKg = consumedMaterialsKg == null ? Map.of() : Map.copyOf(consumedMaterialsKg);
+    }
+
+    public ConstructionDeploymentProject(String projectId, String constructionShipId, String targetSystemId,
+                                         String targetCelestialId, String targetStructureType, double accumulatedProgressTurns,
+                                         double requiredProgressTurns, String ownerEntityId, Map<String, Double> requiredMaterialsKg,
+                                         Map<String, Double> consumedMaterialsKg, String structureName, String ownershipType,
+                                         String targetStationId, StationModule plannedModule, int totalSlots, String armorMaterialId,
+                                         double armorThicknessCm, double throughputCapacityKgPerTurn, boolean isCompleted) {
+        this(projectId, constructionShipId, targetSystemId, targetCelestialId, targetStructureType, accumulatedProgressTurns,
+                requiredProgressTurns, ownerEntityId, requiredMaterialsKg, consumedMaterialsKg, structureName, ownershipType,
+                targetStationId, plannedModule, totalSlots, armorMaterialId, armorThicknessCm, throughputCapacityKgPerTurn, isCompleted, null);
     }
 
     public ConstructionDeploymentProject(String projectId, String constructionShipId,
