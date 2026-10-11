@@ -17,27 +17,32 @@ public final class RoamingTradePlanner {
         if (source == null) return new Selection(null, 0, 0, "Waiting: current trading port is unavailable.");
         Selection best = null;
         boolean bestResupply = false;
+        double bestRelief = 0;
         for (var item : source.activeOrders().values().stream().sorted(Comparator.comparing(order -> order.resourceId())).toList()) {
             if (!Double.isFinite(item.pricePerKg()) || item.pricePerKg() < 0
                     || item.supplyKg() <= route.minSourceInventoryThresholdKg()) continue;
             for (var target : state.commercialHubs().stream().sorted(Comparator.comparing(CommercialHub::id)).toList()) {
                 var buyer = target.activeOrders().get(item.resourceId());
-                if (target.id().equals(source.id()) || buyer == null || buyer.demandKg() <= 0
+                if (target.id().equals(source.id()) || buyer == null || HubReplenishment.requestedKg(state, target, item.resourceId(), route.id()) <= 0
                         || !Double.isFinite(buyer.pricePerKg()) || buyer.pricePerKg() <= 0
                         || buyer.pricePerKg() * IndustryMarketProcessor.WHOLESALE_SHARE <= item.pricePerKg()) continue;
                 var candidate = route.withMarketChoice(item.resourceId(), target.id());
                 double buyerCash = state.marketAccounts().stream().filter(account -> account.hubId().equals(target.id()))
                         .mapToDouble(account -> account.unsettledSalesCredits()).findFirst().orElse(0);
-                double maximumKg = Math.min(buyer.demandKg(), buyerCash / (buyer.pricePerKg() * IndustryMarketProcessor.WHOLESALE_SHARE));
+                buyerCash = Math.min(buyerCash, HubReplenishment.buyerCashAvailable(state, target, route.id()));
+                double maximumKg = Math.min(HubReplenishment.requestedKg(state, target, item.resourceId(), route.id()), buyerCash / (buyer.pricePerKg() * IndustryMarketProcessor.WHOLESALE_SHARE));
                 if (!Double.isFinite(maximumKg) || maximumKg <= 1e-6) continue;
                 var sized = TradeShipmentSizing.choose(state, candidate, maximumKg);
                 if (sized == null) continue;
                 var shipment = sized.shipment();
                 double profit = sized.profit();
                 boolean resupply = FleetPortReadiness.inspect(state, shipment.preparedFleet(), target).available();
-                if (best == null || resupply && !bestResupply || resupply == bestResupply
-                        && profit / sized.days() > best.profitCredits() / best.days()) {
+                double relief = TradeFuelPriority.relief(state, shipment);
+                if (best == null || relief > bestRelief + 1e-9 || Math.abs(relief - bestRelief) <= 1e-9
+                        && (resupply && !bestResupply || resupply == bestResupply
+                        && profit / sized.days() > best.profitCredits() / best.days())) {
                     bestResupply = resupply;
+                    bestRelief = relief;
                     best = new Selection(shipment, profit, sized.days(), String.format(
                             "Selected %,.2f kg of %s to %s: expected profit %,.1f credits over %,.0f days after fuel, electricity, launch and tariff costs.",
                             shipment.route().onboardKg(), item.resourceId(), target.id(), profit, sized.days()));
@@ -48,15 +53,20 @@ public final class RoamingTradePlanner {
             var mixed = TradeBasketPlanner.choose(state, route, fleet, target);
             if (mixed == null) continue;
             boolean resupply = FleetPortReadiness.inspect(state, mixed.shipment().preparedFleet(), target).available();
-            if (best == null || resupply && !bestResupply || resupply == bestResupply
-                    && mixed.profit() / mixed.days() > best.profitCredits() / best.days()) {
+            double relief = TradeFuelPriority.relief(state, mixed.shipment());
+            if (best == null || relief > bestRelief + 1e-9 || Math.abs(relief - bestRelief) <= 1e-9
+                    && (resupply && !bestResupply || resupply == bestResupply
+                    && mixed.profit() / mixed.days() > best.profitCredits() / best.days())) {
                 bestResupply = resupply;
+                bestRelief = relief;
                 best = new Selection(mixed.shipment(), mixed.profit(), mixed.days(), String.format(
                         "Selected mixed load of %,.2f kg (%d goods) to %s: expected profit %,.1f credits over %,.0f days.",
                         mixed.shipment().route().onboardKg(), mixed.shipment().route().cargoManifest().size(),
                         target.id(), mixed.profit(), mixed.days()));
             }
         }
+        if (best != null && bestRelief > 0) best = new Selection(best.shipment(), best.profitCredits(), best.days(),
+                "Prioritized configured fuel shortage. " + best.explanation());
         return best == null ? new Selection(null, 0, 0,
                 "Waiting at port: no profitable loaded shipment has affordable supplies and a safe next leg.") : best;
     }

@@ -45,6 +45,8 @@ public final class LocalTravel {
     }
 
     public static Plan plan(GameState state, Fleet fleet, FleetLocation.Site destination) {
+        if (state != null && fleet != null && destination != null && RecoveredParkingTravel.ready(fleet))
+            return OrbitalTravel.preview(state, fleet, destination).plan();
         if (state == null || fleet == null || destination == null
                 || fleet.location().inTransit() || fleet.location().current().equals(destination))
             return null;
@@ -114,6 +116,8 @@ public final class LocalTravel {
     }
 
     public static Fleet depart(Fleet fleet, FleetLocation.Site destination, Plan plan) {
+        if (plan.orbital() != null && plan.orbital().sourceMotion() != null)
+            return RecoveredParkingTravel.depart(fleet, destination, plan);
         if (plan.orbital() != null) return fleet.withLocation(fleet.location().depart(destination, plan.days())
                 .withOrbitalFlight(new OrbitalFlight(plan.orbital(), 0, 0, OrbitalFlight.Status.WAITING,
                         plan.orbital().maneuvers().size() == 1 ? "Preparing funded docking or undocking approach"
@@ -131,11 +135,17 @@ public final class LocalTravel {
             return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(),
                     ship.currentHullHealth(), ship.currentShieldHealth(),
                     Math.max(0.0, ship.currentFuelKg() - used), Map.copyOf(cargo),
-                    ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState());
+                    ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage());
         }).toList();
-        var location = fleet.location().depart(destination, plan.days());
-        if (plan.physical() != null) location = location.withFlight(new LocalFlight(plan.physical().geometry(),
-                plan.physical().trajectory().at(0), plan.propellantKg(), plan.physical().propulsion(), false, false));
+        LocalFlight flight = plan.physical() == null ? null : new LocalFlight(plan.physical().geometry(),
+                plan.physical().vectorTrajectory() == null ? plan.physical().trajectory().at(0)
+                        : VectorFlight.motion(plan.physical().vectorTrajectory().at(0), plan.physical().geometry()),
+                plan.propellantKg(), plan.physical().propulsion(), false, false, null,
+                plan.physical().vectorTrajectory() == null ? null : plan.physical().vectorTrajectory().at(0));
+        var location = plan.physical() != null && (fleet.location().inTransit() || plan.physical().vectorTrajectory() != null
+                && plan.physical().vectorTrajectory().gravity() != null)
+                ? new FleetLocation(fleet.location().current(), destination, 0, plan.days(), flight)
+                : fleet.location().depart(destination, plan.days()).withFlight(flight);
         return fleet.withShips(ships).withLocation(location);
     }
 
@@ -143,7 +153,8 @@ public final class LocalTravel {
     public static Fleet arrivalPreview(GameState state, Fleet fleet, FleetLocation.Site destination, Plan plan) {
         if (plan.orbital() == null) return projectedArrival(LocalSpacePowerForecast.consume(state, fleet, destination, plan), destination, plan);
         return fleet.withShips(fleet.ships().stream().map(ship -> OrbitalPowerAccounting.projection(ship,
-                FleetSupplySimulation.design(state, ship), plan.orbital(), 0, 0).ship()).toList()).withLocation(FleetLocation.at(destination));
+                FleetSupplySimulation.design(state, ship), plan.orbital(), 0, 0,
+                !fleet.hasInterstellarOrder() && FleetShieldPolicy.recharge(state, fleet, true)).ship()).toList()).withLocation(FleetLocation.at(destination));
     }
 
     /** Conservative budget-only projection; full electrical orbital prediction uses arrivalPreview. */

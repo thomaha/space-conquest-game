@@ -26,8 +26,11 @@ public final class LocalFlightProcessor {
         var propulsion = flight.propulsion().get(shipId);
         if (propulsion == null) return 0;
         double exhaust = propulsion.exhaustVelocityMps();
-        double total = -Math.expm1(-trajectory.impulse(trajectory.totalSeconds()) / exhaust);
-        return total <= 0 ? 0 : -Math.expm1(-trajectory.impulse(elapsed) / exhaust) / total;
+        double totalImpulse = flight.vectorFlight() == null ? trajectory.impulse(trajectory.totalSeconds())
+                : flight.vectorFlight().trajectory().impulse(trajectory.totalSeconds());
+        double impulse = flight.vectorFlight() == null ? trajectory.impulse(elapsed) : flight.vectorFlight().trajectory().impulse(elapsed);
+        double total = -Math.expm1(-totalImpulse / exhaust);
+        return total <= 0 ? 0 : -Math.expm1(-impulse / exhaust) / total;
     }
 
     private static double used(LocalFlight flight, String shipId, double hours) {
@@ -36,21 +39,44 @@ public final class LocalFlightProcessor {
                 * Math.max(0, fraction(flight, shipId, elapsed + hours * 3600) - fraction(flight, shipId, elapsed));
     }
 
+    static double remainingPropellantKg(Fleet fleet, String shipId, double seconds) {
+        return used(fleet.location().localFlight(), shipId, seconds / 3600);
+    }
+
     public static Fleet advance(Fleet fleet, double hours, boolean powerTick) {
         var flight = fleet.location().localFlight();
         if (flight == null) return fleet;
         if (flight.interrupted()) return drift(fleet, hours, powerTick);
         double supplied = availableHours(fleet, hours);
+        boolean stationApproach = StationRendezvous.approach(fleet);
+        if (stationApproach) supplied = Math.min(supplied,
+                Math.max(0, flight.motion().trajectory().totalSeconds() - flight.motion().elapsedSeconds()) / 3600);
         var motion = flight.motion().trajectory().at(flight.motion().elapsedSeconds() + supplied * 3600);
+        var vector = flight.vectorFlight() == null ? null : flight.vectorFlight().advance(supplied * 3600, false);
+        if (vector != null) motion = VectorFlight.motion(vector, flight.geometry());
+        double fundedHours = supplied;
         var ships = fleet.ships().stream().map(ship -> new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(),
                 ship.currentHullHealth(), ship.currentShieldHealth(),
-                Math.max(0, ship.currentFuelKg() - used(flight, ship.id(), supplied)), ship.storedCargoKg(),
-                ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState())).toList();
+                Math.max(0, ship.currentFuelKg() - used(flight, ship.id(), fundedHours)), ship.storedCargoKg(),
+                ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage())).toList();
         Fleet moved = fleet.withShips(ships);
-        if (motion.elapsedSeconds() + 1e-6 >= motion.trajectory().totalSeconds())
+        if (vector == null && flight.rendezvousTargetId() != null && motion.elapsedSeconds() + 1e-6 >= motion.trajectory().totalSeconds()) {
+            var end = motion.trajectory().at(motion.trajectory().totalSeconds());
+            double priorDrift = flight.motion().elapsedSeconds() >= motion.trajectory().totalSeconds()
+                    ? Math.max(0, flight.motion().positionMeters() - end.positionMeters()) : 0;
+            double driftSeconds = Math.max(0, flight.motion().elapsedSeconds() + supplied * 3600 - motion.trajectory().totalSeconds());
+            motion = new FlightMotion(end.positionMeters() + priorDrift + end.velocityMps() * driftSeconds,
+                    end.velocityMps(), end.trajectory(), end.elapsedSeconds());
+        }
+        boolean completed = motion.elapsedSeconds() + 1e-6 >= motion.trajectory().totalSeconds();
+        boolean gravityFlight = vector != null && vector.trajectory().gravity() != null;
+        if (stationApproach && completed && StationRendezvous.contact(vector, flight.geometry().destination()))
+            return moved.withLocation(FleetLocation.at(fleet.location().destination()));
+        if (flight.rendezvousTargetId() == null && completed && !gravityFlight)
             return moved.withLocation(FleetLocation.at(fleet.location().destination()));
         moved = set(moved, new LocalFlight(flight.geometry(), motion, flight.propellantKg(), flight.propulsion(),
-                supplied + 1e-9 < hours, powerTick));
+                supplied + 1e-9 < hours || gravityFlight && completed && flight.rendezvousTargetId() == null,
+                powerTick, flight.rendezvousTargetId(), vector));
         return supplied + 1e-9 < hours ? drift(moved, hours - supplied, powerTick) : moved;
     }
 
@@ -58,7 +84,7 @@ public final class LocalFlightProcessor {
         Fleet moved = advance(fleet, poweredHours, true);
         if (moved.location().localFlight() == null) return moved;
         var flight = moved.location().localFlight();
-        moved = set(moved, new LocalFlight(flight.geometry(), flight.motion(), flight.propellantKg(), flight.propulsion(), true, true));
+        moved = set(moved, new LocalFlight(flight.geometry(), flight.motion(), flight.propellantKg(), flight.propulsion(), true, true, flight.rendezvousTargetId(), flight.vectorFlight()));
         return drift(moved, 24 - poweredHours, true);
     }
 
@@ -67,7 +93,9 @@ public final class LocalFlightProcessor {
         var prior = flight.motion();
         var motion = new FlightMotion(prior.positionMeters() + prior.velocityMps() * hours * 3600,
                 prior.velocityMps(), prior.trajectory(), prior.elapsedSeconds());
-        return set(fleet, new LocalFlight(flight.geometry(), motion, flight.propellantKg(), flight.propulsion(), true, powerTick));
+        var vector = flight.vectorFlight() == null ? null : flight.vectorFlight().advance(hours * 3600, true);
+        if (vector != null) motion = VectorFlight.motion(vector, flight.geometry());
+        return set(fleet, new LocalFlight(flight.geometry(), motion, flight.propellantKg(), flight.propulsion(), true, powerTick, flight.rendezvousTargetId(), vector));
     }
 
     private static Fleet set(Fleet fleet, LocalFlight flight) {
@@ -81,6 +109,6 @@ public final class LocalFlightProcessor {
         var flight = fleet.location().localFlight();
         if (!flight.advancedInPowerTick()) return advance(fleet, 24, false);
         return fleet.withLocation(fleet.location().withFlight(new LocalFlight(flight.geometry(), flight.motion(),
-                flight.propellantKg(), flight.propulsion(), flight.interrupted(), false)));
+                flight.propellantKg(), flight.propulsion(), flight.interrupted(), false, flight.rendezvousTargetId(), flight.vectorFlight())));
     }
 }

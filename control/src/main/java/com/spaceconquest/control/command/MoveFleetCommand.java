@@ -149,7 +149,7 @@ public record MoveFleetCommand(
                         plan.mode(), plan.days(), plan.distanceMeters(),
                         plan.accelerationMps2(), 0.0,
                         plan.peakSpeedMps(), plan.fuelBudgetKg(), null, plan.propulsion()
-                ).withFuelPolicy(fleet.fuelPolicy()));
+                ).withFuelPolicy(fleet.fuelPolicy()).withShieldPolicy(fleet.shieldPolicy()).withEscortOrder(fleet.escortOrder()));
             } else {
                 updatedFleets.add(fleet);
             }

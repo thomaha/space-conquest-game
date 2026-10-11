@@ -53,7 +53,10 @@ public record FleetLocation(Site current, Site destination, double progress, dou
             throw new IllegalArgumentException("Invalid local travel progress");
         if (destination == null && (progress != 0.0 || travelDays != 0.0))
             throw new IllegalArgumentException("Idle fleet cannot have travel progress");
-        if (destination != null && (destination.equals(current) || travelDays <= 0.0))
+        // A named orbit describes a radius, not a fleet's actual phase or velocity.
+        boolean physicalOrbitJourney = localFlight != null && localFlight.vectorFlight() != null
+                && localFlight.vectorFlight().trajectory().gravity() != null;
+        if (destination != null && ((destination.equals(current) && !physicalOrbitJourney) || travelDays <= 0.0))
             throw new IllegalArgumentException("A journey needs a distinct destination and duration");
     }
 

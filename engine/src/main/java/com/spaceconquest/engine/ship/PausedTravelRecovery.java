@@ -112,7 +112,7 @@ public final class PausedTravelRecovery {
         double elapsed = fleet.interstellarElapsedDays() + poweredHours / 24;
         double days = fleet.interstellarTravelDays() > 0 ? fleet.interstellarTravelDays() : InterstellarTravel.WARP_DAYS;
         if (elapsed >= days) return new Fleet(fleet.id(), fleet.name(), fleet.ownerEntityId(), fleet.targetSystemId(), "",
-                fleet.coordinateX(), fleet.coordinateY(), 0, false, fleet.fleetStance(), fleet.ships(), fleet.location(), "", 0).withFuelPolicy(fleet.fuelPolicy());
+                fleet.coordinateX(), fleet.coordinateY(), 0, false, fleet.fleetStance(), fleet.ships(), fleet.location(), "", 0).withFuelPolicy(fleet.fuelPolicy()).withShieldPolicy(fleet.shieldPolicy()).withEscortOrder(fleet.escortOrder());
         return copy(fleet, fleet.location(), Fleet.MODE_POWER_INTERRUPTED, elapsed, Math.clamp(elapsed / days, 0, 1));
     }
 
@@ -121,6 +121,6 @@ public final class PausedTravelRecovery {
                 fleet.coordinateX(), fleet.coordinateY(), progress, Fleet.MODE_WARP.equals(mode) && !location.inTransit(),
                 fleet.fleetStance(), fleet.ships(), location,
                 mode, fleet.interstellarTravelDays(), fleet.interstellarDistanceMeters(), fleet.interstellarAccelerationMps2(),
-                elapsed, fleet.interstellarPeakSpeedMps(), fleet.interstellarFuelBudgetKg(), null, fleet.journeyPropulsion()).withFuelPolicy(fleet.fuelPolicy());
+                elapsed, fleet.interstellarPeakSpeedMps(), fleet.interstellarFuelBudgetKg(), null, fleet.journeyPropulsion()).withFuelPolicy(fleet.fuelPolicy()).withShieldPolicy(fleet.shieldPolicy()).withEscortOrder(fleet.escortOrder());
     }
 }

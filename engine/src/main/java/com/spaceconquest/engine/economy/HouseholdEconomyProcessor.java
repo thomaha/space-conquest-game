@@ -47,7 +47,7 @@ public class HouseholdEconomyProcessor {
         Map<String, HouseholdAccount> previous = new HashMap<>();
         for (HouseholdAccount account : state.householdAccounts()) previous.put(account.key(), account);
         Map<String, CommercialHub> hubs = new LinkedHashMap<>();
-        for (CommercialHub hub : state.commercialHubs()) hubs.put(hub.id(), hub);
+        for (CommercialHub hub : state.commercialHubs()) hubs.put(hub.id(), hub.observeDay(state.turn()));
         Map<String, MarketAccount> marketAccounts = new HashMap<>();
         for (MarketAccount account : state.marketAccounts()) marketAccounts.put(account.hubId(), account);
         Map<String, Corporation> corporations = new LinkedHashMap<>();
@@ -257,7 +257,7 @@ public class HouseholdEconomyProcessor {
                     station.currentShieldHealth(), station.maxShieldHealth(),
                     station.currentHullHealth(), station.maxHullHealth(),
                     station.armorMaterialId(), station.armorThicknessCm(),
-                    station.isOperational(), station.populations(), station.parkingAltitudeKm());
+                    station.isOperational(), station.populations(), station.parkingAltitudeKm(), station.orbitalPhaseRadians());
         }).toList();
     }
 
@@ -337,9 +337,8 @@ public class HouseholdEconomyProcessor {
             Map<String, MarketOrder> orders = new HashMap<>(hub.activeOrders());
             orders.put(resourceId, new MarketOrder(resourceId, order.supplyKg() - quantity,
                     order.demandKg(), order.pricePerKg(), order.shortcomingScore()));
-            hubs.put(hub.id(), new CommercialHub(hub.id(), hub.entityId(), hub.transactionTariffRate(),
-                    hub.storageCapacityKg(), Math.max(0.0, hub.currentStoredWeightKg() - quantity),
-                    hub.logisticsRangeUnits(), orders));
+            hubs.put(hub.id(), hub.withInventory(hub.stockHistory().currentTurn(),
+                    Math.max(0.0, hub.currentStoredWeightKg() - quantity), orders));
             acquired += quantity;
             if (acquired >= requested) break;
         }

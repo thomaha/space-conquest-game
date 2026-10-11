@@ -56,6 +56,8 @@ public class ShipDesignerView {
     private final Map<String, PendingDesign> pendingDesigns = new LinkedHashMap<>();
     private GameState snapshot;
     private String editingDesignId;
+    private ComboBox<String> sensorChoice;
+    private final java.util.Map<String, Spinner<Integer>> combatChoices = new java.util.LinkedHashMap<>();
 
     private record PendingDesign(ShipDesign design, CompletableFuture<CommandOutcome> completion,
                                  boolean updating) {}
@@ -256,6 +258,8 @@ public class ShipDesignerView {
                     .contains(PassengerStasis.MODULE_ID));
         }
 
+        var sensorRow = createSensorChoice(editingDesign);
+        var combatRows = createCombatChoices(editingDesign);
         GridPane grid = createWorkbenchForm(nameField, roleCombo, matCombo, armorCombo,
                 armorSpinner, engineCombo, powerCombo);
 
@@ -265,6 +269,8 @@ public class ShipDesignerView {
                 matCombo.getValue(), armorCombo.getValue(), armorSpinner.getValue(),
                 engineCombo.getValue(), powerCombo.getValue(), stasisPod.isSelected());
         refreshStats.run();
+        sensorChoice.valueProperty().addListener((observable, old, selected) -> refreshStats.run());
+        combatChoices.values().forEach(choice -> choice.valueProperty().addListener((observable, old, selected) -> refreshStats.run()));
         engineCombo.valueProperty().addListener((observable, old, selected) -> refreshStats.run());
         powerCombo.valueProperty().addListener((observable, old, selected) -> refreshStats.run());
         roleCombo.valueProperty().addListener((observable, old, selected) -> refreshStats.run());
@@ -288,10 +294,10 @@ public class ShipDesignerView {
                 renderContent();
             });
             section.getChildren().addAll(header, new Label("Editing: " + editingDesign.name()),
-                    grid, stasisPod, statsBox, estimateBox,
+                    grid, stasisPod, sensorRow, combatRows, statsBox, estimateBox,
                     new HBox(8, saveBlueprintBtn, cancelEdit));
         } else {
-            section.getChildren().addAll(header, grid, stasisPod, statsBox, estimateBox,
+            section.getChildren().addAll(header, grid, stasisPod, sensorRow, combatRows, statsBox, estimateBox,
                     saveBlueprintBtn);
         }
         return section;
@@ -382,6 +388,14 @@ public class ShipDesignerView {
         var evaluation = ShipBlueprintFactory.evaluate(snapshot, specification);
         if (evaluation.physics() != null)
             statsBox.getChildren().setAll(createWorkbenchStatsBox(evaluation.physics()).getChildren());
+        if (evaluation.physics() != null) {
+            var modules = specification.moduleIds().stream().map(ShipComponentCatalog::module)
+                    .filter(java.util.Objects::nonNull).map(module -> com.spaceconquest.engine.ship.ShipApplicationProduction
+                            .optimize(snapshot, playerEmpireId, module)).toList();
+            var power = evaluation.design() == null ? com.spaceconquest.engine.ship.ShipPowerProfile.capture(modules)
+                    : evaluation.design().powerProfile();
+            statsBox.getChildren().add(createPowerDemandBox(power, modules, evaluation.physics().maxCargoMassKg()));
+        }
         if (!evaluation.valid()) {
             estimateBox.getChildren().add(new Label(String.join("; ", evaluation.errors())));
             return;
@@ -414,6 +428,39 @@ public class ShipDesignerView {
         caveat.setFill(Color.LIGHTGRAY);
         estimateLines.add(caveat);
         estimateBox.getChildren().setAll(estimateLines);
+    }
+
+    private VBox createPowerDemandBox(com.spaceconquest.engine.ship.ShipPowerProfile power,
+                                     List<ShipModule> modules, double cargoCapacity) {
+        double normal = power.hotelKw() + power.cargoKw() * (cargoCapacity > 0 ? 1 : .1);
+        double salvo = modules.stream().mapToDouble(module -> module.operationalStats().getOrDefault("weaponSalvoKwh", 0.0)
+                + module.operationalStats().getOrDefault("pointDefenseCapacity", 0.0) * module.operationalStats().getOrDefault("pointDefenseShotKwh", 0.0)).sum();
+        double shield = modules.stream().mapToDouble(module -> module.operationalStats().getOrDefault("shieldRechargePointsPerHour", 0.0)).sum()
+                * com.spaceconquest.engine.ship.ShipShieldRecharge.KWH_PER_POINT;
+        double hours = com.spaceconquest.engine.combat.TacticalCombatProcessor.SECONDS_PER_ROUND / 3600;
+        double combat = normal + salvo / hours + shield;
+        var box = new VBox(4);
+        var normalLine = new Text(String.format("Normal operations: %.1f kW (%.1f kWh/day)", normal, normal * 24));
+        normalLine.setId("designer-normal-power"); normalLine.setFill(Color.LIGHTCYAN);
+        var travelLine = new Text(String.format("Powered travel: %.1f kW including propulsion", normal + power.driveKw()));
+        travelLine.setId("designer-travel-power"); travelLine.setFill(Color.LIGHTCYAN);
+        var combatLine = new Text(String.format("Full combat: %.1f kW (%.2f kWh per %.0f-second round)", combat,
+                combat * hours, com.spaceconquest.engine.combat.TacticalCombatProcessor.SECONDS_PER_ROUND));
+        combatLine.setId("designer-combat-power"); combatLine.setFill(Color.LIGHTCYAN);
+        var breakdown = new Text(String.format("Combat adds %.2f kWh of salvos per round and up to %.1f kW of shield recharge.", salvo, shield));
+        breakdown.setFill(Color.LIGHTGRAY);
+        var propulsion = new Text(String.format("Full combat with propulsion: %.1f kW", combat + power.driveKw()));
+        propulsion.setFill(Color.LIGHTCYAN);
+        var supply = new Text(String.format("Rated supply: %.1f kW fueled generation + %.1f kW solar at Earth flux; battery discharge up to %.1f kW.",
+                power.chemicalKw() + power.fissionKw(), power.solarKw(), power.dischargeKw()));
+        supply.setFill(Color.LIGHTGRAY);
+        var assumptions = new Text("Healthy hardware, full preserved cargo and no passengers. Full combat includes all salvos and maximum shield recharge.");
+        assumptions.setFill(Color.LIGHTGRAY); assumptions.setWrappingWidth(620);
+        var limits = new Text("Passenger upkeep is additional. Sunlight and carried energy limit supply; full shields stop recharge.");
+        limits.setFill(Color.LIGHTGRAY); limits.setWrappingWidth(620);
+        breakdown.setWrappingWidth(620); supply.setWrappingWidth(620);
+        box.getChildren().addAll(normalLine, travelLine, combatLine, breakdown, propulsion, supply, assumptions, limits);
+        return box;
     }
 
     private Button createSaveBlueprintButton(TextField nameField, ComboBox<String> roleCombo,
@@ -533,8 +580,81 @@ public class ShipDesignerView {
         return section;
     }
 
+    private HBox createSensorChoice(ShipDesign editing) {
+        sensorChoice = new ComboBox<>();
+        sensorChoice.getItems().add("none");
+        var technologies = snapshot == null ? List.<String>of() : snapshot.empires().stream()
+                .filter(empire -> playerEmpireId.equals(empire.id())).map(com.spaceconquest.engine.Empire::unlockedTechIds)
+                .findFirst().orElse(List.of());
+        com.spaceconquest.engine.ship.SensorModuleCatalog.IDS.stream()
+                .filter(id -> com.spaceconquest.engine.ship.SensorModuleCatalog.researched(List.of(id), technologies))
+                .forEach(sensorChoice.getItems()::add);
+        sensorChoice.setConverter(new StringConverter<>() {
+            @Override public String toString(String id) {
+                var module = com.spaceconquest.engine.ship.SensorModuleCatalog.module(id);
+                return module == null ? "No sensor module" : module.name();
+            }
+            @Override public String fromString(String value) { return value; }
+        });
+        String selected = editing == null ? "none" : editing.equippedModuleIds().stream()
+                .filter(id -> com.spaceconquest.engine.ship.SensorModuleCatalog.module(id) != null).findFirst().orElse("none");
+        if (!sensorChoice.getItems().contains(selected)) sensorChoice.getItems().add(selected);
+        sensorChoice.setValue(selected);
+        return new HBox(8, new Label("Sensors:"), sensorChoice);
+    }
+
+    private VBox createCombatChoices(ShipDesign editing) {
+        combatChoices.clear(); var rows = new VBox(6);
+        var technologies = snapshot == null ? List.<String>of() : snapshot.empires().stream()
+                .filter(empire -> playerEmpireId.equals(empire.id())).map(com.spaceconquest.engine.Empire::unlockedTechIds)
+                .findFirst().orElse(List.of());
+        var hardwareIds = new ArrayList<>(com.spaceconquest.engine.ship.CombatModuleCatalog.IDS);
+        hardwareIds.add(com.spaceconquest.engine.ship.ShipRepairModuleCatalog.WORKSHOP);
+        for (String id : hardwareIds) {
+            int installed = editing == null ? 0 : (int) editing.equippedModuleIds().stream().filter(id::equals).count();
+            if (installed == 0 && (!com.spaceconquest.engine.ship.CombatModuleCatalog.researched(List.of(id), technologies)
+                    || !com.spaceconquest.engine.ship.ShipRepairModuleCatalog.researched(List.of(id), technologies))) continue;
+            var module = ShipComponentCatalog.module(id);
+            var count = new Spinner<Integer>(0, Math.max(60, installed), installed); count.setPrefWidth(90);
+            if (com.spaceconquest.engine.ship.ShipRepairModuleCatalog.WORKSHOP.equals(id))
+                count.setTooltip(new javafx.scene.control.Tooltip("Repairs its host then other ships in the same fleet using host cargo. "
+                        + "20 repair points per day per healthy powered workshop. Trade-assigned hosts retain their freight."));
+            if (com.spaceconquest.engine.ship.CombatModuleCatalog.SHIELD.equals(id))
+                count.setTooltip(new javafx.scene.control.Tooltip("200 shield capacity per healthy emitter. Recharge uses 2 kWh per point "
+                        + "at up to 10 points per hour, including combat. Quiet travel defers recharge until shared sensors detect a hostile fleet. "
+                        + "Damage reduces capacity and recharge rate. Required travel power and a 48-hour arrival reserve take priority."));
+            if (module.operationalStats().containsKey("weaponSalvoKwh"))
+                count.setTooltip(new javafx.scene.control.Tooltip(module.operationalStats().get("weaponSalvoKwh")
+                        + " kWh per healthy mount's combat salvo, in addition to continuous maintenance. "
+                        + "Maximum range: " + module.operationalStats().get("weaponRangeMeters") / 1000 + " km. "
+                        + "Live sensor contact and actual separation determine firing. Limited power reduces output. "
+                        + "Ship upkeep takes priority, followed by firing then shield recharge."));
+            if (com.spaceconquest.engine.ship.CombatModuleCatalog.MISSILE.equals(id))
+                count.setTooltip(new javafx.scene.control.Tooltip("One whole 100 kg guided_missile cargo round and 2 kWh per launch per minute. "
+                        + "10 kW idle draw, 2000 km maximum reach and 10 km/s provisional flight speed. Damage arrives in a later round. "
+                        + "Live shared guidance is required throughout flight. Lost contact or engagement end causes self-destruction. "
+                        + "Buy and load manufactured ammunition through ship cargo supplies; launchers start empty."));
+            if (com.spaceconquest.engine.ship.CombatModuleCatalog.LASER_POINT_DEFENSE.equals(id))
+                count.setTooltip(new javafx.scene.control.Tooltip("Requires developed laser weapons and the laser point-defense application. "
+                        + "20 kW idle draw. Up to two incoming missiles per healthy mount per minute within 50 km, at 1 kWh each. "
+                        + "Funded defense precedes offensive salvos and shield recharge. Damage and power shortages reduce capacity. "
+                        + "Requires live detection; operates while evading. It contributes no offensive ship damage."));
+            if (com.spaceconquest.engine.ship.CombatModuleCatalog.KINETIC_POINT_DEFENSE.equals(id))
+                count.setTooltip(new javafx.scene.control.Tooltip("Requires developed mass drivers and their point-defense application. "
+                        + "15 kW idle draw. Up to three incoming missiles per healthy mount per minute within 25 km. "
+                        + "Each interception consumes 0.5 kWh and one whole 5 kg kinetic_pd_round cargo cartridge. "
+                        + "Buy and load manufactured ammunition through cargo supplies. Empty magazines cannot intercept. "
+                        + "Damage and power shortages reduce capacity; no offensive ship damage is provided."));
+            combatChoices.put(id, count); rows.getChildren().add(new HBox(8, new Label(module.name() + ":"), count));
+        }
+        return rows;
+    }
     private List<String> workbenchModules(String drive, boolean stasis, ShipPowerOption power) {
         List<String> modules = new ArrayList<>(ShipComponentCatalog.workbenchModules(drive, stasis, power.primaryId(), power.solarSupport()));
+        if (sensorChoice != null && com.spaceconquest.engine.ship.SensorModuleCatalog.module(sensorChoice.getValue()) != null)
+            modules.add(sensorChoice.getValue());
+        for (var entry : combatChoices.entrySet())
+            for (int i = 0; i < entry.getValue().getValue(); i++) modules.add(entry.getKey());
         ShipDesign editing = registeredDesigns.stream().filter(design -> design.id().equals(editingDesignId)).findFirst().orElse(null);
         if (editing != null && editing.equippedModuleIds().contains(com.spaceconquest.engine.ship.ChemicalFreighterCatalog.MAIN_TANK)) {
             modules.remove("mod_cargo_vault");

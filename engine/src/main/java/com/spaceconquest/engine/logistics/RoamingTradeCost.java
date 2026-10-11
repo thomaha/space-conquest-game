@@ -60,7 +60,7 @@ final class RoamingTradeCost {
                 if (fleet == null) return null;
             }
             fleet = new Fleet(fleet.id(), fleet.name(), fleet.ownerEntityId(), FleetPositioning.systemForHub(state, target),
-                    "", 0, 0, 0, false, fleet.fleetStance(), fleet.ships(), FleetLocation.at(FleetLocation.Site.deepSpace())).withFuelPolicy(fleet.fuelPolicy());
+                    "", 0, 0, 0, false, fleet.fleetStance(), fleet.ships(), FleetLocation.at(FleetLocation.Site.deepSpace())).withFuelPolicy(fleet.fuelPolicy()).withShieldPolicy(fleet.shieldPolicy()).withEscortOrder(fleet.escortOrder());
             var dock = LocalTravel.plan(state, fleet, FleetPositioning.hubSite(state, target));
             if (dock == null) return null;
             days += Math.ceil(dock.days());
@@ -81,7 +81,7 @@ final class RoamingTradeCost {
         for (var ship : fleet.ships()) {
             var design = FleetSupplySimulation.design(state, ship);
             if (design == null || design.powerProfile() == null) return null;
-            var p = design.powerProfile();
+            var p = design.powerProfile(ship);
             var interval = ShipPowerProcessor.interval(p, ShipPowerProcessor.reserves(ship), hours, 0,
                     p.essentialKw(ship, design), ShipPowerProcessor.cargoKw(p, ship, design), p.driveKw());
             if (!interval.supplied()) return null;

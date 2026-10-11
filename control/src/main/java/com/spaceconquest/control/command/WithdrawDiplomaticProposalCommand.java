@@ -10,7 +10,7 @@ public record WithdrawDiplomaticProposalCommand(String proposalId, String sender
     @Override
     public boolean validate(GameState state) {
         if (state == null || proposalId == null || senderEmpireId == null) return false;
-        boolean senderExists = state.empires().stream().anyMatch(empire -> senderEmpireId.equals(empire.id()));
+        boolean senderExists = com.spaceconquest.engine.galaxy.SensorSharing.partyExists(state, senderEmpireId);
         if (!senderExists) return false;
         return state.diplomaticProposals().stream().anyMatch(proposal ->
                 proposalId.equals(proposal.id())

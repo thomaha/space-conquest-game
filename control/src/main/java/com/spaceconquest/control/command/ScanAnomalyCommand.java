@@ -25,7 +25,10 @@ public record ScanAnomalyCommand(
             return false;
         }
         boolean empValid = state.empires().stream().anyMatch(e -> e.id().equals(empireId));
-        boolean fleetValid = state.fleets().stream().anyMatch(f -> f.id().equals(fleetId));
+        boolean fleetValid = state.fleets().stream().anyMatch(f -> f.id().equals(fleetId)
+                && empireId.equals(f.ownerEntityId()) && anomaly.systemId().equals(f.currentSystemId())
+                && !f.isInWarp() && !f.isInterstellarTransit()
+                && new FleetProcessor().calculateFleetScannerRange(f, state.shipDesigns()) > 0);
         return empValid && fleetValid;
     }
 

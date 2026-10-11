@@ -39,7 +39,7 @@ public record SetTariffRateCommand(
                         hub.storageCapacityKg(),
                         hub.currentStoredWeightKg(),
                         hub.logisticsRangeUnits(),
-                        hub.activeOrders()
+                        hub.activeOrders(), hub.stockTargets(), hub.stockHistory(), hub.reservedTradeFuel()
                 ));
             } else {
                 updatedHubs.add(hub);

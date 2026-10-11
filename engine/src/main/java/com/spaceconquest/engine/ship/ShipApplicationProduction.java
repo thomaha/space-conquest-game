@@ -28,6 +28,7 @@ public final class ShipApplicationProduction {
     private ShipApplicationProduction() {}
 
     public static String applicationId(String moduleId) {
+        if (SensorModuleCatalog.ADVANCED.equals(moduleId) || "scanner_array_01".equals(moduleId)) return "scanners";
         return APPLICATIONS.get(moduleId);
     }
 
@@ -38,6 +39,11 @@ public final class ShipApplicationProduction {
         if (modifiers.effectMultiplier() == 1.0 && modifiers.costMultiplier() == 1.0
                 && modifiers.complexityShift() == 0) return module;
         Map<String, Double> stats = module.operationalStats();
+        if (stats.containsKey("sensorRangeKm")) {
+            stats = new HashMap<>(stats);
+            stats.computeIfPresent("sensorRangeKm", (key, range) -> range * modifiers.effectMultiplier());
+            stats.computeIfPresent("scanStrength", (key, strength) -> strength * modifiers.effectMultiplier());
+        }
         if (stats.containsKey("thrusterEfficiency")) {
             stats = new HashMap<>(stats);
             stats.computeIfPresent("thrusterEfficiency", (key, efficiency) -> Math.clamp(efficiency * modifiers.effectMultiplier(), 0, 1));

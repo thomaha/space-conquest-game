@@ -1,5 +1,51 @@
 # Frontend module
+
+ShipDesignerView adds researched mass-driver point defense through ordinary component counts and typed defensive energy previews. Its tooltip explains matching development, shorter range, finite cartridge use and paid work. FleetManagementView shows whole kinetic cartridges from snapshots. Existing queued cargo supplies purchase and load manufactured stock without frontend mutations. See [CombatModules.md](../CombatModules.md#kinetic-point-defense).
+
+ShipDesignerView exposes researched laser point-defense mounts through ordinary component counts. Normal power includes defensive idle draw and full combat power includes maximum active defensive shots. The tooltip identifies matching laser development, range, whole capacity, paid energy, damage and operation while evading. Saving uses existing queued design commands and views supply no free defense. See [CombatModules.md](../CombatModules.md#weapon-specific-point-defense).
+
+ShipDesignerView exposes the researched guided missile launcher through ordinary component counts and includes idle and full launch power in previews. Its tooltip explains whole cargo cartridges, delayed impacts and live guidance. FleetManagementView displays whole carried missile rounds from snapshots. Existing queued cargo supplies purchase and load manufactured stock; the view never creates ammunition or spends energy. See [CombatModules.md](../CombatModules.md#missile-weapons).
+
+FleetInterceptCard explains funded firing offsets with matched arrival velocity for detected coasts around the same body. The tooltip stages no extra mutation and planning remains tick-owned. See [InterceptOrders.md](../InterceptOrders.md#moving-stand-off-around-a-body).
+
+FleetInterceptCard explains that a range advantage may use a funded stand-off parking orbit around the same body. Planning and payment remain on the engine tick. See [InterceptOrders.md](../InterceptOrders.md#funded-stand-off-parking).
+
+ShipDesignerView weapon tooltips show provisional maximum range and distinguish live sensor contact from actual firing separation. FleetInterceptCard explains engagement before rendezvous, avoiding new approaches within reach and continued physical motion after commitment. These are snapshot descriptions; range, payment and travel decisions remain on the engine tick. See [CombatModules.md](../CombatModules.md#weapon-engagement-ranges).
+
+FleetShieldPolicyCard offers automatic, always charge and conserve energy choices and stages SetFleetShieldPolicyCommand. It shows the authoritative snapshot's current policy and recharge eligibility reason from a background query with stale-response guards. Local selection does not change charging before tick execution. The card explains reserve and power limits plus combat conservation. SensorContactCard attributes remembered-threat recharge eligibility only to automatic policy. See [CombatModules.md](../CombatModules.md#fleet-shield-policy).
+
+SensorContactCard adds expandable read-only contact panels to fleet cards and the galaxy map's selected system or fleet. Immutable presentation records distinguish live detections from stored lost contacts with observation day, age, system coordinates and uncertainty radius. Only live detections resolve current fleet names and positions. Fleet panels explain remembered-threat power priorities and blocked escape return. Coverage and safety queries run off the FX thread with request and snapshot guards; expansion survives tick refreshes. The panel stages no commands and existing interception choices still validate live coverage. See [SensorModules.md](../SensorModules.md#contact-display).
+
+ShipPowerCard separates critical upkeep from equipment idle load and displays services switched off by authoritative power allocation. FleetRepairStatus reports workshop shedding as a provider blocker. The UI reads immutable power snapshots without switching hardware or allocating energy. See [ShipRepairs.md](../ShipRepairs.md#power-load-shedding).
+
+FleetRepairStatusCard adds a read-only expandable panel to each fleet card. Immutable FleetRepairStatus diagnostics show damage, per-recipient priorities, workshop capacity, actual current-store funded work, first-recipe shortages, power or freight blockers, physically docked first-job base quotes and saved recovery missions. Calculations run off the JavaFX thread only for expanded panels. Expansion survives tick refreshes and request and snapshot identity guards reject stale results. No action mutates stores, orders or repairs. FleetRepairStatusCardTest checks rendering, lazy evaluation, expansion persistence, stale responses and failure feedback. See [ShipRepairs.md](../ShipRepairs.md#fleet-repair-status).
+
+ShipDesignerView shows normal-operation kW and daily kWh, powered-travel demand, full-combat kW and energy per current tactical round. The combat requirement includes all healthy weapon salvos and maximum shield recharge; a separate combined figure adds propulsion. Rated fueled generation, solar at Earth flux and battery discharge appear alongside demand. These light local previews use selected optimized module stats and captured electrical profiles, remain available when physics validation rejects a draft and update with module choices. They assume full preserved cargo, healthy hardware and no passengers; occupancy adds upkeep and full shields stop optional charging. No preview spends energy or changes design validity. See [CombatModules.md](../CombatModules.md#designer-power-requirements).
+
+ShipDesignerView shows each weapon's salvo kWh, continuous maintenance distinction and combat power priority in researched weapon tooltips. It explains that limited power reduces firing and shield recharge follows funded shots. These are snapshot-backed descriptions; only engine combat accounting consumes stores. See [CombatModules.md](../CombatModules.md#funded-weapon-firing).
+
+ShipDesignerView explains shield capacity, damaged recharge rate, electrical cost, reserve priority and quiet-travel energy saving in the emitter tooltip. This is snapshot guidance only; authoritative charging runs through engine power accounting. See [CombatModules.md](../CombatModules.md#powered-shield-recharge).
+
+FleetGuardCard and FleetEscortCard show assignments paused for repair and keep validated cancellation controls available. FleetInterceptCard shows onboard or base repair recovery separately from an active pursuit. These snapshot-backed controls stage existing commands; no view repairs ships or changes paid travel. See [FleetProtection.md](../FleetProtection.md).
+
+OrbitalStationView offers a snapshot-validated base repair workshop build button with shared capacity, labor and material guidance. The action stages AddStationModuleCommand. Repairs and all payment or inventory changes remain on the engine tick. See [BaseRepairs.md](../BaseRepairs.md).
+
+ShipDesignerView offers researched repair workshop counts alongside combat equipment. Its tooltip explains self-first fleet repair, host materials, daily capacity and protection of trade-assigned freight. Installed counts remain visible when editing unused designs. Snapshot-based previews include mass and power while saving stages existing design commands. Execution stays on the engine tick. See [ShipRepairs.md](../ShipRepairs.md).
+
+ShipDesignerView offers researched cannon, laser, mass-driver and shield-emitter counts from the injected snapshot. Local previews include their module costs and electrical demand. Existing counts remain visible when editing unused designs and saving stages the ordinary design or update command. The UI does not add equipment directly to ships. See [CombatModules.md](../CombatModules.md).
+
+DiplomacyView adds a snapshot-only SensorSharingCard with imperial proposal, acceptance, rejection, withdrawal and revocation controls. Corporation partners use the same explicit agreement flow. All actions stage commands. The galaxy map continues to consume the empire's common current fog-of-war contacts, now including authorized corporate and diplomatic sensor contributors. SensorSharingCardTest verifies queued changes.
+
+FleetInterceptCard reads the injected snapshot to offer currently detected hostile fleet targets and stages intercept or cancellation commands. Physical travel planning stays on the simulation tick. Its tooltip identifies supported straight-line, stellar and same-body planetary or lunar coast rendezvous, waiting for other moving targets and ending pursuit on lost contact. See [InterceptOrders.md](../InterceptOrders.md).
 ## Frontend module rules
+
+OrbitalTravelCard identifies orbital phasing in direct and saved post-capture station approach previews. The label derives from the saved short burns and longer coast; numerical planning stays on the existing asynchronous preview worker.
+
+OrbitalTravelCard's asynchronous local departure preview accepts completed circular body recovery. Existing local destination controls can queue docking or same-body parking transfers. The asynchronous preview identifies both direct and post-capture station rendezvous, its duration and position and velocity matching. Other drifting fleets remain blocked. Orbital status reads saved sourceMotion directly, avoiding numerical propagation on the JavaFX thread. Waiting cancellation and failed approach feedback describe the retained physical coast rather than a fictitious return to a departure base.
+
+The intercept tooltip identifies stellar-coast support. The shared recovery controls offer radius in AU for stellar flights or parking altitude in km for planetary and lunar flights, plus current phase. They read immutable physical initial state without converting the injected snapshot. Funded previews run asynchronously and stale results are discarded. RecoverOrbitalTravelCommand captures the expected gravity frame and recomputes readiness on execution. Immediate thrust cancellation also stages a tracked command. Completion remains a moving circular coast and docking requires a separate maneuver. OrbitalControlsTest verifies queued cancellation, failed-capture controls, Earth and Moon altitude units and preserved physical state. FleetManagementView labels body-relative velocity with the saved frame.
+
+Fleet and power cards identify system-space vector maneuvers and drift without describing their projected progress as an actual on-route position. The intercept tooltip includes sideways deep-space approaches. Physical vector state is an immutable engine snapshot record; assignment still queues a command.
 - This package is purely responsible for rendering the UI.
 - All structural player assignments must be backed by actual game data. You are forbidden from allowing a player to assign more resources (e.g., scientists) than are actively available in the empire data model.
 
@@ -8,6 +54,18 @@ All data presented must be tied to the actual data in the game world. Such that 
 All assignments made must be backed by actual data in the game world. Example: you cannot assign more scientists to perform research than available in the empire.
 
 ## Key components
+
+- ShipDesignerView offers researched sensor modules and preserves installed sensor choices during blueprint editing. OrbitalStationView queues catalog sensor construction. GalaxyCanvasView renders and selects only owned fleets or current detected foreign contacts. These controls use snapshots and staged commands. See [SensorModules.md](../SensorModules.md).
+
+- `FleetEscortCard` stages attachment of an idle owned military fleet to a co-located owned convoy or detachment of its surviving escort ships. The protected fleet retains its identity and route while all ships share actual travel and combat. Controls read snapshots and use existing validated formation commands on the tick.
+
+- `FleetGuardCard` offers guard and cancellation commands for owned military fleets and valid objects at their current site. Controls read the injected snapshot and stage commands for the next tick. Existing travel controls move a ship to an object before guarding; the card performs no pathfinding or movement.
+
+- `HubStockTargetCard` adds per-material reorder and target quantities to controlled commercial hub cards. It displays persisted refill intent and queues validated settings for the next tick without mutating the injected snapshot. See [HubStockTargets.md](../HubStockTargets.md).
+
+- `HubFuelStockSuggestionCard` offers editable departure, demand, supplier cycle and delay inputs. Snapshot demand uses the higher of modeled demand and rolling withdrawals with stockout warnings. Estimation runs asynchronously with stale-response guards. A reviewed mixture queues one atomic command and combined storage overcommitment disables application. Planning records are immutable and never modify simulation state.
+
+- `HubFuelCoverageCard` displays usable fuel, limiting ingredients, actual paid inbound, requests and source stock from immutable `HubFuelCoverage` records. Ingredient history shows rolling withdrawals, deliveries, observed days and stockout days over the last 30 completed days. Background responses cannot replace a newer selection and per-hub selection survives tick refreshes. Directed suppliers are separated from potential roaming routes; warnings remain advisory rather than promising safe funded delivery. The card has no mutation controls.
 
 - Fleet cards show interrupted physical local flight and actual drift velocity from immutable location snapshots. Recovery controls stage the same validated command and distinguish newly funded local braking from older prepaid resumption. Physical forecasts remain bounded engine calculations; UI controls do not mutate trajectory or reserves. See [LocalTravel.md](../LocalTravel.md).
 - The commercial hub workbench offers optional roaming trade and disables predefined destination and material selection in that mode. Route rows identify their mode, display every carried manifest material and quantity and show tick-owned profit estimates or waiting messages. The kg/load setting caps the whole shipment, including mixed baskets. Candidate sizing and trade simulations run on the engine tick rather than the JavaFX application thread.
@@ -231,3 +289,9 @@ OrbitalJourneyDiagram renders a responsive canvas with moving endpoint envelopes
 Parking journeys label the parent planet at the diagram center and distinguish departure and arrival orbit markers. One-event equal-altitude approaches show their single funded maneuver without a fictitious transfer arc. Local previews distinguish parking transfers from interplanetary orders and use the actual coast duration. Exact station phasing remains explicitly omitted.
 
 OrbitalStationConstructionCard also offers moons with parent labels and validates lunar parking altitudes before staging construction. OrbitalTravelCard identifies lunar transfers and OrbitalJourneyDiagram reads the saved gravity frame to distinguish parent-centered lunar coast from Moon-centered parking. The lunar transfer envelope omits local parking motion and exact station phasing. See [LunarTransfers.md](../LunarTransfers.md).
+
+
+ShipPowerCard reads condition-scaled electrical capability from the injected ship snapshot for battery capacity, generation and charging limits. Designer demand and supply previews retain healthy blueprint ratings. This adds no direct mutation or heavy FX-thread computation. See [ShipRepairs.md](../ShipRepairs.md#electrical-damage-and-recovery).
+
+
+The fleet repair priority explanation now includes useful electrical restoration after disabled workshops, then funded mobility restoration. Mount lists and first-job quotes come from the shared engine ordering with actual fleet illumination and carried reserves; the UI does not calculate or commit repairs. See [ShipRepairs.md](../ShipRepairs.md#useful-power-restoration).

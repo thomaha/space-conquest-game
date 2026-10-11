@@ -45,7 +45,11 @@ public record SetDiplomaticTierCommand(
         if (!DiplomacyProcessor.TOTAL_WAR.equalsIgnoreCase(newTier)) return updated;
 
         List<DiplomaticProposal> proposals = updated.diplomaticProposals().stream()
-                .map(proposal -> isPendingProposalBetween(proposal, empireAId, empireBId, updated.turn())
+                .map(proposal -> com.spaceconquest.engine.governance.DiplomaticPact.SENSOR_DATA_SHARING.equalsIgnoreCase(proposal.proposalType())
+                        && DiplomaticProposal.STATUS_ACCEPTED.equals(proposal.status())
+                        && com.spaceconquest.engine.galaxy.SensorSharing.atWar(updated, proposal.senderEmpireId(), proposal.receiverEmpireId())
+                        ? proposal.withStatus(DiplomaticProposal.STATUS_REVOKED)
+                        : isPendingProposalBetween(proposal, empireAId, empireBId, updated.turn())
                         ? proposal.withStatus(DiplomaticProposal.STATUS_REJECTED)
                         : proposal)
                 .toList();

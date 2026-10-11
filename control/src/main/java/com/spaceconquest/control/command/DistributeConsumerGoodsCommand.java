@@ -44,11 +44,7 @@ public record DistributeConsumerGoodsCommand(
                             "consumer_goods", consumerGoodsAmountKg, consumerGoodsAmountKg, 10.0, 0.0
                     ));
                 }
-                return new CommercialHub(
-                        hub.id(), hub.entityId(), hub.transactionTariffRate(),
-                        hub.storageCapacityKg(), hub.currentStoredWeightKg() + consumerGoodsAmountKg,
-                        hub.logisticsRangeUnits(), orders
-                );
+                return hub.withInventory(state.turn(), hub.currentStoredWeightKg() + consumerGoodsAmountKg, orders);
             }
             return hub;
         }).toList();

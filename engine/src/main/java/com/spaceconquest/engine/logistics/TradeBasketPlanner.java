@@ -3,7 +3,6 @@ package com.spaceconquest.engine.logistics;
 import com.spaceconquest.engine.CommercialHub;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.MarketOrder;
-import com.spaceconquest.engine.market.MarketStockpilePolicy;
 import com.spaceconquest.engine.industry.IndustryMarketProcessor;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.FleetPositioning;
@@ -12,8 +11,10 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
 
-/** Provisional greedy mixed basket for one receiving port, with a shared paid voyage budget. */
+/** Bounded alternative mixed baskets for one receiving port, sharing a paid voyage budget. */
 final class TradeBasketPlanner {
     private TradeBasketPlanner() {}
 
@@ -23,42 +24,84 @@ final class TradeBasketPlanner {
         var ship = fleet.ships().stream().filter(item -> route.assignedFreighterIds().contains(item.id())).findFirst().orElse(null);
         var design = ship == null ? null : FleetSupplySimulation.design(state, ship);
         if (design == null) return null;
-        double room = Math.min(route.transferAmountPerTurnKg(), Math.min(target.storageCapacityKg() - target.currentStoredWeightKg(),
+        double room = Math.min(route.transferAmountPerTurnKg(), Math.min(HubReplenishment.storageRoomKg(state, target, route.id()),
                 design.maxCargoMassKg() - ship.storedCargoKg().values().stream().mapToDouble(Double::doubleValue).sum()
                         - ship.passengerCount() * 80));
         double buyerCash = state.marketAccounts().stream().filter(account -> account.hubId().equals(target.id()))
                 .mapToDouble(account -> account.unsettledSalesCredits()).findFirst().orElse(0);
-        var requested = new LinkedHashMap<String, Double>();
-        var sorted = source.activeOrders().values().stream().filter(item -> margin(item, target) > 0)
-                .sorted(Comparator.<MarketOrder>comparingDouble(item -> margin(item, target)).reversed()
+        buyerCash = Math.min(buyerCash, HubReplenishment.buyerCashAvailable(state, target, route.id()));
+        var sorted = source.activeOrders().values().stream().filter(item -> margin(item, target) > 0
+                        && HubReplenishment.requestedKg(state, target, item.resourceId(), route.id()) > 0)
+                .sorted(Comparator.<MarketOrder>comparingDouble(item ->
+                                TradeFuelPriority.urgency(state, target, item.resourceId(), route.id())).reversed()
+                        .thenComparing(Comparator.<MarketOrder>comparingDouble(item -> margin(item, target)).reversed())
                         .thenComparing(MarketOrder::resourceId)).toList();
-        for (var seller : sorted) {
-            var buyer = target.activeOrders().get(seller.resourceId());
-            double bid = buyer.pricePerKg() * IndustryMarketProcessor.WHOLESALE_SHARE;
-            double mass = Math.min(room, Math.min(buyerCash / bid, Math.min(buyer.demandKg(),
-                    Math.min(Math.max(0, seller.supplyKg() - route.minSourceInventoryThresholdKg()),
-                            Math.min(route.maxDestinationCapacityKg() - buyer.supplyKg(),
-                                    MarketStockpilePolicy.targetStockKg(buyer) - buyer.supplyKg())))));
-            if (!Double.isFinite(mass) || mass <= 1e-6) continue;
-            requested.put(seller.resourceId(), mass); room -= mass; buyerCash -= mass * bid;
+        var requested = basket(state, route, target, sorted, room, buyerCash, Map.of());
+        var greedy = sized(state, route.withDestination(target.id()), requested);
+        if (greedy != null) return greedy;
+        TradeShipmentSizing.Selection best = null;
+        var goods = sorted.stream().filter(item -> TradeFuelPriority.urgency(state, target, item.resourceId(), route.id()) <= 0).toList();
+        for (var fuel : sorted.stream().filter(item ->
+                TradeFuelPriority.urgency(state, target, item.resourceId(), route.id()) > 0).limit(8).toList()) {
+            var order = new ArrayList<MarketOrder>();
+            order.add(fuel); order.addAll(goods); order.add(fuel);
+            var mixed = basket(state, route, target, order, room, buyerCash, Map.of(fuel.resourceId(), room / 2));
+            var selected = sized(state, route.withDestination(target.id()), mixed);
+            if (selected == null) selected = sized(state, route.withDestination(target.id()),
+                    basket(state, route, target, List.of(fuel), room, buyerCash, Map.of()));
+            if (TradeFuelPriority.better(state, selected, best)) best = selected;
         }
-        if (requested.size() < 2) return null;
+        return best;
+    }
+
+    /** Seed a partial fuel load, add goods, then offer the remaining capacity to that fuel. */
+    private static Map<String, Double> basket(GameState state, TradeRoute route, CommercialHub target,
+                                              List<MarketOrder> sellers, double room, double buyerCash,
+                                              Map<String, Double> firstLimits) {
+        var requested = new LinkedHashMap<String, Double>();
+        for (var seller : sellers) {
+            var buyer = target.activeOrders().get(seller.resourceId());
+            double allocated = requested.getOrDefault(seller.resourceId(), 0.0);
+            double bid = buyer.pricePerKg() * IndustryMarketProcessor.WHOLESALE_SHARE;
+            double mass = Math.min(room, Math.min(buyerCash / bid, Math.min(HubReplenishment.requestedKg(state, target, seller.resourceId(), route.id()) - allocated,
+                    Math.min(Math.max(0, seller.supplyKg() - route.minSourceInventoryThresholdKg() - allocated),
+                            Math.min(route.maxDestinationCapacityKg() - buyer.supplyKg() - allocated,
+                                    HubReplenishment.targetStockKg(target, seller.resourceId()) - buyer.supplyKg() - allocated)))));
+            if (!requested.containsKey(seller.resourceId())) mass = Math.min(mass, firstLimits.getOrDefault(seller.resourceId(), Double.POSITIVE_INFINITY));
+            if (!Double.isFinite(mass) || mass <= 1e-6) continue;
+            requested.merge(seller.resourceId(), mass, Double::sum); room -= mass; buyerCash -= mass * bid;
+        }
+        return requested;
+    }
+
+    private static TradeShipmentSizing.Selection sized(GameState state, TradeRoute route, Map<String, Double> requested) {
+        var target = state.commercialHubs().stream().filter(hub -> hub.id().equals(route.destinationEntityId())).findFirst().orElseThrow();
+        if (requested.isEmpty() || requested.size() == 1
+                && TradeFuelPriority.urgency(state, target, requested.keySet().iterator().next(), route.id()) <= 0) return null;
         double high = 1, low = 1;
-        var best = evaluate(state, route.withDestination(target.id()), requested, 1);
-        if (best != null && best.profit() > 1e-6) return best;
+        var best = evaluate(state, route, requested, 1);
+        if (best != null && best.profit() > 1e-6) {
+            if (TradeFuelPriority.consumesUrgentStock(state, best.shipment())) {
+                for (int attempt = 1; attempt <= 3; attempt++) {
+                    var candidate = evaluate(state, route, requested, 1.0 / (1 << attempt));
+                    if (TradeFuelPriority.better(state, candidate, best)) best = candidate;
+                }
+            }
+            return best;
+        }
         for (int attempt = 0; attempt < 12; attempt++) {
             high = low; low /= 2;
-            best = evaluate(state, route.withDestination(target.id()), requested, low);
+            best = evaluate(state, route, requested, low);
             if (best != null) break;
         }
         if (best == null) return null;
         for (int attempt = 0; attempt < 8; attempt++) {
             double middle = (low + high) / 2;
-            var candidate = evaluate(state, route.withDestination(target.id()), requested, middle);
+            var candidate = evaluate(state, route, requested, middle);
             if (candidate == null) high = middle;
             else {
                 low = middle;
-                if (candidate.profit() / candidate.days() > best.profit() / best.days()) best = candidate;
+                if (TradeFuelPriority.better(state, candidate, best)) best = candidate;
             }
         }
         return best.profit() > 1e-6 ? best : null;
@@ -66,7 +109,7 @@ final class TradeBasketPlanner {
 
     private static double margin(MarketOrder seller, CommercialHub target) {
         var buyer = target.activeOrders().get(seller.resourceId());
-        if (buyer == null || buyer.demandKg() <= 0 || !Double.isFinite(seller.pricePerKg()) || seller.pricePerKg() < 0
+        if (buyer == null || !Double.isFinite(seller.pricePerKg()) || seller.pricePerKg() < 0
                 || !Double.isFinite(buyer.pricePerKg())) return -1;
         return buyer.pricePerKg() * IndustryMarketProcessor.WHOLESALE_SHARE - seller.pricePerKg();
     }
@@ -74,7 +117,7 @@ final class TradeBasketPlanner {
     private static TradeShipmentSizing.Selection evaluate(GameState state, TradeRoute route, Map<String, Double> requested, double scale) {
         var quantities = new HashMap<String, Double>();
         requested.forEach((id, mass) -> quantities.put(id, mass * scale));
-        var shipment = new LogisticsProcessor().previewBasket(state, route, quantities);
+        var shipment = new LogisticsProcessor().previewBasket(state, route, quantities, true);
         if (shipment == null) return null;
         var source = state.commercialHubs().stream().filter(hub -> hub.id().equals(route.originEntityId())).findFirst().orElseThrow();
         var target = state.commercialHubs().stream().filter(hub -> hub.id().equals(route.destinationEntityId())).findFirst().orElseThrow();

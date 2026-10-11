@@ -51,10 +51,12 @@ class LunarTravelIntegrationTest {
         return preview.plan();
     }
 
+    private String stateBody(GameState state) { return state.orbitalStations().stream().filter(port -> port.id().equals("target")).findFirst().orElseThrow().planetOrbitId(); }
+    private double stateAltitude(GameState state) { return state.orbitalStations().stream().filter(port -> port.id().equals("target")).findFirst().orElseThrow().effectiveParkingAltitudeKm(); }
     @Test void paidOutwardAndInwardVoyagesMatchForecastAndRetainLunarParking() throws Exception {
         for (boolean outward : List.of(true, false)) {
             var initial = funded(outward); var fleet = initial.fleets().getFirst();
-            var target = FleetLocation.Site.docked("target"); var plan = plan(initial, target);
+            var target = FleetLocation.Site.orbit(stateBody(initial), stateAltitude(initial)); var plan = plan(initial, target);
             assertTrue(plan.orbital().lunarTransfer());
             assertEquals(new OrbitalFlight.Frame("earth", OrbitalFlight.CenterKind.PLANETARY), plan.orbital().frame());
             assertEquals(outward ? "Lunar capture" : "Lunar escape", plan.orbital().maneuverNames().get(outward ? 1 : 0));
@@ -72,7 +74,7 @@ class LunarTravelIntegrationTest {
             assertEquals(outward ? 500 : 2000, OrbitalTravel.parking(actual, "sol", target).altitudeKm());
             assertEquals(initial.empires(), actual.empires());
             if (outward) {
-                var orbit = FleetLocation.Site.orbit("moon", 500); var undock = plan(actual, orbit);
+                var orbit = FleetLocation.Site.orbit("moon", 501); var undock = plan(actual, orbit);
                 assertEquals(OrbitalFlight.CenterKind.LUNAR, undock.orbital().frame().kind());
                 var moon = OrbitalBody.find(actual, "sol", "moon");
                 assertEquals(moon.mass() * PlanetaryTransferComparison.GRAVITATIONAL_CONSTANT, undock.orbital().coast().gravitationalParameter());
@@ -83,7 +85,7 @@ class LunarTravelIntegrationTest {
     }
 
     @Test void failedCaptureKeepsParentBallisticFrameAcrossReloadCancellationAndOrganization() throws Exception {
-        var initial = funded(true); var target = FleetLocation.Site.docked("target"); var plan = plan(initial, target);
+        var initial = funded(true); var target = FleetLocation.Site.orbit(stateBody(initial), stateAltitude(initial)); var plan = plan(initial, target);
         var state = initial.withFleets(List.of(LocalTravel.depart(initial.fleets().getFirst(), target, plan)));
         state = day(state); var fleet = state.fleets().getFirst();
         assertEquals(1, fleet.location().orbitalFlight().nextManeuver());
@@ -107,7 +109,7 @@ class LunarTravelIntegrationTest {
     }
 
     @Test void capturedCancellationAndMoonParkingUseLunarGravityAndUnsupportedGeometryCannotFallBack() throws Exception {
-        var state = funded(true); var fleet = state.fleets().getFirst(); var target = FleetLocation.Site.docked("target");
+        var state = funded(true); var fleet = state.fleets().getFirst(); var target = FleetLocation.Site.orbit(stateBody(state), stateAltitude(state));
         var plan = plan(state, target); var itinerary = plan.orbital();
         // Stage the physical capture boundary by paying the first two saved burns before cancelling the approach.
         var ship = fleet.ships().getFirst(); var design = FleetSupplySimulation.design(state, ship);
@@ -140,7 +142,7 @@ class LunarTravelIntegrationTest {
         var second = new ShipInstance("second", first.designId(), first.ownerEntityId(), 100, 0, first.currentFuelKg(),
                 first.storedCargoKg(), 0, "", first.transitMode(), first.powerState(), first.supplyState());
         fleet = fleet.withShips(List.of(first, second)); state = state.withFleets(List.of(fleet));
-        var target = FleetLocation.Site.docked("target"); var plan = plan(state, target);
+        var target = FleetLocation.Site.orbit(stateBody(state), stateAltitude(state)); var plan = plan(state, target);
         state = state.withFleets(List.of(LocalTravel.depart(fleet, target, plan)));
         state = FleetOrganization.split(state, "owner", "fleet", List.of("second"), "split", "Split");
         for (var part : state.fleets()) {

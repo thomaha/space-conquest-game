@@ -93,6 +93,11 @@ class LunarTradeAuditTest {
             var state = world(new Scenario("mod_hydrolox_rocket", .20, 0, false, price, outward));
             state = ShipFueling.refuel(state, "ship", "source-port", 120000);
             state = ShipBatteryCharging.charge(state, "ship", "source-port", 500 / .9);
+            var target = state.commercialHubs().getLast();
+            var orders = new HashMap<>(target.activeOrders());
+            PropulsionCatalog.drive("mod_hydrolox_rocket").propellantMaterials(120000).forEach((id, kg) ->
+                    orders.put(id, new MarketOrder(id, kg, 0, price, 0)));
+            state = replaceTarget(state, orders, target.currentStoredWeightKg() + 120000);
             double before = cash(state);
             var selected = RoamingTradePlanner.choose(state, state.tradeRoutes().getFirst(), state.fleets().getFirst());
             assertEquals(before, cash(state), "Candidate search must not spend live cash.");

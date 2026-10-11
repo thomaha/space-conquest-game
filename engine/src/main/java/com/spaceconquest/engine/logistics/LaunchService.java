@@ -176,10 +176,7 @@ public final class LaunchService {
                         Math.max(0.0, old.supplyKg() - kg), old.demandKg(),
                         old.pricePerKg(), old.shortcomingScore()));
             });
-            hubs.set(index, new CommercialHub(hub.id(), hub.entityId(),
-                    hub.transactionTariffRate(), hub.storageCapacityKg(),
-                    Math.max(0.0, hub.currentStoredWeightKg() - plan.fuelKg()),
-                    hub.logisticsRangeUnits(), Map.copyOf(orders)));
+            hubs.set(index, hub.withInventory(state.turn(), Math.max(0.0, hub.currentStoredWeightKg() - plan.fuelKg()), orders));
             break;
         }
         List<MarketAccount> accounts = new ArrayList<>(state.marketAccounts());

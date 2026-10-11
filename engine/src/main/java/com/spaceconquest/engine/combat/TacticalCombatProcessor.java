@@ -3,10 +3,12 @@ package com.spaceconquest.engine.combat;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.ShipDesign;
 import com.spaceconquest.engine.ship.ShipInstance;
+import com.spaceconquest.engine.ship.ShipCombatPower;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.function.BiFunction;
 
 /**
  * Resolves multi-round tactical space combat engagements between hostile fleets.
@@ -16,6 +18,7 @@ import java.util.Random;
 public class TacticalCombatProcessor {
 
     public static final String STANCE_AGGRESSIVE_BRAWL = "AGGRESSIVE_BRAWL";
+    public static final double SECONDS_PER_ROUND = 60;
     public static final String STANCE_STANDOFF_KITE = "STANDOFF_KITE";
     public static final String STANCE_POINT_DEFENSE_SCREEN = "POINT_DEFENSE_SCREEN";
     public static final String STANCE_EVASIVE_RETREAT = "EVASIVE_RETREAT";
@@ -137,6 +140,26 @@ public class TacticalCombatProcessor {
         );
     }
 
+    /** Tick-owned adapter may attempt a physical withdrawal after each simultaneous round. */
+    public record Withdrawal(Fleet attacker, Fleet defender, boolean departed) {}
+
+    public CombatEngagementResult resolveFleetEngagement(Fleet attacker, Fleet defender, List<ShipDesign> designs,
+            BiFunction<Fleet, Fleet, Withdrawal> withdrawal) {
+        return resolveFleetEngagement(attacker, defender, designs, withdrawal, null);
+    }
+
+    /** Campaign targeting is a live shared-coverage query against each round's surviving fleets. */
+    public CombatEngagementResult resolveFleetEngagement(Fleet attacker, Fleet defender, List<ShipDesign> designs,
+            BiFunction<Fleet, Fleet, Withdrawal> withdrawal, java.util.function.BiPredicate<Fleet, Fleet> targeting) {
+        return resolveFleetEngagement(attacker, defender, designs, withdrawal, targeting, null);
+    }
+    public CombatEngagementResult resolveFleetEngagement(Fleet attacker, Fleet defender, List<ShipDesign> designs,
+            BiFunction<Fleet, Fleet, Withdrawal> withdrawal, java.util.function.BiPredicate<Fleet, Fleet> targeting,
+            java.util.function.ToDoubleBiFunction<Fleet, Fleet> separation) {
+        return resolveFleetEngagementWithCarrierWings(attacker, defender, designs, List.of(), List.of(), null,
+                TARGET_SUBSYSTEM_ALL, withdrawal, targeting, separation);
+    }
+
     /**
      * Resolves a tactical fleet engagement with carrier strike wings and planetary defense batteries.
      */
@@ -149,6 +172,16 @@ public class TacticalCombatProcessor {
             PlanetaryDefenseBattery planetaryBattery,
             String targetedSubsystem
     ) {
+        return resolveFleetEngagementWithCarrierWings(attackerFleet, defenderFleet, designs, attackerWings,
+                defenderWings, planetaryBattery, targetedSubsystem, null, null, null);
+    }
+
+    private CombatEngagementResult resolveFleetEngagementWithCarrierWings(
+            Fleet attackerFleet, Fleet defenderFleet, List<ShipDesign> designs,
+            List<CarrierWing> attackerWings, List<CarrierWing> defenderWings,
+            PlanetaryDefenseBattery planetaryBattery, String targetedSubsystem,
+            BiFunction<Fleet, Fleet, Withdrawal> withdrawal, java.util.function.BiPredicate<Fleet, Fleet> targeting,
+            java.util.function.ToDoubleBiFunction<Fleet, Fleet> separation) {
         if (attackerFleet == null || defenderFleet == null) {
             return new CombatEngagementResult("DRAW", attackerFleet, defenderFleet, List.of(), attackerWings, defenderWings);
         }
@@ -159,20 +192,52 @@ public class TacticalCombatProcessor {
         List<CarrierWing> defWings = new ArrayList<>(defenderWings != null ? defenderWings : List.of());
         List<CombatRoundReport> reports = new ArrayList<>();
         List<CombatVisualRound> visualRounds = new ArrayList<>();
+        var attackerMissiles = new GuidedMissileFlight();
+        var defenderMissiles = new GuidedMissileFlight();
 
         int round = 1;
         while (!attackers.isEmpty() && !defenders.isEmpty() && round <= 10) {
+            var currentAttacker = attackerFleet.withShips(attackers);
+            var currentDefender = defenderFleet.withShips(defenders);
+            boolean attackContact = targeting == null || targeting.test(currentAttacker, currentDefender);
+            boolean defendContact = targeting == null || targeting.test(currentDefender, currentAttacker);
+            if (!attackContact && !defendContact) {
+                if (!visualRounds.isEmpty()) {
+                    var logs = visualRounds.getLast().eventLogs();
+                    logs.add("Both fleets lost live sensor contact; firing ends.");
+                    attackerMissiles.end(logs, "live guidance contact lost");
+                    defenderMissiles.end(logs, "live guidance contact lost");
+                }
+                break;
+            }
             RoundExecutionResult res = executeCombatRound(
                     round, attackers, defenders, attackerFleet, defenderFleet, designs,
-                    attWings, defWings, planetaryBattery, targetedSubsystem
+                    attWings, defWings, planetaryBattery, targetedSubsystem, attackContact, defendContact,
+                    separation == null ? 0 : separation.applyAsDouble(currentAttacker, currentDefender), separation != null,
+                    attackerMissiles, defenderMissiles
             );
             attackers = res.updatedAttackers();
             defenders = res.updatedDefenders();
             reports.add(res.report());
             visualRounds.add(res.visualRound());
+            if (withdrawal != null && !attackers.isEmpty() && !defenders.isEmpty()) {
+                var decision = withdrawal.apply(attackerFleet.withShips(attackers), defenderFleet.withShips(defenders));
+                attackerFleet = decision.attacker();
+                defenderFleet = decision.defender();
+                attackers = new ArrayList<>(attackerFleet.ships());
+                defenders = new ArrayList<>(defenderFleet.ships());
+                if (decision.departed()) {
+                    res.visualRound().eventLogs().add("A funded coordinated withdrawal ends this engagement; survivors retain return intent.");
+                    break;
+                }
+            }
             round++;
         }
 
+        if (!visualRounds.isEmpty()) {
+            attackerMissiles.end(visualRounds.getLast().eventLogs(), "engagement ended");
+            defenderMissiles.end(visualRounds.getLast().eventLogs(), "engagement ended");
+        }
         String winner = determineWinner(attackers, defenders, attackerFleet, defenderFleet);
 
         Fleet updatedAttacker = createUpdatedFleet(attackerFleet, attackers);
@@ -198,7 +263,8 @@ public class TacticalCombatProcessor {
             List<CarrierWing> attWings,
             List<CarrierWing> defWings,
             PlanetaryDefenseBattery planetaryBattery,
-            String targetedSubsystem
+            String targetedSubsystem, boolean attackContact, boolean defendContact, double separationMeters, boolean physicalRange,
+            GuidedMissileFlight attackerMissiles, GuidedMissileFlight defenderMissiles
     ) {
         List<CombatActionReport> roundActions = new ArrayList<>();
         List<String> eventLogs = new ArrayList<>();
@@ -207,14 +273,28 @@ public class TacticalCombatProcessor {
         double attStanceMult = getStanceFirepowerModifier(attackerFleet.fleetStance());
         double defStanceMult = getStanceFirepowerModifier(defenderFleet.fleetStance());
 
-        double attFirepower = calculateFleetFirepower(attackers, designs, round) * attStanceMult;
-        double defFirepower = calculateFleetFirepower(defenders, designs, round) * defStanceMult;
+        if (!attackContact) eventLogs.add(attackerFleet.id() + ": firing held; no live shared sensor contact.");
+        if (!defendContact) eventLogs.add(defenderFleet.id() + ": firing held; no live shared sensor contact.");
+        var attackPower = combatPower(attackers, designs, attackContact && attStanceMult > 0, eventLogs, attackerFleet.shieldPolicy(), separationMeters,
+                defenderMissiles, defendContact, attackContact, attackerFleet.id(), roundActions);
+        var defendPower = combatPower(defenders, designs, defendContact && defStanceMult > 0, eventLogs, defenderFleet.shieldPolicy(), separationMeters,
+                attackerMissiles, attackContact, defendContact, defenderFleet.id(), roundActions);
+        attackers = attackPower.stream().map(ShipCombatPower.Result::ship).toList();
+        defenders = defendPower.stream().map(ShipCombatPower.Result::ship).toList();
+        double attFirepower = calculateFleetFirepower(attackPower, round, physicalRange) * attStanceMult;
+        double defFirepower = calculateFleetFirepower(defendPower, round, physicalRange) * defStanceMult;
 
-        attFirepower = processAttackerWings(attWings, defenderFleet, roundActions, eventLogs, activeProjectiles, attFirepower);
-        defFirepower = processDefenderWings(defWings, attackerFleet, roundActions, eventLogs, activeProjectiles, defFirepower);
-        defFirepower = processPlanetaryBattery(planetaryBattery, attackerFleet, roundActions, eventLogs, activeProjectiles, defFirepower);
+        if (attackContact) attFirepower = processAttackerWings(attWings, defenderFleet, roundActions, eventLogs, activeProjectiles, attFirepower);
+        if (defendContact) {
+            defFirepower = processDefenderWings(defWings, attackerFleet, roundActions, eventLogs, activeProjectiles, defFirepower);
+            defFirepower = processPlanetaryBattery(planetaryBattery, attackerFleet, roundActions, eventLogs, activeProjectiles, defFirepower);
+        }
 
         addShipProjectiles(round, attFirepower, defFirepower, targetedSubsystem, activeProjectiles, eventLogs);
+        attFirepower += attackerMissiles.advance(attackContact, defenderFleet.id(), eventLogs, roundActions);
+        defFirepower += defenderMissiles.advance(defendContact, attackerFleet.id(), eventLogs, roundActions);
+        attackerMissiles.launch(attackPower, separationMeters, attStanceMult, defenderFleet.id(), eventLogs, roundActions);
+        defenderMissiles.launch(defendPower, separationMeters, defStanceMult, attackerFleet.id(), eventLogs, roundActions);
 
         int prevAttCount = attackers.size();
         int prevDefCount = defenders.size();
@@ -322,10 +402,10 @@ public class TacticalCombatProcessor {
             ShipInstance s = ships.get(i);
             ShipDesign d = findDesign(s.designId(), designs);
             double maxHull = d != null ? d.calculatedStructuralIntegrity() * 100.0 : 500.0;
-            double maxShield = 200.0;
+            double maxShield = com.spaceconquest.engine.ship.CombatModuleCatalog.shieldCapacity(d);
 
             double hullPct = Math.clamp(s.currentHullHealth() / Math.max(1.0, maxHull), 0.0, 1.0);
-            double shieldPct = Math.clamp(s.currentShieldHealth() / Math.max(1.0, maxShield), 0.0, 1.0);
+            double shieldPct = Math.clamp(ShipCombatStats.of(d, s).shields() / Math.max(1.0, maxShield), 0.0, 1.0);
             double y = 140.0 + (i * 70.0);
 
             states.add(new ShipVisualState(
@@ -344,26 +424,38 @@ public class TacticalCombatProcessor {
     }
 
     private double getStanceFirepowerModifier(String stance) {
-        if (stance == null) return 1.0;
-        return switch (stance.toUpperCase()) {
-            case STANCE_AGGRESSIVE_BRAWL -> 1.25;
-            case STANCE_STANDOFF_KITE -> 1.10;
-            case STANCE_POINT_DEFENSE_SCREEN -> 0.90;
-            case STANCE_EVASIVE_RETREAT -> 0.0;
-            default -> 1.0;
-        };
+        return ShipCombatStats.stanceModifier(stance);
     }
 
-    private double calculateFleetFirepower(List<ShipInstance> ships, List<ShipDesign> designs, int round) {
-        double totalFirepower = 0.0;
-        for (ShipInstance ship : ships) {
-            ShipDesign design = findDesign(ship.designId(), designs);
-            double baseDamage = 50.0;
-            if (design != null) {
-                baseDamage = Math.max(30.0, design.totalDryMassKg() * 0.005);
-            }
+    private List<ShipCombatPower.Result> combatPower(List<ShipInstance> ships, List<ShipDesign> designs,
+                                                    boolean firing, List<String> eventLogs, com.spaceconquest.engine.ship.FleetShieldPolicy.Mode policy, double separationMeters,
+                                                    GuidedMissileFlight incoming, boolean guidanceContact, boolean sharedContact, String defendedFleet,
+                                                    List<CombatActionReport> actions) {
+        double sensorRange = ships.stream().mapToDouble(ship -> com.spaceconquest.engine.ship.SensorModuleCatalog
+                .profile(findDesign(ship.designId(), designs), ship).rangeKm() * 1000).max().orElse(0);
+        double range = sharedContact ? Double.POSITIVE_INFINITY : sensorRange;
+        var results = new ArrayList<ShipCombatPower.Result>();
+        for (var ship : ships) {
+            var design = findDesign(ship.designId(), designs);
+            var threats = com.spaceconquest.engine.ship.ShipPointDefense.capacity(design, ship) > 0 ? incoming.threats(range, guidanceContact) : List.<Double>of();
+            var result = ShipCombatPower.round(ship, design, SECONDS_PER_ROUND / 3600, firing,
+                    policy != com.spaceconquest.engine.ship.FleetShieldPolicy.Mode.CONSERVE_ENERGY, separationMeters, threats);
+            incoming.intercept(result.pointDefenseShots(), defendedFleet, eventLogs, actions);
+            if (result.requestedWeaponKwh() > 0)
+                eventLogs.add(String.format("%s: weapon salvos funded %.3f / %.3f kWh", ship.id(),
+                        result.paidWeaponKwh(), result.requestedWeaponKwh()));
+            if (result.paidPointDefenseKwh() > 0) eventLogs.add(ship.id() + ": point defense paid " + result.paidPointDefenseKwh() + " kWh.");
+            results.add(result);
+        }
+        return List.copyOf(results);
+    }
 
-            double rangeModifier = switch (round) {
+    private double calculateFleetFirepower(List<ShipCombatPower.Result> ships, int round, boolean physicalRange) {
+        double totalFirepower = 0.0;
+        for (var ship : ships) {
+            double baseDamage = ship.directFirepower();
+
+            double rangeModifier = physicalRange ? 1 : switch (round) {
                 case 1 -> 0.80; // Long-range opening bracket (torpedoes/lasers)
                 case 2, 3 -> 1.20; // Medium-range broadside bracket (mass drivers)
                 default -> 1.00; // Close-range dogfight bracket (point defense / guns)
@@ -390,10 +482,8 @@ public class TacticalCombatProcessor {
 
         for (ShipInstance ship : ships) {
             ShipDesign design = findDesign(ship.designId(), designs);
-            double armorDeflection = 0.0;
-            if (design != null) {
-                armorDeflection = Math.min(0.60, design.armorThicknessCm() * 0.05);
-            }
+            var stats = ShipCombatStats.of(design, ship);
+            double armorDeflection = stats.armorDeflection();
 
             // Subsystem targeting specific damage bonuses
             double subsystemMod = 1.0;
@@ -410,7 +500,7 @@ public class TacticalCombatProcessor {
             }
 
             double effectiveDamage = damagePerShip * (1.0 - armorDeflection) * subsystemMod;
-            double shields = ship.currentShieldHealth();
+            double shields = stats.shields();
             double hull = ship.currentHullHealth();
 
             double shieldDamage = effectiveDamage * shieldPenetrationMod;
@@ -424,13 +514,19 @@ public class TacticalCombatProcessor {
             }
 
             if (hull > 0.0) {
+                String targetStat = TARGET_SUBSYSTEM_WEAPONS.equalsIgnoreCase(targetedSubsystem) ? "weaponDamage"
+                        : TARGET_SUBSYSTEM_SHIELDS.equalsIgnoreCase(targetedSubsystem) ? "shieldCapacity"
+                        : TARGET_SUBSYSTEM_ENGINES.equalsIgnoreCase(targetedSubsystem) ? "driveThrust" : null;
+                var moduleDamage = ship.moduleDamage().hit(design, ship.currentHullHealth() - hull, targetStat);
+                shields = Math.min(shields, moduleDamage.capability(design, "shieldCapacity"));
                 surviving.add(new ShipInstance(
                         ship.id(), ship.designId(), ship.ownerEntityId(),
                         hull, shields, ship.currentFuelKg(), ship.storedCargoKg(),
-                        ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState()));
+                        ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState(), moduleDamage));
             }
         }
-        return surviving;
+        return surviving.stream().map(ship -> com.spaceconquest.engine.ship.ShipElectricalDamage
+                .clampCharge(findDesign(ship.designId(), designs), ship)).toList();
     }
 
     private ShipDesign findDesign(String designId, List<ShipDesign> designs) {

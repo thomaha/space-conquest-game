@@ -20,7 +20,7 @@ final class TradeArrivalReadiness {
         for (var ship : arrival.ships()) {
             var design = FleetSupplySimulation.design(state, ship);
             if (design == null) return new TradeLegReadiness.Report(false, "Waiting: unknown arrival equipment.");
-            var profile = design.powerProfile();
+            var profile = design.powerProfile(ship);
             if (profile == null) continue; // Preserve explicit legacy electrical compatibility.
             var reserve = ShipArrivalReserve.check(profile, ShipPowerProcessor.reserves(ship),
                     profile.essentialKw(ship, design), ShipPowerProcessor.cargoKw(profile, ship, design),

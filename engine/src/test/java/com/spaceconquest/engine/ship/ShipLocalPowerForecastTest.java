@@ -111,7 +111,7 @@ class ShipLocalPowerForecastTest {
         var state = state(profile, 0, .01, 0);
         var design = new ShipDesign("design", "Slow rocket", "owner", ShipRole.EXPLORER,
                 "steel", List.of("mod_chemical_rocket"), "steel", 0, 1000, 0, 1000,
-                0, 1, 0, .1, false, false, ShipManufacturingProfile.baseline(), profile);
+                0, 1, 0, .05, false, false, ShipManufacturingProfile.baseline(), profile);
         var station = new OrbitalStation("port", "Port", "a", "earth", "owner", "PUBLIC_STATE",
                 10, List.of(), Map.of(), 0, 0, 0, 0, 100, 100, "steel", 0, true);
         var empire = new Empire("owner", "Owner", "human", "Individualist", 1000, 0,
@@ -119,13 +119,18 @@ class ShipLocalPowerForecastTest {
         var hub = new CommercialHub("hub", "port", 0, 1000, 100, 10,
                 Map.of("refined_uranium", new MarketOrder("refined_uranium", 100, 0, 2, 0)));
         var fleet = state.fleets().getFirst().withLocation(FleetLocation.at(FleetLocation.Site.docked("port")));
+        // Isolate the legacy slow-maneuver resupply mechanism from short-burn orbital planning.
         state = state.toBuilder().shipDesigns(List.of(design)).fleets(List.of(fleet))
+                .solarSystems(List.of())
                 .orbitalStations(List.of(station)).empires(List.of(empire)).commercialHubs(List.of(hub)).build();
         var destination = FleetLocation.Site.orbit("earth");
-        assertTrue(LocalTravel.plan(state, fleet, destination).days() > 3);
+        var initialPlan = LocalTravel.plan(state, fleet, destination);
+        assertNotNull(initialPlan);
+        assertTrue(initialPlan.days() > 3);
         var supplied = ShipPowerResupply.prepareLocal(state, fleet, destination);
         var updated = supplied.fleets().getFirst();
         var plan = LocalTravel.plan(supplied, updated, destination);
+        assertNotNull(plan);
         assertTrue(ShipPowerForecast.ready(ShipPowerForecast.departure(supplied, updated, destination, plan, null)));
         double bought = updated.ships().getFirst().generatorFuelMassKg() - .01;
         assertTrue(bought > 15, "A one-day purchase would leave the longer maneuver unsafe.");

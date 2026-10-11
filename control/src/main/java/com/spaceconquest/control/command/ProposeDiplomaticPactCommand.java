@@ -4,6 +4,7 @@ import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.governance.DiplomacyProcessor;
 import com.spaceconquest.engine.governance.DiplomaticPact;
 import com.spaceconquest.engine.governance.DiplomaticProposal;
+import com.spaceconquest.engine.galaxy.SensorSharing;
 
 import java.util.ArrayList;
 import java.util.UUID;
@@ -23,6 +24,14 @@ public record ProposeDiplomaticPactCommand(
             return false;
         }
         if (senderEmpireId.equals(receiverEmpireId)) return false;
+        if (DiplomaticPact.SENSOR_DATA_SHARING.equalsIgnoreCase(pactType)) {
+            boolean empireParty = state.empires().stream().anyMatch(empire -> empire.id().equals(senderEmpireId) || empire.id().equals(receiverEmpireId));
+            return empireParty && SensorSharing.partyExists(state, senderEmpireId) && SensorSharing.partyExists(state, receiverEmpireId)
+                    && !SensorSharing.atWar(state, senderEmpireId, receiverEmpireId)
+                    && !SensorSharing.agreement(state, senderEmpireId, receiverEmpireId)
+                    && state.diplomaticProposals().stream().noneMatch(proposal -> proposal.isPendingAtTurn(state.turn())
+                    && SensorSharing.between(proposal, senderEmpireId, receiverEmpireId));
+        }
 
         boolean senderExists = state.empires().stream().anyMatch(e -> e.id().equals(senderEmpireId));
         boolean receiverExists = state.empires().stream().anyMatch(e -> e.id().equals(receiverEmpireId));

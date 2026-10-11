@@ -61,7 +61,7 @@ public class MacroStructureProcessor {
                     0.0, station.maxShieldHealth(),
                     station.currentHullHealth(), station.maxHullHealth(),
                     station.armorMaterialId(), station.armorThicknessCm(),
-                    false, station.populations(), station.parkingAltitudeKm()
+                    false, station.populations(), station.parkingAltitudeKm(), station.orbitalPhaseRadians()
             );
             return new StationTurnResult(unpowered, 0.0, 0.0, Map.of());
         }
@@ -87,7 +87,7 @@ public class MacroStructureProcessor {
                 currentShield, station.maxShieldHealth(),
                 station.currentHullHealth(), station.maxHullHealth(),
                 station.armorMaterialId(), station.armorThicknessCm(),
-                true, station.populations(), station.parkingAltitudeKm()
+                true, station.populations(), station.parkingAltitudeKm(), station.orbitalPhaseRadians()
         );
 
         return new StationTurnResult(updatedStation, collectedTariffs, researchPoints, producedMaterials);
@@ -123,6 +123,7 @@ public class MacroStructureProcessor {
 
     private boolean isNonEssentialModule(String type) {
         return StationModule.TYPE_METALLURGY_FOUNDRY.equalsIgnoreCase(type)
+                || com.spaceconquest.engine.ship.SensorModuleCatalog.module(type) != null
                 || StationModule.TYPE_CONSUMER_GOODS_FACTORY.equalsIgnoreCase(type)
                 || StationModule.TYPE_COMMERCE.equalsIgnoreCase(type)
                 || StationModule.TYPE_SHIPYARD_GRID.equalsIgnoreCase(type)
@@ -263,7 +264,7 @@ public class MacroStructureProcessor {
                                 station.currentShieldHealth(), station.maxShieldHealth(),
                                 station.currentHullHealth(), station.maxHullHealth(),
                                 station.armorMaterialId(), station.armorThicknessCm(),
-                                station.isOperational(), station.populations(), station.parkingAltitudeKm()));
+                                station.isOperational(), station.populations(), station.parkingAltitudeKm(), station.orbitalPhaseRadians()));
                         boolean commerceModule = StationModule.TYPE_COMMERCE.equalsIgnoreCase(
                                 project.plannedModule().type());
                         GameState hubCheckState = current;

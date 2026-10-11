@@ -175,6 +175,26 @@ class TankerSupplyTest {
         assertEquals(2000, supplier(scheduled).supplyFuelMassKg());
     }
 
+    @Test void disabledDriveStopsScheduledSupplyTravelWithoutSpendingTheFailedBurnOrDelivery() {
+        var scheduled = propellant(nuclear("mod_chemical_rocket", null, 0), 1000, 25);
+        var move = new MoveFleetCommand("fleet", "b");
+        assertTrue(move.preview(scheduled).ready());
+        var departed = move.apply(scheduled);
+        var disabled = receiver(departed).withModuleDamage(new ShipModuleDamage(Map.of(0, 100.0)));
+        departed = ShipPowerResupply.replace(departed, disabled);
+        var failed = tick(departed); var fleet = failed.fleets().getFirst();
+        assertEquals(Fleet.MODE_POWER_INTERRUPTED, fleet.interstellarMode());
+        assertEquals(0, fleet.flightMotion().velocityMps(), 1e-9);
+        assertEquals(0, fleet.flightMotion().positionMeters(), 1e-9);
+        assertNull(supplier(failed).supplyState().order());
+        assertTrue(supplier(failed).supplyState().outcome().contains("thrust unavailable"));
+        assertEquals(supplier(departed).supplyFuelMassKg(), supplier(failed).supplyFuelMassKg(), 1e-9);
+        assertEquals(supplier(departed).currentFuelKg(), supplier(failed).currentFuelKg(), 1e-9);
+        assertEquals(disabled.currentFuelKg(), receiver(failed).currentFuelKg(), 1e-9);
+        assertTrue(receiver(failed).generatorFuelMassKg() < disabled.generatorFuelMassKg());
+        assertEquals(100, receiver(failed).moduleDamage().damageByMount().get(0));
+        assertFalse(fleet.currentSystemId().equals("b"));
+    }
     @Test void propulsionRefillReplansAtContactAndConservesAllMainFuel() {
         var initial = nuclear("mod_chemical_rocket", null, 0);
         var scheduled = propellant(initial, 1000, 0);

@@ -3,7 +3,6 @@ package com.spaceconquest.engine.logistics;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.industry.IndustryMarketProcessor;
 import com.spaceconquest.engine.ship.FleetPositioning;
-import com.spaceconquest.engine.market.MarketStockpilePolicy;
 
 /** Bounded paid previews; unsuccessful quantities never change the live snapshot. */
 final class TradeShipmentSizing {
@@ -16,7 +15,15 @@ final class TradeShipmentSizing {
         double high = quantityLimit(state, route, maximumKg);
         if (!Double.isFinite(high) || high <= 1e-6) return null;
         Selection best = evaluate(state, route, high);
-        if (best != null && best.profit() > 1e-6) return best;
+        if (best != null && best.profit() > 1e-6) {
+            if (TradeFuelPriority.consumesUrgentStock(state, best.shipment())) {
+                for (int attempt = 1; attempt <= 3; attempt++) {
+                    var candidate = evaluate(state, route, high / (1 << attempt));
+                    if (TradeFuelPriority.better(state, candidate, best)) best = candidate;
+                }
+            }
+            return best;
+        }
         double low = high;
         for (int attempt = 0; attempt < REDUCTIONS; attempt++) {
             high = low;
@@ -31,7 +38,7 @@ final class TradeShipmentSizing {
             if (candidate == null) high = middle;
             else {
                 low = middle;
-                if (candidate.profit() / candidate.days() > best.profit() / best.days()) best = candidate;
+                if (TradeFuelPriority.better(state, candidate, best)) best = candidate;
             }
         }
         return best.profit() > 1e-6 ? best : null;
@@ -51,12 +58,13 @@ final class TradeShipmentSizing {
         double buyerCash = state.marketAccounts().stream().filter(account -> account.hubId().equals(target.id()))
                 .mapToDouble(account -> account.unsettledSalesCredits()).findFirst().orElse(0);
         double ownerCash = ownerCash(state, route.ownerEntityId());
-        double marketLimit = Math.min(buyer.demandKg(), Math.min(buyerCash / bid,
+        buyerCash = Math.min(buyerCash, HubReplenishment.buyerCashAvailable(state, target, route.id()));
+        double marketLimit = Math.min(HubReplenishment.requestedKg(state, target, route.materialId(), route.id()), Math.min(buyerCash / bid,
                 seller.pricePerKg() == 0 ? Double.POSITIVE_INFINITY : ownerCash / seller.pricePerKg()));
         double capacity = design.maxCargoMassKg() - ship.passengerCount() * 80
                 - ship.storedCargoKg().values().stream().mapToDouble(Double::doubleValue).sum();
-        double room = Math.min(target.storageCapacityKg() - target.currentStoredWeightKg(),
-                Math.min(route.maxDestinationCapacityKg() - buyer.supplyKg(), MarketStockpilePolicy.targetStockKg(buyer) - buyer.supplyKg()));
+        double room = Math.min(HubReplenishment.storageRoomKg(state, target, route.id()),
+                Math.min(route.maxDestinationCapacityKg() - buyer.supplyKg(), HubReplenishment.targetStockKg(target, route.materialId()) - buyer.supplyKg()));
         return Math.min(marketLimit, Math.min(maximumKg, Math.min(route.transferAmountPerTurnKg(),
                 Math.min(seller.supplyKg() - route.minSourceInventoryThresholdKg(), Math.min(capacity, room)))));
     }
@@ -73,14 +81,15 @@ final class TradeShipmentSizing {
         if (source == null || target == null) return null;
         var seller = source.activeOrders().get(route.materialId());
         var buyer = target.activeOrders().get(route.materialId());
-        if (seller == null || buyer == null || buyer.demandKg() <= 0) return null;
+        if (seller == null || buyer == null || HubReplenishment.requestedKg(state, target, route.materialId(), route.id()) <= 0) return null;
         double bid = buyer.pricePerKg() * IndustryMarketProcessor.WHOLESALE_SHARE;
         double cash = state.marketAccounts().stream().filter(account -> account.hubId().equals(target.id()))
                 .mapToDouble(account -> account.unsettledSalesCredits()).findFirst().orElse(0);
         if (!Double.isFinite(bid) || bid <= 0) return null;
-        double limit = Math.min(maximumKg, Math.min(buyer.demandKg(), cash / bid));
+        cash = Math.min(cash, HubReplenishment.buyerCashAvailable(state, target, route.id()));
+        double limit = Math.min(maximumKg, Math.min(HubReplenishment.requestedKg(state, target, route.materialId(), route.id()), cash / bid));
         if (!Double.isFinite(limit) || limit <= 1e-6) return null;
-        var shipment = new LogisticsProcessor().previewShipment(state, route, limit);
+        var shipment = new LogisticsProcessor().previewShipment(state, route, limit, true);
         if (shipment == null || shipment.preparedFleet() == null) return null;
         var quote = RoamingTradeCost.quote(state, shipment.preparedFleet(), source, target);
         if (quote == null) return null;

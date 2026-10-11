@@ -50,7 +50,7 @@ public record SetPassengerTransitModeCommand(
                         updatedShips.add(new ShipInstance(
                                 ship.id(), ship.designId(), ship.ownerEntityId(),
                                 ship.currentHullHealth(), ship.currentShieldHealth(), ship.currentFuelKg(),
-                                ship.storedCargoKg(), ship.passengerCount(), ship.passengerRaceId(), transitMode.toUpperCase(), ship.powerState(), ship.supplyState()));
+                                ship.storedCargoKg(), ship.passengerCount(), ship.passengerRaceId(), transitMode.toUpperCase(), ship.powerState(), ship.supplyState(), ship.moduleDamage()));
                     } else {
                         updatedShips.add(ship);
                     }

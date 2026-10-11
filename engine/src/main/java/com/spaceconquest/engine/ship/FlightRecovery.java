@@ -85,7 +85,7 @@ public final class FlightRecovery {
         if (plan == null) return false;
         for (ShipInstance ship : fleet.ships()) {
             var design = state.shipDesigns().stream().filter(item -> item.id().equals(ship.designId())).findFirst().orElseThrow();
-            var profile = design.powerProfile();
+            var profile = design.powerProfile(ship);
             if (profile == null) continue;
             var power = ShipPowerProcessor.reserves(supplyReserved.ships().stream()
                     .filter(item -> item.id().equals(ship.id())).findFirst().orElseThrow());
@@ -169,13 +169,13 @@ public final class FlightRecovery {
         return fleet.ships().stream().map(ship -> new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(),
                 ship.currentHullHealth(), ship.currentShieldHealth(), Math.max(0, ship.currentFuelKg()
                 - fleet.interstellarFuelBudgetKg().getOrDefault(ship.id(), 0.0) * fraction), ship.storedCargoKg(),
-                ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState())).toList();
+                ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage())).toList();
     }
 
     private static Fleet arrive(Fleet fleet) {
         return new Fleet(fleet.id(), fleet.name(), fleet.ownerEntityId(), fleet.targetSystemId(), "",
                 fleet.coordinateX(), fleet.coordinateY(), 0, false, fleet.fleetStance(), fleet.ships(),
-                FleetLocation.at(FleetLocation.Site.deepSpace()), "", 0, 0, 0, 0, 0, Map.of(), null).withFuelPolicy(fleet.fuelPolicy());
+                FleetLocation.at(FleetLocation.Site.deepSpace()), "", 0, 0, 0, 0, 0, Map.of(), null).withFuelPolicy(fleet.fuelPolicy()).withShieldPolicy(fleet.shieldPolicy()).withEscortOrder(fleet.escortOrder());
     }
 
     private static Fleet copy(Fleet fleet, String mode, FlightMotion motion, Map<String, Double> budget) {
@@ -184,6 +184,6 @@ public final class FlightRecovery {
                 : Math.clamp(motion.positionMeters() / fleet.interstellarDistanceMeters(), 0, 1), false,
                 fleet.fleetStance(), fleet.ships(), fleet.location(), mode, fleet.interstellarTravelDays(),
                 fleet.interstellarDistanceMeters(), fleet.interstellarAccelerationMps2(), fleet.interstellarElapsedDays(),
-                fleet.interstellarPeakSpeedMps(), budget, motion, fleet.journeyPropulsion()).withFuelPolicy(fleet.fuelPolicy());
+                fleet.interstellarPeakSpeedMps(), budget, motion, fleet.journeyPropulsion()).withFuelPolicy(fleet.fuelPolicy()).withShieldPolicy(fleet.shieldPolicy()).withEscortOrder(fleet.escortOrder());
     }
 }

@@ -42,6 +42,10 @@ public class ScanAnomalyCommandTest {
                 .status("RUNNING")
                 .empires(List.of(empire))
                 .fleets(List.of(fleet))
+                .shipDesigns(List.of(new com.spaceconquest.engine.ship.ShipDesign("design_explorer", "Surveyor", empire.id(),
+                        com.spaceconquest.engine.ship.ShipRole.EXPLORER, "steel",
+                        List.of(com.spaceconquest.engine.ship.SensorModuleCatalog.ADVANCED), "steel", 0,
+                        1000, 0, 100, 0, 1, 0, 0, false, false)))
                 .build();
     }
 
@@ -55,6 +59,7 @@ public class ScanAnomalyCommandTest {
 
         ScanAnomalyCommand cmd = new ScanAnomalyCommand("terran_confederation", "fleet_survey_1", anomaly);
         assertTrue(cmd.validate(initialState));
+        assertFalse(cmd.validate(initialState.withShipDesigns(List.of())));
 
         GameState nextState = cmd.apply(initialState);
         Empire updatedEmpire = nextState.empires().getFirst();

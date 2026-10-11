@@ -101,7 +101,7 @@ public final class PropulsionCatalog {
     }
 
     public static ShipModule module(String moduleId) {
-        return switch (moduleId) {
+        var module = switch (moduleId) {
             case "mod_chemical_rocket" -> new ShipModule(moduleId, "RP-1/LOX rocket", "MEDIUM",
                     4, 4_000, 20, 0, 600_000, 2, Map.of(), Map.of());
             case "mod_methalox_rocket" -> new ShipModule(moduleId, "Methane/LOX rocket", "MEDIUM",
@@ -118,6 +118,12 @@ public final class PropulsionCatalog {
                     10, 6_000, 300, 0, 1_500_000, 10, Map.of(), Map.of());
             default -> null;
         };
+        if (module == null) return null;
+        var stats = new java.util.HashMap<>(module.operationalStats());
+        stats.put("driveThrust", module.thrustOutputN());
+        return new ShipModule(module.id(), module.name(), module.slotSize(), module.slotCost(), module.dryMassKg(),
+                module.powerDrawKw(), module.powerOutputKw(), module.thrustOutputN(), module.complexityLevel(),
+                Map.of("steel", module.dryMassKg() * .10, "refined_copper", module.dryMassKg() * .02), stats);
     }
 
     public static ShipModule fuelTankModule() {

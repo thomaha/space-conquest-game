@@ -26,6 +26,8 @@ public record AddStationModuleCommand(
         boolean researched = state.empires().stream().anyMatch(empire ->
                 empire.controlledSystemIds().contains(station.systemId())
                         && empire.unlockedTechIds().contains("space_stations")
+                        && com.spaceconquest.engine.ship.SensorModuleCatalog.researched(List.of(moduleType), empire.unlockedTechIds())
+                        && com.spaceconquest.engine.ship.BaseRepairCatalog.researched(moduleType, empire.unlockedTechIds())
                         && (!StationModule.TYPE_SOLAR_ARRAY.equalsIgnoreCase(moduleType)
                         || empire.unlockedTechIds().contains("electricity") && empire.unlockedTechIds().contains("solar_power"))
                         && (empire.id().equals(station.ownerEntityId())
@@ -37,7 +39,10 @@ public record AddStationModuleCommand(
                 .filter(project -> stationId.equals(project.targetStationId())
                         && project.plannedModule() != null)
                 .mapToInt(project -> project.plannedModule().slotSize()).sum();
-        return station.hasAvailableSlots(reserved + Math.max(1, slotSize));
+        var sensor = com.spaceconquest.engine.ship.SensorModuleCatalog.module(moduleType);
+        if (StationModule.TYPE_REPAIR_WORKSHOP.equals(moduleType))
+            return station.hasAvailableSlots(reserved + com.spaceconquest.engine.ship.BaseRepairCatalog.module().slotSize());
+        return station.hasAvailableSlots(reserved + (sensor == null ? Math.max(1, slotSize) : sensor.slotCost()));
     }
 
     @Override
@@ -51,6 +56,14 @@ public record AddStationModuleCommand(
                 Math.max(1, slotSize), mass, powerDrawKw, powerOutputKw, Map.of(),
                 professionId == null ? "technician" : professionId,
                 Math.max(0, requiredWorkers), true);
+        var sensor = com.spaceconquest.engine.ship.SensorModuleCatalog.stationModule(moduleType);
+        if (StationModule.TYPE_REPAIR_WORKSHOP.equals(moduleType)) sensor = com.spaceconquest.engine.ship.BaseRepairCatalog.module();
+        if (sensor != null) {
+            module = new StationModule("mod_" + UUID.randomUUID(), sensor.name(), sensor.type(), sensor.slotSize(),
+                    sensor.dryMassKg(), sensor.powerDrawKw(), 0, sensor.materialInputs(),
+                    sensor.workforceProfessionId(), sensor.requiredWorkers(), true);
+            mass = sensor.dryMassKg();
+        }
         ConstructionDeploymentProject project = new ConstructionDeploymentProject(
                 "module_" + UUID.randomUUID(), "", station.systemId(),
                 station.planetOrbitId(), ConstructionDeploymentProject.TYPE_STATION_MODULE,

@@ -52,17 +52,17 @@ class OrbitalTravelIntegrationTest {
     }
     private GameState depart(GameState state) {
         var fleet = state.fleets().getFirst();
-        var target = FleetLocation.Site.docked("mars-port");
+        var target = FleetLocation.Site.orbit("mars", 8000);
         var preview = OrbitalTravel.preview(state, fleet, target);
         assertNotNull(preview.plan(), preview.problem());
         assertTrue(ShipPowerForecast.ready(ShipPowerForecast.departure(state, fleet, target, preview.plan(), null)));
         return state.withFleets(List.of(LocalTravel.depart(fleet, target, preview.plan())));
     }
 
-    @Test void paidVoyageMatchesForecastAndDockingRequiresItsOwnFundedManeuver() throws Exception {
+    @Test void paidVoyageMatchesForecastAndParkingRequiresFundedCapture() throws Exception {
         var initial = funded();
         var fleet = initial.fleets().getFirst();
-        var target = FleetLocation.Site.docked("mars-port");
+        var target = FleetLocation.Site.orbit("mars", 8000);
         var plan = LocalTravel.plan(initial, fleet, target);
         var forecast = ShipPowerForecast.departure(initial, fleet, target, plan, null).getFirst();
         assertNotNull(plan.orbital());
@@ -92,14 +92,42 @@ class OrbitalTravelIntegrationTest {
         state = state.withFleets(List.of(fleet));
         while (state.fleets().getFirst().location().orbitalFlight().status() != OrbitalFlight.Status.MISSED) state = day(state);
         var failed = state.fleets().getFirst();
-        assertFalse(failed.location().isAt(FleetLocation.Site.docked("mars-port")));
+        assertFalse(failed.location().isAt(FleetLocation.Site.orbit("mars", 8000)));
         assertEquals(1, failed.location().orbitalFlight().nextManeuver());
         var position = failed.location().orbitalFlight().position();
         var later = day(state).fleets().getFirst().location().orbitalFlight().position();
         assertNotEquals(position, later);
         assertTrue(Math.abs(position.speedMps() - later.speedMps()) > .01, "Gravity changes velocity without engine fuel.");
-        assertTrue(OrbitalTravel.recoveryProblem(failed).contains("unsupported"));
+        assertTrue(OrbitalTravel.recoveryProblem(failed).contains("funded circular stellar recovery"));
+        assertNull(StellarRecovery.plan(state, failed, position.radiusMeters(), Math.atan2(position.yMeters(), position.xMeters())));
         assertNull(PausedTravelRecovery.preview(state, failed));
+    }
+
+    @Test void disabledDriveRejectsCaptureWithoutRepeatingThePaidEscapeOrClaimingArrival() throws Exception {
+        var state = depart(funded()); var fleet = state.fleets().getFirst();
+        var itinerary = fleet.location().orbitalFlight().itinerary(); var ship = fleet.ships().getFirst();
+        var design = FleetSupplySimulation.design(state, ship); var escape = itinerary.maneuvers().getFirst();
+        var burst = OrbitalPowerAccounting.burst(design, ship, escape.auxiliaryHours());
+        var paid = OrbitalFuelAccounting.pay(ship, design, escape.burns().get(ship.id()), burst.state());
+        assertNotNull(paid); assertTrue(paid.currentFuelKg() < ship.currentFuelKg());
+        int mount = design.equippedModuleIds().indexOf("mod_hydrolox_rocket");
+        paid = paid.withModuleDamage(new ShipModuleDamage(Map.of(mount, 100.0)));
+        double beforeCapture = itinerary.maneuvers().get(1).seconds() - 1;
+        fleet = fleet.withShips(List.of(paid)).withLocation(fleet.location().withOrbitalFlight(
+                new OrbitalFlight(itinerary, beforeCapture, 1, OrbitalFlight.Status.COAST, "Paid coast")));
+        state = state.withFleets(List.of(fleet));
+        var failed = OrbitalFlightProcessor.advanceDay(state, fleet);
+        assertEquals(OrbitalFlight.Status.MISSED, failed.location().orbitalFlight().status());
+        assertEquals(1, failed.location().orbitalFlight().nextManeuver());
+        assertEquals(paid.currentFuelKg(), failed.ships().getFirst().currentFuelKg(), 1e-9);
+        assertFalse(failed.location().isAt(FleetLocation.Site.docked("mars-port")));
+        assertTrue(failed.location().orbitalFlight().message().contains("drive capability"));
+        var position = failed.location().orbitalFlight().position();
+        assertNull(StellarRecovery.plan(state.withFleets(List.of(failed)), failed, position.radiusMeters(),
+                Math.atan2(position.yMeters(), position.xMeters())));
+        var manager = new SaveGameManager(directory); var file = directory.resolve("drive.scsave").toFile();
+        manager.save(file, state.withFleets(List.of(failed)), 1, "now");
+        assertEquals(failed, manager.load(file).toGameState(state.turn(), "RUNNING").fleets().getFirst());
     }
 
     @Test void cancellationAndSaveLoadPreserveMotionAndNeverRepeatEscape() throws Exception {
@@ -181,7 +209,7 @@ class OrbitalTravelIntegrationTest {
                 .withPowerState(new ShipPowerState(Map.of("refined_uranium", 100.0), "rp1", "uranium", 500, false, 1, 1, 0, 0, 0, 0, 0));
         var fleet = initial.fleets().getFirst().withShips(List.of(ship));
         initial = initial.withShipDesigns(List.of(blueprint.design())).withFleets(List.of(fleet));
-        var target = FleetLocation.Site.docked("mars-port");
+        var target = FleetLocation.Site.orbit("mars", 8000);
         var preview = OrbitalTravel.preview(initial, fleet, target);
         assertNotNull(preview.plan(), preview.problem());
         var plan = preview.plan();
@@ -200,7 +228,7 @@ class OrbitalTravelIntegrationTest {
                 "Reduced electrical feed mass lowers actual maneuver fuel rather than wasting the difference.");
     }
 
-    @Test void automatedMixedFreightUsesOrbitalDispatchAndSellsOnlyAfterFundedDocking() throws Exception {
+    @Test void automatedFundedStationRendezvousDeliversWholeMixedFreightLoadToHub() throws Exception {
         var state = funded();
         var destination = new CommercialHub("mars-market", "mars-port", 0, 1e6, 0, 10,
                 Map.of("steel", new MarketOrder("steel", 0, 1250, 3, 0),
@@ -215,17 +243,23 @@ class OrbitalTravelIntegrationTest {
                 .tradeRoutes(List.of(route)).build();
         var logistics = new com.spaceconquest.engine.logistics.LogisticsProcessor();
         state = logistics.processTradeRoutes(state).state();
-        assertNotNull(state.fleets().getFirst().location().orbitalFlight());
+        var orbital = state.fleets().getFirst().location().orbitalFlight(); assertNotNull(orbital);
+        var approach = orbital.itinerary().docking().physical().vectorTrajectory();
+        assertNotNull(approach.gravity());
         assertEquals(0, state.tradeRoutes().getFirst().totalVolumeMovedKg());
+        assertEquals(2500, state.tradeRoutes().getFirst().onboardKg());
+        assertEquals(manifest, state.tradeRoutes().getFirst().cargoManifest());
+        assertEquals(0, state.commercialHubs().getLast().activeOrders().get("steel").supplyKg());
+        assertEquals(0, state.commercialHubs().getLast().activeOrders().get("food_matrix").supplyKg());
+        double fuel = state.fleets().getFirst().ships().getFirst().currentFuelKg();
         int ticks = 0;
-        while (state.tradeRoutes().getFirst().onboardKg() > 0 && ticks++ < 1200) {
-            state = logistics.processTradeRoutes(day(state)).state();
-        }
+        while (state.fleets().getFirst().location().inTransit() && ticks < 1200) { state = day(state); ticks++; }
         assertTrue(state.fleets().getFirst().location().isAt(FleetLocation.Site.docked("mars-port")));
+        assertTrue(state.fleets().getFirst().ships().getFirst().currentFuelKg() < fuel);
+        state = logistics.processTradeRoutes(state).state();
         assertEquals(2500, state.tradeRoutes().getFirst().totalVolumeMovedKg());
+        assertEquals(0, state.tradeRoutes().getFirst().onboardKg());
         assertTrue(state.tradeRoutes().getFirst().cargoManifest().isEmpty());
-        assertEquals(0, state.fleets().getFirst().ships().getFirst().storedCargoKg().values().stream()
-                .mapToDouble(Double::doubleValue).sum(), .00001);
         assertEquals(1250, state.commercialHubs().getLast().activeOrders().get("steel").supplyKg());
         assertEquals(1250, state.commercialHubs().getLast().activeOrders().get("food_matrix").supplyKg());
     }

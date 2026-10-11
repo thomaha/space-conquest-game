@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Bounded next-port checks and tick-owned purchases. A return destination is never required. */
+/** Bounded next-port checks and tick-owned fueling. Automated freight also uses TradeReturnFuel. */
 public final class TradeLegReadiness {
     public record Report(boolean ready, String explanation) {}
     private TradeLegReadiness() {}
@@ -74,7 +74,7 @@ public final class TradeLegReadiness {
         arrival = arrival.withShips(arrival.ships().stream().map(ship -> new ShipInstance(ship.id(), ship.designId(),
                 ship.ownerEntityId(), ship.currentHullHealth(), ship.currentShieldHealth(),
                 Math.max(0, ship.currentFuelKg() - plan.fuelBudgetKg().getOrDefault(ship.id(), 0.0)), ship.storedCargoKg(),
-                ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState())).toList());
+                ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage())).toList());
         if (Fleet.MODE_SUBLIGHT.equals(plan.mode()) && crossingFleet.ships().stream().allMatch(ship -> {
             var design = FleetSupplySimulation.design(state, ship);
             return design.powerProfile() != null && PropulsionCatalog.mainDrive(design.equippedModuleIds()) != null;
@@ -87,7 +87,7 @@ public final class TradeLegReadiness {
             if (arrival == null) return new Report(false, "Waiting: warp electricity is insufficient.");
         }
         arrival = new Fleet(arrival.id(), arrival.name(), arrival.ownerEntityId(), system, "", 0, 0, 0,
-                false, arrival.fleetStance(), arrival.ships(), FleetLocation.at(FleetLocation.Site.deepSpace())).withFuelPolicy(arrival.fuelPolicy());
+                false, arrival.fleetStance(), arrival.ships(), FleetLocation.at(FleetLocation.Site.deepSpace())).withFuelPolicy(arrival.fuelPolicy()).withShieldPolicy(arrival.shieldPolicy()).withEscortOrder(arrival.escortOrder());
         var dock = LocalTravel.plan(state, arrival, site);
         if (dock == null) return new Report(false, "Waiting: destination approach propellant or reactor feed is insufficient.");
         if (!ShipPowerForecast.ready(ShipPowerForecast.departure(state, arrival, site, dock, null)))
@@ -101,7 +101,7 @@ public final class TradeLegReadiness {
         var ships = new java.util.ArrayList<ShipInstance>();
         for (var ship : fleet.ships()) {
             var design = FleetSupplySimulation.design(state, ship);
-            var p = design.powerProfile();
+            var p = design.powerProfile(ship);
             if (p == null) { ships.add(ship); continue; }
             var step = ShipPowerProcessor.interval(p, ShipPowerProcessor.reserves(ship), hours, 0,
                     p.essentialKw(ship, design), ShipPowerProcessor.cargoKw(p, ship, design), p.driveKw());
@@ -111,11 +111,49 @@ public final class TradeLegReadiness {
         return fleet.withShips(ships);
     }
 
-    /** Purchases only at the current physical port and rolls back if the complete next leg stays unsafe. */
+    /** Claims prepaid local reserves, then retains new purchases only if the complete next leg is safe. */
     public static GameState prepare(GameState state, Fleet fleet, CommercialHub destination) {
-        if (inspect(state, fleet, destination).ready()) return fasterLocalDeparture(state, fleet, destination);
+        state = TradeReturnFuel.claim(state, fleet);
+        fleet = find(state, fleet.id());
+        var snapshot = state;
+        var readyFleet = fleet;
+        var port = state.commercialHubs().stream().filter(hub -> FleetPositioning.atHub(snapshot, readyFleet, hub))
+                .findFirst().orElse(null);
+        boolean full = TradeFuelEconomy.preferFull(state, fleet, port)
+                || fleet.ships().stream().allMatch(ship -> FleetSupplySimulation.design(snapshot, ship) != null
+                        && FleetSupplySimulation.design(snapshot, ship).powerProfile() == null);
+        if (inspect(state, fleet, destination).ready()) return full ? prepareFull(state, fleet, destination) : state;
         if (fleet.hasInterstellarOrder() || fleet.location().inTransit()) return state;
         if (fleet.location().current().kind() == FleetLocation.Kind.DEEP_SPACE) return state;
+        if (full) return prepareFull(state, fleet, destination);
+        var supplied = TradeReturnFuelSizing.prepare(state, fleet, destination);
+        if (supplied == null) return state;
+        GameState current = state;
+        for (var ship : fleet.ships()) {
+            var allowance = supplied.ships().stream().filter(item -> item.id().equals(ship.id())).findFirst().orElseThrow();
+            current = buyLargest(current, ship.id(), port.entityId(), allowance.currentFuelKg() - ship.currentFuelKg(), null);
+            var profile = FleetSupplySimulation.design(state, ship).powerProfile();
+            if (profile == null) continue;
+            for (String id : List.of(ShipPowerProcessor.reserves(ship).chemicalMixture(), ShipPowerProcessor.reserves(ship).reactorFuel())) {
+                var fuel = profile.fuels().get(id);
+                if (fuel == null) continue;
+                double additional = fuel.materials(1).keySet().stream().mapToDouble(material ->
+                        Math.max(0, ShipPowerProcessor.reserves(allowance).generatorMaterialsKg().getOrDefault(material, 0.0)
+                                - ShipPowerProcessor.reserves(ship).generatorMaterialsKg().getOrDefault(material, 0.0))).sum();
+                current = buyLargest(current, ship.id(), port.entityId(), additional, id);
+            }
+        }
+        return inspect(current, find(current, fleet.id()), destination).ready() ? current : state;
+    }
+
+    /** Full working-store attempt, isolated by the caller when used only for forecasting. */
+    public static GameState refillAtPort(GameState state, Fleet fleet, CommercialHub port) {
+        return FleetPositioning.atHub(state, fleet, port) ? prepareFull(state, fleet, port) : state;
+    }
+
+    static GameState prepareFull(GameState state, Fleet fleet, CommercialHub destination) {
+        if (fleet.hasInterstellarOrder() || fleet.location().inTransit()
+                || fleet.location().current().kind() == FleetLocation.Kind.DEEP_SPACE) return state;
         String source = fleet.location().current().entityId();
         GameState current = state;
         for (var original : fleet.ships()) {
@@ -138,36 +176,30 @@ public final class TradeLegReadiness {
         return inspect(current, find(current, fleet.id()), destination).ready() ? current : state;
     }
 
-    /** Retain a paid local top-up only when it removes scheduled travel days and remains safe. */
-    private static GameState fasterLocalDeparture(GameState state, Fleet fleet, CommercialHub destination) {
-        if (destination == null || !fleet.currentSystemId().equals(FleetPositioning.systemForHub(state, destination))
-                || FleetPositioning.atHub(state, fleet, destination)
-                || fleet.location().current().kind() == FleetLocation.Kind.DEEP_SPACE) return state;
-        var site = FleetPositioning.hubSite(state, destination);
-        var original = LocalTravel.plan(state, fleet, site);
-        if (original == null || original.physical() == null || Math.ceil(original.days()) <= 1) return state;
-        GameState candidate = state;
-        String source = fleet.location().current().entityId();
-        for (var ship : fleet.ships()) {
-            var design = FleetSupplySimulation.design(candidate, ship);
-            if (design == null) return state;
-            candidate = buyLargest(candidate, ship.id(), source, design.fuelCapacityKg() - ship.currentFuelKg(), null);
-        }
-        if (candidate == state) return state;
-        candidate = ShipPowerResupply.prepareLocal(candidate, find(candidate, fleet.id()), site);
-        var updated = find(candidate, fleet.id());
-        var plan = LocalTravel.plan(candidate, updated, site);
-        return plan != null && Math.ceil(plan.days()) < Math.ceil(original.days())
-                && inspect(candidate, updated, destination).ready() ? candidate : state;
-    }
-
     private static Fleet find(GameState state, String id) {
         return state.fleets().stream().filter(item -> item.id().equals(id)).findFirst().orElseThrow();
     }
 
     static GameState buyLargest(GameState state, String ship, String source, double kg, String electricalFeed) {
+        if (kg <= 1e-5) return state;
         var full = buy(state, ship, source, kg, electricalFeed);
         if (full != state) return full;
+        var vessel = state.fleets().stream().flatMap(item -> item.ships().stream()).filter(item -> item.id().equals(ship)).findFirst().orElse(null);
+        var design = vessel == null ? null : FleetSupplySimulation.design(state, vessel);
+        var port = state.commercialHubs().stream().filter(item -> item.entityId().equals(source)).findFirst().orElse(null);
+        if (design == null || port == null) return state;
+        Map<String, Double> ingredients;
+        if (electricalFeed == null) {
+            var drive = PropulsionCatalog.mainDrive(design.equippedModuleIds());
+            if (drive == null) return state;
+            ingredients = drive.propellantMaterials(1);
+        } else {
+            var fuel = design.powerProfile() == null ? null : design.powerProfile().fuels().get(electricalFeed);
+            if (fuel == null) return state;
+            ingredients = fuel.materials(1);
+        }
+        if (ingredients.keySet().stream().anyMatch(id -> !port.activeOrders().containsKey(id)
+                || port.activeOrders().get(id).supplyKg() <= 0)) return state;
         double low = 0, high = kg;
         GameState best = state;
         for (int attempt = 0; attempt < 32; attempt++) {

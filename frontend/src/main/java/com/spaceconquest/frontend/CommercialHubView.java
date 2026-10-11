@@ -44,6 +44,7 @@ public class CommercialHubView {
     private final List<CommercialHub> activeHubs = new ArrayList<>();
     private final List<TradeRoute> activeTradeRoutes = new ArrayList<>();
     private GameState snapshot;
+    private final Map<String, String> coverageSelections = new java.util.HashMap<>();
 
     public CommercialHubView(Menubar menubar) {
         this.menubar = menubar;
@@ -359,6 +360,9 @@ public class CommercialHubView {
         metricsText.setFont(Font.font("Verdana", 12));
 
         box.getChildren().addAll(nameText, metricsText);
+        box.getChildren().add(HubFuelCoverageCard.create(snapshot, hub, coverageSelections.get(hub.id()),
+                fuelId -> coverageSelections.put(hub.id(), fuelId)));
+        box.getChildren().add(HubStockTargetCard.create(snapshot, hub, playerEmpireId, humanController, feedbackLabel));
 
         if (!hub.activeOrders().isEmpty()) {
             Text orderHeader = new Text("Commodity markets and deficit scores:");

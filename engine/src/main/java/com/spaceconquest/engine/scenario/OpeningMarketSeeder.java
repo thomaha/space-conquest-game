@@ -49,6 +49,6 @@ public final class OpeningMarketSeeder {
         double stored = orders.values().stream().mapToDouble(MarketOrder::supplyKg).sum();
         return new CommercialHub(hub.id(), hub.entityId(), hub.transactionTariffRate(),
                 Math.max(hub.storageCapacityKg(), stored * 1.5), stored,
-                hub.logisticsRangeUnits(), Map.copyOf(orders));
+                hub.logisticsRangeUnits(), Map.copyOf(orders), hub.stockTargets(), hub.stockHistory(), hub.reservedTradeFuel());
     }
 }

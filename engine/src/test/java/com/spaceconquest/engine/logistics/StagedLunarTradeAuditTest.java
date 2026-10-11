@@ -414,6 +414,11 @@ class StagedLunarTradeAuditTest {
                 .marketAccounts(List.of(new MarketAccount("low-market", 100000), new MarketAccount("depot-market", 100000),
                         new MarketAccount("moon-market", 100000)))
                 .powerGrids(List.of(new PowerGridState("low-port", 1000, 0, 1000, 2000, 2000, false))).build();
+        var moon = state.commercialHubs().getLast();
+        var moonOrders = new HashMap<>(moon.activeOrders());
+        moonOrders.putAll(fuel); // Finite destination stock lets automatic trips secure their return before leaving.
+        state = state.withCommercialHubs(List.of(state.commercialHubs().getFirst(), state.commercialHubs().get(1),
+                moon.withInventory(state.turn(), CAPACITY, moonOrders)));
         var blueprint = ShipBlueprintFactory.evaluate(state, new ShipDesignSpecification("design", "Freighter", "owner",
                 ShipRole.CARGO_TRANSPORT, "steel", ChemicalFreighterCatalog.modules(scenario.drive()), "steel", .5));
         assertTrue(blueprint.valid(), blueprint.errors().toString());

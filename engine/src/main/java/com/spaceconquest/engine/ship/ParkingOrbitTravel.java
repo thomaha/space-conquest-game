@@ -11,6 +11,11 @@ public final class ParkingOrbitTravel {
 
     static LocalTravel.Plan plan(GameState state, Fleet fleet, FleetLocation.Site target,
                                  OrbitalTravel.Parking from, OrbitalTravel.Parking to) {
+        return plan(state, fleet, target, from, to, null);
+    }
+
+    static LocalTravel.Plan plan(GameState state, Fleet fleet, FleetLocation.Site target,
+                                 OrbitalTravel.Parking from, OrbitalTravel.Parking to, VectorFlight sourceMotion) {
         if (fleet.location().inTransit() || fleet.hasInterstellarOrder() || fleet.ships().isEmpty()
                 || FleetSupplySimulation.hasOrders(fleet))
             throw new IllegalArgumentException("Choose a stationary fleet without scheduled supply rendezvous");
@@ -27,6 +32,11 @@ public final class ParkingOrbitTravel {
         double period2 = 2 * Math.PI * Math.sqrt(r2 / mu) * r2;
         double phase = Integer.toUnsignedLong((planet.id() + ":parking").hashCode()) / 4294967296.0 * 2 * Math.PI
                 + (state.turn() * 86400 % period1) / period1 * 2 * Math.PI;
+        if (sourceMotion != null) phase = Math.atan2(sourceMotion.position().yMeters(), sourceMotion.position().xMeters());
+        else if (fleet.location().current().kind() == FleetLocation.Kind.DOCKED) {
+            var source = StationRendezvous.at(state, fleet.location().current().entityId(), state.turn());
+            phase = Math.atan2(source.position().yMeters(), source.position().xMeters());
+        }
         var coast = new HohmannCoast(mu, r1, r2, phase);
         boolean approachOnly = r1 == r2;
         if (approachOnly && fleet.location().current().kind() == FleetLocation.Kind.ORBIT && target.kind() == FleetLocation.Kind.ORBIT)
@@ -67,14 +77,14 @@ public final class ParkingOrbitTravel {
                         feed == null ? null : feed.materialId(), feedRate));
                 total.put(ship.id(), used); mass.put(ship.id(), loaded - kg * (1 + feedRate));
                 if (feed != null && feedRate > 0) reactor.put(ship.id(), new InterstellarTravel.ReactorFuelUse(feed.materialId(), used * feedRate));
-                hours = Math.max(hours, impulses[index] * loaded / design.totalThrustN() / 3600);
+                hours = Math.max(hours, impulses[index] * loaded / PropulsionDamage.thrust(design, ship) / 3600);
             }
             if (!Double.isFinite(hours) || hours <= 0 || hours > 6)
                 throw new IllegalArgumentException("Maneuver exceeds the prototype's six-hour short-burn limit");
             events.add(new OrbitalFlight.Maneuver(epochs[index], hours, burns));
         }
         var itinerary = new OrbitalFlight.Itinerary(planet.id(), planet.id(), from.altitudeKm(), to.altitudeKm(), state.turn(),
-                epochs[0], coast, ShipSolarEnvironment.journey(state, fleet, target), events, planet.frame());
+                epochs[0], coast, ShipSolarEnvironment.journey(state, fleet, target), events, planet.frame(), sourceMotion);
         return new LocalTravel.Plan(itinerary.totalSeconds() / 86400, total, reactor, null, itinerary);
     }
 }

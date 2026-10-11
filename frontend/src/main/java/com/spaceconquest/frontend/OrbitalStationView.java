@@ -192,12 +192,49 @@ public class OrbitalStationView {
                 if (commerceButton != null) sBox.getChildren().add(commerceButton);
                 Button solarButton = solarModuleButton(station);
                 if (solarButton != null) sBox.getChildren().add(solarButton);
+                sBox.getChildren().add(sensorModuleButtons(station));
+                Button repairButton = repairModuleButton(station);
+                if (repairButton != null) sBox.getChildren().add(repairButton);
 
                 section.getChildren().add(sBox);
             }
         }
 
         return section;
+    }
+
+    private javafx.scene.layout.HBox sensorModuleButtons(OrbitalStation station) {
+        var row = new javafx.scene.layout.HBox(8);
+        if (gameState == null || menubar == null || !station.ownerEntityId().equals(playerEmpireId)) return row;
+        for (String id : com.spaceconquest.engine.ship.SensorModuleCatalog.IDS) {
+            var module = com.spaceconquest.engine.ship.SensorModuleCatalog.stationModule(id);
+            var command = new AddStationModuleCommand(station.id(), module.name(), id, module.slotSize(),
+                    module.dryMassKg(), module.powerDrawKw(), 0, module.workforceProfessionId(), module.requiredWorkers());
+            var button = new Button("Build " + module.name().toLowerCase(java.util.Locale.ROOT));
+            button.setDisable(!command.validate(gameState));
+            button.setOnAction(event -> {
+                var controller = menubar.getHumanController();
+                if (controller != null) { controller.stageCommand(command); button.setDisable(true); }
+            });
+            row.getChildren().add(button);
+        }
+        return row;
+    }
+
+    private Button repairModuleButton(OrbitalStation station) {
+        if (gameState == null || menubar == null || !station.ownerEntityId().equals(playerEmpireId)) return null;
+        var module = com.spaceconquest.engine.ship.BaseRepairCatalog.module();
+        var command = new AddStationModuleCommand(station.id(), module.name(), module.type(), module.slotSize(),
+                module.dryMassKg(), module.powerDrawKw(), 0, module.workforceProfessionId(), module.requiredWorkers());
+        if (!command.validate(gameState)) return null;
+        var button = new Button("Build repair workshop (4 slots, 50 kW)");
+        button.setTooltip(new javafx.scene.control.Tooltip("Repairs docked ships using local market materials and paid labor. "
+                + "Up to 50 repair points per day with two engineers; shared across all docked ships."));
+        button.setOnAction(event -> {
+            var controller = menubar.getHumanController();
+            if (controller != null) { controller.stageCommand(command); button.setDisable(true); }
+        });
+        return button;
     }
 
     private Button commerceModuleButton(OrbitalStation station) {

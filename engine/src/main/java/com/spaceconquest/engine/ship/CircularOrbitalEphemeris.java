@@ -65,7 +65,10 @@ public final class CircularOrbitalEphemeris {
         return radius;
     }
 
-    static double angle(double radians) { return (radians % TWO_PI + TWO_PI) % TWO_PI; }
+    static double angle(double radians) {
+        if (radians >= 0 && radians < TWO_PI) return radians == 0 ? 0 : radians;
+        return (radians % TWO_PI + TWO_PI) % TWO_PI;
+    }
     static void positive(double value) {
         if (!Double.isFinite(value) || value <= 0) throw new IllegalArgumentException("Positive finite orbital values are required");
     }

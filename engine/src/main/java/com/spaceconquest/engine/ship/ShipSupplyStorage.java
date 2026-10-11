@@ -64,6 +64,6 @@ public final class ShipSupplyStorage {
         return ship.withPowerState(new ShipPowerState(materials, reactor ? power.chemicalMixture() : fuelId,
                 reactor ? fuelId : power.reactorFuel(), power.batteryChargeKwh(), power.arraysDeployed(), power.arrayCondition(),
                 power.orientationFraction(), power.unmetEssentialHours(), power.unmetDriveKwh(), power.unmetCargoKwh(),
-                power.lastUnmetEssentialKwh(), power.chargedInputKwhToday(), power.cargoPreservation(), power.rescueStatus()));
+                power.lastUnmetEssentialKwh(), power.chargedInputKwhToday(), power.cargoPreservation(), power.rescueStatus(), power.shedServices()));
     }
 }

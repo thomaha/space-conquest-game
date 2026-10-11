@@ -22,8 +22,8 @@ public final class ShipBatteryCharging {
         var ship = fleet.ships().stream().filter(item -> item.id().equals(shipId)).findFirst().orElseThrow();
         var design = state.shipDesigns().stream().filter(item -> item.id().equals(ship.designId())).findFirst().orElse(null);
         if (design == null || design.powerProfile() == null || !ship.ownerEntityId().equals(fleet.ownerEntityId())) return state;
-        var profile = design.powerProfile();
-        var power = ShipPowerProcessor.reserves(ship);
+        var profile = design.powerProfile(ship);
+        var power = ShipPowerProcessor.reserves(ShipElectricalDamage.clampCharge(design, ship));
         double stored = inputKwh * ShipPowerProcessor.CHARGING_EFFICIENCY;
         if (power.batteryChargeKwh() + stored > profile.batteryKwh() + .000001
                 || power.chargedInputKwhToday() + inputKwh > profile.chargeKw() * 24 + .000001) return state;
@@ -51,7 +51,7 @@ public final class ShipBatteryCharging {
         var next = new ShipPowerState(power.generatorMaterialsKg(), power.chemicalMixture(), power.reactorFuel(),
                 power.batteryChargeKwh() + stored, power.arraysDeployed(), power.arrayCondition(), power.orientationFraction(),
                 power.unmetEssentialHours(), power.unmetDriveKwh(), power.unmetCargoKwh(), power.lastUnmetEssentialKwh(),
-                power.chargedInputKwhToday() + inputKwh, power.cargoPreservation(), power.rescueStatus());
+                power.chargedInputKwhToday() + inputKwh, power.cargoPreservation(), power.rescueStatus(), power.shedServices());
         return ShipPowerResupply.replace(paid.toBuilder().powerGrids(grids).build(), ship.withPowerState(next));
     }
 

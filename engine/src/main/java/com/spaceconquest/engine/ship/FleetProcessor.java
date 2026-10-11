@@ -2,7 +2,6 @@ package com.spaceconquest.engine.ship;
 
 import com.spaceconquest.engine.DiplomaticRelation;
 import com.spaceconquest.engine.macrostructure.OrbitalStation;
-import com.spaceconquest.engine.macrostructure.StationModule;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -60,7 +59,7 @@ public class FleetProcessor {
         FleetLocation location = fleet.location();
         boolean wasLocalTransit = location.inTransit();
 
-        List<ShipInstance> updatedShips = repairDockedShips(fleet, stations, relations);
+        List<ShipInstance> updatedShips = fleet.ships();
 
         if (!inWarp && location.inTransit()) location = location.advanceDay();
         else if (!inWarp && !fleet.isInterstellarTransit()
@@ -115,7 +114,7 @@ public class FleetProcessor {
                 targetSys.isEmpty() ? 0.0 : fleet.interstellarPeakSpeedMps(),
                 targetSys.isEmpty() ? java.util.Map.of() : fleet.interstellarFuelBudgetKg(),
                 null, targetSys.isEmpty() ? java.util.Map.of() : fleet.journeyPropulsion()
-        ).withFuelPolicy(fleet.fuelPolicy());
+        ).withFuelPolicy(fleet.fuelPolicy()).withShieldPolicy(fleet.shieldPolicy()).withGuardOrder(fleet.guardOrder()).withEscortOrder(fleet.escortOrder()).withInterceptOrder(fleet.interceptOrder());
     }
 
     private List<ShipInstance> burnSublightFuel(Fleet fleet, List<ShipInstance> ships,
@@ -138,60 +137,18 @@ public class FleetProcessor {
                     ship.currentHullHealth(), ship.currentShieldHealth(),
                     Math.max(0.0, ship.currentFuelKg() - budget * deltaFraction),
                     ship.storedCargoKg(), ship.passengerCount(),
-                    ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState());
+                    ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage());
         }).toList();
     }
 
-    private List<ShipInstance> repairDockedShips(Fleet fleet, List<OrbitalStation> stations,
-                                                 List<DiplomaticRelation> relations) {
-        if (fleet.isInWarp() || fleet.location().inTransit() || stations == null)
-            return fleet.ships();
-        for (OrbitalStation station : stations) {
-            if (!station.systemId().equals(fleet.currentSystemId())
-                    || !fleet.location().isAt(FleetLocation.Site.docked(station.id()))
-                    || !station.hasModuleType(StationModule.TYPE_MILITARY_HANGAR)) continue;
-            boolean allied = fleet.ownerEntityId().equals(station.ownerEntityId());
-            if (!allied && relations != null) allied = relations.stream().anyMatch(relation ->
-                    (relation.tier().contains("ALLIANCE")
-                            || relation.tier().contains("FEDERATION"))
-                            && ((relation.empireAId().equals(fleet.ownerEntityId())
-                            && relation.empireBId().equals(station.ownerEntityId()))
-                            || (relation.empireBId().equals(fleet.ownerEntityId())
-                            && relation.empireAId().equals(station.ownerEntityId()))));
-            if (!allied) continue;
-            return fleet.ships().stream().map(ship -> new ShipInstance(ship.id(),
-                    ship.designId(), ship.ownerEntityId(),
-                    Math.clamp(ship.currentHullHealth() + 5.0, 0.0, 100.0),
-                    Math.clamp(ship.currentShieldHealth() + 10.0, 0.0, 100.0),
-                    ship.currentFuelKg(), ship.storedCargoKg(), ship.passengerCount(),
-                    ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState())).toList();
-        }
-        return fleet.ships();
-    }
-
     /**
-     * Calculates the aggregate sensor / scanner range of a fleet.
+     * Returns installed survey strength; physical range in km is handled by SensorCoverage.
      */
     public double calculateFleetScannerRange(Fleet fleet, List<ShipDesign> designs) {
-        if (fleet == null || fleet.ships().isEmpty()) {
-            return 5.0; // Baseline sensor range
-        }
-
-        double maxRange = 5.0;
-        for (ShipInstance ship : fleet.ships()) {
-            if (designs != null) {
-                for (ShipDesign design : designs) {
-                    if (design.id().equals(ship.designId())) {
-                        if (ShipRole.EXPLORER.equalsIgnoreCase(design.role())) {
-                            maxRange = Math.max(maxRange, 25.0);
-                        } else if (ShipRole.COMBAT_SHIP.equalsIgnoreCase(design.role())
-                                || ShipRole.CARRIER_SHIP.equalsIgnoreCase(design.role())) {
-                            maxRange = Math.max(maxRange, 15.0);
-                        }
-                    }
-                }
-            }
-        }
-        return maxRange;
+        if (fleet == null || designs == null) return 0;
+        return fleet.ships().stream().mapToDouble(ship -> designs.stream()
+                .filter(design -> ship.designId().equals(design.id()))
+                .mapToDouble(design -> SensorModuleCatalog.profile(design, ship).scanStrength()).max().orElse(0))
+                .max().orElse(0);
     }
 }

@@ -105,7 +105,7 @@ public class PowerGenerationProcessor {
             cash = new IndustryOperatingLedger(state.industryAccounts());
             for (Empire empire : state.empires()) empires.put(empire.id(), empire);
             for (Corporation corporation : state.corporations()) corporations.put(corporation.id(), corporation);
-            for (CommercialHub hub : state.commercialHubs()) hubs.put(hub.id(), hub);
+            for (CommercialHub hub : state.commercialHubs()) hubs.put(hub.id(), hub.observeDay(state.turn()));
             for (MarketAccount account : state.marketAccounts()) accounts.put(account.hubId(), account);
         }
 
@@ -134,9 +134,8 @@ public class PowerGenerationProcessor {
             Map<String, MarketOrder> orders = new HashMap<>(hub.activeOrders());
             orders.put(material, new MarketOrder(material, Math.max(0.0, order.supplyKg() - kg),
                     order.demandKg(), order.pricePerKg(), order.shortcomingScore()));
-            hubs.put(hub.id(), new CommercialHub(hub.id(), hub.entityId(), hub.transactionTariffRate(),
-                    hub.storageCapacityKg(), Math.max(0.0, hub.currentStoredWeightKg() - kg),
-                    hub.logisticsRangeUnits(), orders));
+            hubs.put(hub.id(), hub.withInventory(hub.stockHistory().currentTurn(),
+                    Math.max(0.0, hub.currentStoredWeightKg() - kg), orders));
             if (cost > 0.0) {
                 debitOwner(facility, cost);
                 MarketAccount previous = accounts.get(hub.id());

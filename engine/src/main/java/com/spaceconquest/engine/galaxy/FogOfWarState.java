@@ -4,7 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Tracks planetary discovery, foreign fleet sightings and fog-of-war visibility per empire.
+ * Immutable common empire sensor view and permanent exploration knowledge. Corporate views
+ * with additional direct grants use their corporation ID in the legacy empireId field.
  */
 public record FogOfWarState(
         String empireId,
@@ -12,9 +13,15 @@ public record FogOfWarState(
         List<String> scannedPlanetIds,
         List<String> detectedFleetIds,
         List<String> discoveredAnomalyIds,
-        List<String> discoveredPirateBaseIds
+        List<String> discoveredPirateBaseIds,
+        List<SensorContact> contacts
 ) {
+    public FogOfWarState(String empireId, List<String> exploredSystemIds, List<String> scannedPlanetIds,
+                         List<String> detectedFleetIds, List<String> discoveredAnomalyIds, List<String> discoveredPirateBaseIds) {
+        this(empireId, exploredSystemIds, scannedPlanetIds, detectedFleetIds, discoveredAnomalyIds, discoveredPirateBaseIds, List.of());
+    }
     public FogOfWarState {
+        contacts = contacts == null ? List.of() : List.copyOf(contacts);
         exploredSystemIds = exploredSystemIds == null ? List.of() : List.copyOf(exploredSystemIds);
         scannedPlanetIds = scannedPlanetIds == null ? List.of() : List.copyOf(scannedPlanetIds);
         detectedFleetIds = detectedFleetIds == null ? List.of() : List.copyOf(detectedFleetIds);
@@ -31,17 +38,19 @@ public record FogOfWarState(
         return scannedPlanetIds != null && scannedPlanetIds.contains(planetId);
     }
 
+    public boolean isFleetDetected(String fleetId) { return detectedFleetIds.contains(fleetId); }
+
     public FogOfWarState withExploredSystem(String systemId) {
         if (isSystemExplored(systemId)) return this;
         List<String> updated = new ArrayList<>(exploredSystemIds);
         updated.add(systemId);
-        return new FogOfWarState(empireId, updated, scannedPlanetIds, detectedFleetIds, discoveredAnomalyIds, discoveredPirateBaseIds);
+        return new FogOfWarState(empireId, updated, scannedPlanetIds, detectedFleetIds, discoveredAnomalyIds, discoveredPirateBaseIds, contacts);
     }
 
     public FogOfWarState withScannedPlanet(String planetId) {
         if (isPlanetScanned(planetId)) return this;
         List<String> updated = new ArrayList<>(scannedPlanetIds);
         updated.add(planetId);
-        return new FogOfWarState(empireId, exploredSystemIds, updated, detectedFleetIds, discoveredAnomalyIds, discoveredPirateBaseIds);
+        return new FogOfWarState(empireId, exploredSystemIds, updated, detectedFleetIds, discoveredAnomalyIds, discoveredPirateBaseIds, contacts);
     }
 }

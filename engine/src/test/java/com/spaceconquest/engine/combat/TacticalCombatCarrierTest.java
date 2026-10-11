@@ -45,12 +45,12 @@ class TacticalCombatCarrierTest {
 
         ShipDesign carrierDesign = new ShipDesign(
                 "design_carrier", "Fleet Carrier", "terran_confederation",
-                "CARRIER_SHIP", "steel", List.of(), "steel", 10.0,
+                "CARRIER_SHIP", "steel", List.of("mod_ship_gun", "mod_ship_shield"), "steel", 10.0,
                 150000.0, 50000.0, 1000.0, 1500.0, 50000.0, 100000.0, true, false
         );
         ShipDesign frigateDesign = new ShipDesign(
                 "design_frigate", "Combat Frigate", "centauri_dominion",
-                "COMBAT_SHIP", "steel", List.of(), "steel", 5.0,
+                "COMBAT_SHIP", "steel", List.of("mod_ship_gun", "mod_ship_shield"), "steel", 5.0,
                 40000.0, 5000.0, 500.0, 1200.0, 20000.0, 60000.0, true, false
         );
 
@@ -103,7 +103,7 @@ class TacticalCombatCarrierTest {
         );
         ShipDesign corvDesign = new ShipDesign(
                 "design_corvette", "Corvette", "terran_confederation",
-                "ESCORT", "steel", List.of(), "steel", 4.0,
+                "ESCORT", "steel", List.of("mod_ship_gun", "mod_ship_shield"), "steel", 4.0,
                 20000.0, 2000.0, 400.0, 1100.0, 10000.0, 35000.0, true, false
         );
 

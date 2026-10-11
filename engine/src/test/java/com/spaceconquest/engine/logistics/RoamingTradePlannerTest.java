@@ -137,14 +137,15 @@ class RoamingTradePlannerTest {
 
     @Test void mixedOrbitalPickupPaysOnePhysicalLaunchAndRetainsItsCostBasis() {
         var initial = mixedState(true); var source = initial.commercialHubs().getFirst();
-        var earth = new Planet("earth", "Earth", "", 1, 9.81, SolarRadiation.AU_KM,
+        var earth = new Planet("earth", "Earth", "", 5.972e24, 9.81, SolarRadiation.AU_KM,
                 0, 12000, "terrestrial", "air", false, 0, List.of(), List.of(), List.of());
         var fleet = initial.fleets().getFirst().withLocation(FleetLocation.at(FleetLocation.Site.orbit("earth")));
+        double parkingPhase = Integer.toUnsignedLong("earth:parking".hashCode()) / 4294967296.0 * 2 * Math.PI;
         var state = initial.toBuilder().solarSystems(List.of(new SolarSystem("sol", "Sol", "", 0, 0, 0,
                         SolarRadiation.SOLAR_MASS_KG, 1392000, "yellow", List.of(earth), List.of())))
                 .orbitalStations(initial.orbitalStations().stream().map(station -> new OrbitalStation(station.id(), station.name(),
                         station.systemId(), "earth", station.ownerEntityId(), "PUBLIC_STATE", 10, List.of(), Map.of(),
-                        0, 0, 0, 0, 100, 100, "steel", 0, true)).toList())
+                        0, 0, 0, 0, 100, 100, "steel", 0, true).withOrbitalPhaseRadians(parkingPhase + .01)).toList())
                 .empires(List.of(initial.empires().getFirst(), new Empire("provider", "Launch provider", "human", "Individualist",
                         0, 0, List.of(), List.of(), Map.of(), List.of(), List.of())))
                 .commercialHubs(List.of(new CommercialHub(source.id(), "earth", 0, 100000, 20200, 10, source.activeOrders()),
@@ -159,6 +160,20 @@ class RoamingTradePlannerTest {
         assertTrue(selected.route().onboardCostCredits() > 20);
         assertEquals(1, selected.state().launchActivities().size());
         assertTrue(state.launchActivities().isEmpty());
+        var arrived = selected.state().withTradeRoutes(List.of(selected.route()));
+        for (int tick = 0; tick < 10 && !FleetPositioning.atHub(arrived, arrived.fleets().getFirst(), arrived.commercialHubs().get(1)); tick++) {
+            arrived = arrived.withFleets(new FleetProcessor().processFleetMovements(ShipPowerProcessor.advanceDay(arrived),
+                    arrived.orbitalStations(), List.of())).withTurn(arrived.turn() + 1);
+        }
+        assertTrue(FleetPositioning.atHub(arrived, arrived.fleets().getFirst(), arrived.commercialHubs().get(1)));
+        assertEquals(selected.route().cargoManifest(), arrived.tradeRoutes().getFirst().cargoManifest());
+        assertEquals(selected.route().onboardCostCredits(), arrived.tradeRoutes().getFirst().onboardCostCredits());
+        assertEquals(5, arrived.fleets().getFirst().ships().getFirst().storedCargoKg().get("steel"));
+        assertEquals(15, arrived.fleets().getFirst().ships().getFirst().storedCargoKg().get("refined_copper"));
+        var sold = new LogisticsProcessor().processTradeRoutes(arrived).state();
+        assertEquals(20, sold.tradeRoutes().getFirst().totalVolumeMovedKg());
+        assertTrue(sold.tradeRoutes().getFirst().cargoManifest().isEmpty());
+        assertEquals(1, sold.launchActivities().size(), "Pickup charges one launch for the whole mixed load.");
     }
 
     @Test void smallerLoadLeavesCashForPaidFuelAndKeepsTheConfiguredLimit() {
@@ -212,7 +227,7 @@ class RoamingTradePlannerTest {
                 "rp1_kerosene", new MarketOrder("rp1_kerosene", 10000, 0, .001, 0),
                 "liquid_oxygen", new MarketOrder("liquid_oxygen", 10000, 0, .001, 0)));
     }
-    private GameState state(boolean empty, boolean roaming) {
+    GameState state(boolean empty, boolean roaming) {
         var p = new ShipPowerProfile(0, 100, 0, 0, 0, 0, 5000, 0, 1, 2, 0, .65,
                 Map.of("rp1", new ShipPowerProfile.Fuel("rp1_kerosene", "liquid_oxygen", .28, 1.008)));
         var design = new ShipDesign("design", "Freighter", "owner", ShipRole.CARGO_TRANSPORT, "steel",

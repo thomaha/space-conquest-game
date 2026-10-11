@@ -38,7 +38,7 @@ final class OrbitalTravelCard {
     static void refresh(Label preview, Button move, GameState state, Fleet fleet, FleetLocation.Site target, boolean emergency) {
         Object request = new Object(); preview.setUserData(request);
         move.setDisable(true); preview.setText("Calculating local departure...");
-        if (state == null || target == null || fleet.location().inTransit() || fleet.hasInterstellarOrder()) {
+        if (state == null || target == null || fleet.location().inTransit() && !RecoveredParkingTravel.ready(fleet) || fleet.hasInterstellarOrder()) {
             preview.setText("Choose a stationary fleet and destination."); return;
         }
         Fleet planning = emergency ? fleet.withFuelPolicy(new FleetFuelPolicy(0, 0, 0)) : fleet;
@@ -52,7 +52,13 @@ final class OrbitalTravelCard {
             if (plan.orbital() != null) details = String.format("%s impulse prototype: wait %.1f days | coast %.1f days | funded maneuvers %.1f kg | %s",
                     plan.orbital().parkingTransfer() ? "Parking transfer" : plan.orbital().lunarTransfer() ? "Lunar transfer" : "Orbital", plan.orbital().waitSeconds() / 86400, plan.orbital().coastDurationSeconds() / 86400,
                     plan.propellantKg().values().stream().mapToDouble(Double::doubleValue).sum(), details);
+            else if (plan.physical() != null && plan.physical().vectorTrajectory() != null
+                    && plan.physical().vectorTrajectory().gravity() != null && target.kind() == FleetLocation.Kind.DOCKED)
+                details = String.format("%s: %.2f hours | Position and velocity matching | %s", approachName(plan.physical()), plan.days() * 24, details);
             else details = "Existing local travel model: " + details;
+            if (plan.orbital() != null && plan.orbital().docking() != null)
+                details += String.format(" | %s %.2f hours after parking handover | Position and velocity matching",
+                        approachName(plan.orbital().docking().physical()), plan.orbital().docking().physical().days() * 24);
             return new Result(ready, details + (ready ? " | Electricity and arrival reserve checked." : " | Electrical endurance is insufficient."));
         }).whenComplete((result, failure) -> Platform.runLater(() -> {
             if (preview.getUserData() != request) return;
@@ -62,4 +68,10 @@ final class OrbitalTravelCard {
     }
 
     private record Result(boolean ready, String text) {}
+
+    private static String approachName(LocalSpaceTravel.Plan physical) {
+        var trajectory = physical.vectorTrajectory();
+        return trajectory != null && trajectory.coastSeconds() > 20 * trajectory.burnSeconds()
+                ? "Orbital phasing and station rendezvous" : "Station rendezvous";
+    }
 }

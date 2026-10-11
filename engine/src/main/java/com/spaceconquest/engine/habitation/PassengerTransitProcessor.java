@@ -64,7 +64,7 @@ public final class PassengerTransitProcessor {
                 !shipId.equals(ship.id()) ? ship : new ShipInstance(ship.id(), ship.designId(),
                         ship.ownerEntityId(), ship.currentHullHealth(), ship.currentShieldHealth(),
                         ship.currentFuelKg(), ship.storedCargoKg(), count, raceId, transitMode,
-                        ship.powerState() == null ? null : ship.powerState().resetPassengerOutage(), ship.supplyState()))
+                        ship.powerState() == null ? null : ship.powerState().resetPassengerOutage(), ship.supplyState(), ship.moduleDamage()))
                 .toList())).toList();
         GameState reduced = changePopulation(state, source, raceId, booked, -1);
         return reduced.toBuilder().fleets(fleets).passengerManifests(manifests).build();
@@ -115,7 +115,7 @@ public final class PassengerTransitProcessor {
                 : item.withShips(item.ships().stream().map(ship -> !shipId.equals(ship.id()) ? ship
                 : new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(),
                 ship.currentShieldHealth(), ship.currentFuelKg(), ship.storedCargoKg(), count, raceId,
-                ship.transitMode(), ship.powerState(), ship.supplyState())).toList())).toList();
+                ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage())).toList())).toList();
         List<HouseholdAccount> accounts = state.householdAccounts().stream().map(current -> {
             if (!current.key().equals(account.key())) return current;
             HouseholdEmployment employment = current.employment();
@@ -159,7 +159,7 @@ public final class PassengerTransitProcessor {
                                             : new ShipInstance(ship.id(), ship.designId(),
                                             ship.ownerEntityId(), ship.currentHullHealth(),
                                             ship.currentShieldHealth(), ship.currentFuelKg(),
-                                            ship.storedCargoKg(), 0, "", ship.transitMode(), ship.powerState(), ship.supplyState()))
+                                            ship.storedCargoKg(), 0, "", ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage()))
                                     .toList())).toList();
             current = current.withFleets(fleets);
         }
@@ -212,7 +212,7 @@ public final class PassengerTransitProcessor {
                 updatedShips.add(new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(),
                         ship.currentHullHealth(), ship.currentShieldHealth(), ship.currentFuelKg(),
                         Map.copyOf(cargo), (int) remaining.headcount(),
-                        remaining.headcount() > 0 ? ship.passengerRaceId() : "", ship.transitMode(), ship.powerState(), ship.supplyState()));
+                        remaining.headcount() > 0 ? ship.passengerRaceId() : "", ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage()));
             }
             updatedFleets.add(fleet.withShips(updatedShips));
         }

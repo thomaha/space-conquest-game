@@ -270,8 +270,7 @@ public class IndustryMarketProcessor {
             orders.put(resource, new MarketOrder(resource, Math.max(0.0, quantity),
                     prior == null ? 0.0 : prior.demandKg(), prior == null ? 2.0 : prior.pricePerKg(),
                     prior == null ? 0.0 : prior.shortcomingScore()));
-            hubs.put(hub.id(), new CommercialHub(hub.id(), hub.entityId(), hub.transactionTariffRate(),
-                    hub.storageCapacityKg(), Math.max(0.0, storedWeight), hub.logisticsRangeUnits(), orders));
+            hubs.put(hub.id(), hub.withInventory(state.turn(), Math.max(0.0, storedWeight), orders));
         }
     }
 }

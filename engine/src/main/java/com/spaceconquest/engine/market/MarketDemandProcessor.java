@@ -102,8 +102,9 @@ public class MarketDemandProcessor {
                     demand.merge(resource, kg, Double::sum));
             shipFuelDemand(state, hub, demand);
             Map<String, MarketOrder> orders = new HashMap<>(hub.activeOrders());
-            addStockpileDemand(hub, demand);
+            addStockpileDemand(state, hub, demand);
             Set<String> allGoods = new HashSet<>(managedGoods);
+            allGoods.addAll(hub.stockTargets().keySet());
             allGoods.addAll(demand.keySet());
             for (String resource : allGoods) {
                 MarketOrder old = orders.get(resource);
@@ -115,7 +116,7 @@ public class MarketDemandProcessor {
             }
             return new CommercialHub(hub.id(), hub.entityId(), hub.transactionTariffRate(),
                     hub.storageCapacityKg(), hub.currentStoredWeightKg(), hub.logisticsRangeUnits(),
-                    Map.copyOf(orders));
+                    Map.copyOf(orders), hub.stockTargets(), hub.stockHistory(), hub.reservedTradeFuel());
         }).toList();
     }
 
@@ -144,8 +145,9 @@ public class MarketDemandProcessor {
         return List.copyOf(hubs);
     }
 
-    private void addStockpileDemand(CommercialHub hub, Map<String, Double> demand) {
+    private void addStockpileDemand(GameState state, CommercialHub hub, Map<String, Double> demand) {
         MarketStockpilePolicy.baseTargetsKg().forEach((resource, target) -> {
+            if (hub.stockTargets().containsKey(resource)) return;
             MarketOrder order = hub.activeOrders().get(resource);
             double currentSupply = order == null ? 0.0 : order.supplyKg();
             double targetKg = Math.max(target, demand.getOrDefault(resource, 0.0)
@@ -153,6 +155,10 @@ public class MarketDemandProcessor {
             double replenishment = Math.max(0.0, targetKg - currentSupply)
                     / 30.0;
             if (replenishment > 0.0) demand.merge(resource, replenishment, Double::sum);
+        });
+        hub.stockTargets().forEach((resource, target) -> {
+            double requested = com.spaceconquest.engine.logistics.HubReplenishment.requestedKg(state, hub, resource, null);
+            if (requested > 0) demand.merge(resource, requested / 30.0, Double::sum);
         });
     }
 

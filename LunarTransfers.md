@@ -8,13 +8,15 @@ LunarTransferComparison provides read-only geometry and OrbitalTravel uses it fo
 
 ## Transfer geometry
 
+Save version 53 adds OrbitalDocking's planned physical station approach. After funded capture, the fleet hands over to the destination body frame at the next coordinated tick boundary. Approaches use circular parking position and velocity, the moon's own gravity and the same station ephemeris as sensors. Missing approach funding leaves moon-centered coast. Older records without a docking plan retain their original event semantics. Earlier lunar trade audits used the fixed approach allowance and do not establish new docking reachability or costs.
+
 - Resolve the moon from its actual parent planet. Catalog moon distance is parent-relative, not a distance from the star.
 - Derive deterministic circular lunar phase from the system, parent and moon IDs plus the campaign epoch. Planetary parking direction uses the existing deterministic parking approximation.
 - Use a parent-centered Hohmann ellipse between the actual parent parking radius and the moon's orbital envelope. Include phase waiting so the predicted moon reaches the encounter location.
 - In the outward direction, pay the parent parking departure velocity change and lunar capture from the calculated parent-relative excess velocity. In the inward direction, pay lunar escape and parent parking circularization. A final station approach is separately funded.
 - Use the moon's mass and declared lunar parking radius for lunar escape, capture and parking-period checks. Do not substitute the parent's mass or treat lunar arrival as free circularization.
 - Both parking sites must remain inside their relevant sphere-of-influence approximations. The parent parking radius must be smaller than the moon's orbital radius minus its sphere-of-influence radius; higher parent orbits require a separate geometry treatment.
-- The coast and lunar gravity-well budget are a patched two-body game approximation. Finite sphere crossings, flyby deflection and exact station phasing are not implied.
+- The coast and lunar gravity-well budget are a patched two-body game approximation. Finite sphere crossings and flyby deflection are not implied. New station arrivals solve local phase and velocity with the shared StationRendezvous planner after paid capture.
 
 ## Fuel, power and failures
 
@@ -33,8 +35,14 @@ LunarTravelIntegrationTest verifies paid outward and inward journeys, forecast/t
 
 The initial paid hydrolox fixture carries 2,500 kg of mixed cargo between 2,000 km Earth parking and 500 km Moon parking. Its solar array supplies auxiliary electricity while chemical fuel pays all three maneuvers. The same loaded freighter at 500 km Earth parking fails the provisional finite-burn limit. This is a catalog tuning result rather than a general prohibition on low Earth orbit departure.
 
+The [lunar round-trip report](LunarRoundTripReport.md) measures three goods deliveries and paid empty returns by the same hydrolox freighter. A catalog fission tanker replenishes the initially empty Moon port and returns using its delivered local supplies. All ships complete 117 round trips, but this supply design loses 18,336.59 credits after physical consumption and retained inventory are reconciled.
+
 The diagram displays the parent-centered lunar envelope during a transfer, including after capture while the approach is pending. It does not resolve motion inside the lunar parking orbit until a new Moon parking maneuver is planned. Successful capture retains the correct lunar body and altitude even though this small-scale motion is omitted.
 
 The [paid lunar trade report](LunarTradeReport.md) adds 26 actual shipment scenarios in both directions. Sixteen complete funded mixed-cargo delivery while preserving their selected reserves. Automated selection counts consumed fuel even when tanks are already full. Partial sales and lunar-port replenishment preserve physical stock, owner cash and the remaining manifest through reload. Traders can wait at the destination without committing to a return leg.
 
-The [staged lunar trade report](StagedLunarTradeReport.md) verifies an empty paid climb from 500 km Earth parking to a 2,000 km depot before refueling, buying mixed cargo and departing for the Moon. Fourteen of eighteen probes complete both legs in seven simulation days. The measured economics include consumed fuel on both legs. Empty roaming traders can also choose a profitable intermediate parking port on their current body and recheck the lunar trade on actual depot arrival. Ports remain finite-stock fixtures; surface access, cargo-loaded staging, longer port chains and port replenishment are separate work.
+The [staged lunar trade report](StagedLunarTradeReport.md) verifies an empty paid climb from 500 km Earth parking to a 2,000 km depot before refueling, buying mixed cargo and departing for the Moon. Fourteen of eighteen probes complete both legs in seven simulation days. The measured economics include consumed fuel on both legs. Empty roaming traders can also choose a profitable intermediate parking port on their current body and recheck the lunar trade on actual depot arrival. The [depot replenishment report](DepotReplenishmentReport.md) adds three paid restocking cycles into an initially empty depot before lunar loading. Ports and initial source stocks remain fixtures; surface access, source production, longer port chains and autonomous supply scheduling are separate work.
+
+## Shared ballistic recovery
+
+OrbitalRecovery uses the same funded circular recovery planner for stellar, planetary and lunar gravity frames. Failed lunar-transfer capture retains its actual saved center; a parent-centered coast recovers around that parent and a Moon-centered parking flight recovers around the Moon. Recovery never changes gravity centers implicitly. Selected parking altitude and predicted paths must remain above the body and inside its sphere-of-influence approximation. Position, velocity, gravity frame and outer bound survive save/load in version 51. Power failure and cancellation preserve physical ballistic motion. Docking remains a separate maneuver. See [InterceptOrders.md](InterceptOrders.md).

@@ -71,7 +71,7 @@ public final class FleetSupplyReplanning {
         double padding = Math.ceil(arrival / 24) * 24 - arrival;
         for (var ship : fleet.ships()) {
             var design = FleetSupplySimulation.design(state, ship);
-            var p = design.powerProfile();
+            var p = design.powerProfile(ship);
             if (p == null) return false;
             var power = ShipPowerProcessor.reserves(ship);
             for (double[] phase : new double[][]{{trajectory.coastSeconds() / 3600, 0},

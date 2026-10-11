@@ -8,7 +8,6 @@ import com.spaceconquest.engine.MarketOrder;
 import com.spaceconquest.engine.economy.MarketAccount;
 import com.spaceconquest.engine.industry.IndustryMarketProcessor;
 import com.spaceconquest.engine.market.MarketProcessor;
-import com.spaceconquest.engine.market.MarketStockpilePolicy;
 import com.spaceconquest.engine.ship.Fleet;
 import com.spaceconquest.engine.ship.FleetLocation;
 import com.spaceconquest.engine.ship.LocalTravel;
@@ -51,7 +50,7 @@ public class LogisticsProcessor {
     public FreightResult processTradeRoutes(GameState state) {
         if (state == null || state.tradeRoutes().isEmpty())
             return new FreightResult(state, 0.0);
-        GameState current = state;
+        GameState current = HubReplenishment.refreshRequests(state);
         List<TradeRoute> updated = new ArrayList<>();
         Set<String> usedShips = new HashSet<>();
         Set<String> usedFleets = new HashSet<>();
@@ -76,9 +75,16 @@ public class LogisticsProcessor {
                 case TradeRoute.DELIVERING -> deliver(current, route, carrier);
                 case TradeRoute.RETURNING -> returnCarrier(current, route, carrier);
                 case TradeRoute.REPOSITIONING -> reposition(current, route, carrier);
+                case TradeRoute.PAUSED_DELIVERY, TradeRoute.PAUSED_RETURN, TradeRoute.RETURNING_CARGO -> {
+                    var resumed = TradeEscape.advance(current, route, carrier.fleet(), carrier.ship());
+                    yield new RouteStep(resumed.state(), resumed.route(), 0);
+                }
                 default -> new RouteStep(current, route, 0.0);
             };
             current = step.state();
+            TradeRoute committedRoute = step.route();
+            current = current.withTradeRoutes(current.tradeRoutes().stream()
+                    .map(item -> item.id().equals(committedRoute.id()) ? committedRoute : item).toList());
             var after = findCarrier(current, route).fleet();
             if (!carrier.fleet().hasInterstellarOrder() && !carrier.fleet().location().inTransit()
                     && (after.hasInterstellarOrder() || after.location().inTransit())) dispatched.add(route.id());
@@ -243,7 +249,7 @@ public class LogisticsProcessor {
                 originHub.id(), originHub.entityId(), originHub.transactionTariffRate(),
                 originHub.storageCapacityKg(),
                 Math.max(0.0, originHub.currentStoredWeightKg() - actualTransfer),
-                originHub.logisticsRangeUnits(), originOrders
+                originHub.logisticsRangeUnits(), originOrders, originHub.stockTargets(), originHub.stockHistory(), originHub.reservedTradeFuel()
         );
         hubMap.put(updatedOrigin.id(), updatedOrigin);
 
@@ -261,7 +267,7 @@ public class LogisticsProcessor {
         CommercialHub updatedDest = new CommercialHub(
                 destHub.id(), destHub.entityId(), destHub.transactionTariffRate(),
                 destHub.storageCapacityKg(), destHub.currentStoredWeightKg() + actualTransfer,
-                destHub.logisticsRangeUnits(), destOrders
+                destHub.logisticsRangeUnits(), destOrders, destHub.stockTargets(), destHub.stockHistory(), destHub.reservedTradeFuel()
         );
         hubMap.put(updatedDest.id(), updatedDest);
     }
@@ -288,14 +294,21 @@ public class LogisticsProcessor {
         var full = load(state, route, carrier, true);
         var candidate = route.withMarketChoice(full.route().materialId(), full.route().destinationEntityId());
         var destination = hub(state, full.route().destinationEntityId());
+        var single = TradeShipmentSizing.choose(state, candidate, route.transferAmountPerTurnKg());
         var mixed = destination == null ? null : TradeBasketPlanner.choose(state, candidate, carrier.fleet(), destination);
         if (mixed != null) {
-            var single = TradeShipmentSizing.choose(state, candidate, route.transferAmountPerTurnKg());
-            if (single == null || mixed.profit() / mixed.days() > single.profit() / single.days())
+            double mixedRelief = TradeFuelPriority.relief(state, mixed.shipment());
+            double singleRelief = single == null ? 0 : TradeFuelPriority.relief(state, single.shipment());
+            if (single == null || mixedRelief > singleRelief + 1e-9
+                    || Math.abs(mixedRelief - singleRelief) <= 1e-9
+                    && mixed.profit() / mixed.days() > single.profit() / single.days())
                 return new RouteStep(mixed.shipment().state(), mixed.shipment().route()
                         .withStatus(String.format("Selected mixed funded shipment: %,.2f kg across %d goods.",
                                 mixed.shipment().route().onboardKg(), mixed.shipment().route().cargoManifest().size())), 0);
         }
+        if (single != null && TradeFuelPriority.relief(state, single.shipment())
+                > TradeFuelPriority.relief(state, full.state(), full.route()) + 1e-9)
+            return new RouteStep(single.shipment().state(), single.shipment().route(), 0);
         var after = findCarrier(full.state(), full.route());
         if (full.route().onboardKg() > 0 || after == null || after.fleet().hasInterstellarOrder()
                 || after.fleet().location().inTransit()) return full;
@@ -303,7 +316,7 @@ public class LogisticsProcessor {
         if (origin == null || !FleetPositioning.atHub(state, carrier.fleet(), origin)
                 && !(FleetPositioning.hubSite(state, origin) != null && FleetPositioning.hubSite(state, origin).kind() == FleetLocation.Kind.SURFACE
                 && carrier.fleet().location().isAt(FleetLocation.Site.orbit(origin.entityId())))) return full;
-        var smaller = TradeShipmentSizing.choose(state, candidate, route.transferAmountPerTurnKg());
+        var smaller = single;
         return smaller == null ? full : new RouteStep(smaller.shipment().state(), smaller.shipment().route()
                 .withStatus(String.format("Selected smaller funded shipment: %,.2f kg.", smaller.shipment().route().onboardKg())), 0);
     }
@@ -314,9 +327,13 @@ public class LogisticsProcessor {
     }
 
     public ShipmentPreview previewShipment(GameState state, TradeRoute route, double maximumKg) {
+        return previewShipment(state, route, maximumKg, false);
+    }
+
+    public ShipmentPreview previewShipment(GameState state, TradeRoute route, double maximumKg, boolean secureReturn) {
         var carrier = findCarrier(state, route);
         if (carrier == null) return null;
-        var step = load(state, route, carrier, false, maximumKg);
+        var step = load(state, route, carrier, false, maximumKg, secureReturn);
         var fleet = step.state().fleets().stream().filter(item -> item.id().equals(carrier.fleet().id())).findFirst().orElseThrow();
         return TradeRoute.DELIVERING.equals(step.route().phase()) && (fleet.hasInterstellarOrder() || fleet.location().inTransit())
                 ? new ShipmentPreview(step.state(), step.route(), step.preparedFleet()) : null;
@@ -324,6 +341,10 @@ public class LogisticsProcessor {
 
     /** Buys the whole basket before testing its shared loaded departure; failure rolls back every good. */
     public ShipmentPreview previewBasket(GameState state, TradeRoute route, Map<String, Double> requested) {
+        return previewBasket(state, route, requested, false);
+    }
+
+    public ShipmentPreview previewBasket(GameState state, TradeRoute route, Map<String, Double> requested, boolean secureReturn) {
         var carrier = findCarrier(state, route);
         var origin = hub(state, route.originEntityId()); var destination = hub(state, route.destinationEntityId());
         boolean orbitalPickup = carrier != null && origin != null && FleetPositioning.hubSite(state, origin) != null
@@ -336,7 +357,7 @@ public class LogisticsProcessor {
         double occupied = carrier.ship().storedCargoKg().values().stream().mapToDouble(Double::doubleValue).sum();
         if (!Double.isFinite(quantity) || quantity <= 1e-6 || quantity > route.transferAmountPerTurnKg() + 1e-6
                 || occupied + quantity + carrier.ship().passengerCount() * 80 > carrier.design().maxCargoMassKg() + 1e-6
-                || quantity > destination.storageCapacityKg() - destination.currentStoredWeightKg() + 1e-6) return null;
+                || quantity > HubReplenishment.storageRoomKg(state, destination, route.id()) + 1e-6) return null;
         double purchase = 0, expectedSale = 0;
         for (var item : requested.entrySet()) {
             var seller = origin.activeOrders().get(item.getKey()); var buyer = destination.activeOrders().get(item.getKey());
@@ -345,12 +366,12 @@ public class LogisticsProcessor {
                     || !Double.isFinite(seller.pricePerKg()) || seller.pricePerKg() < 0
                     || !Double.isFinite(buyer.pricePerKg()) || buyer.pricePerKg() <= 0
                     || mass > Math.max(0, seller.supplyKg() - route.minSourceInventoryThresholdKg()) + 1e-6
-                    || mass > buyer.demandKg() + 1e-6
+                    || mass > HubReplenishment.requestedKg(state, destination, item.getKey(), route.id()) + 1e-6
                     || mass > room(destination, route.withMarketChoice(item.getKey(), destination.id())) + 1e-6) return null;
             purchase += mass * seller.pricePerKg();
             expectedSale += mass * buyer.pricePerKg() * IndustryMarketProcessor.WHOLESALE_SHARE;
         }
-        if (expectedSale > hubCash(state, destination.id()) + 1e-6) return null;
+        if (expectedSale > HubReplenishment.buyerCashAvailable(state, destination, route.id()) + 1e-6) return null;
         if (!Double.isFinite(purchase) || purchase > balance(state, route.ownerEntityId())) return null;
         GameState current = settleHub(state, route.ownerEntityId(), origin.id(), -purchase);
         var manifest = new HashMap<String, TradeCargo>();
@@ -372,6 +393,10 @@ public class LogisticsProcessor {
         current = TradeLegReadiness.prepare(current, loaded, destination);
         Fleet prepared = findCarrier(current, route).fleet();
         if (!TradeLegReadiness.inspect(current, prepared, destination).ready()) return null;
+        if (secureReturn) {
+            current = TradeReturnFuel.secure(current, prepared, origin, destination, carrier.ship().id(), manifest, route.roaming());
+            if (current == null) return null;
+        }
         current = moveToward(current, carrier.fleet().id(), destination);
         Fleet moved = findCarrier(current, route).fleet();
         if (!moved.hasInterstellarOrder() && !moved.location().inTransit()) return null;
@@ -410,6 +435,10 @@ public class LogisticsProcessor {
     }
 
     private RouteStep load(GameState state, TradeRoute route, Carrier carrier, boolean chooseMarket, double maximumKg) {
+        return load(state, route, carrier, chooseMarket, maximumKg, true);
+    }
+
+    private RouteStep load(GameState state, TradeRoute route, Carrier carrier, boolean chooseMarket, double maximumKg, boolean secureReturn) {
         CommercialHub origin = hub(state, route.originEntityId());
         if (origin == null || FleetPositioning.hubSite(state, origin) == null)
             return new RouteStep(state, route, 0.0);
@@ -439,7 +468,9 @@ public class LogisticsProcessor {
         var buyer = destination.activeOrders().get(route.materialId());
         double bid = buyer == null ? 0 : buyer.pricePerKg() * IndustryMarketProcessor.WHOLESALE_SHARE;
         if (!Double.isFinite(bid) || bid <= 0) return new RouteStep(state, route, 0);
-        quantity = Math.min(quantity, Math.min(buyer.demandKg(), hubCash(state, destination.id()) / bid));
+        quantity = Math.min(quantity, Math.min(HubReplenishment.storageRoomKg(state, destination, route.id()),
+                Math.min(HubReplenishment.requestedKg(state, destination, route.materialId(), route.id()),
+                        HubReplenishment.buyerCashAvailable(state, destination, route.id()) / bid)));
         if (!Double.isFinite(quantity) || quantity <= 0.000001)
             return new RouteStep(state, route, 0.0);
         Shipment affordable = affordableShipment(state, route, origin, carrier.design(),
@@ -470,6 +501,9 @@ public class LogisticsProcessor {
             if (!TradeLegReadiness.inspect(current, loaded, destination).ready()) return new RouteStep(state, route, 0);
         }
         Fleet prepared = current.fleets().stream().filter(item -> item.id().equals(carrier.fleet().id())).findFirst().orElseThrow();
+        if (secureReturn) current = TradeReturnFuel.secure(current, prepared, origin, destination, carrier.ship().id(),
+                Map.of(route.materialId(), new TradeCargo(quantity, purchase + lift)), route.roaming());
+        if (current == null) return new RouteStep(state, route.withStatus("Waiting: return fuel cannot be secured at the destination."), 0);
         if (surface && !orbitalPickup && !route.roaming()) {
             CarrierDeparture departure = departFromSurface(current, carrier.fleet().id(), origin.entityId());
             current = departure.state();
@@ -496,7 +530,7 @@ public class LogisticsProcessor {
                 if (candidate.id().equals(origin.id())
                         || FleetPositioning.hubSite(state, candidate) == null) continue;
                 MarketOrder buyer = candidate.activeOrders().get(source.resourceId());
-                if (buyer == null || buyer.demandKg() <= 0.0 || buyer.pricePerKg() < 0.0
+                if (buyer == null || HubReplenishment.requestedKg(state, candidate, source.resourceId(), route.id()) <= 0.0 || buyer.pricePerKg() < 0.0
                         || hubCash(state, candidate.id()) <= 0.0) continue;
                 String toSystem = FleetPositioning.systemForHub(state, candidate);
                 if (toSystem != null && !toSystem.equals(fleet.currentSystemId())) {
@@ -535,8 +569,12 @@ public class LogisticsProcessor {
             var step = deliverMaterial(current, delivered.withMarketChoice(material, destination.id()), carrier);
             current = step.state(); delivered = step.route(); quantity += step.deliveredKg();
         }
-        if (route.roaming() && delivered.onboardKg() <= 1e-6)
-            return new RouteStep(current, delivered.atNewOrigin(destination.id()), quantity);
+        if (route.roaming() && delivered.onboardKg() <= 1e-6) {
+            double beforeClaim = balance(current, route.ownerEntityId());
+            current = TradeReturnFuel.claim(current, findCarrier(current, route).fleet());
+            return new RouteStep(current, delivered.atNewOrigin(destination.id()).withOperatingCost(
+                    Math.max(0, beforeClaim - balance(current, route.ownerEntityId()))), quantity);
+        }
         CommercialHub origin = hub(current, route.originEntityId());
         double beforeMove = balance(current, route.ownerEntityId());
         if (TradeRoute.RETURNING.equals(delivered.phase()) && origin != null)
@@ -553,7 +591,9 @@ public class LogisticsProcessor {
         if (!Double.isFinite(postedPrice) || postedPrice < 0.0)
             return new RouteStep(state, route, 0.0);
         double bid = Math.max(0.01, postedPrice) * IndustryMarketProcessor.WHOLESALE_SHARE;
-        double quantity = Math.min(route.cargoManifest().get(route.materialId()).massKg(), Math.min(room(destination, route),
+        // Targets and route stock caps govern dispatch. The hub buys committed arrivals into inventory.
+        double quantity = Math.min(route.cargoManifest().get(route.materialId()).massKg(), Math.min(
+                HubReplenishment.storageRoomKg(state, destination, route.id()),
                 Math.min(carrier.ship().storedCargoKg().getOrDefault(route.materialId(), 0.0),
                         hubCash(state, destination.id()) / bid)));
         if (quantity <= 0.000001) return new RouteStep(state, route, 0.0);
@@ -596,7 +636,7 @@ public class LogisticsProcessor {
         MarketOrder order = hub.activeOrders().get(route.materialId());
         double materialStock = order == null ? 0.0 : order.supplyKg();
         double reserveRoom = Math.max(0.0,
-                MarketStockpilePolicy.targetStockKg(order) - materialStock);
+                HubReplenishment.targetStockKg(hub, route.materialId()) - materialStock);
         return Math.max(0.0, Math.min(route.maxDestinationCapacityKg() - materialStock,
                 Math.min(hub.storageCapacityKg() - hub.currentStoredWeightKg(), reserveRoom)));
     }
@@ -614,10 +654,7 @@ public class LogisticsProcessor {
                     old == null ? 0.0 : old.demandKg(),
                     old == null ? defaultPrice : old.pricePerKg(),
                     old == null ? 0.0 : old.shortcomingScore()));
-            hubs.set(index, new CommercialHub(hub.id(), hub.entityId(),
-                    hub.transactionTariffRate(), hub.storageCapacityKg(),
-                    Math.max(0.0, hub.currentStoredWeightKg() + delta),
-                    hub.logisticsRangeUnits(), Map.copyOf(orders)));
+            hubs.set(index, hub.withInventory(state.turn(), Math.max(0.0, hub.currentStoredWeightKg() + delta), orders));
             break;
         }
         return state.withCommercialHubs(hubs);
@@ -638,7 +675,7 @@ public class LogisticsProcessor {
                 ships.set(shipIndex, new ShipInstance(ship.id(), ship.designId(),
                         ship.ownerEntityId(), ship.currentHullHealth(),
                         ship.currentShieldHealth(), ship.currentFuelKg(), Map.copyOf(cargo),
-                        ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState()));
+                        ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage()));
                 fleets.set(fleetIndex, fleet.withShips(ships));
                 return state.withFleets(fleets);
             }
@@ -646,7 +683,7 @@ public class LogisticsProcessor {
         return state;
     }
 
-    private GameState moveToward(GameState state, String fleetId, CommercialHub destination) {
+    GameState moveToward(GameState state, String fleetId, CommercialHub destination) {
         String systemId = FleetPositioning.systemForHub(state, destination);
         FleetLocation.Site site = FleetPositioning.hubSite(state, destination);
         if (systemId == null || site == null) return state;
@@ -697,7 +734,7 @@ public class LogisticsProcessor {
                         fleet.coordinateY(), 0.0, false, fleet.fleetStance(),
                         fueled.ships(), fleet.location(), plan.mode(), plan.days(),
                         plan.distanceMeters(), plan.accelerationMps2(), 0.0,
-                        plan.peakSpeedMps(), plan.fuelBudgetKg(), null, plan.propulsion()).withFuelPolicy(fleet.fuelPolicy());
+                        plan.peakSpeedMps(), plan.fuelBudgetKg(), null, plan.propulsion()).withFuelPolicy(fleet.fuelPolicy()).withShieldPolicy(fleet.shieldPolicy()).withEscortOrder(fleet.escortOrder());
             } else if (!fleet.location().isAt(site)) {
                 GameState ready = prepareLocalDeparture(state, fleet, site);
                 if (ready == null) continue;

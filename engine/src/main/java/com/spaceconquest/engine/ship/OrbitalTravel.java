@@ -33,18 +33,28 @@ public final class OrbitalTravel {
         return from != null && to != null
                 && (from.configured() || to.configured() || fleet.ships().stream().anyMatch(ship -> {
             var design = FleetSupplySimulation.design(state, ship);
-            return design != null && design.equippedModuleIds().contains(ChemicalFreighterCatalog.MAIN_TANK);
+            return design != null && PropulsionCatalog.mainDrive(design.equippedModuleIds()) != null;
         }));
     }
 
     public static Preview preview(GameState state, Fleet fleet, FleetLocation.Site target) {
         if (state == null || fleet == null || target == null) return new Preview(null, "Choose a known fleet and destination");
-        if (fleet.location().current().equals(target)) return new Preview(null, "Fleet is already at this destination");
         try {
+            if (RecoveredParkingTravel.ready(fleet)) return new Preview(RecoveredParkingTravel.plan(state, fleet, target), "");
+            if (fleet.location().inTransit()) throw new IllegalArgumentException("Cancel or recover the current physical flight before planning departure");
+            if (fleet.location().current().equals(target)) return new Preview(null, "Fleet is already at this destination");
             var from = parking(state, fleet.currentSystemId(), fleet.location().current());
             var to = parking(state, fleet.currentSystemId(), target);
-            return new Preview(from != null && to != null && from.body().id().equals(to.body().id())
-                    ? ParkingOrbitTravel.plan(state, fleet, target, from, to) : build(state, fleet, target), "");
+            boolean sameBody = from != null && to != null && from.body().id().equals(to.body().id());
+            if (sameBody && target.kind() == FleetLocation.Kind.DOCKED && from.altitudeKm() == to.altitudeKm()) {
+                var approach = OrbitalDocking.stationary(state, fleet, target, from);
+                if (approach == null) throw new IllegalArgumentException("No funded station rendezvous from this parking orbit");
+                return new Preview(approach, "");
+            }
+            var nativeTarget = target.kind() == FleetLocation.Kind.DOCKED && to != null
+                    ? FleetLocation.Site.orbit(to.body().id(), to.altitudeKm()) : target;
+            var plan = sameBody ? ParkingOrbitTravel.plan(state, fleet, nativeTarget, from, to) : build(state, fleet, nativeTarget);
+            return new Preview(target.kind() == FleetLocation.Kind.DOCKED ? OrbitalDocking.plan(state, fleet, target, plan) : plan, "");
         }
         catch (IllegalArgumentException failure) { return new Preview(null, failure.getMessage()); }
     }
@@ -107,7 +117,7 @@ public final class OrbitalTravel {
                         feed == null ? null : feed.materialId(), feedRate));
                 total.put(ship.id(), used); mass.put(ship.id(), loaded - kg * (1 + feedRate));
                 if (feed != null && feedRate > 0) reactor.put(ship.id(), new InterstellarTravel.ReactorFuelUse(feed.materialId(), used * feedRate));
-                hours = Math.max(hours, impulses[phase] * loaded / design.totalThrustN() / 3600);
+                hours = Math.max(hours, impulses[phase] * loaded / PropulsionDamage.thrust(design, ship) / 3600);
             }
             if (!Double.isFinite(hours) || hours <= 0 || hours > 6)
                 throw new IllegalArgumentException("Maneuver exceeds the prototype's six-hour short-burn limit");
@@ -122,6 +132,12 @@ public final class OrbitalTravel {
     }
 
     public static String recoveryProblem(Fleet fleet) {
+        if (fleet.location().orbitalFlight() != null && fleet.location().orbitalFlight().atSource()
+                && fleet.location().orbitalFlight().itinerary().sourceMotion() != null)
+            return "Cancel the interrupted parking maneuver and replan from the actual coast";
+        if (OrbitalRecovery.recoverable(fleet)) return "Choose a funded circular "
+                + (OrbitalRecovery.frame(fleet).kind() == OrbitalFlight.CenterKind.STELLAR ? "stellar recovery orbit" : "parking recovery orbit")
+                + " in the ship power controls";
         return fleet.location().orbitalFlight() == null ? "" : fleet.location().orbitalFlight().atSource()
                 ? fleet.location().orbitalFlight().itinerary().parkingTransfer()
                 ? "Cancel the waiting order and plan a new funded parking maneuver from this site"

@@ -72,6 +72,8 @@ public class FleetManagementView {
     private final List<String> buildSystemIds = new ArrayList<>();
     private final List<ShipDesign> buildDesigns = new ArrayList<>();
     private GameState snapshot;
+    private final java.util.Set<String> expandedRepairFleets = new java.util.HashSet<>();
+    private final java.util.Set<String> expandedSensorFleets = new java.util.HashSet<>();
 
     public FleetManagementView(Menubar menubar) {
         this.menubar = menubar;
@@ -656,6 +658,13 @@ public class FleetManagementView {
             ShipDesign design = snapshot == null ? null : snapshot.shipDesigns().stream()
                     .filter(item -> item.id().equals(ship.designId())).findFirst().orElse(null);
             shipList.getChildren().add(ShipPowerCard.create(snapshot, fleet, ship, design, humanController, feedbackLabel));
+            if (design != null && design.equippedModuleIds().contains(com.spaceconquest.engine.ship.CombatModuleCatalog.MISSILE)) {
+                Label ammunition = new Label("Guided missiles: " + com.spaceconquest.engine.ship.ShipMissileWeapons.rounds(ship) + " whole rounds in cargo");
+                ammunition.setTextFill(Color.LIGHTCYAN); shipList.getChildren().add(ammunition);
+            }
+            if (design != null && design.equippedModuleIds().contains(com.spaceconquest.engine.ship.CombatModuleCatalog.KINETIC_POINT_DEFENSE)) {
+                Label ammunition = new Label("Kinetic defense ammunition: " + com.spaceconquest.engine.ship.ShipPointDefense.rounds(ship) + " whole cartridges in cargo"); ammunition.setTextFill(Color.LIGHTCYAN); shipList.getChildren().add(ammunition);
+            }
             PropulsionCatalog.Drive drive = design == null ? null
                     : PropulsionCatalog.mainDrive(design.equippedModuleIds());
             if (drive != null) {
@@ -686,12 +695,23 @@ public class FleetManagementView {
         }
 
         card.getChildren().addAll(topRow, OrbitalTravelCard.status(fleet, humanController, feedbackLabel), FleetFuelReserveCard.create(snapshot, fleet, humanController, feedbackLabel), orderRow, departurePreview, createLocalOrders(fleet),
-                createPassengerOrders(fleet), createTroopOrders(fleet),
-                createInvasionOrders(fleet), shipList);
+                FleetGuardCard.create(snapshot, fleet, playerEmpireId, humanController, feedbackLabel),
+                FleetShieldPolicyCard.create(snapshot, fleet, playerEmpireId, humanController, feedbackLabel, () -> snapshot),
+                FleetInterceptCard.create(snapshot, fleet, playerEmpireId, humanController, feedbackLabel),
+                FleetEscortCard.create(snapshot, fleet, playerEmpireId, humanController, feedbackLabel), createPassengerOrders(fleet), createTroopOrders(fleet),
+                createInvasionOrders(fleet), FleetRepairStatusCard.create(snapshot, fleet, () -> snapshot, expandedRepairFleets),
+                SensorContactCard.create(snapshot, playerEmpireId, fleet.currentSystemId(), fleet, () -> snapshot, expandedSensorFleets, fleet.id()), shipList);
         return card;
     }
 
     private String locationLabel(Fleet fleet) {
+        if (fleet.location().localFlight() != null && fleet.location().localFlight().vectorFlight() != null) {
+            var gravity = fleet.location().localFlight().vectorFlight().trajectory().gravity();
+            String frame = gravity == null || gravity.frame().kind() == com.spaceconquest.engine.ship.OrbitalFlight.CenterKind.STELLAR
+                    ? "System-space" : gravity.frame().centerBodyId() + " orbit";
+            return String.format("%s maneuver | %.1f m/s%s", frame, fleet.location().localFlight().motion().velocityMps(),
+                    fleet.location().localFlight().interrupted() ? " | Drifting" : "");
+        }
         if (fleet.location().orbitalFlight() != null) return "Orbital " + fleet.location().orbitalFlight().status();
         if (fleet.location().localFlight() != null && fleet.location().localFlight().interrupted())
             return String.format("Local flight interrupted | Coasting at %.1f m/s | %.1f%% along route",

@@ -105,7 +105,7 @@ public final class ConstructionMaterials {
                     ships.set(shipIndex, new ShipInstance(ship.id(), ship.designId(),
                             ship.ownerEntityId(), ship.currentHullHealth(), ship.currentShieldHealth(),
                             ship.currentFuelKg(), Map.copyOf(cargo), ship.passengerCount(),
-                            ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState()));
+                            ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage()));
                     changed = true;
                 }
             }
@@ -184,11 +184,9 @@ public final class ConstructionMaterials {
                     order.pricePerKg(), order.shortcomingScore()));
         }
         if (acquired.isEmpty()) return new Purchase(state, Map.of());
-        CommercialHub updatedHub = new CommercialHub(hub.id(), hub.entityId(),
-                hub.transactionTariffRate(), hub.storageCapacityKg(),
-                Math.max(0.0, hub.currentStoredWeightKg()
+        CommercialHub updatedHub = hub.withInventory(state.turn(), Math.max(0.0, hub.currentStoredWeightKg()
                         - acquired.values().stream().mapToDouble(Double::doubleValue).sum()),
-                hub.logisticsRangeUnits(), Map.copyOf(orders));
+                orders);
         List<CommercialHub> hubs = new ArrayList<>(state.commercialHubs());
         hubs.set(hubs.indexOf(hub), updatedHub);
         GameState.Builder builder = state.toBuilder().commercialHubs(hubs);

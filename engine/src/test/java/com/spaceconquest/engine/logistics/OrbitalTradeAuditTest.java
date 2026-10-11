@@ -25,7 +25,7 @@ class OrbitalTradeAuditTest {
                                double fuelUsed, double fuelRemaining, double reserveMargin, double cashChange,
                                double consumptionResult, double routeResult) {}
 
-    @Test void automatedTraderRejectsFuelLossesAndSelectsAProfitableMixedOrbitalBasket() throws Exception {
+    @Test void automatedTraderRejectsOneWayProfitsWithoutReturnFuel() throws Exception {
         for (double price : List.of(1.0, .01)) {
             var state = world(new Scenario("mod_hydrolox_rocket", .20, 0, false, price));
             state = ShipFueling.refuel(state, "ship", "earth-port", 120000);
@@ -35,15 +35,7 @@ class OrbitalTradeAuditTest {
             assertEquals(before, cash(state), "Candidate search must not spend live cash.");
             assertTrue(state.fleets().getFirst().ships().getFirst().storedCargoKg().isEmpty());
             assertFalse(state.fleets().getFirst().location().inTransit());
-            if (price == 1) assertNull(selected.shipment(), "An already full tank does not make consumed fuel free.");
-            else {
-                assertNotNull(selected.shipment());
-                assertEquals(2, selected.shipment().route().cargoManifest().size());
-                assertEquals(2500, selected.shipment().route().onboardKg());
-                assertNotNull(selected.shipment().state().fleets().getFirst().location().orbitalFlight());
-                assertTrue(selected.profitCredits() > 0);
-                assertEquals(870, selected.days());
-            }
+            assertNull(selected.shipment(), "A profitable one-way voyage to an empty fuel market cannot strand the trader.");
         }
     }
 

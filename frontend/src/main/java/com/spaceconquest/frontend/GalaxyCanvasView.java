@@ -45,6 +45,9 @@ public class GalaxyCanvasView {
     private Canvas canvas;
     private Label statusLabel;
     private HBox contextActionRow;
+    private VBox sensorContacts;
+    private GameState snapshot;
+    private final java.util.Set<String> expandedSensorSystems = new java.util.HashSet<>();
     private final Menubar menubar;
     private HumanController humanController;
     private String playerEmpireId = "terran_confederation";
@@ -147,9 +150,10 @@ public class GalaxyCanvasView {
         contextActionRow.setAlignment(Pos.CENTER_LEFT);
         contextActionRow.setPadding(new Insets(5));
         contextActionRow.setStyle("-fx-background-color: rgba(20, 30, 55, 0.7); -fx-background-radius: 6;");
+        sensorContacts = new VBox(4);
         updateContextRow();
 
-        root.getChildren().addAll(controls, canvas, statusLabel, contextActionRow);
+        root.getChildren().addAll(controls, canvas, statusLabel, contextActionRow, sensorContacts);
         root.setVisible(false);
     }
 
@@ -221,6 +225,7 @@ public class GalaxyCanvasView {
 
     private Fleet findHitFleet(double cx, double cy, double mouseX, double mouseY) {
         for (Fleet f : fleets) {
+            if (!isFleetVisible(f)) continue;
             Point2D position = fleetPixel(f, cx, cy);
             if (Math.hypot(mouseX - position.getX(), mouseY - position.getY())
                     < 15.0 * zoomFactor) {
@@ -279,6 +284,10 @@ public class GalaxyCanvasView {
 
     private void updateContextRow() {
         contextActionRow.getChildren().clear();
+        sensorContacts.getChildren().clear();
+        String contactSystem = selectedSystem != null ? selectedSystem.id() : selectedFleet != null ? selectedFleet.currentSystemId() : null;
+        if (snapshot != null && contactSystem != null) sensorContacts.getChildren().add(SensorContactCard.create(
+                snapshot, playerEmpireId, contactSystem, selectedFleet, () -> snapshot, expandedSensorSystems, contactSystem));
 
         if (selectedPlanet != null) {
             populatePlanetActions();
@@ -385,6 +394,7 @@ public class GalaxyCanvasView {
     }
 
     public void show() {
+        updateContextRow();
         drawCanvas();
         root.setVisible(true);
         root.toFront();
@@ -402,10 +412,12 @@ public class GalaxyCanvasView {
     }
 
     public void updateData(List<SolarSystem> newSystems, List<Fleet> newFleets, List<Megastructure> newMegastructures, List<FogOfWarState> newFOW) {
+        snapshot = null;
         updateData(newSystems, newFleets, newMegastructures, newFOW, List.of());
     }
 
     public void updateData(GameState state) {
+        snapshot = state;
         updateData(state.solarSystems(), state.fleets(), state.megastructures(),
                 state.fogOfWarStates(), state.orbitalStations());
     }
@@ -427,10 +439,20 @@ public class GalaxyCanvasView {
 
         fogOfWarStates.clear();
         if (newFOW != null) fogOfWarStates.addAll(newFOW);
+        if (selectedFleet != null) {
+            selectedFleet = fleets.stream().filter(fleet -> fleet.id().equals(selectedFleet.id()) && isFleetVisible(fleet))
+                    .findFirst().orElse(null);
+        }
 
         if (root.isVisible()) {
+            updateContextRow();
             drawCanvas();
         }
+    }
+
+    private boolean isFleetVisible(Fleet fleet) {
+        return playerEmpireId.equals(fleet.ownerEntityId()) || fogOfWarStates.stream()
+                .anyMatch(fog -> playerEmpireId.equals(fog.empireId()) && fog.isFleetDetected(fleet.id()));
     }
 
     public boolean isSystemExplored(String systemId) {
@@ -621,6 +643,7 @@ public class GalaxyCanvasView {
 
     private void drawFleets(GraphicsContext gc, double centerX, double centerY) {
         for (Fleet fleet : fleets) {
+            if (!isFleetVisible(fleet)) continue;
             Point2D position = fleetPixel(fleet, centerX, centerY);
             double fx = position.getX();
             double fy = position.getY();

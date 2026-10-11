@@ -35,7 +35,7 @@ public class TacticalCombatProcessorTest {
     public void testTacticalSpaceCombatFleetEngagement() {
         ShipDesign combatDesign = new ShipDesign(
                 "design_dreadnought", "Titan Dreadnought", "emp_terran",
-                ShipRole.COMBAT_SHIP, "steel", List.of(), "steel", 2.0,
+                ShipRole.COMBAT_SHIP, "steel", List.of("mod_ship_gun", "mod_ship_shield"), "steel", 2.0,
                 20000.0, 1000.0, 200.0, 1.5, 100000.0, 500000.0, true, false
         );
 

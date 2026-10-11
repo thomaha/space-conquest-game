@@ -63,6 +63,13 @@ public final class CorporateValuation {
         double liabilities = state.corporateTaxAccounts().stream()
                 .filter(account -> corporation.id().equals(account.corporationId()))
                 .mapToDouble(CorporateTaxAccount::unpaidTaxCredits).sum();
+        for (var hub : state.commercialHubs()) for (var fuel : hub.reservedTradeFuel().values()) {
+            if (!corporation.id().equals(fuel.ownerEntityId())) continue;
+            for (var item : fuel.materialsKg().entrySet()) {
+                var order = hub.activeOrders().get(item.getKey());
+                if (order != null) inventory += item.getValue() * Math.max(0, order.pricePerKg());
+            }
+        }
         double cash = corporation.liquidCapitalReserves();
         return new Valuation(cash, facilities, ships, inventory, liabilities,
                 cash + facilities + ships + inventory - liabilities);

@@ -15,12 +15,9 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Calculates sensor detection cones, uncovers uncharted star systems, detects foreign fleets and reveals hidden anomalies.
+ * Refreshes permanent exploration knowledge and current module-backed sensor contacts.
  */
 public class SensorProcessor {
-
-    public static final double BASE_COLONY_SENSOR_RANGE = 15.0;
-    public static final double STATION_SENSOR_RANGE = 25.0;
 
     private final FleetProcessor fleetProcessor = new FleetProcessor();
 
@@ -35,110 +32,62 @@ public class SensorProcessor {
             List<FogOfWarState> existingStates
     ) {
         if (empires == null) return List.of();
-
-        List<FogOfWarState> updatedStates = new ArrayList<>();
-
-        for (Empire empire : empires) {
-            FogOfWarState currentState = findOrCreateState(empire.id(), existingStates, empire.controlledSystemIds());
-
-            Set<String> exploredSystems = new HashSet<>(currentState.exploredSystemIds());
-            Set<String> scannedPlanets = new HashSet<>(currentState.scannedPlanetIds());
-            Set<String> detectedFleets = new HashSet<>();
-            Set<String> discoveredAnomalies = new HashSet<>(currentState.discoveredAnomalyIds());
-            Set<String> discoveredPirates = new HashSet<>(currentState.discoveredPirateBaseIds());
-
-            // Always explore controlled systems and scan their planets
-            if (empire.controlledSystemIds() != null) {
-                for (String sysId : empire.controlledSystemIds()) {
-                    exploredSystems.add(sysId);
-                    if (solarSystems != null) {
-                        for (SolarSystem sys : solarSystems) {
-                            if (sys.id().equals(sysId) && sys.planets() != null) {
-                                for (Planet p : sys.planets()) {
-                                    scannedPlanets.add(p.id());
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Sensor ranges from mobile fleets
-            if (fleets != null) {
-                for (Fleet fleet : fleets) {
-                    if (empire.id().equals(fleet.ownerEntityId())
-                            && !fleet.isInterstellarTransit()) {
-                        String currentSys = fleet.currentSystemId();
-                        if (currentSys != null && !currentSys.isEmpty()) {
-                            exploredSystems.add(currentSys);
-                            double range = fleetProcessor.calculateFleetScannerRange(fleet, designs);
-                            if (range >= 20.0 && solarSystems != null) {
-                                // Full explorer scan scans all planets in the system
-                                for (SolarSystem sys : solarSystems) {
-                                    if (sys.id().equals(currentSys) && sys.planets() != null) {
-                                        for (Planet p : sys.planets()) {
-                                            scannedPlanets.add(p.id());
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Sensor ranges from orbital stations
-            if (stations != null) {
-                for (OrbitalStation station : stations) {
-                    if (empire.id().equals(station.ownerEntityId()) && station.systemId() != null) {
-                        exploredSystems.add(station.systemId());
-                    }
-                }
-            }
-
-            // Detect foreign fleets in explored systems
-            if (fleets != null) {
-                for (Fleet fleet : fleets) {
-                    if (!empire.id().equals(fleet.ownerEntityId())
-                            && !fleet.isInterstellarTransit()) {
-                        if (exploredSystems.contains(fleet.currentSystemId())) {
-                            detectedFleets.add(fleet.id());
-                        }
-                    }
-                }
-            }
-
-            // Discover anomalies in explored systems
-            if (anomalies != null) {
-                for (Anomaly anomaly : anomalies) {
-                    if (exploredSystems.contains(anomaly.systemId())) {
-                        discoveredAnomalies.add(anomaly.id());
-                    }
-                }
-            }
-
-            // Discover pirate bases in explored systems with high scanner coverage
-            if (pirateBases != null) {
-                for (PirateBase pb : pirateBases) {
-                    if (exploredSystems.contains(pb.systemId())) {
-                        discoveredPirates.add(pb.id());
-                    }
-                }
-            }
-
-            updatedStates.add(new FogOfWarState(
-                    empire.id(),
-                    new ArrayList<>(exploredSystems),
-                    new ArrayList<>(scannedPlanets),
-                    new ArrayList<>(detectedFleets),
-                    new ArrayList<>(discoveredAnomalies),
-                    new ArrayList<>(discoveredPirates)
-            ));
-        }
-
-        return updatedStates;
+        var coverage = com.spaceconquest.engine.GameState.builder().empires(empires).solarSystems(solarSystems)
+                .fleets(fleets).shipDesigns(designs).orbitalStations(stations)
+                .pirateBases(pirateBases).fogOfWarStates(existingStates).build();
+        return updateSensorCoverage(coverage, anomalies);
     }
 
+    /** Rebuilds current contacts from all authorized hardware on this exact campaign day. */
+    public List<FogOfWarState> updateSensorCoverage(com.spaceconquest.engine.GameState coverage, List<Anomaly> anomalies) {
+        if (coverage == null) return List.of();
+        var viewers = new ArrayList<String>();
+        coverage.empires().forEach(empire -> viewers.add(empire.id()));
+        coverage.corporations().forEach(corporation -> viewers.add(corporation.id()));
+        List<FogOfWarState> updatedStates = new ArrayList<>();
+        for (String viewer : viewers) {
+            String home = SensorSharing.homeEmpire(coverage, viewer);
+            var empire = coverage.empires().stream().filter(item -> home.equals(item.id())).findFirst().orElse(null);
+            var controlled = empire == null ? List.<String>of() : empire.controlledSystemIds();
+            var current = findOrCreateState(viewer, coverage.fogOfWarStates(), controlled);
+            Set<String> explored = new HashSet<>(current.exploredSystemIds());
+            Set<String> scanned = new HashSet<>(current.scannedPlanetIds());
+            Set<String> detected = new HashSet<>();
+            Set<String> discoveries = new HashSet<>(current.discoveredAnomalyIds());
+            Set<String> pirates = new HashSet<>(current.discoveredPirateBaseIds());
+            var owners = SensorSharing.observerOwners(coverage, viewer);
+            for (String system : controlled) { explored.add(system); scanPlanets(coverage, system, scanned); }
+            for (var fleet : coverage.fleets()) {
+                if (owners.contains(fleet.ownerEntityId()) && !fleet.isInterstellarTransit() && !fleet.isInWarp()
+                        && SensorCoverage.rangeKm(coverage, fleet) > 0) {
+                    explored.add(fleet.currentSystemId());
+                    if (fleetProcessor.calculateFleetScannerRange(fleet, coverage.shipDesigns()) >= 20)
+                        scanPlanets(coverage, fleet.currentSystemId(), scanned);
+                }
+                if (!(home.isBlank() ? viewer : home).equals(fleet.ownerEntityId()) && SensorCoverage.detects(coverage, viewer, fleet))
+                    detected.add(fleet.id());
+            }
+            for (var station : coverage.orbitalStations()) {
+                if (owners.contains(station.ownerEntityId()) && station.isOperational() && station.modules().stream()
+                        .anyMatch(module -> module.isOnline() && com.spaceconquest.engine.ship.SensorModuleCatalog.module(module.type()) != null))
+                    explored.add(station.systemId());
+            }
+            if (anomalies != null) for (var anomaly : anomalies)
+                if (SensorCoverage.hasSensor(coverage, viewer, anomaly.systemId())) discoveries.add(anomaly.id());
+            for (var base : coverage.pirateBases())
+                if (SensorCoverage.hasSensor(coverage, viewer, base.systemId())) pirates.add(base.id());
+            updatedStates.add(new FogOfWarState(viewer, sorted(explored), sorted(scanned), sorted(detected), sorted(discoveries), sorted(pirates),
+                    SensorContactMemory.refresh(coverage, current.contacts(), detected)));
+        }
+        return List.copyOf(updatedStates);
+    }
+
+    private static List<String> sorted(Set<String> values) { return values.stream().sorted().toList(); }
+
+    private static void scanPlanets(com.spaceconquest.engine.GameState state, String systemId, Set<String> scanned) {
+        for (var system : state.solarSystems()) if (system.id().equals(systemId))
+            for (var planet : system.planets()) scanned.add(planet.id());
+    }
     public FogOfWarState scanSystem(
             FogOfWarState state,
             String systemId,
@@ -162,7 +111,7 @@ public class SensorProcessor {
             }
             updated = new FogOfWarState(
                     updated.empireId(), updated.exploredSystemIds(), updated.scannedPlanetIds(),
-                    updated.detectedFleetIds(), discovered, updated.discoveredPirateBaseIds()
+                    updated.detectedFleetIds(), discovered, updated.discoveredPirateBaseIds(), updated.contacts()
             );
         }
         return updated;

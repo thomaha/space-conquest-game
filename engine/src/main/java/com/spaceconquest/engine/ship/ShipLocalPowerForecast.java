@@ -18,9 +18,13 @@ final class ShipLocalPowerForecast {
 
     static Budget check(ShipPowerProfile profile, ShipPowerState initial, double hours,
                         ShipSolarEnvironment environment, double essential, double cargo, double drive, double startHour) {
+        return check(profile, initial, hours, environment, essential, cargo, drive, startHour, ShipServicePower.Activity.CRUISE);
+    }
+    static Budget check(ShipPowerProfile profile, ShipPowerState initial, double hours,
+                        ShipSolarEnvironment environment, double essential, double cargo, double drive, double startHour, ShipServicePower.Activity activity) {
         double solar = ShipPowerProcessor.solarKw(profile, initial, environment);
         if (solar == 0) {
-            var result = ShipPowerProcessor.interval(profile, initial, hours, 0, essential, cargo, drive);
+            var result = ShipPowerProcessor.interval(profile, initial, hours, 0, essential, cargo, drive, activity);
             return new Budget(Math.floor(startHour / 24) < Math.floor((startHour + hours) / 24)
                     ? result.state().withChargeInputToday(0) : result.state(), result.supplied());
         }
@@ -32,7 +36,7 @@ final class ShipLocalPowerForecast {
             ShipPowerState start = current;
             double dayPosition = startHour % 24;
             double duration = Math.min(24 - dayPosition, hours);
-            Day day = day(profile, start, duration, environment, solar, essential, cargo, drive, startHour);
+            Day day = day(profile, start, duration, environment, solar, essential, cargo, drive, startHour, activity);
             current = day.state(); hours -= duration; startHour += duration;
             if (!day.ready()) return new Budget(current, false);
             Change change = change(start, current);
@@ -51,7 +55,7 @@ final class ShipLocalPowerForecast {
 
     private static Day day(ShipPowerProfile profile, ShipPowerState initial, double hours,
                            ShipSolarEnvironment environment, double solar, double essential,
-                           double cargo, double drive, double startHour) {
+                           double cargo, double drive, double startHour, ShipServicePower.Activity activity) {
         ShipPowerState current = initial;
         double minimum = current.batteryChargeKwh(), maximum = minimum, elapsed = 0;
         double period = environment.lightHours() + environment.darkHours();
@@ -62,7 +66,7 @@ final class ShipLocalPowerForecast {
             double duration = Math.min(hours - elapsed, length);
             if (duration <= 0) return new Day(current, false, minimum, maximum);
             var step = ShipPowerProcessor.interval(profile, current, duration, light ? solar : 0,
-                    essential, cargo, drive);
+                    essential, cargo, drive, activity);
             current = step.state(); elapsed += duration;
             minimum = Math.min(minimum, current.batteryChargeKwh());
             maximum = Math.max(maximum, current.batteryChargeKwh());
@@ -112,6 +116,6 @@ final class ShipLocalPowerForecast {
                 Math.max(0, current.batteryChargeKwh() + change.battery() * cycles), current.arraysDeployed(),
                 current.arrayCondition(), current.orientationFraction(), current.unmetEssentialHours(),
                 current.unmetDriveKwh(), current.unmetCargoKwh(), current.lastUnmetEssentialKwh(),
-                current.chargedInputKwhToday(), current.cargoPreservation(), current.rescueStatus());
+                current.chargedInputKwhToday(), current.cargoPreservation(), current.rescueStatus(), current.shedServices());
     }
 }

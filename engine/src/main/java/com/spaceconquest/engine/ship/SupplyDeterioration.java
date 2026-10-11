@@ -6,7 +6,7 @@ public final class SupplyDeterioration {
     public static ShipInstance advanceDay(ShipInstance ship, ShipDesign design) {
         var supply = ship.supplyState();
         if (supply.materialsKg().isEmpty()) return ship;
-        double essential = design.powerProfile().essentialKw(ship, design);
+        double essential = design.powerProfile(ship).criticalKw(design.powerProfile(ship).essentialKw(ship, design));
         double hours = essential <= 0 ? 0 : Math.clamp(ship.powerState().lastUnmetEssentialKwh() / essential, 0, 24);
         var stock = new HashMap<>(supply.materialsKg());
         var exposure = new HashMap<String, Double>();

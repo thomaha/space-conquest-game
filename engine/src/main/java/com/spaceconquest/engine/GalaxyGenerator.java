@@ -299,7 +299,7 @@ public class GalaxyGenerator {
                         openingHub.storageCapacityKg() + Math.max(1_000_000.0,
                                 openingHub.currentStoredWeightKg() * 0.25),
                         openingHub.currentStoredWeightKg(), openingHub.logisticsRangeUnits(),
-                        openingHub.activeOrders());
+                        openingHub.activeOrders(), openingHub.stockTargets(), openingHub.stockHistory(), openingHub.reservedTradeFuel());
             }
             hubs.add(openingHub);
             

@@ -53,6 +53,13 @@ public final class IndustryRecipeCatalog {
 
     private static Map<String, Recipe> createRecipes() {
         Map<String, Recipe> recipes = new HashMap<>();
+        recipes.put("kinetic_pd_ammunition_mfg", new Recipe("kinetic_pd_ammunition_mfg",
+                List.of("electricity", "energy_fields", "electromagnetic_weapons", "mass_drivers", "pd_mass_drivers", "industrial_production"), Map.of(),
+                Map.of("steel", 4.0, "tungsten_ore", 1.0), Map.of("kinetic_pd_round", 5.0), 1, 1, 100.0, false));
+        recipes.put("guided_missile_mfg", new Recipe("guided_missile_mfg",
+                List.of("electricity", "rocketry", "industrial_production"), Map.of(),
+                Map.of("steel", 60.0, "silicon", 10.0, "hydrocarbons", 20.0, "nitrates", 10.0),
+                Map.of("guided_missile", 100.0), 10, 1, 500.0, false));
         recipes.put("mining_outpost", new Recipe("mining_outpost", List.of("industrial_production"),
                 Map.of("geological_prospecting", 0.25, "supply_chain_automation", 0.10),
                 Map.of(), Map.of("iron_ore", 100.0), 100, 1, 500.0, true));

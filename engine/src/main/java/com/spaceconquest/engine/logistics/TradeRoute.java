@@ -33,6 +33,18 @@ public record TradeRoute(
     public static final String DELIVERING = "DELIVERING";
     public static final String RETURNING = "RETURNING";
     public static final String REPOSITIONING = "REPOSITIONING";
+    public static final String PAUSED_DELIVERY = "PAUSED_DELIVERY";
+    public static final String PAUSED_RETURN = "PAUSED_RETURN";
+    public static final String RETURNING_CARGO = "RETURNING_CARGO";
+
+    public boolean escapePaused() { return PAUSED_DELIVERY.equals(phase) || PAUSED_RETURN.equals(phase); }
+
+    public TradeRoute withPhase(String value) {
+        return new TradeRoute(id, name, ownerEntityId, originEntityId, destinationEntityId, materialId,
+                transferAmountPerTurnKg, minSourceInventoryThresholdKg, maxDestinationCapacityKg, assignedFreighterIds,
+                totalVolumeMovedKg, isActive, value, onboardKg, onboardCostCredits, dailyOperatingResultCredits,
+                cumulativeOperatingResultCredits, roaming, status, cargoManifest);
+    }
 
     public TradeRoute {
         assignedFreighterIds = assignedFreighterIds == null ? List.of() : List.copyOf(assignedFreighterIds);
@@ -49,8 +61,10 @@ public record TradeRoute(
         cargoManifest = Map.copyOf(cargoManifest);
         if (cargoManifest.keySet().stream().anyMatch(key -> key == null || key.isBlank()))
             throw new IllegalArgumentException("Invalid manifest material");
-        onboardKg = cargoManifest.values().stream().mapToDouble(TradeCargo::massKg).sum();
-        onboardCostCredits = cargoManifest.values().stream().mapToDouble(TradeCargo::costCredits).sum();
+        // Stable summation keeps derived totals identical when save/load changes map iteration order.
+        var lots = cargoManifest.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(Map.Entry::getValue).toList();
+        onboardKg = lots.stream().mapToDouble(TradeCargo::massKg).sum();
+        onboardCostCredits = lots.stream().mapToDouble(TradeCargo::costCredits).sum();
         if (!Double.isFinite(onboardKg) || !Double.isFinite(onboardCostCredits))
             throw new IllegalArgumentException("Manifest totals overflow");
     }

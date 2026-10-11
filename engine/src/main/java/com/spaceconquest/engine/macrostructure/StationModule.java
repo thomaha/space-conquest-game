@@ -41,6 +41,7 @@ public record StationModule(
     public static final String TYPE_LOGISTICS = "LOGISTICS";
     public static final String TYPE_CIVILIAN_HANGAR = "CIVILIAN_HANGAR";
     public static final String TYPE_MILITARY_HANGAR = "MILITARY_HANGAR";
+    public static final String TYPE_REPAIR_WORKSHOP = "REPAIR_WORKSHOP";
     public static final String TYPE_RESUPPLY_DEPOT = "RESUPPLY_DEPOT";
     public static final String TYPE_STRIKE_WING = "STRIKE_WING";
     public static final String TYPE_HYDROPONIC_FOOD = "HYDROPONIC_FOOD";

@@ -15,7 +15,7 @@ import java.util.Map;
  * @param coordinateY     local system or galactic Y coordinate
  * @param transitProgress normalized movement progress (0.0 to 1.0)
  * @param isInWarp        true if fleet is traversing FTL spacetime warp bubble
- * @param fleetStance     operational stance (PASSIVE, AGGRESSIVE, PATROL, ESCORT)
+ * @param fleetStance     operational stance (PASSIVE, AGGRESSIVE, GUARD or legacy PATROL and ESCORT)
  * @param ships           list of constituent ShipInstance platforms
  * @param location        shared physical site of every ship in this fleet and local journey progress
  * @param interstellarMode WARP or SUBLIGHT for an active interstellar order
@@ -28,6 +28,9 @@ import java.util.Map;
  * @param journeyPropulsion frozen propulsion by ship ID for the current physical itinerary
  * @param flightMotion actual sublight drift or replacement trajectory after a power interruption
  * @param fuelPolicy normal capacity-based contingency targets for subsequent orders
+ * @param guardOrder explicit object and physical site held by a guarding fleet
+ * @param escortOrder escort ships temporarily joined to this convoy
+ * @param interceptOrder explicit pursuit of a currently detected same-system hostile fleet
  */
 public record Fleet(
         String id,
@@ -51,7 +54,11 @@ public record Fleet(
         Map<String, Double> interstellarFuelBudgetKg,
         FlightMotion flightMotion,
         Map<String, JourneyPropulsion> journeyPropulsion,
-        FleetFuelPolicy fuelPolicy
+        FleetFuelPolicy fuelPolicy,
+        FleetGuardOrder guardOrder,
+        FleetEscortOrder escortOrder,
+        FleetInterceptOrder interceptOrder,
+        FleetShieldPolicy.Mode shieldPolicy
 ) {
     public static final String MODE_WARP = "WARP";
     public static final String MODE_SUBLIGHT = "SUBLIGHT";
@@ -59,10 +66,25 @@ public record Fleet(
     public static final String MODE_RECOVERY = "RECOVERY";
 
     public Fleet {
+        if (shieldPolicy == null) shieldPolicy = FleetShieldPolicy.Mode.AUTOMATIC;
+        if (interceptOrder != null && (ships == null || ships.isEmpty() || isInWarp
+                || targetSystemId != null && !targetSystemId.isBlank()
+                || !java.util.Objects.equals(currentSystemId, interceptOrder.systemId())
+                || !java.util.Objects.equals(ownerEntityId, interceptOrder.ownerEntityId())
+                || guardOrder != null || escortOrder != null)) interceptOrder = null;
         if (fuelPolicy == null) fuelPolicy = FleetFuelPolicy.automatic();
         ships = ships == null ? List.of() : List.copyOf(ships);
+        if (escortOrder != null) {
+            escortOrder = java.util.Objects.equals(ownerEntityId, escortOrder.ownerEntityId()) ? escortOrder.retain(ships) : null;
+            if (escortOrder == null && "ESCORT".equals(fleetStance)) fleetStance = "PASSIVE";
+        }
         journeyPropulsion = journeyPropulsion == null ? Map.of() : Map.copyOf(journeyPropulsion);
         if (location == null) location = FleetLocation.at(FleetLocation.Site.deepSpace());
+        if (guardOrder != null && (!"GUARD".equals(fleetStance) || isInWarp
+                || targetSystemId != null && !targetSystemId.isBlank()
+                || !java.util.Objects.equals(currentSystemId, guardOrder.systemId())
+                || !guardOrder.atSite(location) || ships.isEmpty())) guardOrder = null;
+        if (guardOrder == null && "GUARD".equals(fleetStance)) fleetStance = "PASSIVE";
         if (location.localFlight() != null) location = location.withFlight(location.localFlight().retain(ships));
         if (location.orbitalFlight() != null) location = location.withOrbitalFlight(location.orbitalFlight().retain(ships));
         if (interstellarMode == null) interstellarMode = "";
@@ -92,11 +114,106 @@ public record Fleet(
                 interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion, FleetFuelPolicy.automatic());
     }
 
+    public Fleet(String id, String name, String ownerEntityId, String currentSystemId,
+                 String targetSystemId, double coordinateX, double coordinateY, double transitProgress,
+                 boolean isInWarp, String fleetStance, List<ShipInstance> ships, FleetLocation location,
+                 String interstellarMode, double interstellarTravelDays, double interstellarDistanceMeters,
+                 double interstellarAccelerationMps2, double interstellarElapsedDays, double interstellarPeakSpeedMps,
+                 Map<String, Double> interstellarFuelBudgetKg, FlightMotion flightMotion,
+                 Map<String, JourneyPropulsion> journeyPropulsion, FleetFuelPolicy fuelPolicy) {
+        this(id, name, ownerEntityId, currentSystemId, targetSystemId, coordinateX, coordinateY, transitProgress,
+                isInWarp, fleetStance, ships, location, interstellarMode, interstellarTravelDays,
+                interstellarDistanceMeters, interstellarAccelerationMps2, interstellarElapsedDays,
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion, fuelPolicy, null);
+    }
+
+    public Fleet(String id, String name, String ownerEntityId, String currentSystemId,
+                 String targetSystemId, double coordinateX, double coordinateY, double transitProgress,
+                 boolean isInWarp, String fleetStance, List<ShipInstance> ships, FleetLocation location,
+                 String interstellarMode, double interstellarTravelDays, double interstellarDistanceMeters,
+                 double interstellarAccelerationMps2, double interstellarElapsedDays, double interstellarPeakSpeedMps,
+                 Map<String, Double> interstellarFuelBudgetKg, FlightMotion flightMotion,
+                 Map<String, JourneyPropulsion> journeyPropulsion, FleetFuelPolicy fuelPolicy, FleetGuardOrder guardOrder) {
+        this(id, name, ownerEntityId, currentSystemId, targetSystemId, coordinateX, coordinateY, transitProgress,
+                isInWarp, fleetStance, ships, location, interstellarMode, interstellarTravelDays,
+                interstellarDistanceMeters, interstellarAccelerationMps2, interstellarElapsedDays,
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion, fuelPolicy, guardOrder, null);
+    }
+
+    /** Compatibility constructor for snapshots predating intercept orders. */
+    public Fleet(String id, String name, String ownerEntityId, String currentSystemId,
+                 String targetSystemId, double coordinateX, double coordinateY, double transitProgress,
+                 boolean isInWarp, String fleetStance, List<ShipInstance> ships, FleetLocation location,
+                 String interstellarMode, double interstellarTravelDays, double interstellarDistanceMeters,
+                 double interstellarAccelerationMps2, double interstellarElapsedDays, double interstellarPeakSpeedMps,
+                 Map<String, Double> interstellarFuelBudgetKg, FlightMotion flightMotion,
+                 Map<String, JourneyPropulsion> journeyPropulsion, FleetFuelPolicy fuelPolicy,
+                 FleetGuardOrder guardOrder, FleetEscortOrder escortOrder) {
+        this(id, name, ownerEntityId, currentSystemId, targetSystemId, coordinateX, coordinateY, transitProgress,
+                isInWarp, fleetStance, ships, location, interstellarMode, interstellarTravelDays,
+                interstellarDistanceMeters, interstellarAccelerationMps2, interstellarElapsedDays,
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion,
+                fuelPolicy, guardOrder, escortOrder, null);
+    }
+
+    /** Compatibility constructor for snapshots predating selectable shield policy. */
+    public Fleet(String id, String name, String ownerEntityId, String currentSystemId,
+                 String targetSystemId, double coordinateX, double coordinateY, double transitProgress,
+                 boolean isInWarp, String fleetStance, List<ShipInstance> ships, FleetLocation location,
+                 String interstellarMode, double interstellarTravelDays, double interstellarDistanceMeters,
+                 double interstellarAccelerationMps2, double interstellarElapsedDays, double interstellarPeakSpeedMps,
+                 Map<String, Double> interstellarFuelBudgetKg, FlightMotion flightMotion,
+                 Map<String, JourneyPropulsion> journeyPropulsion, FleetFuelPolicy fuelPolicy,
+                 FleetGuardOrder guardOrder, FleetEscortOrder escortOrder, FleetInterceptOrder interceptOrder) {
+        this(id, name, ownerEntityId, currentSystemId, targetSystemId, coordinateX, coordinateY, transitProgress,
+                isInWarp, fleetStance, ships, location, interstellarMode, interstellarTravelDays,
+                interstellarDistanceMeters, interstellarAccelerationMps2, interstellarElapsedDays,
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion,
+                fuelPolicy, guardOrder, escortOrder, interceptOrder, FleetShieldPolicy.Mode.AUTOMATIC);
+    }
+
+    public Fleet withShieldPolicy(FleetShieldPolicy.Mode value) {
+        return new Fleet(id, name, ownerEntityId, currentSystemId, targetSystemId, coordinateX, coordinateY,
+                transitProgress, isInWarp, fleetStance, ships, location, interstellarMode, interstellarTravelDays,
+                interstellarDistanceMeters, interstellarAccelerationMps2, interstellarElapsedDays,
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion,
+                fuelPolicy, guardOrder, escortOrder, interceptOrder, value);
+    }
+
+    public Fleet withInterceptOrder(FleetInterceptOrder value) {
+        return new Fleet(id, name, ownerEntityId, currentSystemId, targetSystemId, coordinateX, coordinateY,
+                transitProgress, isInWarp, fleetStance, ships, location, interstellarMode, interstellarTravelDays,
+                interstellarDistanceMeters, interstellarAccelerationMps2, interstellarElapsedDays,
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion,
+                fuelPolicy, guardOrder, escortOrder, value, shieldPolicy);
+    }
+
+    public Fleet withStance(String value) {
+        return new Fleet(id, name, ownerEntityId, currentSystemId, targetSystemId, coordinateX, coordinateY,
+                transitProgress, isInWarp, value, ships, location, interstellarMode, interstellarTravelDays,
+                interstellarDistanceMeters, interstellarAccelerationMps2, interstellarElapsedDays, interstellarPeakSpeedMps,
+                interstellarFuelBudgetKg, flightMotion, journeyPropulsion, fuelPolicy, guardOrder, escortOrder, interceptOrder, shieldPolicy);
+    }
+    public Fleet withEscortOrder(FleetEscortOrder value) {
+        return new Fleet(id, name, ownerEntityId, currentSystemId, targetSystemId, coordinateX, coordinateY,
+                transitProgress, isInWarp, fleetStance, ships, location, interstellarMode, interstellarTravelDays,
+                interstellarDistanceMeters, interstellarAccelerationMps2, interstellarElapsedDays,
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion, fuelPolicy, guardOrder, value, interceptOrder, shieldPolicy);
+    }
+
+    public Fleet withGuardOrder(FleetGuardOrder value) {
+        return new Fleet(id, name, ownerEntityId, currentSystemId, targetSystemId, coordinateX, coordinateY,
+                transitProgress, isInWarp, value != null ? "GUARD" : "GUARD".equals(fleetStance) ? "PASSIVE" : fleetStance,
+                ships, location, interstellarMode, interstellarTravelDays, interstellarDistanceMeters,
+                interstellarAccelerationMps2, interstellarElapsedDays, interstellarPeakSpeedMps,
+                interstellarFuelBudgetKg, flightMotion, journeyPropulsion, fuelPolicy, value, escortOrder, value == null ? interceptOrder : null, shieldPolicy);
+    }
+
     public Fleet withFuelPolicy(FleetFuelPolicy value) {
         return new Fleet(id, name, ownerEntityId, currentSystemId, targetSystemId, coordinateX, coordinateY,
                 transitProgress, isInWarp, fleetStance, ships, location, interstellarMode, interstellarTravelDays,
                 interstellarDistanceMeters, interstellarAccelerationMps2, interstellarElapsedDays,
-                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion, value);
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion, value, guardOrder, escortOrder, interceptOrder, shieldPolicy);
     }
 
     public Fleet(String id, String name, String ownerEntityId, String currentSystemId,
@@ -172,7 +289,7 @@ public record Fleet(
                 coordinateX, coordinateY, transitProgress, isInWarp, fleetStance, ships, location,
                 interstellarMode, interstellarTravelDays, interstellarDistanceMeters,
                 interstellarAccelerationMps2, interstellarElapsedDays,
-                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, value, fuelPolicy);
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, value, fuelPolicy, guardOrder, escortOrder, interceptOrder, shieldPolicy);
     }
 
     public Fleet withLocation(FleetLocation value) {
@@ -180,7 +297,7 @@ public record Fleet(
                 coordinateX, coordinateY, transitProgress, isInWarp, fleetStance, ships, value,
                 interstellarMode, interstellarTravelDays, interstellarDistanceMeters,
                 interstellarAccelerationMps2, interstellarElapsedDays,
-                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion, fuelPolicy);
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion, fuelPolicy, guardOrder, escortOrder, interceptOrder, shieldPolicy);
     }
 
     public Fleet withShips(List<ShipInstance> value) {
@@ -188,7 +305,7 @@ public record Fleet(
                 coordinateX, coordinateY, transitProgress, isInWarp, fleetStance, value, location,
                 interstellarMode, interstellarTravelDays, interstellarDistanceMeters,
                 interstellarAccelerationMps2, interstellarElapsedDays,
-                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion, fuelPolicy);
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion, fuelPolicy, guardOrder, escortOrder, interceptOrder, shieldPolicy);
     }
 
     /** Retains last known progress and consumed reserves while invalidating the controlled arrival plan. */
@@ -197,7 +314,7 @@ public record Fleet(
                 coordinateX, coordinateY, transitProgress, false, fleetStance, ships, location,
                 MODE_POWER_INTERRUPTED, interstellarTravelDays, interstellarDistanceMeters,
                 interstellarAccelerationMps2, interstellarElapsedDays,
-                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion, fuelPolicy);
+                interstellarPeakSpeedMps, interstellarFuelBudgetKg, flightMotion, journeyPropulsion, fuelPolicy, guardOrder, escortOrder, interceptOrder, shieldPolicy);
     }
 
     public boolean isInterstellarTransit() {

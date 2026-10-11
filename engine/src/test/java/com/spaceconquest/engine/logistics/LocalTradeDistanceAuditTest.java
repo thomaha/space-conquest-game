@@ -194,6 +194,14 @@ class LocalTradeDistanceAuditTest {
         var state = world(new Equipment("Chemical auxiliary", "mod_chemical_rocket", ShipComponentCatalog.CHEMICAL_GENERATOR_ID), "moon");
         assertNull(new LogisticsProcessor().previewBasket(state, state.tradeRoutes().getFirst(),
                 Map.of("steel", 5000.0, "food_matrix", 5000.0)));
+        assertNull(TradeBasketPlanner.choose(state, state.tradeRoutes().getFirst(), state.fleets().getFirst(), state.commercialHubs().getLast()),
+                "The automatic trader needs return supplies even when a smaller outbound load is feasible.");
+        var target = state.commercialHubs().getLast();
+        var orders = new HashMap<>(target.activeOrders());
+        PropulsionCatalog.drive("mod_chemical_rocket").propellantMaterials(125000).forEach((id, kg) ->
+                orders.put(id, new MarketOrder(id, kg, 0, .001, 0)));
+        var stocked = target.withInventory(state.turn(), target.currentStoredWeightKg() + 125000, orders);
+        state = state.withCommercialHubs(List.of(state.commercialHubs().getFirst(), stocked));
         var chosen = TradeBasketPlanner.choose(state, state.tradeRoutes().getFirst(), state.fleets().getFirst(), state.commercialHubs().getLast());
         assertNotNull(chosen);
         assertTrue(chosen.profit() > 0);

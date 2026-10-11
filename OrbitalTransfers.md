@@ -4,7 +4,7 @@
 
 The first operational impulse prototype is implemented and tested. CircularOrbitalEphemeris derives synthetic planetary positions and velocities from campaign elapsed days. HohmannCoast computes the star-centered coast. OrbitalTravel plans authoritative budgets and OrbitalFlightProcessor resolves funded events during daily electrical accounting.
 
-The user approved coordinated model and integration changes. Save version 41 now retains station and construction parking altitudes, fleet parking sites and immutable orbital flight state. Movement, power, fleet organization and save/load preserve the itinerary. Unsupported ballistic recovery and supply rendezvous return explicit results.
+The user approved coordinated model and integration changes. Save version 41 retains station and construction parking altitudes, fleet parking sites and immutable orbital flight state. Movement, power, fleet organization and save/load preserve the itinerary. Funded circular recovery supports failed or canceled stellar, planetary and lunar captures through one gravity-frame planner and the version 51 vector model. Unsupported supply rendezvous return explicit results.
 
 The first operational prototype supports prograde circular coplanar transfers between distinct planets around one star with short chemical or thermal burns. Planetary inclinations are deliberately projected into a common plane for this approximation. Low-thrust transfers, equal-radius interplanetary transfers and arbitrary free-space rendezvous require separate planners. Supported planetary routes must not silently fall back to a stationary straight-line calculation when their orbital fuel budget fails.
 
@@ -42,7 +42,9 @@ The mathematical coast uses mean motion and Kepler's equation, as described in t
 
 ## Phase execution
 
-The saved phase sequence is waiting at the departure base, funded escape, heliocentric coast, funded capture and separately funded station approach. The approach uses a provisional one-hour rendezvous allowance and 10 m/s maneuver budget. Detailed station phasing and local planetary orbit motion are not propagated. Reported position and velocity after capture represent the planetary orbital envelope; the actual parking body and altitude are retained separately.
+Capture remains the existing atomic circular-orbit approximation. For interbody arrivals, the local circular phase is derived from the incoming coast's tangential direction in the common coplanar axes then propagated from the paid capture epoch. It is independent of station phase. Finite sphere crossings and local hyperbolic capture are not newly modeled. Save version 53 retains the planned body-frame approach and its handover timing. Rejected approach funding, invalid station state or cancellation retains captured physical coast without awarding docking or refunding fuel. Earlier trade audit results used the fixed approach allowance and need separate revision for new docking reachability and costs.
+
+The saved phase sequence is waiting at the departure base, funded escape, heliocentric coast, funded capture and separately funded station approach. New docked arrivals use OrbitalDocking and a saved StationRendezvous vector plan in the destination body gravity frame. Handover occurs at the next tick boundary after capture and retains circular coast during the remainder of the capture day. Finite burns must reach predicted station position and match velocity before docking. Quotes include these burns and the destination power envelope. Legacy saved itineraries without a docking plan retain their provisional one-hour and 10 m/s approach.
 
 The initial short-burn prototype uses an explicitly labelled impulse approximation. Its measured burn duration still constrains validity and charges the full electrical auxiliary requirement. The additional six-hour maneuver ceiling bounds this first prototype. Auxiliary energy is charged atomically without claiming extra solar generation or charging time. A conservative dark peak check includes essential services and cargo; normal daily services remain separately accounted. Before a maneuver event, verify the entire maneuver's actual propellant, reactor feed and electrical allocation atomically. Only a funded maneuver changes velocity. Actual loaded mass determines consumption within the frozen upper budget, so electrical feed consumption or lighter cargo preserves unused fuel. A heavier changed load that exceeds the saved budget rejects the maneuver and needs replanning. This avoids treating a partially funded impulse as a completed escape or capture. Mid-burn continuous thrust and gravity integration need a later solver; they must not be implied by this approximation.
 
@@ -72,7 +74,7 @@ Coast follows the transfer ellipse rather than constant speed or linearly interp
 1. Implemented: Deterministic circular ephemeris and analytic transfer coast with conservation and moving-encounter tests.
 2. Implemented: Immutable parking and orbital-flight state, backward-compatible defaults and save version 41. Station, construction, household and fleet copy paths retain the new fields.
 3. Implemented: Authoritative planning through LocalTravel and queued MoveFleetLocalCommand, shared event accounting, power forecasts and explicit failure reporting.
-4. Implemented: Saved waiting, queued cancellation, capture failure, membership preservation and explicit unsupported ballistic recovery and supply rendezvous. Waiting cancellation leaves the real departure base; cancelling after capture retains the declared target parking orbit.
+4. Implemented: Saved waiting, queued cancellation, capture failure and membership preservation. Waiting cancellation leaves the real departure base; cancelling after capture retains the declared target parking orbit. Failed or canceled captures can fund circular recovery from actual relative position and velocity in stellar, planetary and lunar frames. Unsupported supply rendezvous remain explicit.
 5. Implemented: Asynchronous local previews, orbital status and cancellation controls plus selectable station construction altitude. Automated trade uses the same LocalTravel path, bounded arrival projection and funded next-port checks.
 6. Verified: Paid high-orbit chemical voyage, reactor-powered thermal voyage, forecast and tick accounting, save/load, cancellation, fleet organization and insufficient capture fuel. Economic profitability and broader catalog balance remain tuning work.
 
@@ -87,6 +89,8 @@ Coast follows the transfer ellipse rather than constant speed or linearly interp
 - Existing 500 km stations retain their actual low-orbit budgets. The high-orbit benchmark requires real high-orbit endpoint state.
 
 OrbitalTransferGeometryTest verifies independent motion. OrbitalTravelIntegrationTest verifies funded operational voyages, failures, mass-sensitive burns, waiting purchases and persistence. OrbitalControlsTest verifies queued UI construction and cancellation. Existing compatibility routes remain covered by the full suite.
+
+FailedStellarCaptureRecoveryTest verifies a rejected capture's transition to funded vector recovery, including queued execution, remaining physical stores, save/load and continued circular coast. The shared controls select orbit radius and current phase asynchronously. Recovery replaces unexecuted events without refunding spent fuel or granting planetary capture or docking. See [InterceptOrders.md](InterceptOrders.md).
 
 ## Activation and compatibility
 

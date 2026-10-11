@@ -156,7 +156,7 @@ public class SpaceConquestEngine implements GameEngine {
     private final IndustryProcessor industryProcessor = new IndustryProcessor();
     private final IndustryMarketProcessor industryMarketProcessor = new IndustryMarketProcessor();
     private final TacticalCombatProcessor tacticalCombatProcessor = new TacticalCombatProcessor();
-    private final FleetEncounterResolver fleetEncounterResolver = new TacticalFleetEncounterResolver(tacticalCombatProcessor);
+    private final FleetEncounterResolver fleetEncounterResolver = new TacticalFleetEncounterResolver(tacticalCombatProcessor, () -> races);
     private final OrbitalBombardmentProcessor orbitalBombardmentProcessor = new OrbitalBombardmentProcessor();
     private final ColonizationProcessor colonizationProcessor = new ColonizationProcessor();
     private final MacroStructureProcessor macroStructureProcessor = new MacroStructureProcessor();
@@ -277,10 +277,10 @@ public class SpaceConquestEngine implements GameEngine {
 
     private void runDailyTurn() {
         turn++;
+        commercialHubs = commercialHubs.stream().map(hub -> hub.observeDay(turn)).toList();
         diplomaticProposals = diplomacyProcessor.expirePendingProposals(diplomaticProposals, turn);
         imperialFinance.beginTurn();
         logger.info("Advancing to turn {}", turn);
-
         // Demographic age brackets are measured in years, unlike daily work turns.
         if (gameClock.beginsNewYearAtTurn(turn)) {
             updatePopulations();
@@ -301,6 +301,7 @@ public class SpaceConquestEngine implements GameEngine {
         imperialBalanceSheets = settlement.balanceSheets();
         launchUsageKg = new HashMap<>();
         launchActivities = new ArrayList<>();
+        commercialHubs = commercialHubs.stream().map(hub -> hub.observeDay(turn)).toList();
     }
     private void updateCouriers() {
         if (courierShips.isEmpty()) return;
@@ -489,22 +490,25 @@ public class SpaceConquestEngine implements GameEngine {
         industryAccounts = List.copyOf(accounts.values());
         imperialFinance.recordIndustryFlows(marketResult.imperialReceipts(), marketResult.imperialExpenses());
     }
-
     private void updateFleets() {
+        fogOfWarStates = sensorProcessor.updateSensorCoverage(getGameState(), List.of());
+        GameState protection = com.spaceconquest.engine.ship.FleetProtectionProcessor.advance(getGameState(), races);
+        fleets = protection.fleets();
+        tradeRoutes = protection.tradeRoutes();
+        GameState interception = com.spaceconquest.engine.ship.FleetInterceptProcessor.advance(getGameState());
+        fleets = interception.fleets();
+        commercialHubs = interception.commercialHubs(); marketAccounts = interception.marketAccounts();
+        empires = interception.empires(); corporations = interception.corporations();
         fleets = fleetProcessor.processFleetMovements(
                 com.spaceconquest.engine.ship.ShipPowerProcessor.advanceDay(getGameState()), orbitalStations, diplomaticRelations);
-        GameState arrivals = PassengerTransitProcessor.advanceDay(getGameState(), races);
+        GameState arrivals = com.spaceconquest.engine.ship.BaseRepairProcessor.advanceDay(PassengerTransitProcessor.advanceDay(getGameState(), races));
         GameState engagements = fleetEncounterResolver.resolveEncounters(arrivals);
-        fleets = engagements.fleets();
-        solarSystems = arrivals.solarSystems();
+        fleets = engagements.fleets(); commercialHubs = arrivals.commercialHubs(); marketAccounts = arrivals.marketAccounts();
+        solarSystems = arrivals.solarSystems(); empires = arrivals.empires(); corporations = arrivals.corporations();
         passengerManifests = arrivals.passengerManifests();
         fleetEngagements = new ArrayList<>(engagements.fleetEngagements());
-        fogOfWarStates = sensorProcessor.updateSensorCoverage(
-                empires, solarSystems, fleets, shipDesigns, orbitalStations,
-                List.of(), pirateBases, fogOfWarStates
-        );
+        fogOfWarStates = sensorProcessor.updateSensorCoverage(getGameState(), List.of());
     }
-
     private void updateResearch() {
         var result = new ResearchTickProcessor().process(getGameState(), races, researchProcessor);
         researchProjects = new ArrayList<>(result.projects());
@@ -979,11 +983,9 @@ public class SpaceConquestEngine implements GameEngine {
     public List<FogOfWarState> getFogOfWarStates() {
         return fogOfWarStates;
     }
-
     public void setFogOfWarStates(List<FogOfWarState> fogOfWarStates) {
         this.fogOfWarStates = fogOfWarStates != null ? new ArrayList<>(fogOfWarStates) : new ArrayList<>();
     }
-
     public LogisticsProcessor getLogisticsProcessor() {
         return logisticsProcessor;
     }
@@ -991,7 +993,6 @@ public class SpaceConquestEngine implements GameEngine {
     public SensorProcessor getSensorProcessor() {
         return sensorProcessor;
     }
-
     public void reset(GameState state) {
         applyGameState(state);
         if (state != null) gameClock.alignTurn(state.turn());

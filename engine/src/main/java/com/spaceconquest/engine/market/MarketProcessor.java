@@ -353,7 +353,7 @@ public class MarketProcessor {
                 hub.storageCapacityKg(),
                 hub.currentStoredWeightKg(),
                 hub.logisticsRangeUnits(),
-                updatedOrders
+                updatedOrders, hub.stockTargets(), hub.stockHistory(), hub.reservedTradeFuel()
         );
     }
 }

@@ -37,7 +37,7 @@ final class ShipPowerCard {
             return box;
         }
         var power = ShipPowerProcessor.reserves(ship);
-        var profile = design.powerProfile();
+        var profile = design.powerProfile(ship);
         if (!power.cargoPreservation().exposureHours().isEmpty())
             box.getChildren().add(label("Cargo exposure (equivalent unpowered hours): " + power.cargoPreservation().exposureHours()));
         if (!power.cargoPreservation().lostKgToday().isEmpty())
@@ -47,8 +47,12 @@ final class ShipPowerCard {
                 : ShipSolarEnvironment.at(state, fleet, fleet.location().current());
         box.getChildren().addAll(label(String.format("Electricity: %.1f/%.1f kWh battery | Generator supplies: %s",
                 power.batteryChargeKwh(), profile.batteryKwh(), power.generatorMaterialsKg())),
-                label(String.format("Loads: %.1f kW essential | %.1f kW cargo | %.1f kW during propulsion",
-                        profile.essentialKw(ship, design), ShipPowerProcessor.cargoKw(profile, ship, design), profile.driveKw())));
+                label(String.format("Loads: %.1f kW critical | %.1f kW equipment idle | %.1f kW cargo | %.1f kW during propulsion",
+                        profile.criticalKw(profile.essentialKw(ship, design)), profile.serviceLoadsKw().values().stream().mapToDouble(Double::doubleValue).sum(),
+                        ShipPowerProcessor.cargoKw(profile, ship, design), profile.driveKw())));
+        if (!power.shedServices().isEmpty())
+            box.getChildren().add(label("Switched off for power shortage: " + String.join(", ", com.spaceconquest.engine.ship.ShipServicePower.PRIORITY.stream()
+                    .filter(power.shedServices()::contains).toList())));
         if (profile.solarKw() > 0) {
             box.getChildren().add(label(String.format("Solar: %.1f kW in sunlight | %.3f times Sol at 1 AU | %s",
                     ShipPowerProcessor.solarKw(profile, power, environment), environment.fluxRelativeToEarth(), environment.description())));
@@ -111,10 +115,16 @@ final class ShipPowerCard {
 
     private static void addRecovery(VBox box, GameState state, Fleet fleet,
                                     HumanController controller, Label feedback) {
+        if (com.spaceconquest.engine.ship.OrbitalRecovery.applies(fleet)) {
+            box.getChildren().add(StellarRecoveryCard.create(state, fleet, controller, feedback));
+            return;
+        }
         if (Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode())
                 || fleet.location().localFlight() != null && fleet.location().localFlight().interrupted()) {
             box.getChildren().add(label("Travel interrupted. Recovery requires funded propulsion, electricity and passenger supplies."));
-            if (fleet.location().localFlight() != null) box.getChildren().add(label(String.format("Local drift: %.1f km along route | %.1f m/s",
+            if (fleet.location().localFlight() != null) box.getChildren().add(label(fleet.location().localFlight().vectorFlight() != null
+                    ? String.format("System-space drift: %.1f m/s", fleet.location().localFlight().motion().velocityMps())
+                    : String.format("Local drift: %.1f km along route | %.1f m/s",
                     fleet.location().localFlight().motion().positionMeters() / 1000, fleet.location().localFlight().motion().velocityMps())));
             if (!fleet.location().inTransit() && fleet.flightMotion() != null && fleet.interstellarDistanceMeters() > 0)
                 box.getChildren().add(label(String.format("Coasting: %.3f km along crossing | %.1f m/s",

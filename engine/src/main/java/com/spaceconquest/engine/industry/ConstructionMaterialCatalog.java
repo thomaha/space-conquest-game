@@ -49,6 +49,11 @@ public final class ConstructionMaterialCatalog {
             bill.merge("refined_aluminum", pods * 100.0, Double::sum);
             bill.merge("refined_copper", pods * 50.0, Double::sum);
         }
+          for (String id : moduleIds == null ? java.util.List.<String>of() : moduleIds) {
+              var module = com.spaceconquest.engine.ship.CombatModuleCatalog.module(id);
+              if (module == null) module = com.spaceconquest.engine.ship.ShipRepairModuleCatalog.module(id);
+              if (module != null) module.materialCostsKg().forEach((material, kg) -> bill.merge(material, kg, Double::sum));
+          }
         return Map.copyOf(bill);
     }
 

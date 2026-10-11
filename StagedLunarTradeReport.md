@@ -55,3 +55,5 @@ Only current-port supply purchases and the first departure commit on the trade t
 Seven additional lifecycle tests cover automatic low Earth orbit to depot to Moon delivery, reload of both active legs, rejection of expensive access with prepaid fuel, finite stock and funds, changed markets, cancellation, direct-trade preference, deterministic depot selection, loaded-ship exclusion and failed departure. The hydrolox fixture completes its seven-day mixed shipment and retains at least 24,000 kg of protected main fuel. This establishes automatic use of existing finite-stock fixture ports; it does not build or replenish them.
 
 The full Maven suite passes 790 tests with no failures, errors or skipped tests. The diff whitespace check also passes.
+
+The subsequent [depot replenishment report](DepotReplenishmentReport.md) starts the depot empty and measures three paid supply cycles followed by autonomous lunar departures. It includes supplier delivery and return fuel in the consolidated chain economics and checks that stockouts stop loading until paid goods arrive. Source production and lunar return journeys remain separate work.

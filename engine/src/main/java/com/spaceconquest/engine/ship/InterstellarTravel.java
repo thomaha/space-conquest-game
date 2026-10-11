@@ -163,7 +163,7 @@ public final class InterstellarTravel {
             return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(),
                     ship.currentHullHealth(), ship.currentShieldHealth(),
                     ship.currentFuelKg(), Map.copyOf(cargo), ship.passengerCount(),
-                    ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState());
+                    ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage());
         }).toList());
     }
 

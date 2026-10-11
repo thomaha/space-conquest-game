@@ -154,6 +154,8 @@ public final class FleetOrganization {
         return new Fleet(id, name, fleet.ownerEntityId(), fleet.currentSystemId(), fleet.targetSystemId(),
                 fleet.coordinateX(), fleet.coordinateY(), fleet.transitProgress(), fleet.isInWarp(), fleet.fleetStance(), ships,
                 fleet.location(), fleet.interstellarMode(), fleet.interstellarTravelDays(), fleet.interstellarDistanceMeters(),
-                fleet.interstellarAccelerationMps2(), fleet.interstellarElapsedDays(), fleet.interstellarPeakSpeedMps(), retained, fleet.flightMotion(), propulsion, fleet.fuelPolicy());
+                fleet.interstellarAccelerationMps2(), fleet.interstellarElapsedDays(), fleet.interstellarPeakSpeedMps(), retained, fleet.flightMotion(), propulsion, fleet.fuelPolicy())
+                .withShieldPolicy(fleet.shieldPolicy()).withEscortOrder(id.equals(fleet.id()) ? fleet.escortOrder() : null)
+                .withInterceptOrder(fleet.interceptOrder() != null && fleet.interceptOrder().protection() != null ? fleet.interceptOrder() : null);
     }
 }

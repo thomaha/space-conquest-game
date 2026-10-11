@@ -23,6 +23,7 @@ import java.util.List;
  * @param isValidForLaunch                 true if design satisfies launch thrust-to-mass barrier
  * @param isProprietaryCorporateDesign     true if created by private corporate AI
  * @param manufacturingProfile            captured optimization cost multiplier and manufacturing complexity
+ * @param sensorProfile                   frozen sensor range and survey strength of installed modules
  */
 public record ShipDesign(
         String id,
@@ -43,7 +44,8 @@ public record ShipDesign(
         boolean isValidForLaunch,
         boolean isProprietaryCorporateDesign,
         ShipManufacturingProfile manufacturingProfile,
-        ShipPowerProfile powerProfile
+        ShipPowerProfile powerProfile,
+        ShipSensorProfile sensorProfile
 ) {
     public ShipDesign {
         manufacturingProfile = manufacturingProfile == null ? ShipManufacturingProfile.baseline() : manufacturingProfile;
@@ -51,6 +53,19 @@ public record ShipDesign(
         equippedModuleIds = List.copyOf(equippedModuleIds);
         if (!Double.isFinite(fuelCapacityKg) || fuelCapacityKg < 0.0)
             throw new IllegalArgumentException("Invalid fuel capacity");
+    }
+
+    public ShipDesign(String id, String name, String ownerEntityId, String role,
+                      String hullMaterialId, List<String> equippedModuleIds, String armorMaterialId,
+                      double armorThicknessCm, double totalDryMassKg, double maxCargoMassKg,
+                      double fuelCapacityKg, double powerBalanceKw, double calculatedStructuralIntegrity,
+                      double minLaunchThrustRequiredN, double totalThrustN, boolean isValidForLaunch,
+                      boolean isProprietaryCorporateDesign, ShipManufacturingProfile manufacturingProfile,
+                      ShipPowerProfile powerProfile) {
+        this(id, name, ownerEntityId, role, hullMaterialId, equippedModuleIds, armorMaterialId, armorThicknessCm,
+                totalDryMassKg, maxCargoMassKg, fuelCapacityKg, powerBalanceKw, calculatedStructuralIntegrity,
+                minLaunchThrustRequiredN, totalThrustN, isValidForLaunch, isProprietaryCorporateDesign,
+                manufacturingProfile, powerProfile, null);
     }
 
     public ShipDesign(String id, String name, String ownerEntityId, String role,
@@ -90,5 +105,9 @@ public record ShipDesign(
                 Math.max(100.0, totalDryMassKg * 0.5), powerBalanceKw,
                 calculatedStructuralIntegrity, minLaunchThrustRequiredN, totalThrustN,
                 isValidForLaunch, isProprietaryCorporateDesign);
+    }
+    /** Condition-scaled live capability; the no-argument accessor remains the blueprint rating. */
+    public ShipPowerProfile powerProfile(ShipInstance ship) {
+        return ShipElectricalDamage.profile(this, ship);
     }
 }

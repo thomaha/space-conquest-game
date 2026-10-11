@@ -56,7 +56,7 @@ class ParkingOrbitTravelTest {
     @Test void outwardAndInwardPaidTransfersMatchForecastAndKeepActualParkingAltitude() throws Exception {
         for (boolean outward : List.of(true, false)) {
             var initial = funded(outward ? 2000 : 400000, outward ? 400000 : 2000);
-            var fleet = initial.fleets().getFirst(); var target = FleetLocation.Site.docked("target");
+            var fleet = initial.fleets().getFirst(); var target = FleetLocation.Site.orbit("earth", outward ? 400000 : 2000);
             var plan = plan(initial, target); var itinerary = plan.orbital();
             assertTrue(itinerary.parkingTransfer());
             var earth = initial.solarSystems().getFirst().planets().stream().filter(body -> body.id().equals("earth")).findFirst().orElseThrow();
@@ -80,7 +80,7 @@ class ParkingOrbitTravelTest {
 
     @Test void unfundedCircularizationContinuesPlanetCenteredMotionWithoutDocking() throws Exception {
         var state = funded(2000, 400000); var fleet = state.fleets().getFirst();
-        var target = FleetLocation.Site.docked("target"); var plan = plan(state, target);
+        var target = FleetLocation.Site.orbit("earth", 400000); var plan = plan(state, target);
         state = day(state.withFleets(List.of(LocalTravel.depart(fleet, target, plan))));
         fleet = state.fleets().getFirst(); assertEquals(1, fleet.location().orbitalFlight().nextManeuver());
         var ship = fleet.ships().getFirst();
@@ -96,25 +96,22 @@ class ParkingOrbitTravelTest {
         assertEquals(0, failed.ships().getFirst().currentFuelKg());
     }
 
-    @Test void sameAltitudeDockingAndUndockingArePaidOneEventOrdersAndSurviveSaveLoad() throws Exception {
+    @Test void sameAltitudeDockingUsesPhysicalContactAndUndockingRetainsOneEventSaveCompatibility() throws Exception {
         var state = funded(8000, 8000); var fleet = state.fleets().getFirst(); var target = FleetLocation.Site.docked("target");
         var plan = plan(state, target);
-        assertEquals(1, plan.orbital().maneuvers().size()); assertEquals(0, plan.orbital().coastDurationSeconds());
-        assertEquals(1.0 / 24, plan.days());
+        assertNull(plan.orbital()); assertNotNull(plan.physical().vectorTrajectory().gravity());
         var departed = state.withFleets(List.of(LocalTravel.depart(fleet, target, plan)));
-        var display = OrbitalJourneySnapshot.from(departed.fleets().getFirst().location().orbitalFlight());
-        assertTrue(display.parkingTransfer()); assertEquals(1, display.transferArc().size());
-        assertEquals(1, display.maneuvers().size());
-        assertTrue(display.maneuvers().getFirst().name().contains("Docking"));
         var manager = new SaveGameManager(directory); var file = directory.resolve("parking.scsave").toFile();
         manager.save(file, departed, 1, "2027-01-01T08:00:00");
-        var restored = manager.load(file).toGameState(9999, "RUNNING");
+        var restored = manager.load(file).toGameState(state.turn(), "RUNNING");
         assertEquals(departed.fleets(), restored.fleets());
         var arrived = day(restored); assertTrue(arrived.fleets().getFirst().location().isAt(target));
         assertTrue(arrived.fleets().getFirst().ships().getFirst().currentFuelKg() < fleet.ships().getFirst().currentFuelKg());
         var orbit = FleetLocation.Site.orbit("earth", 8000);
         var undock = plan(arrived, orbit);
         assertEquals(1, undock.orbital().maneuvers().size());
+        var display = OrbitalJourneySnapshot.from(new OrbitalFlight(undock.orbital(), 0, 0, OrbitalFlight.Status.WAITING, ""));
+        assertTrue(display.parkingTransfer()); assertEquals(1, display.transferArc().size()); assertEquals(1, display.maneuvers().size());
         var undocked = day(arrived.withFleets(List.of(LocalTravel.depart(arrived.fleets().getFirst(), orbit, undock))));
         assertTrue(undocked.fleets().getFirst().location().isAt(orbit));
         assertTrue(undocked.fleets().getFirst().ships().getFirst().currentFuelKg() < arrived.fleets().getFirst().ships().getFirst().currentFuelKg());
@@ -132,12 +129,12 @@ class ParkingOrbitTravelTest {
         assertNull(LocalTravel.plan(outside, outside.fleets().getFirst(), FleetLocation.Site.docked("target")));
     }
 
-    @Test void oneEventSplitAndMergePreserveBudgetsAndAnUnfundedMemberBlocksTheWholeApproach() throws Exception {
+    @Test void oneEventSplitAndMergePreserveBudgetsAndAnUnfundedMemberBlocksTheWholeUndocking() throws Exception {
         var state = funded(8000, 8000); var fleet = state.fleets().getFirst(); var first = fleet.ships().getFirst();
         var second = new ShipInstance("second", first.designId(), first.ownerEntityId(), 100, 0, first.currentFuelKg(),
                 first.storedCargoKg(), 0, "", first.transitMode(), first.powerState(), first.supplyState());
         state = state.withFleets(List.of(fleet.withShips(List.of(first, second))));
-        var target = FleetLocation.Site.docked("target"); var plan = plan(state, target);
+        var target = FleetLocation.Site.orbit("earth", 8000); var plan = plan(state, target);
         state = state.withFleets(List.of(LocalTravel.depart(state.fleets().getFirst(), target, plan)));
         state = FleetOrganization.split(state, "owner", "fleet", List.of("second"), "split", "Split");
         for (var part : state.fleets()) {

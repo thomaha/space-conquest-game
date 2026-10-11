@@ -30,7 +30,9 @@ final class OrbitalJourneyDiagram {
         maneuvers.setId("orbital-maneuver-timing");
         maneuvers.setWrapText(true); maneuvers.setTextFill(Color.LIGHTGRAY);
         var legend = new Label("White/red ring: fleet | Orange: planned coast | Gray: ballistic orbit. "
-                + (flight.itinerary().bodyCentered() ? flight.itinerary().lunarTransfer()
+                + (flight.itinerary().docking() != null
+                ? "Native transfer envelope; funded station rendezvous follows in the destination body frame."
+                : flight.itinerary().bodyCentered() ? flight.itinerary().lunarTransfer()
                 ? "Planet-centered lunar transfer; local parking motion and exact station phasing are omitted."
                 : flight.itinerary().frame().kind() == OrbitalFlight.CenterKind.LUNAR
                 ? "Moon-centered parking approximation; exact station phasing is omitted."

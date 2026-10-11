@@ -75,7 +75,7 @@ public final class FleetPropulsionSupply {
             var p = ShipPowerProcessor.reserves(ship);
             return ship.withPowerState(new ShipPowerState(p.generatorMaterialsKg(), p.chemicalMixture(), p.reactorFuel(),
                     p.batteryChargeKwh(), p.arraysDeployed(), p.arrayCondition(), p.orientationFraction(),
-                    p.unmetEssentialHours(), 0, 0, 0, p.chargedInputKwhToday(), p.cargoPreservation(), p.rescueStatus()));
+                    p.unmetEssentialHours(), 0, 0, 0, p.chargedInputKwhToday(), p.cargoPreservation(), p.rescueStatus(), java.util.Set.of()));
         }).toList());
         var result = run(state, reset, 24);
         return result.fleet().withShips(result.fleet().ships().stream().map(ship -> {
@@ -89,11 +89,15 @@ public final class FleetPropulsionSupply {
         return run(state, initial, hours, true);
     }
     private static Result run(GameState state, Fleet initial, double hours, boolean validateContinuation) {
+        return run(state, initial, hours, validateContinuation, true);
+    }
+    private static Result run(GameState state, Fleet initial, double hours, boolean validateContinuation, boolean recharge) {
         if (!Double.isFinite(hours) || hours < 0) throw new IllegalArgumentException("Invalid supply duration");
         Fleet current = physical(initial);
         double elapsed = 0, failure = Double.POSITIVE_INFINITY;
         Map<String, Double> used = new HashMap<>(), demand = new HashMap<>();
         List<String> problems = new ArrayList<>();
+        int quotes = 0;
         // Each iteration reaches a phase boundary, delivery or first outage. No voyage-day loop.
         while (elapsed < hours - 1e-9) {
             var pending = order(state, current);
@@ -114,13 +118,16 @@ public final class FleetPropulsionSupply {
             }
             double stepHours = Math.min(hours - elapsed, nextBoundary(current));
             if (pending != null) stepHours = Math.min(stepHours, delivery - now);
-            var step = power(state, current, stepHours);
-            double fueledHours = FlightFuelLimits.availableHours(current, stepHours);
+            boolean optional = recharge && quotes++ < 64 && FleetShieldPolicy.recharge(state, current, FleetShieldPolicy.travelling(current));
+            if (optional && current.ships().stream().anyMatch(ship -> ShipShieldRecharge.requestedKw(FleetSupplySimulation.design(state, ship), ship, 24) > 1e-9))
+                stepHours = Math.min(stepHours, 24);
+            var step = power(state, current, stepHours, optional);
+            double fueledHours = Math.min(FlightFuelLimits.availableHours(current, stepHours), PropulsionDamage.availableHours(state, current, stepHours));
             double stop = Math.min(fueledHours, step.firstUnpoweredHour());
             if (stop < stepHours && !Fleet.MODE_POWER_INTERRUPTED.equals(current.interstellarMode())
                     && current.hasInterstellarOrder()) {
                 double powered = stop;
-                var stopped = power(state, current, powered);
+                var stopped = power(state, current, powered, optional);
                 merge(used, stopped.fuelUsedKg()); merge(demand, stopped.demandKwh());
                 problems.addAll(stopped.problems());
                 current = advanceMotion(stopped.fleet(), powered);
@@ -158,25 +165,43 @@ public final class FleetPropulsionSupply {
         return Double.POSITIVE_INFINITY;
     }
 
-    private static Result power(GameState state, Fleet fleet, double hours) {
+    private static Result power(GameState state, Fleet fleet, double hours, boolean recharge) {
+        var activity = ShipServicePower.activity(state, fleet);
         List<ShipInstance> ships = new ArrayList<>();
         Map<String, Double> used = new HashMap<>(), demand = new HashMap<>();
         List<String> problems = new ArrayList<>(); double failure = Double.POSITIVE_INFINITY;
         boolean burning = Fleet.MODE_RECOVERY.equals(fleet.interstellarMode())
                 && fleet.flightMotion().trajectory().burning(fleet.flightMotion().elapsedSeconds() + hours * 1800);
+        var required = fleet.withShips(fleet.ships().stream().map(ship -> {
+            var design = FleetSupplySimulation.design(state, ship);
+            if (design == null || design.powerProfile() == null) return ship;
+            var p = design.powerProfile(ship);
+            return ship.withPowerState(ShipPowerProcessor.interval(p, ShipPowerProcessor.reserves(ship), hours, 0,
+                    p.essentialKw(ship, design), ShipPowerProcessor.cargoKw(p, ship, design), burning ? p.driveKw() : 0, activity).state());
+        }).toList());
         for (var ship : fleet.ships()) {
             var design = FleetSupplySimulation.design(state, ship);
             if (design == null || design.powerProfile() == null) {
                 problems.add(ship.id() + ": propulsion supply requires modeled electrical equipment."); ships.add(ship); continue;
             }
-            var p = design.powerProfile(); var reserves = ShipPowerProcessor.reserves(ship);
+            var p = design.powerProfile(ship); var reserves = ShipPowerProcessor.reserves(ship);
             double essential = p.essentialKw(ship, design), cargo = ShipPowerProcessor.cargoKw(p, ship, design);
-            var step = ShipPowerProcessor.interval(p, reserves, hours, 0, essential, cargo, burning ? p.driveKw() : 0);
+            var step = ShipPowerProcessor.interval(p, reserves, hours, 0, essential, cargo, burning ? p.driveKw() : 0, activity);
+            var actual = ship.withPowerState(step.state());
+            double energy = hours * (essential + cargo + (burning ? p.driveKw() : 0));
+            if (recharge && hours > 1e-9 && ShipShieldRecharge.requestedKw(design, ship, hours) > 1e-9) {
+                var funded = required.withShips(required.ships().stream().map(member -> ships.stream()
+                        .filter(paid -> paid.id().equals(member.id())).findFirst().orElse(member)).toList());
+                var quote = ShipShieldPower.segment(ship, design,
+                        new ShipShieldPower.Phase(hours, burning ? p.driveKw() : 0, ShipSolarEnvironment.DARK, activity), 0,
+                        candidate -> shieldSafe(state, advanceMotion(replace(funded, candidate), hours)));
+                actual = quote.ship(); energy = quote.journeyKwh();
+            }
             failure = Math.min(failure, step.firstUnpoweredHour());
             if (!step.supplied()) problems.add(ship.id() + ": electrical supply cannot fund essential services, cargo preservation and active propulsion.");
-            used.put(ship.id(), reserves.fuelMassKg() - step.state().fuelMassKg());
-            demand.put(ship.id(), hours * (essential + cargo + (burning ? p.driveKw() : 0)));
-            ships.add(ship.withPowerState(step.state()));
+            used.put(ship.id(), reserves.fuelMassKg() - actual.powerState().fuelMassKg());
+            demand.put(ship.id(), energy);
+            ships.add(actual);
         }
         return new Result(fleet.withShips(ships), failure, used, demand, problems);
     }
@@ -196,7 +221,7 @@ public final class FleetPropulsionSupply {
                 Math.max(0, ship.currentFuelKg() - budget.getOrDefault(ship.id(), 0.0) * fraction))).toList();
         if (seconds + 1e-8 >= t.totalSeconds()) return new Fleet(fleet.id(), fleet.name(), fleet.ownerEntityId(),
                 fleet.targetSystemId(), "", fleet.coordinateX(), fleet.coordinateY(), 0, false, fleet.fleetStance(), ships,
-                FleetLocation.at(FleetLocation.Site.deepSpace())).withFuelPolicy(fleet.fuelPolicy());
+                FleetLocation.at(FleetLocation.Site.deepSpace())).withFuelPolicy(fleet.fuelPolicy()).withShieldPolicy(fleet.shieldPolicy()).withEscortOrder(fleet.escortOrder());
         return motion(fleet.withShips(ships), Fleet.MODE_RECOVERY, t.at(seconds), fleet.interstellarFuelBudgetKg(), fleet.journeyPropulsion());
     }
 
@@ -233,7 +258,7 @@ public final class FleetPropulsionSupply {
             cargo.merge(order.fuelId(), order.quantityKg(), Double::sum);
             supplied = new ShipInstance(receiver.id(), receiver.designId(), receiver.ownerEntityId(), receiver.currentHullHealth(),
                     receiver.currentShieldHealth(), receiver.currentFuelKg(), cargo, receiver.passengerCount(), receiver.passengerRaceId(),
-                    receiver.transitMode(), receiver.powerState(), receiver.supplyState());
+                    receiver.transitMode(), receiver.powerState(), receiver.supplyState(), receiver.moduleDamage());
         }
         var depleted = ShipSupplyStorage.withdraw(supplier, FleetSupplySimulation.design(state, supplier), materials);
         if (depleted == null) return null;
@@ -261,11 +286,11 @@ public final class FleetPropulsionSupply {
                 fleet.coordinateX(), fleet.coordinateY(), Math.clamp(motion.positionMeters() / fleet.interstellarDistanceMeters(), 0, 1),
                 false, fleet.fleetStance(), fleet.ships(), fleet.location(), mode, fleet.interstellarTravelDays(),
                 fleet.interstellarDistanceMeters(), fleet.interstellarAccelerationMps2(), fleet.interstellarElapsedDays(),
-                fleet.interstellarPeakSpeedMps(), budget, motion, propulsion).withFuelPolicy(fleet.fuelPolicy());
+                fleet.interstellarPeakSpeedMps(), budget, motion, propulsion).withFuelPolicy(fleet.fuelPolicy()).withShieldPolicy(fleet.shieldPolicy()).withEscortOrder(fleet.escortOrder());
     }
     static ShipInstance withFuel(ShipInstance ship, double fuel) {
         return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(), ship.currentShieldHealth(),
-                fuel, ship.storedCargoKg(), ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState());
+                fuel, ship.storedCargoKg(), ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage());
     }
     private static ShipInstance find(Fleet fleet, String id) { return fleet.ships().stream().filter(ship -> ship.id().equals(id)).findFirst().orElse(null); }
     private static Fleet replace(Fleet fleet, ShipInstance ship) { return fleet.withShips(fleet.ships().stream().map(item -> item.id().equals(ship.id()) ? ship : item).toList()); }
@@ -275,7 +300,9 @@ public final class FleetPropulsionSupply {
         return Fleet.MODE_RECOVERY.equals(fleet.interstellarMode())
                 ? Math.max(0, (fleet.flightMotion().trajectory().totalSeconds() - fleet.flightMotion().elapsedSeconds()) / 3600) : 0;
     }
-    private static Result project(GameState state, Fleet fleet) {
+    private static Result project(GameState state, Fleet fleet) { return project(state, fleet, true); }
+
+    private static Result project(GameState state, Fleet fleet, boolean recharge) {
         Fleet current = physical(fleet);
         Map<String, Double> used = new HashMap<>(), demand = new HashMap<>();
         List<String> problems = new ArrayList<>(); double failure = Double.POSITIVE_INFINITY;
@@ -283,7 +310,7 @@ public final class FleetPropulsionSupply {
             double completion = completionHour(state, current);
             double hours = Double.isFinite(completion) ? Math.max(0, Math.min(completion - clock(current), remainingHours(current)))
                     : remainingHours(current);
-            var step = run(state, current, hours, false);
+            var step = run(state, current, hours, false, recharge);
             merge(used, step.fuelUsedKg()); merge(demand, step.demandKwh()); problems.addAll(step.problems());
             failure = Math.min(failure, step.firstUnpoweredHour());
             if (FleetSupplySimulation.orders(step.fleet()).size() >= FleetSupplySimulation.orders(current).size()) {
@@ -293,21 +320,27 @@ public final class FleetPropulsionSupply {
             current = step.fleet();
         }
         double hours = Math.max(0, Math.ceil((clock(current) + remainingHours(current)) / 24) * 24 - clock(current));
-        var tail = run(state, current, hours, false);
+        var tail = run(state, current, hours, false, recharge);
         merge(used, tail.fuelUsedKg()); merge(demand, tail.demandKwh()); problems.addAll(tail.problems());
         failure = Math.min(failure, tail.firstUnpoweredHour());
         return new Result(tail.fleet(), failure, used, demand, problems.stream().distinct().toList());
     }
     private static boolean continuationReady(GameState state, Fleet fleet, double hour) {
         if (!hasOrder(fleet)) return FleetSupplyReplanning.electricallyReady(state, fleet, hour);
-        var projected = project(state, fleet);
+        var projected = project(state, fleet, false);
+        return projected.problems().isEmpty() && !Double.isFinite(projected.firstUnpoweredHour())
+                && !projected.fleet().hasInterstellarOrder() && arrivalReady(state, projected.fleet());
+    }
+
+    private static boolean shieldSafe(GameState state, Fleet fleet) {
+        var projected = project(state, fleet, false);
         return projected.problems().isEmpty() && !Double.isFinite(projected.firstUnpoweredHour())
                 && !projected.fleet().hasInterstellarOrder() && arrivalReady(state, projected.fleet());
     }
     private static boolean arrivalReady(GameState state, Fleet fleet) {
         for (var ship : fleet.ships()) {
             var design = FleetSupplySimulation.design(state, ship);
-            var p = design == null ? null : design.powerProfile();
+            var p = design == null ? null : design.powerProfile(ship);
             if (p == null || !ShipArrivalReserve.check(p, ShipPowerProcessor.reserves(ship), p.essentialKw(ship, design),
                     ShipPowerProcessor.cargoKw(p, ship, design), ShipSolarEnvironment.DARK).ready()) return false;
         }
@@ -322,7 +355,7 @@ public final class FleetPropulsionSupply {
                 checks.add(new ShipPowerForecast.Readiness(ship.id(), false, false, 0, 0, 0, 0, "Scheduled supply requires modeled electrical equipment."));
                 continue;
             }
-            var p = design.powerProfile(); var reserves = ShipPowerProcessor.reserves(ship);
+            var p = design.powerProfile(ship); var reserves = ShipPowerProcessor.reserves(ship);
             var reserve = ShipArrivalReserve.check(p, reserves, p.essentialKw(ship, design),
                     ShipPowerProcessor.cargoKw(p, ship, design), ShipSolarEnvironment.DARK);
             boolean ready = result.problems().isEmpty() && !Double.isFinite(result.firstUnpoweredHour())

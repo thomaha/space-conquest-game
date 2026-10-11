@@ -36,6 +36,7 @@ public class DiplomacyView {
     private List<DiplomaticRelation> relations = List.of();
     private List<DiplomaticProposal> proposals = List.of();
     private long currentTurn;
+    private GameState snapshot;
     private final Menubar menubar;
     private final DiplomacyProcessor diplomacyProcessor = new DiplomacyProcessor();
     private HumanController humanController;
@@ -98,6 +99,7 @@ public class DiplomacyView {
     }
 
     public void updateData(GameState state) {
+        snapshot = state;
         empires = state == null ? List.of() : state.empires();
         relations = state == null ? List.of() : state.diplomaticRelations();
         proposals = state == null ? List.of() : state.diplomaticProposals();
@@ -114,6 +116,7 @@ public class DiplomacyView {
 
     private void loadData() {
         content.getChildren().clear();
+        content.getChildren().add(SensorSharingCard.create(snapshot, menubar.getPlayerEmpireId(), humanController));
         for (Empire empire : empires) {
             content.getChildren().add(createDiplomacyBox(empire, empires, relations, proposals));
         }

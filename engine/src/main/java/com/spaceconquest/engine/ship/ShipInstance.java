@@ -28,7 +28,8 @@ public record ShipInstance(
         String passengerRaceId,
         String transitMode,
         ShipPowerState powerState,
-        ShipSupplyState supplyState
+        ShipSupplyState supplyState,
+        ShipModuleDamage moduleDamage
 ) {
     public static final String MODE_CONSCIOUS = "CONSCIOUS";
     public static final String MODE_CRYOGENIC_STASIS = "CRYOGENIC_STASIS";
@@ -38,6 +39,15 @@ public record ShipInstance(
         if (transitMode == null) transitMode = MODE_CONSCIOUS;
         if (passengerRaceId == null) passengerRaceId = "";
         if (supplyState == null) supplyState = ShipSupplyState.empty();
+        if (moduleDamage == null) moduleDamage = ShipModuleDamage.empty();
+    }
+
+    public ShipInstance(String id, String designId, String ownerEntityId, double currentHullHealth,
+                        double currentShieldHealth, double currentFuelKg, Map<String, Double> storedCargoKg,
+                        int passengerCount, String passengerRaceId, String transitMode, ShipPowerState powerState,
+                        ShipSupplyState supplyState) {
+        this(id, designId, ownerEntityId, currentHullHealth, currentShieldHealth, currentFuelKg, storedCargoKg,
+                passengerCount, passengerRaceId, transitMode, powerState, supplyState, ShipModuleDamage.empty());
     }
 
     public ShipInstance(String id, String designId, String ownerEntityId, double currentHullHealth,
@@ -56,12 +66,17 @@ public record ShipInstance(
 
     public ShipInstance withPowerState(ShipPowerState power) {
         return new ShipInstance(id, designId, ownerEntityId, currentHullHealth, currentShieldHealth,
-                currentFuelKg, storedCargoKg, passengerCount, passengerRaceId, transitMode, power, supplyState);
+                currentFuelKg, storedCargoKg, passengerCount, passengerRaceId, transitMode, power, supplyState, moduleDamage);
     }
 
     public ShipInstance withSupplyState(ShipSupplyState supply) {
         return new ShipInstance(id, designId, ownerEntityId, currentHullHealth, currentShieldHealth,
-                currentFuelKg, storedCargoKg, passengerCount, passengerRaceId, transitMode, powerState, supply);
+                currentFuelKg, storedCargoKg, passengerCount, passengerRaceId, transitMode, powerState, supply, moduleDamage);
+    }
+
+    public ShipInstance withModuleDamage(ShipModuleDamage damage) {
+        return new ShipInstance(id, designId, ownerEntityId, currentHullHealth, currentShieldHealth,
+                currentFuelKg, storedCargoKg, passengerCount, passengerRaceId, transitMode, powerState, supplyState, damage);
     }
 
     public double supplyFuelMassKg() { return supplyState.massKg(); }

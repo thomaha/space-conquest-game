@@ -32,7 +32,7 @@ public record MoveFleetLocalCommand(String fleetId, FleetLocation.Kind targetKin
                 || !Double.isFinite(targetParkingAltitudeKm) || targetParkingAltitudeKm <= 0)) return false;
         Fleet fleet = state.fleets().stream().filter(item -> fleetId.equals(item.id()))
                 .findFirst().orElse(null);
-        if (fleet == null || fleet.isInWarp() || fleet.location().inTransit()
+        if (fleet == null || fleet.isInWarp() || fleet.location().inTransit() && !com.spaceconquest.engine.ship.RecoveredParkingTravel.ready(fleet)
                 || fleet.targetSystemId() != null && !fleet.targetSystemId().isBlank()) return false;
         if (state.tradeRoutes().stream().filter(route -> route.isActive()
                 || !TradeRoute.LOADING.equals(route.phase()))
@@ -77,7 +77,7 @@ public record MoveFleetLocalCommand(String fleetId, FleetLocation.Kind targetKin
             if (!fleetId.equals(fleet.id())) continue;
             FleetLocation.Site destination = destination();
             LocalTravel.Plan plan = LocalTravel.plan(paid, planningFleet(fleet), destination);
-            fleets.set(index, LocalTravel.depart(fleet, destination, plan));
+            fleets.set(index, LocalTravel.depart(fleet.withInterceptOrder(null), destination, plan));
             break;
         }
         return paid.withFleets(fleets);

@@ -82,7 +82,8 @@ public class ShipDesignValidator {
                 res.minLaunchThrustRequiredN(),
                 res.totalThrustN(),
                 res.isLaunchCapable() && res.isValid(),
-                isProprietaryCorporate
+                isProprietaryCorporate, ShipManufacturingProfile.baseline(), null,
+                ShipSensorProfile.capture(modules)
         );
     }
 

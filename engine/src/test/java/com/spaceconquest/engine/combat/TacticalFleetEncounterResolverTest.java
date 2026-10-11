@@ -17,16 +17,22 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TacticalFleetEncounterResolverTest {
-    private static final ShipDesign COMBAT_DESIGN = new ShipDesign(
-            "combat_design", "Combat ship", "terran", ShipRole.COMBAT_SHIP, "steel", List.of(), "steel",
-            2.0, 20_000.0, 1_000.0, 200.0, 1.5, 100_000.0, 500_000.0, true, false);
+    private ShipDesign design(String owner) {
+        return new ShipDesign("combat_design_" + owner, "Combat ship", owner, ShipRole.COMBAT_SHIP, "steel",
+                List.of("mod_ship_gun", "mod_ship_shield", com.spaceconquest.engine.ship.SensorModuleCatalog.BASIC), "steel",
+                2.0, 20_000.0, 1_000.0, 200.0, 1.5, 100_000.0, 500_000.0, true, false);
+    }
+    private com.spaceconquest.engine.Empire empire(String owner) {
+        return new com.spaceconquest.engine.Empire(owner, owner, "human", "Individualist", 0, 0, List.of(), List.of(), Map.of(), List.of(), List.of());
+    }
 
     @Test
     void resolvesWarEncounterAtSharedSiteAndRecordsOutcome() {
         Fleet attacker = fleet("attacker", "terran", List.of(
                 ship("a1", "terran", 1_000.0), ship("a2", "terran", 1_000.0)));
         Fleet defender = fleet("defender", "vulkan", List.of(ship("d1", "vulkan", 300.0)));
-        GameState state = GameState.builder().turn(18).shipDesigns(List.of(COMBAT_DESIGN))
+        GameState state = GameState.builder().turn(18).shipDesigns(List.of(design("terran"), design("vulkan")))
+                .empires(List.of(empire("terran"), empire("vulkan")))
                 .fleets(List.of(attacker, defender))
                 .diplomaticRelations(List.of(new DiplomaticRelation("terran", "vulkan", "TOTAL_WAR", 0.0)))
                 .build();
@@ -51,7 +57,8 @@ class TacticalFleetEncounterResolverTest {
     void doesNotEngageInNeutralRelationsOrDuringTransit() {
         Fleet attacker = fleet("attacker", "terran", List.of(ship("a1", "terran", 1_000.0)));
         Fleet defender = fleet("defender", "vulkan", List.of(ship("d1", "vulkan", 1_000.0)));
-        GameState peaceful = GameState.builder().shipDesigns(List.of(COMBAT_DESIGN))
+        GameState peaceful = GameState.builder().shipDesigns(List.of(design("terran"), design("vulkan")))
+                .empires(List.of(empire("terran"), empire("vulkan")))
                 .fleets(List.of(attacker, defender))
                 .diplomaticRelations(List.of(new DiplomaticRelation("terran", "vulkan", "NEUTRAL", 0.0)))
                 .build();
@@ -72,6 +79,6 @@ class TacticalFleetEncounterResolverTest {
     }
 
     private ShipInstance ship(String id, String owner, double hull) {
-        return new ShipInstance(id, COMBAT_DESIGN.id(), owner, hull, 500.0, 100.0, Map.of());
+        return new ShipInstance(id, design(owner).id(), owner, hull, 500.0, 100.0, Map.of());
     }
 }

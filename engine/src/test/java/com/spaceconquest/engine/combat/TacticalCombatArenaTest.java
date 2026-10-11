@@ -25,13 +25,13 @@ class TacticalCombatArenaTest {
 
         ShipDesign cruiser = new ShipDesign(
                 "design_cruiser", "Terran Battlecruiser", "terran_confederation",
-                "COMBAT_SHIP", "steel", List.of(), "titanium_aluminide", 5.0,
+                "COMBAT_SHIP", "steel", List.of("mod_ship_gun", "mod_ship_shield"), "titanium_aluminide", 5.0,
                 10000.0, 5000.0, 1000.0, 12.0, 50000.0, 80000.0, true, false
         );
 
         ShipDesign raider = new ShipDesign(
                 "design_raider", "Corsair Raider", "shadow_syndicate",
-                "COMBAT_SHIP", "steel", List.of(), "inconel_alloy", 3.0,
+                "COMBAT_SHIP", "steel", List.of("mod_ship_gun", "mod_ship_shield"), "inconel_alloy", 3.0,
                 6000.0, 2000.0, 600.0, 8.0, 30000.0, 60000.0, true, false
         );
 

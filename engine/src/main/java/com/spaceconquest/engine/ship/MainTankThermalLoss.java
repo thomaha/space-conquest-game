@@ -13,13 +13,13 @@ public final class MainTankThermalLoss {
                 || design.powerProfile() == null || ship.powerState() == null || ship.currentFuelKg() <= 0) return ship;
         var drive = PropulsionCatalog.mainDrive(design.equippedModuleIds());
         if (drive == null) return ship;
-        double essential = design.powerProfile().essentialKw(ship, design);
+        double essential = design.powerProfile(ship).criticalKw(design.powerProfile(ship).essentialKw(ship, design));
         double exposure = essential <= 0 ? 0 : Math.clamp(ship.powerState().lastUnmetEssentialKwh() / essential, 0, 24);
         double fraction = ChemicalFreighterCatalog.unconditionedDailyLoss(drive.moduleId());
         double lost = ship.currentFuelKg() * -Math.expm1(Math.log1p(-fraction) * exposure / 24);
         if (lost <= 0) return ship;
         return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(), ship.currentShieldHealth(),
                 Math.max(0, ship.currentFuelKg() - lost), ship.storedCargoKg(), ship.passengerCount(), ship.passengerRaceId(),
-                ship.transitMode(), ship.powerState(), ship.supplyState());
+                ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage());
     }
 }

@@ -44,6 +44,12 @@ public final class ShipBlueprintFactory {
             errors.add("The selected propulsion drive has not been researched");
         if (!ShipComponentCatalog.powerResearched(specification.moduleIds(), owner.unlockedTechIds()))
             errors.add("The selected electrical source has not been researched");
+        if (!SensorModuleCatalog.researched(specification.moduleIds(), owner.unlockedTechIds()))
+            errors.add("The selected sensor module has not been researched");
+        if (!CombatModuleCatalog.researched(specification.moduleIds(), owner.unlockedTechIds()))
+            errors.add("The selected combat module has not been researched");
+        if (!ShipRepairModuleCatalog.researched(specification.moduleIds(), owner.unlockedTechIds()))
+            errors.add("Ship repair workshops require electricity, industrial production and robotics research");
         if (!ChemicalFreighterCatalog.researched(specification.moduleIds(), owner.unlockedTechIds()))
             errors.add("Compact freighter equipment requires electricity and industrial production research");
         if (!ChemicalFreighterCatalog.compatible(specification.moduleIds()))
@@ -80,7 +86,7 @@ public final class ShipBlueprintFactory {
                 physics.structuralIntegrity(), environment.surface() ? physics.minLaunchThrustRequiredN() : 0,
                 physics.totalThrustN(), environment.surface() && physics.isLaunchCapable(), false,
                 ShipApplicationProduction.profile(state, owner.id(), modules, physics.totalDryMassKg()),
-                ShipPowerProfile.capture(modules));
+                ShipPowerProfile.capture(modules), ShipSensorProfile.capture(modules));
         return new Evaluation(design, physics, errors);
     }
 

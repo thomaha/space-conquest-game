@@ -643,6 +643,16 @@
         "complexity": 5
       },
       {
+        "id": "guided_missile_mfg",
+        "name": "Guided missile manufacturing",
+        "description": "Manufactures packaged guided ammunition for ship launchers.",
+        "requiredTechnologies": ["industrial_production"],
+        "affectedFactors": ["ammunition_production"],
+        "costToBuildPerUnit": 2000.0,
+        "requiredMaterials": ["steel", "silicon"],
+        "complexity": 5
+      },
+      {
         "id": "launch_facilities",
         "name": "Launch facilities",
         "description": "Ground infrastructure for staging and launching rockets into orbit.",
@@ -954,6 +964,26 @@
         "complexity": 7
       },
       {
+        "id": "pd_mass_drivers",
+        "name": "Mass-driver point defense",
+        "description": "Rapid-tracking kinetic defensive application developed from completed mass drivers.",
+        "requiredTechnologies": ["mass_drivers"],
+        "affectedFactors": ["point_defense_rating", "reaction_time", "ammunition_consumption"],
+        "costToBuildPerUnit": 800.0,
+        "requiredMaterials": ["steel", "tungsten_ore"],
+        "complexity": 6
+      },
+      {
+        "id": "kinetic_pd_ammunition_mfg",
+        "name": "Kinetic defense ammunition manufacturing",
+        "description": "Manufactures packaged ammunition for mass-driver point defense.",
+        "requiredTechnologies": ["mass_drivers", "pd_mass_drivers", "industrial_production"],
+        "affectedFactors": ["ammunition_production"],
+        "costToBuildPerUnit": 1000.0,
+        "requiredMaterials": ["steel", "tungsten_ore"],
+        "complexity": 5
+      },
+      {
         "id": "particle_beams",
         "name": "Particle beams",
         "description": "Particle accelerators delivering high-energy relativistic ions that disrupt electronic systems and penetrate armor.",
@@ -980,6 +1010,16 @@
         "affectedFactors": ["combat_strength", "accuracy"],
         "costToBuildPerUnit": 1200.0,
         "requiredMaterials": ["industrial_ceramics", "superconducting_cuprates", "silicon"],
+        "complexity": 6
+      },
+      {
+        "id": "pd_lasers",
+        "name": "Laser point defense",
+        "description": "Rapid-tracking defensive laser application developed from completed laser weapons.",
+        "requiredTechnologies": ["laser_weapons"],
+        "affectedFactors": ["point_defense_rating", "reaction_time", "power_consumption"],
+        "costToBuildPerUnit": 800.0,
+        "requiredMaterials": ["superconducting_cuprates", "industrial_ceramics", "silicon"],
         "complexity": 6
       },
       {
@@ -1020,16 +1060,6 @@
         "costToBuildPerUnit": 400.0,
         "requiredMaterials": ["steel", "lead_ore"],
         "complexity": 4
-      },
-      {
-        "id": "pd_lasers",
-        "name": "PD lasers",
-        "description": "Low-yield, rapid-tracking lasers. Instantly zaps incoming physical torpedoes or particle streams before they hit the main shields.",
-        "requiredTechnologies": ["energy_weapons"],
-        "affectedFactors": ["point_defense_rating", "reaction_time", "power_consumption"],
-        "costToBuildPerUnit": 800.0,
-        "requiredMaterials": ["superconducting_cuprates", "industrial_ceramics", "silicon"],
-        "complexity": 6
       }
     ]
   },

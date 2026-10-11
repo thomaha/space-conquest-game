@@ -85,7 +85,7 @@ class TradeLegReadinessTest {
                 port("destination", "station_c", false, 10)));
     }
 
-    @Test void safeSlowLocalLegBuysRealFuelOnlyWhenItImprovesArrivalDay() {
+    @Test void cheapStockedPortFillsWorkingStoresForAnAlreadySafeLeg() {
         var state = localState(51, true); var fleet = state.fleets().getFirst();
         var target = state.commercialHubs().getLast(); var site = FleetPositioning.hubSite(state, target);
         assertTrue(TradeLegReadiness.inspect(state, fleet, target).ready());
@@ -95,7 +95,9 @@ class TradeLegReadinessTest {
         var prepared = paid.fleets().getFirst();
         assertTrue(TradeLegReadiness.inspect(paid, prepared, target).ready());
         assertTrue(Math.ceil(LocalTravel.plan(paid, prepared, site).days()) < oldDays);
-        double purchased = prepared.ships().getFirst().currentFuelKg() - 51;
+        double purchased = prepared.ships().getFirst().currentFuelKg() - 51
+                + ShipPowerProcessor.reserves(prepared.ships().getFirst()).fuelMassKg()
+                - ShipPowerProcessor.reserves(fleet.ships().getFirst()).fuelMassKg();
         assertTrue(purchased > 0);
         assertEquals(purchased * .28, 10000 - paid.commercialHubs().getFirst().activeOrders().get("rp1_kerosene").supplyKg(), 1e-6);
         assertEquals(purchased * .72, 10000 - paid.commercialHubs().getFirst().activeOrders().get("liquid_oxygen").supplyKg(), 1e-6);
@@ -232,7 +234,9 @@ class TradeLegReadinessTest {
     @Test void queuedCrossingUsesDeparturePowerConsumptionAndMatchesItsPreview() {
         var state = state(1000, 4000, false).withTradeRoutes(List.of(new TradeRoute("route", "Trade", "owner",
                 "source", "destination", "steel", 20, 0, 100, List.of("ship"), 0, true)));
-        var departed = new LogisticsProcessor().processTradeRoutes(state).state();
+        var shipment = new LogisticsProcessor().previewShipment(state, state.tradeRoutes().getFirst());
+        assertNotNull(shipment);
+        var departed = shipment.state().withTradeRoutes(List.of(shipment.route()));
         var actual = departed.fleets().getFirst();
         assertTrue(actual.hasInterstellarOrder());
         assertTrue(actual.location().inTransit());

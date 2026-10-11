@@ -74,10 +74,11 @@ public final class ShipSupplyTransfer {
                 .toList())).toList());
     }
 
-    /** Physical transfer requires a shared stationary site or velocity-matched corridor contact. */
+    /** Physical transfer requires a shared stationary site, internal recovered coast or matched corridor contact. */
     public static boolean coLocated(Fleet donor, Fleet receiver) {
         return Objects.equals(donor.ownerEntityId(), receiver.ownerEntityId())
-                && (RescueRendezvous.contact(donor, receiver) || stationary(donor) && stationary(receiver)
+                && (donor.id().equals(receiver.id()) && donor.location().equals(receiver.location()) && RecoveredParkingTravel.ready(donor)
+                || RescueRendezvous.contact(donor, receiver) || stationary(donor) && stationary(receiver)
                 && Objects.equals(donor.currentSystemId(), receiver.currentSystemId())
                 && donor.location().current().equals(receiver.location().current()));
     }
@@ -137,7 +138,7 @@ public final class ShipSupplyTransfer {
         return new ShipPowerState(materials, chemical, reactor, power.batteryChargeKwh(), power.arraysDeployed(),
                 power.arrayCondition(), power.orientationFraction(), power.unmetEssentialHours(),
                 power.unmetDriveKwh(), power.unmetCargoKwh(), power.lastUnmetEssentialKwh(), power.chargedInputKwhToday(),
-                power.cargoPreservation(), power.rescueStatus());
+                power.cargoPreservation(), power.rescueStatus(), power.shedServices());
     }
 
     private static double compartmentMass(ShipPowerProfile profile, ShipPowerState power, boolean reactor) {
@@ -174,7 +175,7 @@ public final class ShipSupplyTransfer {
     private static ShipInstance copy(ShipInstance ship, double fuel, Map<String, Double> cargo) {
         return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(),
                 ship.currentShieldHealth(), fuel, cargo, ship.passengerCount(), ship.passengerRaceId(),
-                ship.transitMode(), ship.powerState(), ship.supplyState());
+                ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage());
     }
     private static Fleet fleet(GameState state, String shipId) {
         return state.fleets().stream().filter(fleet -> fleet.ships().stream().anyMatch(ship -> shipId.equals(ship.id())))

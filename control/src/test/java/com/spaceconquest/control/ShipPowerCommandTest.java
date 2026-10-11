@@ -187,4 +187,24 @@ class ShipPowerCommandTest {
         assertTrue(moved.fleets().getFirst().hasInterstellarOrder());
         assertFalse(new ResupplyShipPowerCommand("ship", "yard", "rp1", 10).validate(moved));
     }
+    @Test void paidBatteryChargingUsesDamagedCapacityAndCannotChargeDisabledHardware() {
+        var initial = state(ShipComponentCatalog.SOLAR_ARRAY_ID, true);
+        var ship = initial.fleets().getFirst().ships().getFirst();
+        int mount = initial.shipDesigns().getFirst().equippedModuleIds().indexOf(ShipComponentCatalog.BATTERY_ID);
+        assertTrue(mount >= 0);
+        var damaged = ShipPowerResupply.replace(initial, ship.withModuleDamage(
+                new com.spaceconquest.engine.ship.ShipModuleDamage(Map.of(mount, 50.0))));
+        var tooLarge = new ChargeShipBatteryCommand("ship", "yard", 300);
+        assertFalse(tooLarge.validate(damaged)); assertSame(damaged, tooLarge.apply(damaged));
+        var command = new ChargeShipBatteryCommand("ship", "yard", 200);
+        assertTrue(command.validate(damaged)); var charged = command.apply(damaged);
+        assertEquals(180, charged.fleets().getFirst().ships().getFirst().powerState().batteryChargeKwh(), 1e-9);
+        assertEquals(damaged.powerGrids().getFirst().currentStoredKwh() - 200,
+                charged.powerGrids().getFirst().currentStoredKwh(), 1e-9);
+        assertSame(charged, new ChargeShipBatteryCommand("ship", "yard", 80).apply(charged));
+        var disabled = ShipPowerResupply.replace(initial, ship.withModuleDamage(
+                new com.spaceconquest.engine.ship.ShipModuleDamage(Map.of(mount, 100.0))));
+        assertFalse(new ChargeShipBatteryCommand("ship", "yard", 1).validate(disabled));
+        assertEquals(0, initial.fleets().getFirst().ships().getFirst().powerState().batteryChargeKwh());
+    }
 }

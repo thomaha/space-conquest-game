@@ -11,13 +11,21 @@ final class TradePortMaintenance {
     private TradePortMaintenance() {}
 
     static GameState supply(GameState state, Fleet fleet) {
+        boolean delivering = state.tradeRoutes().stream().anyMatch(route -> route.onboardKg() > 1e-6
+                && fleet.ships().stream().anyMatch(ship -> route.assignedFreighterIds().contains(ship.id())));
+        var claimed = delivering ? state : TradeReturnFuel.claim(state, fleet);
+        var updated = claimed.fleets().stream().filter(item -> item.id().equals(fleet.id())).findFirst().orElseThrow();
+        return supplyAtPort(claimed, updated);
+    }
+
+    private static GameState supplyAtPort(GameState state, Fleet fleet) {
         if (fleet.hasInterstellarOrder() || fleet.location().inTransit()
                 || state.commercialHubs().stream().noneMatch(hub -> FleetPositioning.atHub(state, fleet, hub))) return state;
         GameState current = state;
         for (var ship : fleet.ships()) {
             var design = FleetSupplySimulation.design(current, ship);
             if (design == null || design.powerProfile() == null) continue;
-            var p = design.powerProfile();
+            var p = design.powerProfile(ship);
             var initial = ShipPowerProcessor.reserves(ship);
             var environment = ShipSolarEnvironment.at(state, fleet, fleet.location().current());
             for (String id : List.of(initial.chemicalMixture(), initial.reactorFuel())) {

@@ -8,7 +8,7 @@ public record ShipPowerProfile(double solarKw, double chemicalKw, double fission
                                double batteryKwh, double chargeKw, double dischargeKw,
                                double generatorTankKg, double reactorTankKg,
                                double hotelKw, double driveKw, double cargoKw, double electricDriveEfficiency,
-                               Map<String, Fuel> fuels) {
+                               Map<String, Fuel> fuels, Map<String, Double> serviceLoadsKw) {
     public record Fuel(String materialId, String oxidizerId, double fuelFraction, double kwhPerKg) {
         public Fuel {
             if (materialId == null || materialId.isBlank() || !Double.isFinite(fuelFraction)
@@ -24,10 +24,26 @@ public record ShipPowerProfile(double solarKw, double chemicalKw, double fission
 
     public ShipPowerProfile {
         fuels = Map.copyOf(fuels);
+        serviceLoadsKw = serviceLoadsKw == null ? Map.of() : Map.copyOf(serviceLoadsKw);
+        if (serviceLoadsKw.entrySet().stream().anyMatch(entry -> !ShipServicePower.PRIORITY.contains(entry.getKey())
+                || !Double.isFinite(entry.getValue()) || entry.getValue() < 0)
+                || serviceLoadsKw.values().stream().mapToDouble(Double::doubleValue).sum() > hotelKw + 1e-6)
+            throw new IllegalArgumentException("Invalid service power loads");
         for (double value : new double[]{solarKw, chemicalKw, fissionKw, batteryKwh, chargeKw,
                 dischargeKw, generatorTankKg, reactorTankKg, hotelKw, driveKw, cargoKw, electricDriveEfficiency})
             if (!Double.isFinite(value) || value < 0) throw new IllegalArgumentException("Invalid power profile");
         if (electricDriveEfficiency > 1) throw new IllegalArgumentException("Invalid thruster efficiency");
+    }
+
+    public ShipPowerProfile(double solarKw, double chemicalKw, double fissionKw, double batteryKwh,
+                            double chargeKw, double dischargeKw, double generatorTankKg, double reactorTankKg,
+                            double hotelKw, double driveKw, double cargoKw, double electricDriveEfficiency, Map<String, Fuel> fuels) {
+        this(solarKw, chemicalKw, fissionKw, batteryKwh, chargeKw, dischargeKw, generatorTankKg, reactorTankKg,
+                hotelKw, driveKw, cargoKw, electricDriveEfficiency, fuels, Map.of());
+    }
+
+    public double criticalKw(double essentialKw) {
+        return Math.max(0, essentialKw - serviceLoadsKw.values().stream().mapToDouble(Double::doubleValue).sum());
     }
 
     public static ShipPowerProfile capture(List<ShipModule> modules) {
@@ -56,7 +72,7 @@ public record ShipPowerProfile(double solarKw, double chemicalKw, double fission
                 "methalox", new Fuel("liquid_methane", "liquid_oxygen", .22, .924),
                 "hydrolox", new Fuel("liquid_hydrogen", "liquid_oxygen", .17, 1.7),
                 "uranium", new Fuel("refined_uranium", null, 1, 6_000_000),
-                "thorium", new Fuel("refined_thorium", null, 1, 5_000_000)));
+                "thorium", new Fuel("refined_thorium", null, 1, 5_000_000)), ShipServicePower.capture(modules));
     }
 
     public double essentialKw(ShipInstance ship, ShipDesign design) {

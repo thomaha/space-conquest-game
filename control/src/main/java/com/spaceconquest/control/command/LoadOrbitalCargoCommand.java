@@ -37,7 +37,7 @@ public record LoadOrbitalCargoCommand(String shipId, String sourceBodyId,
         if (ship == null || fleet.hasInterstellarOrder() || fleet.location().inTransit()
                 || !aboveSource(state, fleet)
                 || !fleet.ownerEntityId().equals(ship.ownerEntityId())
-                || !ConstructionMaterials.isOrbitalTransport(state, ship)
+                || !cargoEligible(state, ship)
                 || !fleet.currentSystemId().equals(ConstructionMaterials.systemForBody(state,
                 sourceBodyId)) || ConstructionMaterials.bodyForSystem(state,
                 fleet.currentSystemId(), sourceBodyId) == null) return false;
@@ -75,7 +75,7 @@ public record LoadOrbitalCargoCommand(String shipId, String sourceBodyId,
         ships.set(ships.indexOf(ship), new ShipInstance(ship.id(), ship.designId(),
                 ship.ownerEntityId(), ship.currentHullHealth(), ship.currentShieldHealth(),
                 ship.currentFuelKg(), Map.copyOf(cargo), ship.passengerCount(),
-                ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState()));
+                ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage()));
         fleets.set(fleetIndex, fleet.withShips(ships));
         return paid.withFleets(fleets);
     }
@@ -83,6 +83,17 @@ public record LoadOrbitalCargoCommand(String shipId, String sourceBodyId,
     private Fleet fleet(GameState state) {
         return state.fleets().stream().filter(item -> item.ships().stream()
                 .anyMatch(ship -> shipId.equals(ship.id()))).findFirst().orElse(null);
+    }
+
+    private boolean cargoEligible(GameState state, ShipInstance ship) {
+        if (ConstructionMaterials.isOrbitalTransport(state, ship)) return true;
+        String module = com.spaceconquest.engine.ship.ShipMissileWeapons.AMMUNITION.equals(materialId)
+                ? com.spaceconquest.engine.ship.CombatModuleCatalog.MISSILE
+                : com.spaceconquest.engine.ship.ShipPointDefense.AMMUNITION.equals(materialId)
+                ? com.spaceconquest.engine.ship.CombatModuleCatalog.KINETIC_POINT_DEFENSE : null;
+        return module != null
+                && state.shipDesigns().stream().anyMatch(design -> design.id().equals(ship.designId())
+                && design.equippedModuleIds().contains(module));
     }
 
     private ShipInstance ship(Fleet fleet) {

@@ -177,8 +177,11 @@ class TradeReliabilityAuditTest {
     private double localFuelBurn(GameState before, GameState after) {
         double purchased = 0, storedChange = 0;
         for (var hub : before.commercialHubs()) for (String material : List.of("rp1_kerosene", "liquid_oxygen")) {
-            double old = hub.activeOrders().get(material).supplyKg();
-            double next = port(after, hub.id()).activeOrders().get(material).supplyKg();
+            double old = hub.activeOrders().get(material).supplyKg() + hub.reservedTradeFuel().values().stream()
+                    .mapToDouble(fuel -> fuel.materialsKg().getOrDefault(material, 0.0)).sum();
+            var nextHub = port(after, hub.id());
+            double next = nextHub.activeOrders().get(material).supplyKg() + nextHub.reservedTradeFuel().values().stream()
+                    .mapToDouble(fuel -> fuel.materialsKg().getOrDefault(material, 0.0)).sum();
             purchased += old - next;
         }
         for (var fleet : before.fleets()) for (var ship : fleet.ships()) {

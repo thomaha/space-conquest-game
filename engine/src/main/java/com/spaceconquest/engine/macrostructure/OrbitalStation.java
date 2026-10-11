@@ -25,6 +25,7 @@ import com.spaceconquest.engine.Population;
  * @param armorMaterialId           external armor plating material
  * @param armorThicknessCm          thickness of armor overlay
  * @param isOperational             true if control module is online and operational
+ * @param orbitalPhaseRadians       saved circular orbit phase at campaign day zero
  */
 public record OrbitalStation(
         String id,
@@ -46,13 +47,23 @@ public record OrbitalStation(
         double armorThicknessCm,
         boolean isOperational,
         List<Population> populations,
-        Double parkingAltitudeKm
+        Double parkingAltitudeKm,
+        Double orbitalPhaseRadians
 ) {
     public static final String OWNERSHIP_PUBLIC_STATE = "PUBLIC_STATE";
     public static final String OWNERSHIP_PRIVATE_CORPORATE = "PRIVATE_CORPORATE";
     public static final String OWNERSHIP_HIVE_GRID = "HIVE_GRID";
 
     public OrbitalStation {
+        if (orbitalPhaseRadians == null) {
+            long phaseHash = 0xcbf29ce484222325L;
+            for (char value : (systemId + ":" + planetOrbitId + ":" + id).toCharArray()) phaseHash = (phaseHash ^ value) * 0x100000001b3L;
+            phaseHash = (phaseHash ^ (phaseHash >>> 33)) * 0xff51afd7ed558ccdL;
+            phaseHash = (phaseHash ^ (phaseHash >>> 33)) * 0xc4ceb9fe1a85ec53L;
+            phaseHash ^= phaseHash >>> 33;
+            orbitalPhaseRadians = (phaseHash >>> 11) * 0x1.0p-53 * 2 * Math.PI;
+        }
+        if (!Double.isFinite(orbitalPhaseRadians)) throw new IllegalArgumentException("Station orbital phase must be finite");
         if (parkingAltitudeKm != null && (!Double.isFinite(parkingAltitudeKm) || parkingAltitudeKm <= 0))
             throw new IllegalArgumentException("Parking altitude must be finite and above the surface");
         modules = modules == null ? List.of() : List.copyOf(modules);
@@ -85,18 +96,35 @@ public record OrbitalStation(
 
     public double effectiveParkingAltitudeKm() { return parkingAltitudeKm == null ? 500 : parkingAltitudeKm; }
 
+    public OrbitalStation(String id, String name, String systemId, String planetOrbitId, String ownerEntityId,
+                         String ownershipType, int totalSlots, List<StationModule> modules, Map<String, Double> storedCargoKg,
+                         double currentPowerGenerationKw, double currentPowerDemandKw, double currentShieldHealth,
+                         double maxShieldHealth, double currentHullHealth, double maxHullHealth, String armorMaterialId,
+                         double armorThicknessCm, boolean isOperational, List<Population> populations, Double parkingAltitudeKm) {
+        this(id, name, systemId, planetOrbitId, ownerEntityId, ownershipType, totalSlots, modules, storedCargoKg,
+                currentPowerGenerationKw, currentPowerDemandKw, currentShieldHealth, maxShieldHealth,
+                currentHullHealth, maxHullHealth, armorMaterialId, armorThicknessCm, isOperational, populations, parkingAltitudeKm, null);
+    }
+
+    public OrbitalStation withOrbitalPhaseRadians(double phase) {
+        return new OrbitalStation(id, name, systemId, planetOrbitId, ownerEntityId, ownershipType, totalSlots,
+                modules, storedCargoKg, currentPowerGenerationKw, currentPowerDemandKw, currentShieldHealth,
+                maxShieldHealth, currentHullHealth, maxHullHealth, armorMaterialId, armorThicknessCm,
+                isOperational, populations, parkingAltitudeKm, phase);
+    }
+
     public OrbitalStation withParkingAltitudeKm(Double altitude) {
         return new OrbitalStation(id, name, systemId, planetOrbitId, ownerEntityId, ownershipType, totalSlots,
                 modules, storedCargoKg, currentPowerGenerationKw, currentPowerDemandKw, currentShieldHealth,
                 maxShieldHealth, currentHullHealth, maxHullHealth, armorMaterialId, armorThicknessCm,
-                isOperational, populations, altitude);
+                isOperational, populations, altitude, orbitalPhaseRadians);
     }
 
     public OrbitalStation withPopulations(List<Population> value) {
         return new OrbitalStation(id, name, systemId, planetOrbitId, ownerEntityId, ownershipType,
                 totalSlots, modules, storedCargoKg, currentPowerGenerationKw, currentPowerDemandKw,
                 currentShieldHealth, maxShieldHealth, currentHullHealth, maxHullHealth,
-                armorMaterialId, armorThicknessCm, isOperational, value, parkingAltitudeKm);
+                armorMaterialId, armorThicknessCm, isOperational, value, parkingAltitudeKm, orbitalPhaseRadians);
     }
 
     public int getAllocatedSlots() {

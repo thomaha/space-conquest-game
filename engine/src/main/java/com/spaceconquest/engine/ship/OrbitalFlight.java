@@ -32,7 +32,18 @@ public record OrbitalFlight(Itinerary itinerary, double elapsedSeconds, int next
     }
     public record Itinerary(String sourceBodyId, String targetBodyId, double sourceAltitudeKm, double targetAltitudeKm,
                             double epochDays, double waitSeconds, HohmannCoast coast, ShipSolarEnvironment environment,
-                            List<Maneuver> maneuvers, Frame frame) {
+                            List<Maneuver> maneuvers, Frame frame, VectorFlight sourceMotion, OrbitalDocking.Approach docking) {
+        public Itinerary(String sourceBodyId, String targetBodyId, double sourceAltitudeKm, double targetAltitudeKm,
+                         double epochDays, double waitSeconds, HohmannCoast coast, ShipSolarEnvironment environment,
+                         List<Maneuver> maneuvers, Frame frame, VectorFlight sourceMotion) {
+            this(sourceBodyId, targetBodyId, sourceAltitudeKm, targetAltitudeKm, epochDays, waitSeconds, coast, environment,
+                    maneuvers, frame, sourceMotion, null);
+        }
+        public Itinerary(String sourceBodyId, String targetBodyId, double sourceAltitudeKm, double targetAltitudeKm,
+                         double epochDays, double waitSeconds, HohmannCoast coast, ShipSolarEnvironment environment,
+                         List<Maneuver> maneuvers, Frame frame) {
+            this(sourceBodyId, targetBodyId, sourceAltitudeKm, targetAltitudeKm, epochDays, waitSeconds, coast, environment, maneuvers, frame, null);
+        }
         public Itinerary(String sourceBodyId, String targetBodyId, double sourceAltitudeKm, double targetAltitudeKm,
                          double epochDays, double waitSeconds, HohmannCoast coast, ShipSolarEnvironment environment,
                          List<Maneuver> maneuvers) {
@@ -45,6 +56,9 @@ public record OrbitalFlight(Itinerary itinerary, double elapsedSeconds, int next
             CircularOrbitalEphemeris.positive(sourceAltitudeKm); CircularOrbitalEphemeris.positive(targetAltitudeKm);
             if (frame == null) frame = sourceBodyId.equals(targetBodyId)
                     ? new Frame(sourceBodyId, CenterKind.PLANETARY) : new Frame("", CenterKind.STELLAR);
+            if (sourceMotion != null && (sourceMotion.trajectory().gravity() == null
+                    || !sourceMotion.trajectory().gravity().frame().equals(frame) || !sourceBodyId.equals(targetBodyId)))
+                throw new IllegalArgumentException("Saved parking source motion requires the same body frame");
             maneuvers = List.copyOf(maneuvers);
             var events = maneuvers;
             boolean approachOnly = sourceBodyId.equals(targetBodyId) && sourceAltitudeKm == targetAltitudeKm
@@ -53,18 +67,33 @@ public record OrbitalFlight(Itinerary itinerary, double elapsedSeconds, int next
                     || !approachOnly && (maneuvers.get(1).seconds() <= waitSeconds || maneuvers.getLast().seconds() <= maneuvers.get(1).seconds())
                     || maneuvers.stream().anyMatch(event -> !event.burns().keySet().equals(events.getFirst().burns().keySet())))
                 throw new IllegalArgumentException("Orbital maneuvers require complete ordered budgets");
+            if (docking != null && (maneuvers.size() != 3 || docking.departureSeconds() < maneuvers.get(1).seconds()
+                    || docking.departureSeconds() % 86400 != 0
+                    || !docking.physical().vectorTrajectory().gravity().frame().centerBodyId().equals(targetBodyId)
+                    || !docking.physical().propellantKg().keySet().equals(maneuvers.getFirst().burns().keySet())))
+                throw new IllegalArgumentException("Saved docking must follow capture in the destination body frame with complete fleet budgets");
         }
-        public double totalSeconds() { return maneuvers.getLast().seconds(); }
+        public double totalSeconds() { return docking == null ? maneuvers.getLast().seconds()
+                : docking.departureSeconds() + docking.physical().trajectory().totalSeconds(); }
+        public Itinerary withDocking(OrbitalDocking.Approach approach) {
+            return new Itinerary(sourceBodyId, targetBodyId, sourceAltitudeKm, targetAltitudeKm, epochDays,
+                    waitSeconds, coast, environment, maneuvers, frame, sourceMotion, approach);
+        }
+        public Itinerary withSourceMotion(VectorFlight actual) {
+            return new Itinerary(sourceBodyId, targetBodyId, sourceAltitudeKm, targetAltitudeKm, epochDays,
+                    waitSeconds, coast, environment, maneuvers, frame, actual, docking);
+        }
         public boolean parkingTransfer() { return sourceBodyId.equals(targetBodyId); }
         public boolean bodyCentered() { return frame.kind() != CenterKind.STELLAR; }
         public boolean lunarTransfer() { return bodyCentered() && !parkingTransfer(); }
         public double coastDurationSeconds() { return maneuvers.size() == 1 ? 0 : coast.coastSeconds(); }
         public List<String> maneuverNames() {
+            String arrival = docking == null ? "Arrival maneuver" : "Station rendezvous";
             if (lunarTransfer()) return frame.centerBodyId().equals(sourceBodyId)
-                    ? List.of("Parent departure", "Lunar capture", "Arrival maneuver")
-                    : List.of("Lunar escape", "Parent circularization", "Arrival maneuver");
+                    ? List.of("Parent departure", "Lunar capture", arrival)
+                    : List.of("Lunar escape", "Parent circularization", arrival);
             return maneuvers.size() == 1 ? List.of("Docking or undocking approach") : parkingTransfer()
-                    ? List.of("Departure burn", "Circularization", "Arrival maneuver") : List.of("Escape", "Capture", "Arrival maneuver");
+                    ? List.of("Departure burn", "Circularization", arrival) : List.of("Escape", "Capture", arrival);
         }
         public Itinerary retain(List<ShipInstance> ships) {
             var ids = ships.stream().map(ShipInstance::id).toList();
@@ -73,7 +102,7 @@ public record OrbitalFlight(Itinerary itinerary, double elapsedSeconds, int next
                 Map<String, Burn> burns = new HashMap<>();
                 event.burns().forEach((id, burn) -> { if (ids.contains(id)) burns.put(id, burn); });
                 return new Maneuver(event.seconds(), event.auxiliaryHours(), burns);
-            }).toList(), frame);
+            }).toList(), frame, sourceMotion, docking == null ? null : docking.retain(ships));
         }
     }
     public OrbitalFlight {
@@ -84,6 +113,11 @@ public record OrbitalFlight(Itinerary itinerary, double elapsedSeconds, int next
     public boolean atSource() { return nextManeuver == 0; }
     public boolean failed() { return status == Status.WAITING_FAILED || status == Status.MISSED || status == Status.APPROACH_FAILED; }
     public CircularOrbitalEphemeris.State position() {
+        if (atSource() && itinerary.sourceMotion() != null) {
+            var actual = itinerary.sourceMotion();
+            return new CircularOrbitalEphemeris.State(actual.position().xMeters(), actual.position().yMeters(),
+                    actual.velocity().xMeters(), actual.velocity().yMeters());
+        }
         if (itinerary.maneuvers().size() == 1) return itinerary.coast().at(elapsedSeconds);
         if (!atSource() && nextManeuver < 2) return itinerary.coast().at(Math.max(0, elapsedSeconds - itinerary.waitSeconds()));
         boolean source = atSource();
@@ -111,7 +145,8 @@ public record OrbitalFlight(Itinerary itinerary, double elapsedSeconds, int next
             events.add(new Maneuver(event.seconds(), event.auxiliaryHours(), burns));
         }
         var merged = new Itinerary(itinerary.sourceBodyId(), itinerary.targetBodyId(), itinerary.sourceAltitudeKm(),
-                itinerary.targetAltitudeKm(), itinerary.epochDays(), itinerary.waitSeconds(), itinerary.coast(), itinerary.environment(), events, itinerary.frame());
+                itinerary.targetAltitudeKm(), itinerary.epochDays(), itinerary.waitSeconds(), itinerary.coast(), itinerary.environment(), events, itinerary.frame(), itinerary.sourceMotion(),
+                itinerary.docking() == null ? null : itinerary.docking().join(other.itinerary().docking()));
         return new OrbitalFlight(merged, elapsedSeconds, nextManeuver, status, message);
     }
 }

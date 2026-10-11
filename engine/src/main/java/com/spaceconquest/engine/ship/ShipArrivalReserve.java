@@ -31,6 +31,10 @@ public final class ShipArrivalReserve {
     /** Stationary reserve forecast with the same eclipse and daily charging rules as arrival checks. */
     public static Check check(ShipPowerProfile profile, ShipPowerState initial, double essentialKw,
                               double cargoKw, ShipSolarEnvironment environment, double reserveHours) {
+        return check(profile, initial, essentialKw, cargoKw, environment, reserveHours, ShipServicePower.Activity.CRUISE);
+    }
+    public static Check check(ShipPowerProfile profile, ShipPowerState initial, double essentialKw,
+                              double cargoKw, ShipSolarEnvironment environment, double reserveHours, ShipServicePower.Activity activity) {
         if (!Double.isFinite(reserveHours) || reserveHours <= 0 || reserveHours > 24 * 365)
             throw new IllegalArgumentException("Invalid stationary reserve horizon");
         ShipPowerState current = initial.withChargeInputToday(0);
@@ -43,7 +47,7 @@ public final class ShipArrivalReserve {
             double dayRemaining = 24 - elapsed % 24;
             double hours = Math.min(phaseRemaining, Math.min(dayRemaining, reserveHours - elapsed));
             var step = ShipPowerProcessor.interval(profile, current, hours,
-                    dark ? 0 : ShipPowerProcessor.solarKw(profile, current, environment), essentialKw, cargoKw, 0);
+                    dark ? 0 : ShipPowerProcessor.solarKw(profile, current, environment), essentialKw, cargoKw, 0, activity);
             ready &= step.supplied();
             current = step.state();
             elapsed += hours;

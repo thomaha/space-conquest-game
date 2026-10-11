@@ -12,6 +12,8 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
+import com.spaceconquest.engine.Race;
 
 /**
  * Strategic encounter adapter using the current tactical processor provisionally.
@@ -20,56 +22,93 @@ import java.util.Set;
 public final class TacticalFleetEncounterResolver implements FleetEncounterResolver {
     private static final int MAX_SAVED_ENGAGEMENTS = 1_000;
     private final TacticalCombatProcessor combatProcessor;
+    private final Supplier<List<Race>> races;
     private final DiplomacyProcessor diplomacyProcessor = new DiplomacyProcessor();
 
     public TacticalFleetEncounterResolver(TacticalCombatProcessor combatProcessor) {
+        this(combatProcessor, List::of);
+    }
+
+    public TacticalFleetEncounterResolver(TacticalCombatProcessor combatProcessor, Supplier<List<Race>> races) {
         this.combatProcessor = combatProcessor;
+        this.races = races;
     }
 
     @Override
     public GameState resolveEncounters(GameState state) {
-        if (state == null || state.fleets().size() < 2) return state;
-        List<Fleet> fleets = new ArrayList<>(state.fleets());
+        if (state == null) return null;
+        List<Fleet> fleets = new ArrayList<>(state.fleets().stream().map(fleet -> fleet.guardOrder() != null
+                && !fleet.guardOrder().validTarget(state, fleet) ? fleet.withGuardOrder(null) : fleet).toList());
+        fleets.replaceAll(fleet -> fleet.interceptOrder() != null
+                && fleet.interceptOrder().protection() == null
+                && !com.spaceconquest.engine.ship.FleetInterceptProcessor.contact(state, fleet,
+                com.spaceconquest.engine.ship.FleetOrganization.find(state, fleet.interceptOrder().targetFleetId()))
+                ? fleet.withInterceptOrder(null) : fleet);
         List<FleetEngagementRecord> history = new ArrayList<>(state.fleetEngagements());
+        GameState[] context = {state};
         Set<String> engagedFleetIds = new HashSet<>();
         List<Fleet> ordered = fleets.stream().filter(this::canEngage)
-                .sorted(Comparator.comparing(Fleet::id)).toList();
+                .sorted(Comparator.comparingInt((Fleet fleet) -> fleet.interceptOrder() != null ? 0 : fleet.guardOrder() != null ? 1 : 2)
+                        .thenComparing(Fleet::id)).toList();
 
         for (int i = 0; i < ordered.size(); i++) {
             Fleet attacker = findFleet(fleets, ordered.get(i).id());
             if (attacker == null || engagedFleetIds.contains(attacker.id())) continue;
-            for (int j = i + 1; j < ordered.size(); j++) {
+            for (int j = attacker.interceptOrder() == null ? i + 1 : 0; j < ordered.size(); j++) {
                 Fleet defender = findFleet(fleets, ordered.get(j).id());
-                if (defender == null || engagedFleetIds.contains(defender.id())
-                        || !sameSite(attacker, defender)
-                        || !atWar(attacker.ownerEntityId(), defender.ownerEntityId(), state.diplomaticRelations())) {
+                if (defender == null || attacker.id().equals(defender.id()) || engagedFleetIds.contains(defender.id())
+                        || attacker.interceptOrder() != null && !attacker.interceptOrder().targetFleetId().equals(defender.id())
+                        || !atWar(attacker.ownerEntityId(), defender.ownerEntityId(), state.diplomaticRelations())
+                        || !(contact(context[0], fleets, attacker, defender) && com.spaceconquest.engine.ship.ShipWeaponRange.reaches(state, attacker, defender))
+                        && !(contact(context[0], fleets, defender, attacker) && com.spaceconquest.engine.ship.ShipWeaponRange.reaches(state, defender, attacker))) {
                     continue;
                 }
                 TacticalCombatProcessor.CombatEngagementResult result = combatProcessor.resolveFleetEngagement(
-                        attacker, defender, state.shipDesigns());
+                        attacker, defender, state.shipDesigns(), (first, second) -> withdraw(context, fleets, first, second),
+                        (first, second) -> contact(context[0], fleets, first, second),
+                        (first, second) -> com.spaceconquest.engine.ship.ShipWeaponRange.separation(context[0], first, second));
                 replaceFleet(fleets, result.survivingAttackerFleet());
                 replaceFleet(fleets, result.survivingDefenderFleet());
                 engagedFleetIds.add(attacker.id());
                 engagedFleetIds.add(defender.id());
-                history.add(toRecord(state.turn(), attacker, defender, result));
+                history.add(toRecord(state, attacker, defender, result));
                 break;
             }
         }
         fleets.removeIf(fleet -> fleet.ships().isEmpty());
+        GameState afterCombat = state.withFleets(fleets);
+        fleets.replaceAll(fleet -> fleet.guardOrder() != null && !fleet.guardOrder().validTarget(afterCombat, fleet)
+                ? fleet.withGuardOrder(null) : fleet);
         if (history.size() > MAX_SAVED_ENGAGEMENTS) {
             history = new ArrayList<>(history.subList(history.size() - MAX_SAVED_ENGAGEMENTS, history.size()));
         }
-        return state.toBuilder().fleets(fleets).fleetEngagements(history).build();
+        return com.spaceconquest.engine.ship.FleetInterceptProcessor.finishContacts(
+                context[0].toBuilder().fleets(fleets).fleetEngagements(history).build());
+    }
+
+    private TacticalCombatProcessor.Withdrawal withdraw(GameState[] context, List<Fleet> fleets, Fleet first, Fleet second) {
+        replaceFleet(fleets, first);
+        replaceFleet(fleets, second);
+        var current = context[0].withFleets(List.copyOf(fleets));
+        var escaped = com.spaceconquest.engine.ship.FleetProtectionProcessor.withdrawFromCombat(current, first, races.get());
+        if (escaped == current)
+            escaped = com.spaceconquest.engine.ship.FleetProtectionProcessor.withdrawFromCombat(current, second, races.get());
+        if (escaped == current) return new TacticalCombatProcessor.Withdrawal(first, second, false);
+        fleets.clear();
+        fleets.addAll(escaped.fleets());
+        context[0] = escaped;
+        return new TacticalCombatProcessor.Withdrawal(findFleet(fleets, first.id()), findFleet(fleets, second.id()), true);
+    }
+
+    private boolean contact(GameState state, List<Fleet> fleets, Fleet observer, Fleet target) {
+        var current = state.withFleets(fleets.stream().map(fleet -> fleet.id().equals(observer.id()) ? observer
+                : fleet.id().equals(target.id()) ? target : fleet).toList());
+        return com.spaceconquest.engine.galaxy.SensorCoverage.detects(current, observer.ownerEntityId(), target);
     }
 
     private boolean canEngage(Fleet fleet) {
         return fleet != null && !fleet.ships().isEmpty() && !fleet.isInWarp()
-                && !fleet.hasInterstellarOrder() && !fleet.location().inTransit();
-    }
-
-    private boolean sameSite(Fleet first, Fleet second) {
-        return first.currentSystemId().equals(second.currentSystemId())
-                && first.location().current().equals(second.location().current());
+                && !fleet.hasInterstellarOrder();
     }
 
     private boolean atWar(String firstEmpireId, String secondEmpireId, List<DiplomaticRelation> relations) {
@@ -92,7 +131,7 @@ public final class TacticalFleetEncounterResolver implements FleetEncounterResol
         }
     }
 
-    private FleetEngagementRecord toRecord(long turn, Fleet attacker, Fleet defender,
+    private FleetEngagementRecord toRecord(GameState state, Fleet attacker, Fleet defender,
             TacticalCombatProcessor.CombatEngagementResult result) {
         Set<String> survivorIds = new HashSet<>();
         if (result.survivingAttackerFleet() != null) {
@@ -105,7 +144,11 @@ public final class TacticalFleetEncounterResolver implements FleetEncounterResol
         attacker.ships().stream().map(ShipInstance::id).filter(id -> !survivorIds.contains(id)).forEach(destroyedShips::add);
         defender.ships().stream().map(ShipInstance::id).filter(id -> !survivorIds.contains(id)).forEach(destroyedShips::add);
         FleetLocation.Site site = attacker.location().current();
-        return new FleetEngagementRecord(turn, attacker.currentSystemId(), site.kind().name(), site.entityId(),
+        boolean ranged = attacker.location().inTransit() || defender.location().inTransit() || !site.equals(defender.location().current());
+        boolean rendezvous = com.spaceconquest.engine.ship.MovingFleetRendezvous.matches(state, attacker, defender)
+                || com.spaceconquest.engine.ship.MovingFleetRendezvous.matches(state, defender, attacker);
+        return new FleetEngagementRecord(state.turn(), attacker.currentSystemId(), ranged ? rendezvous ? "RENDEZVOUS" : "WEAPON_RANGE" : site.kind().name(),
+                ranged ? defender.id() : site.entityId(),
                 attacker.id(), attacker.ownerEntityId(), defender.id(), defender.ownerEntityId(),
                 result.winnerOwnerEntityId(), destroyedShips, result.roundReports().size());
     }

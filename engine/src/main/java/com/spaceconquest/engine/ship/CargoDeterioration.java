@@ -43,6 +43,6 @@ public final class CargoDeterioration {
         var preserved = power.withCargoPreservation(new CargoPreservationState(exposure, losses));
         return SupplyDeterioration.advanceDay(new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(),
                 ship.currentShieldHealth(), ship.currentFuelKg(), cargo, ship.passengerCount(), ship.passengerRaceId(),
-                ship.transitMode(), preserved, ship.supplyState()), design);
+                ship.transitMode(), preserved, ship.supplyState(), ship.moduleDamage()), design);
     }
 }

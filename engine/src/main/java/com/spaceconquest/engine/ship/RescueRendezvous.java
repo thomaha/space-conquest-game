@@ -70,7 +70,7 @@ public final class RescueRendezvous {
             var powered = new ShipInstance(available.id(), available.designId(), available.ownerEntityId(),
                     available.currentHullHealth(), available.currentShieldHealth(), available.currentFuelKg(),
                     ship.storedCargoKg(), available.passengerCount(), available.passengerRaceId(),
-                    available.transitMode(), available.powerState(), available.supplyState());
+                    available.transitMode(), available.powerState(), available.supplyState(), available.moduleDamage());
             acceleration = Math.min(acceleration, ShipPowerProcessor.poweredThrust(design, powered, ShipSolarEnvironment.DARK) / mass);
             // Keep a tiny physical remainder so repeated phase subtraction cannot consume an earmarked tank donation.
             double usableFuel = Math.max(0, available.currentFuelKg() - rescuer.fuelPolicy().reserveKg(state, rescuer, ship) - .000001);
@@ -182,6 +182,6 @@ public final class RescueRendezvous {
                 fleet.coordinateX(), fleet.coordinateY(), Math.clamp(motion.positionMeters() / target.interstellarDistanceMeters(), 0, 1),
                 false, fleet.fleetStance(), fleet.ships(), FleetLocation.at(FleetLocation.Site.deepSpace()), mode,
                 target.interstellarTravelDays(), target.interstellarDistanceMeters(), target.interstellarAccelerationMps2(),
-                0, target.interstellarPeakSpeedMps(), budget, motion, fleet.journeyPropulsion()).withFuelPolicy(fleet.fuelPolicy());
+                0, target.interstellarPeakSpeedMps(), budget, motion, fleet.journeyPropulsion()).withFuelPolicy(fleet.fuelPolicy()).withShieldPolicy(fleet.shieldPolicy()).withEscortOrder(fleet.escortOrder());
     }
 }

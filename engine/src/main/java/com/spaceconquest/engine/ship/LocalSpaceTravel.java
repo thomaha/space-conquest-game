@@ -12,7 +12,11 @@ public final class LocalSpaceTravel {
     public record Plan(LocalSiteGeometry.Leg geometry, FlightMotion.Trajectory trajectory,
                        Map<String, Double> propellantKg,
                        Map<String, InterstellarTravel.ReactorFuelUse> reactorFuelKg,
-                       Map<String, JourneyPropulsion> propulsion) {
+                       Map<String, JourneyPropulsion> propulsion, VectorFlight.Trajectory vectorTrajectory) {
+        public Plan(LocalSiteGeometry.Leg geometry, FlightMotion.Trajectory trajectory, Map<String, Double> propellantKg,
+                    Map<String, InterstellarTravel.ReactorFuelUse> reactorFuelKg, Map<String, JourneyPropulsion> propulsion) {
+            this(geometry, trajectory, propellantKg, reactorFuelKg, propulsion, null);
+        }
         public Plan {
             propellantKg = Map.copyOf(propellantKg);
             reactorFuelKg = Map.copyOf(reactorFuelKg);
@@ -20,9 +24,26 @@ public final class LocalSpaceTravel {
         }
         public double days() { return trajectory.totalSeconds() / InterstellarTravel.SECONDS_PER_DAY; }
         public double scheduledDays() { return Math.ceil(days()); }
+        public Plan retain(java.util.List<ShipInstance> ships) {
+            var ids = ships.stream().map(ShipInstance::id).toList();
+            var fuel = new HashMap<String, Double>(); var feed = new HashMap<String, InterstellarTravel.ReactorFuelUse>();
+            var drives = new HashMap<String, JourneyPropulsion>();
+            ids.forEach(id -> { if (propellantKg.containsKey(id)) fuel.put(id, propellantKg.get(id));
+                if (reactorFuelKg.containsKey(id)) feed.put(id, reactorFuelKg.get(id));
+                if (propulsion.containsKey(id)) drives.put(id, propulsion.get(id)); });
+            return new Plan(geometry, trajectory, fuel, feed, drives, vectorTrajectory);
+        }
+        public Plan join(Plan other) {
+            if (!retain(java.util.List.of()).equals(other.retain(java.util.List.of())))
+                throw new IllegalArgumentException("Physical approach trajectories differ");
+            var fuel = new HashMap<>(propellantKg); fuel.putAll(other.propellantKg);
+            var feed = new HashMap<>(reactorFuelKg); feed.putAll(other.reactorFuelKg);
+            var drives = new HashMap<>(propulsion); drives.putAll(other.propulsion);
+            return new Plan(geometry, trajectory, fuel, feed, drives, vectorTrajectory);
+        }
     }
 
-    private record Capability(ShipInstance ship, PropulsionCatalog.Drive drive,
+    record Capability(ShipInstance ship, PropulsionCatalog.Drive drive,
                               PropulsionCatalog.ReactorFuel reactor, double massKg, double exhaustMps,
                               double deltaVMps, double accelerationMps2) {}
 
@@ -47,6 +68,7 @@ public final class LocalSpaceTravel {
         if (state == null || fleet == null || fleet.location().localFlight() == null
                 || !fleet.location().localFlight().interrupted()) return null;
         var flight = fleet.location().localFlight();
+        if (flight.vectorFlight() != null) return VectorInterceptPlanner.recovery(state, fleet);
         Map<String, Double> protectedKg = new HashMap<>(fleet.interstellarFuelBudgetKg());
         fleet.ships().forEach(ship -> protectedKg.merge(ship.id(), fleet.fuelPolicy().reserveKg(state, fleet, ship), Double::sum));
         return solve(state, fleet, fleet.location().destination(), flight.geometry(),
@@ -117,15 +139,17 @@ public final class LocalSpaceTravel {
             cargo.put(feed.materialId(), Math.max(0, cargo.getOrDefault(feed.materialId(), 0.0) - feed.quantityKg()));
             return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(),
                     ship.currentShieldHealth(), ship.currentFuelKg(), cargo, ship.passengerCount(), ship.passengerRaceId(),
-                    ship.transitMode(), ship.powerState(), ship.supplyState());
+                    ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage());
         }).toList();
         var prior = fleet.location();
-        var flight = new LocalFlight(plan.geometry(), plan.trajectory().at(0), plan.propellantKg(), plan.propulsion(), false, false);
+        var vector = plan.vectorTrajectory() == null ? null : plan.vectorTrajectory().at(0);
+        var flight = new LocalFlight(plan.geometry(), vector == null ? plan.trajectory().at(0) : VectorFlight.motion(vector, plan.geometry()),
+                plan.propellantKg(), plan.propulsion(), false, false, null, vector);
         return fleet.withShips(ships).withLocation(new FleetLocation(prior.current(), prior.destination(),
                 Math.clamp(flight.motion().positionMeters() / flight.geometry().distanceMeters(), 0, 1), plan.days(), flight));
     }
 
-    private static Capability capability(GameState state, Fleet fleet, ShipInstance ship, FleetLocation.Site destination, double reserveKg) {
+    static Capability capability(GameState state, Fleet fleet, ShipInstance ship, FleetLocation.Site destination, double reserveKg) {
         var design = FleetSupplySimulation.design(state, ship);
         if (design == null || !fleet.ownerEntityId().equals(ship.ownerEntityId())
                 || !Double.isFinite(design.totalDryMassKg()) || design.totalDryMassKg() <= 0

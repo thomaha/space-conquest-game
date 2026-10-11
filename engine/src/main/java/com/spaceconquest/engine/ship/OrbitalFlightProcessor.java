@@ -18,7 +18,8 @@ public final class OrbitalFlightProcessor {
         var status = flight.status();
         String message = flight.message();
         if (!flight.failed()) {
-            while (next < itinerary.maneuvers().size() && itinerary.maneuvers().get(next).seconds() <= end + 1e-8) {
+            int eventCount = itinerary.docking() == null ? itinerary.maneuvers().size() : 2;
+            while (next < eventCount && itinerary.maneuvers().get(next).seconds() <= end + 1e-8) {
                 var event = itinerary.maneuvers().get(next);
                 current = OrbitalPowerAccounting.services(state, current, cursor, event.seconds(), itinerary.environment());
                 cursor = event.seconds();
@@ -26,8 +27,8 @@ public final class OrbitalFlightProcessor {
                 if (executed == null) {
                     status = next == 0 ? OrbitalFlight.Status.WAITING_FAILED : next == 1
                             ? OrbitalFlight.Status.MISSED : OrbitalFlight.Status.APPROACH_FAILED;
-                    message = "Maneuver rejected: actual fuel, reactor feed or auxiliary power is insufficient. "
-                            + (next == 0 ? "Still at departure base." : next == 1
+                    message = "Maneuver rejected: actual drive capability, fuel, reactor feed or auxiliary power is insufficient. "
+                            + (next == 0 ? itinerary.sourceMotion() == null ? "Still at departure base." : "Actual recovered parking coast continues." : next == 1
                             ? itinerary.bodyCentered() ? "Capture or circularization was not funded; "
                             + (itinerary.frame().kind() == OrbitalFlight.CenterKind.LUNAR ? "moon-centered" : "planet-centered")
                             + " ballistic orbit continues."
@@ -46,7 +47,12 @@ public final class OrbitalFlightProcessor {
             var design = FleetSupplySimulation.design(state, ship);
             return design == null ? ship : CargoDeterioration.advanceDay(ship.withPowerState(ship.powerState().withChargeInputToday(0)), design);
         }).toList());
-        if (next == itinerary.maneuvers().size()) return current.withLocation(FleetLocation.at(fleet.location().destination()));
+        if (itinerary.docking() != null && next == 2) return OrbitalDocking.launch(state, current, itinerary);
+        if (next == itinerary.maneuvers().size()) return itinerary.sourceMotion() != null
+                && fleet.location().destination().kind() == FleetLocation.Kind.ORBIT
+                ? RecoveredParkingTravel.finish(current, itinerary, end) : current.withLocation(FleetLocation.at(fleet.location().destination()));
+        if (next == 0 && itinerary.sourceMotion() != null)
+            itinerary = itinerary.withSourceMotion(itinerary.sourceMotion().advance(86400, true));
         var location = fleet.location();
         return current.withLocation(new FleetLocation(location.current(), location.destination(),
                 Math.clamp(end / itinerary.totalSeconds(), 0, 1), location.travelDays(), null,
@@ -59,7 +65,8 @@ public final class OrbitalFlightProcessor {
             var commitment = event.burns().get(ship.id());
             var design = FleetSupplySimulation.design(state, ship);
             if (commitment == null || design == null) return null;
-            var burst = OrbitalPowerAccounting.burst(design, ship, event.auxiliaryHours());
+            if (!PropulsionDamage.canBurn(design, ship, commitment.deltaVMps(), event.auxiliaryHours())) return null;
+            var burst = OrbitalPowerAccounting.burst(design, ship, event.auxiliaryHours(), ShipServicePower.activity(state, fleet));
             if (burst == null || !burst.supplied()) return null;
             var paid = OrbitalFuelAccounting.pay(ship, design, commitment, burst.state());
             if (paid == null) return null;
@@ -78,17 +85,21 @@ public final class OrbitalFlightProcessor {
             }
             return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(), ship.currentShieldHealth(),
                     Math.max(0, ship.currentFuelKg() - plan.propellantKg().getOrDefault(ship.id(), 0.0)), cargo,
-                    ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState());
+                    ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage());
         }).toList()).withLocation(FleetLocation.at(destination));
     }
 
     public static Fleet cancel(Fleet fleet) {
         var flight = fleet.location().orbitalFlight();
         if (flight == null) return fleet;
+        if (flight.itinerary().docking() != null && flight.nextManeuver() >= 2) return OrbitalDocking.cancel(fleet);
+        if (flight.itinerary().sourceMotion() != null && (flight.atSource() || flight.nextManeuver() >= 2))
+            return RecoveredParkingTravel.cancel(fleet);
         if (flight.atSource()) return fleet.withLocation(FleetLocation.at(fleet.location().current()));
         if (flight.nextManeuver() >= 2) return fleet.withLocation(FleetLocation.at(FleetLocation.Site.orbit(
                 flight.itinerary().targetBodyId(), flight.itinerary().targetAltitudeKm())));
         return fleet.withLocation(fleet.location().withOrbitalFlight(new OrbitalFlight(flight.itinerary(), flight.elapsedSeconds(),
-                flight.nextManeuver(), OrbitalFlight.Status.MISSED, "Order cancelled; ballistic coast continues. Orbital recovery is unsupported.")));
+                flight.nextManeuver(), OrbitalFlight.Status.MISSED, "Order cancelled; ballistic coast continues. "
+                + "A funded circular recovery orbit may be selected in this gravity frame.")));
     }
 }

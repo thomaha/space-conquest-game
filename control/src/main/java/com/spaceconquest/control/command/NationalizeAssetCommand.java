@@ -65,7 +65,7 @@ public record NationalizeAssetCommand(String empireId, String corporationId, Str
                 }
                 ShipInstance publicShip = new ShipInstance(ship.id(), ship.designId(), empireId,
                         ship.currentHullHealth(), ship.currentShieldHealth(), ship.currentFuelKg(),
-                        ship.storedCargoKg(), ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState());
+                        ship.storedCargoKg(), ship.passengerCount(), ship.passengerRaceId(), ship.transitMode(), ship.powerState(), ship.supplyState(), ship.moduleDamage());
                 fleets.add(new Fleet("fleet_nationalized_" + UUID.randomUUID(), "Nationalized fleet",
                         empireId, fleet.currentSystemId(), fleet.targetSystemId(), fleet.coordinateX(),
                         fleet.coordinateY(), fleet.transitProgress(), fleet.isInWarp(), fleet.fleetStance(),
@@ -77,7 +77,7 @@ public record NationalizeAssetCommand(String empireId, String corporationId, Str
                                 .getOrDefault(ship.id(), 0.0)), fleet.flightMotion())
                         .withJourneyPropulsion(fleet.journeyPropulsion().containsKey(ship.id())
                                 ? java.util.Map.of(ship.id(), fleet.journeyPropulsion().get(ship.id())) : java.util.Map.of())
-                        .withFuelPolicy(fleet.fuelPolicy()));
+                        .withFuelPolicy(fleet.fuelPolicy()).withShieldPolicy(fleet.shieldPolicy()));
             }
             if (!remaining.isEmpty()) {
                 fleets.add(fleet.withShips(remaining));

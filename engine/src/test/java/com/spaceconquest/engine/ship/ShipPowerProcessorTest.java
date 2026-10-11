@@ -38,8 +38,12 @@ class ShipPowerProcessorTest {
     }
 
     private GameState state(ShipDesign design, Fleet fleet) {
-        var moon = new Moon("moon", "Moon", "", 1, 1, 384_400, 3000, "none", false, 0, List.of(), List.of());
-        var earth = new Planet("earth", "Earth", "", 1, 9.81, ShipSolarEnvironment.AU_KM, 0, 12000,
+        return state(design, fleet, false);
+    }
+
+    private GameState state(ShipDesign design, Fleet fleet, boolean physicalMasses) {
+        var moon = new Moon("moon", "Moon", "", physicalMasses ? 7.342e22 : 1, 1, 384_400, 3000, "none", false, 0, List.of(), List.of());
+        var earth = new Planet("earth", "Earth", "", physicalMasses ? 5.972e24 : 1, 9.81, ShipSolarEnvironment.AU_KM, 0, 12000,
                 "terrestrial", "air", true, 0, List.of(), List.of(moon), List.of());
         var mars = new Planet("mars", "Mars", "", 1, 3, ShipSolarEnvironment.AU_KM * 1.5, 0, 6000,
                 "terrestrial", "none", false, 0, List.of(), List.of(), List.of());
@@ -186,31 +190,44 @@ class ShipPowerProcessorTest {
     @Test void solarLocalPreviewAndDailyProcessingAgreeAndRetainArrivalReserve() {
         var profile = profile(ShipComponentCatalog.SOLAR_ARRAY_ID, "mod_chemical_rocket");
         var design = design(profile, "mod_chemical_rocket");
-        var fleet = fleet(ship(ShipPowerState.empty()));
-        var state = state(design, fleet);
-        var destination = FleetLocation.Site.orbit("moon");
+        // Physical parking flight needs valid gravity and stored energy for the departure impulse.
+        var fleet = fleet(ship(reserves(0, profile.batteryKwh())))
+                .withLocation(FleetLocation.at(FleetLocation.Site.orbit("earth", 2000)));
+        var state = state(design, fleet, true);
+        var destination = FleetLocation.Site.orbit("earth", 8000);
         var plan = LocalTravel.plan(state, fleet, destination);
+        assertNotNull(plan, () -> OrbitalTravel.preview(state, fleet, destination).problem());
+        assertNotNull(plan.orbital(), "Exercise physical parking burns and coast");
         var readiness = ShipPowerForecast.departure(state, fleet, destination, plan, null).getFirst();
-        assertTrue(readiness.ready());
+        assertTrue(readiness.ready(), () -> "Plan days=" + plan.days() + ", orbital=" + (plan.orbital() != null)
+                + ", readiness=" + readiness);
         assertEquals(240, readiness.arrivalReserveKwh());
         var departure = LocalTravel.depart(fleet, destination, plan);
         for (int day = 0; day < Math.ceil(plan.days()); day++) {
-            var powered = ShipPowerProcessor.advanceDay(state.withFleets(List.of(departure)));
+            var tick = state.withTurn(day).withFleets(List.of(departure));
+            var powered = ShipPowerProcessor.advanceDay(tick);
             departure = new FleetProcessor().processFleetMovements(powered, List.of(), List.of()).getFirst();
         }
         assertTrue(departure.location().isAt(destination));
         assertEquals(readiness.remainingBatteryKwh(), departure.ships().getFirst().powerState().batteryChargeKwh(), .000001);
         assertEquals(0, departure.ships().getFirst().powerState().lastUnmetEssentialKwh());
+        assertTrue(departure.ships().getFirst().currentFuelKg() < fleet.ships().getFirst().currentFuelKg());
+        assertTrue(ShipArrivalReserve.check(profile, departure.ships().getFirst().powerState(),
+                profile.essentialKw(departure.ships().getFirst(), design),
+                ShipPowerProcessor.cargoKw(profile, departure.ships().getFirst(), design),
+                ShipArrivalReserve.environment(state, departure, destination, false)).ready());
     }
 
     @Test void stowedOrEmptyEclipseStoragePreventsDepartureDespiteDailyAverageOutput() {
         var base = profile(ShipComponentCatalog.SOLAR_ARRAY_ID, "mod_chemical_rocket");
         var small = new ShipPowerProfile(120, 0, 0, 10, 100, 200, 0, 0, 2, 20, 30, .65, base.fuels());
-        var fleet = fleet(ship(ShipPowerState.empty()));
-        var state = state(design(small, "mod_chemical_rocket"), fleet);
-        var destination = FleetLocation.Site.orbit("moon");
-        assertFalse(ShipPowerForecast.ready(ShipPowerForecast.departure(state, fleet, destination,
-                LocalTravel.plan(state, fleet, destination), null)));
+        var fleet = fleet(ship(ShipPowerState.empty()))
+                .withLocation(FleetLocation.at(FleetLocation.Site.orbit("earth", 2000)));
+        var state = state(design(small, "mod_chemical_rocket"), fleet, true);
+        var destination = FleetLocation.Site.orbit("earth", 8000);
+        var plan = LocalTravel.plan(state, fleet, destination);
+        assertNotNull(plan, () -> OrbitalTravel.preview(state, fleet, destination).problem());
+        assertFalse(ShipPowerForecast.ready(ShipPowerForecast.departure(state, fleet, destination, plan, null)));
         var stowed = new ShipPowerState(Map.of(), "rp1", "uranium", 0, false, 1, 1, 0, 0, 0, 0, 0);
         assertEquals(0, ShipPowerProcessor.solarKw(base, stowed,
                 new ShipSolarEnvironment(1, 10, 2, "Test")));

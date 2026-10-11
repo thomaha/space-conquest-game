@@ -1,5 +1,25 @@
 [
   {
+    "id": "kinetic_pd_round",
+    "name": "Kinetic defense ammunition",
+    "description": "Packaged 5 kg burst cartridge for mass-driver point defense.",
+    "foundInNature": false,
+    "composition": {"Fe": 80, "W": 20},
+    "weightPerUnit": 8.0,
+    "strength": 0.0,
+    "complexity": 5
+  },
+  {
+    "id": "guided_missile",
+    "name": "Guided missile",
+    "description": "Packaged 100 kg guided ship ammunition including its motor, guidance and warhead.",
+    "foundInNature": false,
+    "composition": {"Fe": 60, "Si": 10, "C": 20, "N": 10},
+    "weightPerUnit": 2.0,
+    "strength": 0.0,
+    "complexity": 5
+  },
+  {
     "id": "rp1_kerosene",
     "name": "Refined kerosene (RP-1)",
     "description": "High-purity kerosene propellant for oxygen-fed chemical rockets.",

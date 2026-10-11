@@ -45,13 +45,24 @@ public final class ShipComponentCatalog {
 
     public static ShipModule module(String id) {
         if (id == null) return null;
+        ShipModule repair = ShipRepairModuleCatalog.module(id);
+        if (repair != null) return repair;
+        ShipModule combat = CombatModuleCatalog.module(id);
+        if (combat != null) return combat;
+        ShipModule sensor = SensorModuleCatalog.module(id);
+        if (sensor != null) return sensor;
         ShipModule supply = ShipSupplyCatalog.module(id);
         if (supply != null) return supply;
         ShipModule freighter = ChemicalFreighterCatalog.module(id);
         if (freighter != null) return freighter;
         if (PropulsionCatalog.FUEL_TANK_MODULE_ID.equals(id)) return PropulsionCatalog.fuelTankModule();
         ShipModule drive = PropulsionCatalog.module(id);
-        return drive == null ? MODULES.get(id) : drive;
+        if (drive != null) return drive;
+        var module = MODULES.get(id);
+        if (module == null || !ShipElectricalDamage.hardware(id)) return module;
+        return new ShipModule(module.id(), module.name(), module.slotSize(), module.slotCost(), module.dryMassKg(),
+                module.powerDrawKw(), module.powerOutputKw(), module.thrustOutputN(), module.complexityLevel(),
+                Map.of("steel", module.dryMassKg() * .10, "refined_copper", module.dryMassKg() * .04), module.operationalStats());
     }
 
     public static ShipHullFrame mediumFrame(String materialId) {

@@ -19,6 +19,7 @@ public record DiplomaticPact(
         boolean isActive
 ) {
     public static final String MUTUAL_TRADE_AGREEMENT = "MUTUAL_TRADE_AGREEMENT";
+    public static final String SENSOR_DATA_SHARING = "SENSOR_DATA_SHARING";
     public static final String RESEARCH_SHARING_ACCORD = "RESEARCH_SHARING_ACCORD";
     public static final String DEFENSIVE_PACT = "DEFENSIVE_PACT";
     public static final String MILITARY_ACCESS = "MILITARY_ACCESS";

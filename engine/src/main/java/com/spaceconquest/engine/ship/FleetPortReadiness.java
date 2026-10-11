@@ -32,7 +32,7 @@ public final class FleetPortReadiness {
                         Math.max(feed.kgPerPropellantKg(), design.fuelCapacityKg() * feed.kgPerPropellantKg()
                         - ship.storedCargoKg().getOrDefault(feed.materialId(), 0.0)), Double::sum);
             }
-            var p = design.powerProfile();
+            var p = design.powerProfile(ship);
             if (p == null) continue;
             var power = ShipPowerProcessor.reserves(ship);
             for (String id : List.of(power.chemicalMixture(), power.reactorFuel())) {

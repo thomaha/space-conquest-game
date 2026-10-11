@@ -18,8 +18,10 @@ public record ScanSystemCommand(
 
     @Override
     public boolean validate(GameState state) {
-        if (empireId == null || targetSystemId == null) return false;
-        return state.solarSystems().stream().anyMatch(s -> s.id().equals(targetSystemId));
+        if (state == null || empireId == null || targetSystemId == null) return false;
+        return state.empires().stream().anyMatch(empire -> empireId.equals(empire.id()))
+                && state.solarSystems().stream().anyMatch(s -> s.id().equals(targetSystemId))
+                && com.spaceconquest.engine.galaxy.SensorCoverage.hasSensor(state, empireId, targetSystemId);
     }
 
     @Override

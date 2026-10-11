@@ -42,12 +42,12 @@ public final class LocalSiteGeometry {
             var station = state.orbitalStations().stream().filter(item -> site.entityId().equals(item.id())
                     && systemId.equals(item.systemId())).findFirst().orElse(null);
             if (station == null) return null;
-            if (station.planetOrbitId() == null || station.planetOrbitId().isBlank()) {
+            if (station.planetOrbitId() == null || station.planetOrbitId().isBlank() || systemId.equals(station.planetOrbitId())) {
                 Point rendezvous = rendezvous(system);
                 Point offset = circle(ORBIT_ALTITUDE_KM, "station:" + station.id(), 0);
                 return rendezvous == null || offset == null ? null : rendezvous.add(offset);
             }
-            return orbit(body(system, station.planetOrbitId()), "station:" + station.id(), station.effectiveParkingAltitudeKm());
+            return com.spaceconquest.engine.galaxy.SensorPosition.at(state, systemId, FleetLocation.at(site));
         }
         if (site.kind() == FleetLocation.Kind.DEEP_SPACE) {
             if (site.equals(FleetLocation.Site.deepSpace())) return rendezvous(system);

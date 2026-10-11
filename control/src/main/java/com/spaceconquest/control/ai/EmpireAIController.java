@@ -50,6 +50,8 @@ public class EmpireAIController implements Controller {
         Empire empire = state.empires().stream().filter(e -> e.id().equals(empireId)).findFirst().orElse(null);
         if (empire == null) return;
 
+        EmpireFleetPlanner.plan(state, empire).forEach(commandQueue::submit);
+
         boolean isHiveMind = "Hive Mind".equalsIgnoreCase(empire.societyStructure())
                 || "Hive mind".equalsIgnoreCase(empire.societyStructure());
 

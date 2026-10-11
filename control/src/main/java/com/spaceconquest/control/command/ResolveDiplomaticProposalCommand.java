@@ -4,6 +4,7 @@ import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.governance.DiplomaticPact;
 import com.spaceconquest.engine.governance.DiplomaticProposal;
 import com.spaceconquest.engine.governance.DiplomacyProcessor;
+import com.spaceconquest.engine.galaxy.SensorSharing;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,9 +22,20 @@ public record ResolveDiplomaticProposalCommand(
                 proposalId.equals(proposal.id())
                         && receiverEmpireId.equals(proposal.receiverEmpireId())
                         && proposal.isPendingAtTurn(state.turn())
+                        && SensorSharing.partyExists(state, proposal.senderEmpireId())
+                        && SensorSharing.partyExists(state, proposal.receiverEmpireId())
+                        && validParties(state, proposal)
+                        && !SensorSharing.atWar(state, proposal.senderEmpireId(), proposal.receiverEmpireId())
                         && !DiplomacyProcessor.TOTAL_WAR.equalsIgnoreCase(
                         new DiplomacyProcessor().getDiplomaticTier(proposal.senderEmpireId(),
                                 proposal.receiverEmpireId(), state.diplomaticRelations())));
+    }
+
+    private static boolean validParties(GameState state, DiplomaticProposal proposal) {
+        boolean senderEmpire = state.empires().stream().anyMatch(empire -> empire.id().equals(proposal.senderEmpireId()));
+        boolean receiverEmpire = state.empires().stream().anyMatch(empire -> empire.id().equals(proposal.receiverEmpireId()));
+        return DiplomaticPact.SENSOR_DATA_SHARING.equalsIgnoreCase(proposal.proposalType())
+                ? senderEmpire || receiverEmpire : senderEmpire && receiverEmpire;
     }
 
     @Override
@@ -39,6 +51,7 @@ public record ResolveDiplomaticProposalCommand(
                 .toList());
         GameState resolved = state.toBuilder().diplomaticProposals(updated).build();
         if (!accepted) return resolved;
+        if (DiplomaticPact.SENSOR_DATA_SHARING.equalsIgnoreCase(selected.proposalType())) return resolved;
 
         String tier = DiplomaticPact.MUTUAL_TRADE_AGREEMENT.equalsIgnoreCase(selected.proposalType())
                 ? DiplomacyProcessor.COMMERCIAL_ALLIANCE

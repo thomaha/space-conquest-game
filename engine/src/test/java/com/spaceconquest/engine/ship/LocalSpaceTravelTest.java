@@ -30,10 +30,16 @@ class LocalSpaceTravelTest {
                         1392000, "yellow", List.of(earth), List.of()))).build();
     }
 
+    // These fixtures exercise the saved straight-line model, not native orbital dispatch.
+    private LocalTravel.Plan physicalPlan(GameState state, Fleet fleet, FleetLocation.Site target) {
+        var physical = LocalSpaceTravel.plan(state, fleet, target);
+        assertNotNull(physical);
+        return new LocalTravel.Plan(physical.days(), physical.propellantKg(), physical.reactorFuelKg(), physical);
+    }
     private GameState depart(GameState state) {
         var fleet = state.fleets().getFirst();
         var target = FleetLocation.Site.orbit("moon");
-        return state.withFleets(List.of(LocalTravel.depart(fleet, target, LocalTravel.plan(state, fleet, target))));
+        return state.withFleets(List.of(LocalTravel.depart(fleet, target, physicalPlan(state, fleet, target))));
     }
 
     private GameState tick(GameState state) {
@@ -52,7 +58,7 @@ class LocalSpaceTravelTest {
 
     @Test void forecastMatchesTickBurnsCoastAndControlledArrival() {
         var state = world(); var fleet = state.fleets().getFirst(); var target = FleetLocation.Site.orbit("moon");
-        var plan = LocalTravel.plan(state, fleet, target);
+        var plan = physicalPlan(state, fleet, target);
         assertNotNull(plan.physical()); assertTrue(plan.physical().trajectory().coastSeconds() > 0);
         var readiness = ShipPowerForecast.departure(state, fleet, target, plan, null).getFirst();
         assertTrue(readiness.ready());
@@ -147,7 +153,7 @@ class LocalSpaceTravelTest {
                 Map.of("steel", 500.0, "refined_uranium", 2.0));
         state = state.withShipDesigns(List.of(state.shipDesigns().getFirst(), nuclear));
         fleet = fleet.withShips(List.of(fleet.ships().getFirst(), second));
-        var plan = LocalTravel.plan(state, fleet, target);
+        var plan = physicalPlan(state, fleet, target);
         assertTrue(plan.physical().trajectory().accelerationMps2() < original.trajectory().accelerationMps2());
         assertTrue(plan.physical().scheduledDays() >= original.scheduledDays());
         var departed = LocalTravel.depart(fleet, target, plan);

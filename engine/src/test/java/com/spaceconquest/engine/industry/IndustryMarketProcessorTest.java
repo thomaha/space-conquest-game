@@ -19,12 +19,51 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class IndustryMarketProcessorTest {
     private final IndustryMarketProcessor processor = new IndustryMarketProcessor();
 
+    @Test void kineticDefenseCartridgesUsePaidResearchedProductionAndCreateStockDemand() {
+        var plant = facility("kinetic_pd_ammunition_mfg");
+        var hub = new CommercialHub("hub", "earth", 0, 10000, 5, 10,
+                Map.of("steel", order("steel", 4, 1), "tungsten_ore", order("tungsten_ore", 1, 1)));
+        var tech = List.of("electricity", "industrial_production", "energy_fields", "electromagnetic_weapons", "mass_drivers", "pd_mass_drivers");
+        var initial = state(plant, hub, 1000, List.of(), tech);
+        initial = initial.withCommercialHubs(new com.spaceconquest.engine.market.MarketDemandProcessor().refresh(initial, List.of()));
+        assertTrue(initial.commercialHubs().getFirst().activeOrders().get("kinetic_pd_round").demandKg() > 0);
+        var result = processor.process(initial, Map.of("farm", 1), Map.of());
+        assertEquals(5, result.industryAccounts().getFirst().producedKg().get("kinetic_pd_round"));
+        assertEquals(5, result.industryAccounts().getFirst().inputCostsCredits());
+        assertEquals(5, result.hubs().getFirst().activeOrders().get("kinetic_pd_round").supplyKg());
+        var locked = state(plant, hub, 1000, List.of(), tech.stream().filter(id -> !id.equals("pd_mass_drivers")).toList());
+        assertTrue(processor.process(locked, Map.of("farm", 1), Map.of()).industryAccounts().getFirst().producedKg().isEmpty());
+        assertTrue(processor.process(initial, Map.of(), Map.of(), Map.of("farm", 1)).industryAccounts().getFirst().producedKg().isEmpty());
+    }
+
+    @Test void guidedAmmunitionUsesOwnedResearchPaidInputsWorkersAndPoweredIndustry() {
+        var plant = facility("guided_missile_mfg");
+        var hub = new CommercialHub("hub", "earth", 0, 10000, 100, 10,
+                Map.of("steel", order("steel", 60, 1), "silicon", order("silicon", 10, 1),
+                        "hydrocarbons", order("hydrocarbons", 20, 1), "nitrates", order("nitrates", 10, 1)));
+        var initial = state(plant, hub, 1000, List.of(), List.of("electricity", "industrial_production", "rocketry"));
+        initial = initial.withCommercialHubs(new com.spaceconquest.engine.market.MarketDemandProcessor().refresh(initial, List.of()));
+        assertTrue(initial.commercialHubs().getFirst().activeOrders().get("guided_missile").demandKg() > 0);
+        var result = processor.process(initial, Map.of("farm", 10), Map.of("farm", 0.0));
+        var account = result.industryAccounts().getFirst();
+        assertEquals(100, account.producedKg().get("guided_missile"), 1e-9);
+        assertEquals(100, account.inputCostsCredits(), 1e-9);
+        assertEquals(100, result.hubs().getFirst().activeOrders().get("guided_missile").supplyKg(), 1e-9);
+        assertEquals(0, result.hubs().getFirst().activeOrders().get("steel").supplyKg(), 1e-9);
+        var locked = state(plant, hub, 1000, List.of(), List.of("electricity", "industrial_production"));
+        assertTrue(processor.process(locked, Map.of("farm", 10), Map.of()).industryAccounts().getFirst().producedKg().isEmpty());
+        assertTrue(processor.process(initial, Map.of(), Map.of(), Map.of("farm", 10)).industryAccounts().getFirst().producedKg().isEmpty());
+        assertEquals(60, initial.commercialHubs().getFirst().activeOrders().get("steel").supplyKg());
+    }
+
     @Test
-    void everyProductionRequirementAndImprovementExistsInTheTechnologyCatalog() throws IOException {
-        var technologyIds = DataModelLoader.loadTechnologies().stream()
-                .map(technology -> technology.id()).toList();
+    void productionRequirementsExistInResearchCatalogAndImprovementsUseTechnologies() throws IOException {
+        var technologies = DataModelLoader.loadTechnologies();
+        var technologyIds = technologies.stream().map(technology -> technology.id()).toList();
+        var researchIds = new java.util.HashSet<>(technologyIds);
+        technologies.forEach(technology -> technology.applications().forEach(application -> researchIds.add(application.id())));
         for (var recipe : IndustryRecipeCatalog.all()) {
-            assertTrue(technologyIds.containsAll(recipe.requiredTechnologies()), recipe.applicationId());
+            assertTrue(researchIds.containsAll(recipe.requiredTechnologies()), recipe.applicationId());
             assertTrue(technologyIds.containsAll(recipe.improvements().keySet()), recipe.applicationId());
         }
     }

@@ -166,7 +166,7 @@ public final class FleetFuelSharing {
         }
         Fleet donorFleet = fleet(next, donorId);
         var environment = ShipArrivalReserve.environment(next, donorFleet, donorFleet.location().current(), donorFleet.hasInterstellarOrder());
-        var profile = design.powerProfile();
+        var profile = design.powerProfile(after);
         if (!ShipArrivalReserve.check(profile, ShipPowerProcessor.reserves(after), profile.essentialKw(before, design),
                 ShipPowerProcessor.cargoKw(profile, before, design), environment).ready()) return false;
         if (donorFleet.hasInterstellarOrder() || donorFleet.location().inTransit()) {

@@ -11,7 +11,7 @@ public final class ShipPowerSurvival {
         var power = ship.powerState();
         if (power == null || design == null || design.powerProfile() == null || ship.passengerCount() <= 0
                 || power.lastUnmetEssentialKwh() <= 0) return 0;
-        double unmetToday = power.lastUnmetEssentialKwh() / design.powerProfile().essentialKw(ship, design);
+        double unmetToday = power.lastUnmetEssentialKwh() / design.powerProfile(ship).criticalKw(design.powerProfile(ship).essentialKw(ship, design));
         double exposed = Math.min(unmetToday, Math.max(0, power.unmetEssentialHours() - PASSENGER_GRACE_HOURS));
         double rate = ShipInstance.MODE_CRYOGENIC_STASIS.equals(ship.transitMode())
                 ? STASIS_DAILY_LOSS_FRACTION : CONSCIOUS_DAILY_LOSS_FRACTION;

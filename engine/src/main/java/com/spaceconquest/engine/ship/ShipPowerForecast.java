@@ -4,7 +4,7 @@ import com.spaceconquest.engine.GameState;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Bounded departure calculation: local cycles and three analytic interstellar phases, never a daily simulation. */
+/** Bounded departure calculation with optional shield work and analytic required-load tails. */
 public final class ShipPowerForecast {
     public record Readiness(String shipId, boolean modeled, boolean ready, double journeyKwh,
                             double arrivalReserveKwh, double remainingBatteryKwh,
@@ -17,11 +17,12 @@ public final class ShipPowerForecast {
         if (local != null && (!Double.isFinite(local.days() * 24) || local.days() <= 0))
             return List.of(new Readiness("fleet", true, false, 0, 0, 0, 0, "Unsupported local journey duration"));
         List<Readiness> results = new ArrayList<>();
+        var activity = ShipServicePower.activity(state, fleet);
         for (ShipInstance ship : fleet.ships()) {
             ShipDesign design = state.shipDesigns().stream().filter(item -> item.id().equals(ship.designId()))
                     .findFirst().orElse(null);
             if (design == null) return List.of(new Readiness(ship.id(), false, false, 0, 0, 0, 0, "Missing blueprint"));
-            ShipPowerProfile profile = design.powerProfile();
+            ShipPowerProfile profile = design.powerProfile(ship);
             if (profile == null) {
                 results.add(new Readiness(ship.id(), false, true, 0, 0, 0, 0,
                         "Legacy electrical compatibility mode; endurance is unknown"));
@@ -31,25 +32,27 @@ public final class ShipPowerForecast {
             double essential = profile.essentialKw(ship, design), cargo = ShipPowerProcessor.cargoKw(profile, ship, design);
             double energy = 0;
             boolean ready = true;
-            if (local != null) {
-                var budget = LocalSpacePowerForecast.check(state, fleet, ship, design, destination, local);
+            if (local == null || local.orbital() == null) {
+                var phases = new ArrayList<ShipShieldPower.Phase>();
+                if (local != null) phases.addAll(ShipPowerPhases.local(profile, ShipSolarEnvironment.journey(state, fleet, destination), local));
+                if (crossing != null) phases.addAll(ShipPowerPhases.crossing(profile, crossing));
+                var budget = ShipShieldPower.forecast(ship, design, ShipPowerPhases.withActivity(phases, activity), ShipArrivalReserve.environment(state, fleet, destination, crossing != null),
+                        FleetShieldPolicy.recharge(state, fleet, true));
+                energy = budget.journeyKwh(); current = budget.ship().powerState(); ready = budget.ready();
+            } else {
+                var budget = OrbitalPowerAccounting.forecast(ship, design, local.orbital(),
+                        crossing == null && FleetShieldPolicy.recharge(state, fleet, true), activity);
                 energy += budget.journeyKwh();
                 ready &= budget.ready(); current = budget.state();
-            }
-            if (crossing != null) {
-                double hours = Math.ceil(crossing.days()) * 24;
-                double burn = Fleet.MODE_SUBLIGHT.equals(crossing.mode())
-                        ? Math.min(hours / 2, crossing.peakSpeedMps() / crossing.accelerationMps2() / 3600)
-                        : hours / 2;
-                for (double[] phase : new double[][]{{burn, profile.driveKw()}, {hours - 2 * burn, 0},
-                        {burn, profile.driveKw()}}) {
-                    energy += (essential + cargo + phase[1]) * phase[0];
-                    var step = ShipPowerProcessor.interval(profile, current, phase[0], 0, essential, cargo, phase[1]);
-                    ready &= step.supplied(); current = step.state();
+                if (crossing != null) {
+                    var actual = budget.projectedShip() == null ? ship.withPowerState(current) : budget.projectedShip();
+                    var rest = ShipShieldPower.forecast(actual, design, ShipPowerPhases.withActivity(ShipPowerPhases.crossing(profile, crossing), activity),
+                            ShipSolarEnvironment.DARK, FleetShieldPolicy.recharge(state, fleet, true));
+                    energy += rest.journeyKwh(); ready &= rest.ready(); current = rest.ship().powerState();
                 }
             }
             var arrival = ShipArrivalReserve.environment(state, fleet, destination, crossing != null);
-            var reserveCheck = ShipArrivalReserve.check(profile, current, essential, cargo, arrival);
+            var reserveCheck = ShipArrivalReserve.check(profile, current, essential, cargo, arrival, ShipPowerProcessor.ARRIVAL_RESERVE_HOURS, activity);
             ready &= reserveCheck.ready();
             results.add(new Readiness(ship.id(), true, ready, energy, reserveCheck.requiredKwh(), current.batteryChargeKwh(),
                     initial.fuelMassKg() - current.fuelMassKg(), ready

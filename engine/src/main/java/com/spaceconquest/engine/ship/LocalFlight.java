@@ -7,10 +7,21 @@ import java.util.Map;
 /** Frozen local geometry, actual motion and per-ship paid propulsion commitments. */
 public record LocalFlight(LocalSiteGeometry.Leg geometry, FlightMotion motion,
                           Map<String, Double> propellantKg, Map<String, JourneyPropulsion> propulsion,
-                          boolean interrupted, boolean advancedInPowerTick) {
+                          boolean interrupted, boolean advancedInPowerTick, String rendezvousTargetId, VectorFlight vectorFlight) {
+    public LocalFlight(LocalSiteGeometry.Leg geometry, FlightMotion motion, Map<String, Double> propellantKg,
+                       Map<String, JourneyPropulsion> propulsion, boolean interrupted, boolean advancedInPowerTick,
+                       String rendezvousTargetId) {
+        this(geometry, motion, propellantKg, propulsion, interrupted, advancedInPowerTick, rendezvousTargetId, null);
+    }
+    public LocalFlight(LocalSiteGeometry.Leg geometry, FlightMotion motion, Map<String, Double> propellantKg,
+                       Map<String, JourneyPropulsion> propulsion, boolean interrupted, boolean advancedInPowerTick) {
+        this(geometry, motion, propellantKg, propulsion, interrupted, advancedInPowerTick, null);
+    }
     public LocalFlight {
         if (geometry == null || motion == null || motion.trajectory() == null)
             throw new IllegalArgumentException("Local flight requires geometry and a trajectory");
+        if (vectorFlight != null && !motion.trajectory().equals(vectorFlight.trajectory().envelope()))
+            throw new IllegalArgumentException("Vector motion requires matching power phases");
         propellantKg = Map.copyOf(propellantKg);
         propulsion = Map.copyOf(propulsion);
         if (!Double.isFinite(geometry.distanceMeters()) || geometry.distanceMeters() <= 0
@@ -27,18 +38,20 @@ public record LocalFlight(LocalSiteGeometry.Leg geometry, FlightMotion motion,
             if (propellantKg.containsKey(ship.id())) fuel.put(ship.id(), propellantKg.get(ship.id()));
             if (propulsion.containsKey(ship.id())) drives.put(ship.id(), propulsion.get(ship.id()));
         });
-        return new LocalFlight(geometry, motion, fuel, drives, interrupted, advancedInPowerTick);
+        return new LocalFlight(geometry, motion, fuel, drives, interrupted, advancedInPowerTick, rendezvousTargetId, vectorFlight);
     }
 
     public boolean together(LocalFlight other) {
         return other != null && geometry.equals(other.geometry) && motion.equals(other.motion)
-                && interrupted == other.interrupted && advancedInPowerTick == other.advancedInPowerTick;
+                && interrupted == other.interrupted && advancedInPowerTick == other.advancedInPowerTick
+                && java.util.Objects.equals(rendezvousTargetId, other.rendezvousTargetId)
+                && java.util.Objects.equals(vectorFlight, other.vectorFlight);
     }
 
     public LocalFlight join(LocalFlight other) {
         if (!together(other)) throw new IllegalArgumentException("Local motion differs");
         var fuel = new HashMap<>(propellantKg); fuel.putAll(other.propellantKg);
         var drives = new HashMap<>(propulsion); drives.putAll(other.propulsion);
-        return new LocalFlight(geometry, motion, fuel, drives, interrupted, advancedInPowerTick);
+        return new LocalFlight(geometry, motion, fuel, drives, interrupted, advancedInPowerTick, rendezvousTargetId, vectorFlight);
     }
 }

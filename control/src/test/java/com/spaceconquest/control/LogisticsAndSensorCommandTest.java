@@ -120,6 +120,11 @@ public class LogisticsAndSensorCommandTest {
                 .build();
 
         ScanSystemCommand scanCmd = new ScanSystemCommand("terran_confederation", "sol");
+        assertFalse(scanCmd.validate(state));
+        var sensor = new ShipDesign("sensor", "Sensor", terran.id(), ShipRole.EXPLORER, "steel",
+                List.of(com.spaceconquest.engine.ship.SensorModuleCatalog.BASIC), "steel", 0, 1000, 0, 0, 0, 1, 0, 0, false, false);
+        state = state.toBuilder().shipDesigns(List.of(sensor)).fleets(List.of(new Fleet("observer", "Observer", terran.id(),
+                "sol", "", 0, 0, 0, false, "PASSIVE", List.of(new ShipInstance("observer-ship", sensor.id(), terran.id(), 100, 0, 0, Map.of()))))).build();
         assertTrue(scanCmd.validate(state));
         GameState afterScan = scanCmd.apply(state);
 

@@ -1,14 +1,15 @@
 package com.spaceconquest.engine.governance;
 
 /**
- * Represents a proposed diplomatic treaty awaiting mutual ratification.
+ * Represents a diplomatic proposal and its resolution. Accepted SENSOR_DATA_SHARING entries
+ * are ratified bilateral grants until revoked; expiry applies only while pending.
  *
  * @param id               unique proposal identifier
- * @param senderEmpireId   empire dispatching the diplomatic envoy
- * @param receiverEmpireId target empire receiving the proposal
+ * @param senderEmpireId   empire or sensor-sharing corporation sending the proposal
+ * @param receiverEmpireId receiving empire or sensor-sharing corporation
  * @param proposalType     treaty type proposed
  * @param expiresOnTurn    turn when the proposal expires
- * @param status           negotiation status (PENDING, ACCEPTED, REJECTED, WITHDRAWN, EXPIRED)
+ * @param status           negotiation status (PENDING, ACCEPTED, REJECTED, WITHDRAWN, EXPIRED, REVOKED)
  */
 public record DiplomaticProposal(
         String id,
@@ -21,6 +22,7 @@ public record DiplomaticProposal(
     public static final long DEFAULT_DURATION_TURNS = 30;
     public static final String STATUS_PENDING = "PENDING";
     public static final String STATUS_ACCEPTED = "ACCEPTED";
+    public static final String STATUS_REVOKED = "REVOKED";
     public static final String STATUS_REJECTED = "REJECTED";
     public static final String STATUS_WITHDRAWN = "WITHDRAWN";
     public static final String STATUS_EXPIRED = "EXPIRED";

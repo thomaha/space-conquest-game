@@ -39,6 +39,7 @@ public record QueueShipBuildCommand(String ownerEntityId, String designId,
                 && PropulsionCatalog.researched(design.equippedModuleIds(),
                 owner.unlockedTechIds())
                 && ShipComponentCatalog.powerResearched(design.equippedModuleIds(), owner.unlockedTechIds())
+                && com.spaceconquest.engine.ship.SensorModuleCatalog.researched(design.equippedModuleIds(), owner.unlockedTechIds())
                 && ChemicalFreighterCatalog.researched(design.equippedModuleIds(), owner.unlockedTechIds())
                 && ChemicalFreighterCatalog.compatible(design.equippedModuleIds())
                 && PropulsionCatalog.validConfiguration(design.equippedModuleIds(),

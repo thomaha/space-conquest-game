@@ -26,6 +26,46 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LoadOrbitalCargoCommandTest {
+    @Test void kineticDefenseShipBuysAndLiftsFiniteCartridgesWithinCargoCapacity() {
+        var initial = state();
+        var design = new ShipDesign("cargo_design", "Kinetic guard", "emp", ShipRole.COMBAT_SHIP, "steel",
+                List.of(com.spaceconquest.engine.ship.CombatModuleCatalog.KINETIC_POINT_DEFENSE), "steel", 0,
+                1000, 20, 0, 1, 0, 0, true, false);
+        var hub = initial.commercialHubs().getFirst();
+        var orders = new java.util.HashMap<>(hub.activeOrders());
+        orders.put("kinetic_pd_round", new MarketOrder("kinetic_pd_round", 15, 0, 2, 0));
+        initial = initial.withShipDesigns(List.of(design)).withCommercialHubs(List.of(new CommercialHub(hub.id(), hub.entityId(),
+                hub.transactionTariffRate(), hub.storageCapacityKg(), hub.currentStoredWeightKg() + 15, hub.logisticsRangeUnits(), orders)));
+        var load = new LoadOrbitalCargoCommand("cargo", "earth", "kinetic_pd_round", 15);
+        assertTrue(load.validate(initial)); var paid = load.apply(initial);
+        assertEquals(3, com.spaceconquest.engine.ship.ShipPointDefense.rounds(paid.fleets().getFirst().ships().getFirst()));
+        assertEquals(0, paid.commercialHubs().getFirst().activeOrders().get("kinetic_pd_round").supplyKg());
+        assertTrue(paid.empires().getFirst().treasuryCredits() < initial.empires().getFirst().treasuryCredits() - 30);
+        assertFalse(load.validate(paid));
+        assertFalse(new LoadOrbitalCargoCommand("cargo", "earth", "kinetic_pd_round", 21).validate(initial));
+        assertFalse(new LoadOrbitalCargoCommand("cargo", "earth", "refined_iron", 1).validate(initial));
+    }
+    @Test void armedCombatShipCanBuyAndLiftFiniteAmmunitionButCannotUseTransportOnlyCargoLoading() {
+        var initial = state();
+        var design = new ShipDesign("cargo_design", "Missile ship", "emp", ShipRole.COMBAT_SHIP, "steel",
+                List.of(com.spaceconquest.engine.ship.CombatModuleCatalog.MISSILE), "steel", 0,
+                1000, 200, 0, 1, 0, 0, true, false);
+        var hub = initial.commercialHubs().getFirst();
+        var orders = new java.util.HashMap<>(hub.activeOrders());
+        orders.put("guided_missile", new MarketOrder("guided_missile", 100, 0, 2, 0));
+        initial = initial.withShipDesigns(List.of(design)).withCommercialHubs(List.of(new CommercialHub(hub.id(), hub.entityId(),
+                hub.transactionTariffRate(), hub.storageCapacityKg(), hub.currentStoredWeightKg() + 100, hub.logisticsRangeUnits(), orders)));
+        var load = new LoadOrbitalCargoCommand("cargo", "earth", "guided_missile", 100);
+        assertTrue(load.validate(initial));
+        var paid = load.apply(initial);
+        assertEquals(100, paid.fleets().getFirst().ships().getFirst().storedCargoKg().get("guided_missile"));
+        assertEquals(0, paid.commercialHubs().getFirst().activeOrders().get("guided_missile").supplyKg());
+        assertTrue(paid.empires().getFirst().treasuryCredits() < initial.empires().getFirst().treasuryCredits() - 200);
+        assertFalse(load.validate(paid));
+        assertFalse(new LoadOrbitalCargoCommand("cargo", "earth", "guided_missile", 201).validate(initial));
+        assertFalse(new LoadOrbitalCargoCommand("cargo", "earth", "refined_iron", 1).validate(initial));
+        assertEquals(100, initial.commercialHubs().getFirst().activeOrders().get("guided_missile").supplyKg());
+    }
     @Test
     void surfaceShipBuysLocalSuppliesWithoutOrbitalLaunch() {
         GameState orbit = state();

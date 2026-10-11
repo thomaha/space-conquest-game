@@ -116,13 +116,13 @@ public class FleetProcessorTest {
     public void testFleetScannerRange() {
         ShipDesign explorerDesign = new ShipDesign(
                 "design_explorer", "Pathfinder Explorer", "emp_terran",
-                ShipRole.EXPLORER, "steel", List.of(), "steel", 1.0,
+                ShipRole.EXPLORER, "steel", List.of(SensorModuleCatalog.ADVANCED), "steel", 1.0,
                 5000.0, 1000.0, 100.0, 1.5, 50000.0, 200000.0, true, false
         );
 
         ShipDesign combatDesign = new ShipDesign(
                 "design_combat", "Aegis Destroyer", "emp_terran",
-                ShipRole.COMBAT_SHIP, "steel", List.of(), "steel", 2.0,
+                ShipRole.COMBAT_SHIP, "steel", List.of(SensorModuleCatalog.BASIC), "steel", 2.0,
                 15000.0, 2000.0, 300.0, 1.2, 150000.0, 600000.0, true, false
         );
 
@@ -138,7 +138,7 @@ public class FleetProcessorTest {
         double emptyRange = fleetProcessor.calculateFleetScannerRange(emptyFleet, List.of(explorerDesign, combatDesign));
 
         assertEquals(25.0, explorerRange, 0.001);
-        assertEquals(15.0, combatRange, 0.001);
-        assertEquals(5.0, emptyRange, 0.001);
+        assertEquals(10.0, combatRange, 0.001);
+        assertEquals(0.0, emptyRange, 0.001);
     }
 }

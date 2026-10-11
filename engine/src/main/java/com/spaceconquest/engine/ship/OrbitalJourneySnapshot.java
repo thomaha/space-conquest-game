@@ -33,7 +33,8 @@ public record OrbitalJourneySnapshot(
         var names = itinerary.maneuverNames();
         for (int index = 0; index < itinerary.maneuvers().size(); index++)
             events.add(new Maneuver(names.get(index),
-                    (itinerary.maneuvers().get(index).seconds() - flight.elapsedSeconds()) / 86400,
+                    ((index == 2 && itinerary.docking() != null ? itinerary.totalSeconds() : itinerary.maneuvers().get(index).seconds())
+                            - flight.elapsedSeconds()) / 86400,
                     index < flight.nextManeuver(), flight.failed() && index >= flight.nextManeuver()));
         var source = circular(coast, coast.departureRadiusMeters(), coast.departureAngleRadians(),
                 flight.elapsedSeconds() - itinerary.waitSeconds());

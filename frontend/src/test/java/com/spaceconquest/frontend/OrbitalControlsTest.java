@@ -20,6 +20,75 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 class OrbitalControlsTest {
+    @Test void bodyRecoveryControlsUseParkingAltitudeInTheSavedFrame() throws Exception {
+        var initial = state(); var controller = new HumanController();
+        for (String id : List.of("earth", "moon")) {
+            var body = OrbitalBody.find(initial, "sol", id); assertNotNull(body);
+            var coast = new HohmannCoast(PlanetaryTransferComparison.GRAVITATIONAL_CONSTANT * body.mass(),
+                    body.diameter() * 500 + 500000, body.diameter() * 500 + 550000, .3);
+            var itinerary = new OrbitalFlight.Itinerary(id, id, 500, 550, 0, 0, coast, ShipSolarEnvironment.DARK,
+                    List.of(new OrbitalFlight.Maneuver(0, 1, Map.of()), new OrbitalFlight.Maneuver(coast.coastSeconds(), 1, Map.of()),
+                            new OrbitalFlight.Maneuver(coast.coastSeconds() + 3600, 1, Map.of())), body.frame());
+            var orbital = new OrbitalFlight(itinerary, coast.coastSeconds(), 1, OrbitalFlight.Status.MISSED, "");
+            var fleet = new Fleet("failed", "Failed", "owner", "sol", "", 0, 0, 0, false, "PASSIVE", List.of(),
+                    new FleetLocation(FleetLocation.Site.orbit(id, 500), FleetLocation.Site.orbit(id, 550), 1,
+                            itinerary.totalSeconds() / 86400, null, orbital));
+            var snapshot = initial.withFleets(List.of(fleet));
+            fx(() -> {
+                var card = StellarRecoveryCard.create(snapshot, fleet, controller, new Label());
+                var altitude = (Spinner<?>) card.lookup("#orbital-recovery-altitude"); assertNotNull(altitude);
+                assertEquals(550, (Double) altitude.getValue(), .001); assertNull(card.lookup("#stellar-recovery-radius"));
+                assertNull(snapshot.fleets().getFirst().location().localFlight()); assertEquals(0, controller.getCommandQueue().size());
+                return null;
+            });
+        }
+    }
+    @Test void failedStellarCaptureOffersOrbitChoiceWithoutConvertingTheSnapshot() throws Exception {
+        var state = state();
+        var system = state.solarSystems().stream().filter(item -> item.id().equals("sol")).findFirst().orElseThrow();
+        var coast = new HohmannCoast(CircularOrbitalEphemeris.gravitationalParameter(system), 1e11, 2e11, .3);
+        var itinerary = new OrbitalFlight.Itinerary("earth", "mars", 500, 1000, 0, 0, coast, ShipSolarEnvironment.DARK,
+                List.of(new OrbitalFlight.Maneuver(0, 1, Map.of()), new OrbitalFlight.Maneuver(coast.coastSeconds(), 1, Map.of()),
+                        new OrbitalFlight.Maneuver(coast.coastSeconds() + 3600, 1, Map.of())));
+        var orbital = new OrbitalFlight(itinerary, coast.coastSeconds() + 43200, 1, OrbitalFlight.Status.MISSED, "");
+        var fleet = new Fleet("failed", "Failed", "owner", "sol", "", 0, 0, 0, false, "PASSIVE", List.of(),
+                new FleetLocation(FleetLocation.Site.orbit("earth", 500), FleetLocation.Site.orbit("mars", 1000), 1,
+                        itinerary.totalSeconds() / 86400, null, orbital));
+        var snapshot = state.withFleets(List.of(fleet)); var controller = new HumanController();
+        var savedFlight = snapshot.fleets().getFirst().location().orbitalFlight();
+        fx(() -> {
+            var card = StellarRecoveryCard.create(snapshot, fleet, controller, new Label());
+            var radius = (Spinner<?>) card.lookup("#stellar-recovery-radius");
+            assertNotNull(radius); assertNotNull(card.lookup("#stellar-recovery-phase"));
+            assertEquals(orbital.position().radiusMeters() / (ShipSolarEnvironment.AU_KM * 1000), (Double) radius.getValue(), 1e-9);
+            assertTrue(((Button) card.lookup("#recover-stellar-travel")).isDisabled());
+            assertSame(savedFlight, snapshot.fleets().getFirst().location().orbitalFlight());
+            assertNull(snapshot.fleets().getFirst().location().localFlight());
+            assertEquals(0, controller.getCommandQueue().size()); return null;
+        });
+    }
+    @Test void stellarCancellationQueuesWithoutMutatingPhysicalState() throws Exception {
+        var initial = state(); var controller = new HumanController();
+        var start = new LocalSiteGeometry.Point(1e11, 0, 0);
+        var acceleration = new LocalSiteGeometry.Point(.01, 0, 0);
+        var trajectory = new VectorFlight.Trajectory(start, new LocalSiteGeometry.Point(0, 30000, 0), acceleration,
+                acceleration, 21600, 43200, new TwoBodyFlight.Gravity(CircularOrbitalEphemeris.gravitationalParameter(
+                        initial.solarSystems().stream().filter(item -> item.id().equals("sol")).findFirst().orElseThrow()), 1e9));
+        var vector = trajectory.at(0); var geometry = new LocalSiteGeometry.Leg(start, new LocalSiteGeometry.Point(1.1e11, 0, 0), 1e10);
+        var flight = new LocalFlight(geometry, VectorFlight.motion(vector, geometry), Map.of(), Map.of(), false, false, null, vector);
+        var fleet = new Fleet("recovery", "Recovery", "owner", "sol", "", 0, 0, 0, false, "PASSIVE", List.of(),
+                new FleetLocation(FleetLocation.Site.deepSpace(), FleetLocation.Site.deepSpace("sol_circular_coast"), 0, 1, flight));
+        var snapshot = initial.withFleets(List.of(fleet));
+        fx(() -> {
+            var card = StellarRecoveryCard.create(snapshot, fleet, controller, new Label());
+            ((Button) card.lookup("#cancel-stellar-travel")).fire();
+            assertFalse(snapshot.fleets().getFirst().location().localFlight().interrupted());
+            assertEquals(1, controller.getCommandQueue().size()); return null;
+        });
+        var changed = controller.getCommandQueue().drainAndExecute(snapshot);
+        assertTrue(changed.fleets().getFirst().location().localFlight().interrupted());
+        assertEquals(vector, changed.fleets().getFirst().location().localFlight().vectorFlight());
+    }
     @BeforeAll static void startFx() {
         try { Platform.startup(() -> {}); } catch (IllegalStateException ignored) { /* Already started. */ }
     }

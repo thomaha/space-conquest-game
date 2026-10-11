@@ -1,6 +1,7 @@
 package com.spaceconquest.engine.ship;
 
 import java.util.Map;
+import java.util.Set;
 
 /** Physical electrical reserves, independent of freight and main-drive propellant. */
 public record ShipPowerState(Map<String, Double> generatorMaterialsKg, String chemicalMixture,
@@ -8,12 +9,14 @@ public record ShipPowerState(Map<String, Double> generatorMaterialsKg, String ch
                              double arrayCondition, double orientationFraction,
                              double unmetEssentialHours, double unmetDriveKwh, double unmetCargoKwh,
                              double lastUnmetEssentialKwh, double chargedInputKwhToday,
-                             CargoPreservationState cargoPreservation, RescueStatus rescueStatus) {
+                             CargoPreservationState cargoPreservation, RescueStatus rescueStatus, Set<String> shedServices) {
     public ShipPowerState {
         generatorMaterialsKg = generatorMaterialsKg == null ? Map.of() : Map.copyOf(generatorMaterialsKg);
         if (chemicalMixture == null) chemicalMixture = "rp1";
         if (reactorFuel == null) reactorFuel = "uranium";
         if (cargoPreservation == null) cargoPreservation = CargoPreservationState.empty();
+        shedServices = shedServices == null ? Set.of() : Set.copyOf(shedServices);
+        if (!ShipServicePower.PRIORITY.containsAll(shedServices)) throw new IllegalArgumentException("Unknown shed service");
         for (double value : new double[]{batteryChargeKwh, unmetEssentialHours, unmetDriveKwh, unmetCargoKwh,
                 lastUnmetEssentialKwh, chargedInputKwhToday})
             if (!Double.isFinite(value) || value < 0) throw new IllegalArgumentException("Invalid electrical reserve");
@@ -21,6 +24,15 @@ public record ShipPowerState(Map<String, Double> generatorMaterialsKg, String ch
                 || !Double.isFinite(orientationFraction) || orientationFraction < 0 || orientationFraction > 1
                 || generatorMaterialsKg.values().stream().anyMatch(value -> !Double.isFinite(value) || value < 0))
             throw new IllegalArgumentException("Invalid electrical equipment state");
+    }
+
+    public ShipPowerState(Map<String, Double> generatorMaterialsKg, String chemicalMixture, String reactorFuel,
+                          double batteryChargeKwh, boolean arraysDeployed, double arrayCondition, double orientationFraction,
+                          double unmetEssentialHours, double unmetDriveKwh, double unmetCargoKwh, double lastUnmetEssentialKwh,
+                          double chargedInputKwhToday, CargoPreservationState cargoPreservation, RescueStatus rescueStatus) {
+        this(generatorMaterialsKg, chemicalMixture, reactorFuel, batteryChargeKwh, arraysDeployed, arrayCondition,
+                orientationFraction, unmetEssentialHours, unmetDriveKwh, unmetCargoKwh, lastUnmetEssentialKwh,
+                chargedInputKwhToday, cargoPreservation, rescueStatus, Set.of());
     }
 
     public ShipPowerState(Map<String, Double> generatorMaterialsKg, String chemicalMixture,
@@ -46,13 +58,13 @@ public record ShipPowerState(Map<String, Double> generatorMaterialsKg, String ch
     public ShipPowerState withCargoPreservation(CargoPreservationState state) {
         return new ShipPowerState(generatorMaterialsKg, chemicalMixture, reactorFuel, batteryChargeKwh,
                 arraysDeployed, arrayCondition, orientationFraction, unmetEssentialHours,
-                unmetDriveKwh, unmetCargoKwh, lastUnmetEssentialKwh, chargedInputKwhToday, state, rescueStatus);
+                unmetDriveKwh, unmetCargoKwh, lastUnmetEssentialKwh, chargedInputKwhToday, state, rescueStatus, shedServices);
     }
 
     public ShipPowerState withRescueStatus(RescueStatus state) {
         return new ShipPowerState(generatorMaterialsKg, chemicalMixture, reactorFuel, batteryChargeKwh,
                 arraysDeployed, arrayCondition, orientationFraction, unmetEssentialHours,
-                unmetDriveKwh, unmetCargoKwh, lastUnmetEssentialKwh, chargedInputKwhToday, cargoPreservation, state);
+                unmetDriveKwh, unmetCargoKwh, lastUnmetEssentialKwh, chargedInputKwhToday, cargoPreservation, state, shedServices);
     }
 
     public static ShipPowerState empty() {
@@ -64,12 +76,12 @@ public record ShipPowerState(Map<String, Double> generatorMaterialsKg, String ch
     public ShipPowerState withChargeInputToday(double input) {
         return new ShipPowerState(generatorMaterialsKg, chemicalMixture, reactorFuel, batteryChargeKwh,
                 arraysDeployed, arrayCondition, orientationFraction, unmetEssentialHours,
-                unmetDriveKwh, unmetCargoKwh, lastUnmetEssentialKwh, input, cargoPreservation, rescueStatus);
+                unmetDriveKwh, unmetCargoKwh, lastUnmetEssentialKwh, input, cargoPreservation, rescueStatus, shedServices);
     }
 
     public ShipPowerState resetPassengerOutage() {
         return new ShipPowerState(generatorMaterialsKg, chemicalMixture, reactorFuel, batteryChargeKwh,
                 arraysDeployed, arrayCondition, orientationFraction, 0, unmetDriveKwh,
-                unmetCargoKwh, 0, chargedInputKwhToday, cargoPreservation, rescueStatus);
+                unmetCargoKwh, 0, chargedInputKwhToday, cargoPreservation, rescueStatus, shedServices);
     }
 }

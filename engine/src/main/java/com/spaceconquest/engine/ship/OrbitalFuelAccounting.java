@@ -21,6 +21,6 @@ final class OrbitalFuelAccounting {
         }
         return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(), ship.currentShieldHealth(),
                 Math.max(0, ship.currentFuelKg() - required), cargo, ship.passengerCount(), ship.passengerRaceId(),
-                ship.transitMode(), allocatedPower, ship.supplyState());
+                ship.transitMode(), allocatedPower, ship.supplyState(), ship.moduleDamage());
     }
 }
