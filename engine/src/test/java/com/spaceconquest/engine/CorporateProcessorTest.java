@@ -20,6 +20,15 @@ public class CorporateProcessorTest {
 
     private final CorporateInvestmentProcessor investmentProcessor = new CorporateInvestmentProcessor();
 
+    @Test void profitableLookingDemandWithoutBuyerFundsDoesNotFinanceANewFactory() {
+        var state = investmentState("AGRICULTURE", 30000, "food_matrix").toBuilder()
+                .marketAccounts(List.of(new com.spaceconquest.engine.economy.MarketAccount("hub_earth", 0))).build();
+        var result = investmentProcessor.processCorporateInvestments(state, Map.of());
+        assertEquals(state.corporations(), result.corporations());
+        assertTrue(result.industrialFacilities().isEmpty());
+        assertTrue(result.expansionProjects().isEmpty());
+    }
+
     @Test
     public void corporateInvestmentBuildsAFactoryOverFiveDays() {
         GameState state = investmentState("AGRICULTURE", 30_000.0, "food_matrix");
@@ -47,6 +56,19 @@ public class CorporateProcessorTest {
         assertTrue(current.expansionProjects().isEmpty());
         assertEquals(1, current.industrialFacilities().getFirst().tier());
         assertFalse(current.industrialFacilities().getFirst().isUndergoingExpansion());
+    }
+
+    @Test void corporateProductionInvestmentRequiresSparePowerOnAKnownGrid() {
+        var state = investmentState("AGRICULTURE", 30000, "food_matrix");
+        var full = state.toBuilder().powerGrids(List.of(new com.spaceconquest.engine.industry.PowerGridState("earth", 100, 100, 0, 0, 0, false))).build();
+        assertFalse(investmentProcessor.canInvest(full, "corp_test", "earth", "INFRASTRUCTURE", 8000));
+        var spare = state.toBuilder().powerGrids(List.of(new com.spaceconquest.engine.industry.PowerGridState("earth", 100, 0, 100, 0, 0, false))).build();
+        assertTrue(investmentProcessor.canInvest(spare, "corp_test", "earth", "INFRASTRUCTURE", 8000));
+        var idle = withApplicationResearch(spare, "biomass_processing").toBuilder()
+                .industrialFacilities(List.of(new com.spaceconquest.engine.industry.IndustrialFacility("idle", "earth", "biomass_processing", "corp_test",
+                        com.spaceconquest.engine.industry.IndustrialFacility.PRIVATE_CORPORATE, 1, 10, "industrial_worker", false, 0))).build();
+        assertFalse(investmentProcessor.canInvest(idle, "corp_test", "earth", "INFRASTRUCTURE", 8000),
+                "A material-starved existing process still reserves its installed electrical capacity");
     }
 
     @Test
@@ -100,7 +122,9 @@ public class CorporateProcessorTest {
                 CorporateInvestmentProcessor.SHIP_PROCUREMENT_COST);
         var design = invested.shipDesigns().getFirst();
         assertEquals(57_500.0, design.maxCargoMassKg(), 0.001);
-        assertEquals(345_000.0, design.minLaunchThrustRequiredN(), 0.001);
+        assertNotNull(design.hullFrame()); assertNotNull(design.assembly());
+        assertEquals((design.totalDryMassKg() + design.maxCargoMassKg() + design.fuelCapacityKg()) * 2,
+                design.minLaunchThrustRequiredN(), 0.001);
         assertEquals(850_000.0, design.totalThrustN());
         assertEquals(1.0 + 2_000.0 / design.totalDryMassKg() * 0.20, design.manufacturingProfile().costMultiplier(), 0.000001);
         assertEquals(ShipConstructionRequirements.estimate(design).workUnits(),
@@ -122,7 +146,7 @@ public class CorporateProcessorTest {
     }
 
     @Test
-    public void subsequentCorporateOrdersKeepTheExistingBlueprintQuoteAfterPathChanges() {
+    public void subsequentCorporateOrdersCaptureNewResearchAndPreserveExistingBlueprintQuotes() {
         var research = new ResearchProcessor();
         GameState selected = fissionInvestmentState().toBuilder().applicationOptimizations(List.of(
                 new ApplicationOptimization("terran", "fission_engines", "PATH_A",
@@ -138,19 +162,24 @@ public class CorporateProcessorTest {
                         research.evaluateOptimizationPath("PATH_B", 1.0)))).build();
         GameState reordered = investmentProcessor.invest(switched, "corp_test", "earth", "FLEET",
                 CorporateInvestmentProcessor.SHIP_PROCUREMENT_COST);
-        assertEquals(List.of(design), reordered.shipDesigns());
-        assertEquals(firstOrder.requiredWorkHours(), reordered.shipConstructionOrders().getFirst().requiredWorkHours());
-        assertEquals(firstOrder.requiredMaterialsKg(), reordered.shipConstructionOrders().getFirst().requiredMaterialsKg());
+        assertEquals(2, reordered.shipDesigns().size()); assertEquals(design, reordered.shipDesigns().getFirst());
+        var current = reordered.shipDesigns().getLast(); var quote = ShipConstructionRequirements.estimate(current);
+        assertEquals(current.id(), reordered.shipConstructionOrders().getFirst().designId());
+        assertEquals(quote.workUnits(), reordered.shipConstructionOrders().getFirst().requiredWorkHours());
+        assertEquals(quote.materialsKg(), reordered.shipConstructionOrders().getFirst().requiredMaterialsKg());
+        assertNotEquals(firstOrder.requiredWorkHours(), quote.workUnits());
     }
 
     @Test
-    public void corporateProcurementRejectsAnExistingBlueprintWithAnUnresearchedDrive() {
+    public void corporateProcurementUsesAResearchedDriveWithoutChangingTheUnresearchedBlueprint() {
         GameState fission = investmentProcessor.invest(fissionInvestmentState(), "corp_test", "earth", "FLEET",
                 CorporateInvestmentProcessor.SHIP_PROCUREMENT_COST);
         GameState unresearched = investmentState("TRANSPORT", 30_000.0, "food_matrix")
                 .withShipDesigns(fission.shipDesigns());
-        assertSame(unresearched, investmentProcessor.invest(unresearched, "corp_test", "earth", "FLEET",
-                CorporateInvestmentProcessor.SHIP_PROCUREMENT_COST));
+        var invested = investmentProcessor.invest(unresearched, "corp_test", "earth", "FLEET", CorporateInvestmentProcessor.SHIP_PROCUREMENT_COST);
+        assertEquals(fission.shipDesigns().getFirst(), invested.shipDesigns().getFirst());
+        assertTrue(invested.shipDesigns().getLast().equippedModuleIds().contains("mod_chemical_rocket"));
+        assertTrue(PropulsionCatalog.researched(invested.shipDesigns().getLast().equippedModuleIds(), unresearched.empires().getFirst().unlockedTechIds()));
     }
 
     @Test
@@ -196,6 +225,10 @@ public class CorporateProcessorTest {
         SolarSystem system = new SolarSystem("sol", "Sol", "", 0, 0, 0, 1, 1,
                 "yellow", List.of(dry), List.of());
         GameState state = wet.toBuilder().solarSystems(List.of(system)).build();
+        var hub = state.commercialHubs().getFirst(); var orders = new java.util.HashMap<>(hub.activeOrders());
+        orders.put("water_ice", new MarketOrder("water_ice", 2000, 0, .1, 0));
+        state = state.withCommercialHubs(List.of(new CommercialHub(hub.id(), hub.entityId(), hub.transactionTariffRate(),
+                hub.storageCapacityKg(), hub.currentStoredWeightKg() + 2000, hub.logisticsRangeUnits(), orders)));
 
         GameState invested = investmentProcessor.invest(state, "corp_test", "earth",
                 "INFRASTRUCTURE", CorporateInvestmentProcessor.INFRASTRUCTURE_COST);
@@ -225,9 +258,9 @@ public class CorporateProcessorTest {
                 orientation, cash, List.of(), List.of(), List.of());
         Empire empire = new Empire("terran", "Terran", "human", "Individualist", 1000.0,
                 0.15, List.of("sol"), List.of(), Map.of(),
-                List.of("industrial_production", "rocketry", "computers"), List.of());
-        Planet earth = new Planet("earth", "Earth", "", 1, 1, 1, 0, 1,
-                "terrestrial", "breathable", true, 1, List.of(), List.of(), List.of());
+                List.of("industrial_production", "industrial_soil_cultivation", "surface_water_treatment", "ice_water_treatment", "rocketry", "computers"), List.of());
+        Planet earth = new Planet("earth", "Earth", "", 1, 1, 1, 0, 12742,
+                "terrestrial", "nitrogen_oxygen", true, .7, List.of(), List.of(), List.of());
         SolarSystem sol = new SolarSystem("sol", "Sol", "", 0, 0, 0, 1, 1,
                 "yellow", List.of(earth), List.of());
         Map<String, MarketOrder> orders = new java.util.HashMap<>();
@@ -238,7 +271,8 @@ public class CorporateProcessorTest {
         CommercialHub hub = new CommercialHub("hub_earth", "earth", 0.05, 100_000.0,
                 8_005.0, 10.0, Map.copyOf(orders));
         return GameState.builder().corporations(List.of(corporation)).empires(List.of(empire))
-                .solarSystems(List.of(sol)).commercialHubs(List.of(hub)).build();
+                .solarSystems(List.of(sol)).commercialHubs(List.of(hub))
+                .marketAccounts(List.of(new com.spaceconquest.engine.economy.MarketAccount(hub.id(), 1e6))).build();
     }
 
 }

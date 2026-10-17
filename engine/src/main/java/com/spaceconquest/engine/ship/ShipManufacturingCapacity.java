@@ -1,29 +1,20 @@
 package com.spaceconquest.engine.ship;
 
-import com.spaceconquest.engine.DataModelLoader;
 import com.spaceconquest.engine.GameState;
 import com.spaceconquest.engine.habitation.PassengerStasis;
 import com.spaceconquest.engine.industry.ConstructionMaterials;
 import com.spaceconquest.engine.macrostructure.StationModule;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 
-/** Provisional, catalog-configured complexity limits for operational shipyards. */
+/** Manufacturing capability from yard technological applications. */
 public final class ShipManufacturingCapacity {
-    public record YardLimit(String yardType, int baseComplexity, int complexityPerTier) {}
 
     private ShipManufacturingCapacity() {}
 
-    private static int limit(String type, int tier) {
-        try {
-            return DataModelLoader.loadShipyardManufacturingLimits().stream()
-                    .filter(rule -> type.equals(rule.yardType()))
-                    .mapToInt(rule -> rule.baseComplexity() + Math.max(0, tier - 1) * rule.complexityPerTier())
-                    .max().orElse(0);
-        } catch (IOException e) {
-            throw new UncheckedIOException("Cannot load shipyard manufacturing limits", e);
-        }
+    public static int limit(String type, int tier) {
+        var capability = ShipyardTechnology.yard(type);
+        if (capability == null || tier < 1) return 0;
+        return Math.toIntExact((long) capability.baseComplexity() + Math.max(0L, (long) tier - 1) * capability.complexityPerTier());
     }
 
     public static int forYard(GameState state, String ownerId, String systemId, String yardId) {
@@ -39,23 +30,24 @@ public final class ShipManufacturingCapacity {
         if (!systemId.equals(ConstructionMaterials.systemForBody(state, yardId))) return 0;
         return state.industrialFacilities().stream().filter(facility -> yardId.equals(facility.planetId())
                 && ownerId.equals(facility.ownerEntityId()) && facility.tier() > 0
-                && ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID.equals(facility.applicationId()))
+                && com.spaceconquest.engine.ship.ShipyardTechnology.isSurface(facility.applicationId()))
                 .mapToInt(facility -> limit(facility.applicationId(), facility.tier())).max().orElse(0);
     }
 
     /** A blueprint can be planned at the basic surface limit before its first yard is built. */
     public static int forOwner(GameState state, String ownerId) {
-        int capacity = limit(ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID, 1);
+        int capacity = ShipyardTechnology.allYards().values().stream().filter(ShipyardTechnology.Yard::surface)
+                .mapToInt(ShipyardTechnology.Yard::baseComplexity).min().orElse(0);
         if (state == null) return capacity;
         for (var station : state.orbitalStations()) {
-            if (!ownerId.equals(station.ownerEntityId()) || !station.isOperational()) continue;
+            if ((!ownerId.equals(station.ownerEntityId()) && !ShipyardAccess.permitted(state, ownerId, station.ownerEntityId(), station.systemId())) || !station.isOperational()) continue;
             for (StationModule module : station.modules()) {
                 if (module.isOnline()) capacity = Math.max(capacity, limit(module.type(), 1));
             }
         }
         for (var facility : state.industrialFacilities()) {
-            if (ownerId.equals(facility.ownerEntityId()) && facility.tier() > 0
-                    && ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID.equals(facility.applicationId()))
+            if ((ownerId.equals(facility.ownerEntityId()) || ShipyardAccess.permitted(state, ownerId, facility.ownerEntityId(), ConstructionMaterials.systemForBody(state, facility.planetId()))) && facility.tier() > 0
+                    && com.spaceconquest.engine.ship.ShipyardTechnology.isSurface(facility.applicationId()))
                 capacity = Math.max(capacity, limit(facility.applicationId(), facility.tier()));
         }
         return capacity;

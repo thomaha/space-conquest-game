@@ -22,7 +22,7 @@ public final class BaseRepairProcessor {
                 var priority = ShipRepairPriority.context(current, fleet);
                 for (int s = 0; s < ships.size() && remaining > 1e-9; s++) {
                     var ship = ships.get(s);
-                    if (!fleet.ownerEntityId().equals(ship.ownerEntityId()) || ship.currentHullHealth() <= 0) continue;
+                    if (ShipRefitPlan.reserved(current, ship.id()) || !fleet.ownerEntityId().equals(ship.ownerEntityId()) || ship.currentHullHealth() <= 0) continue;
                     var repair = repair(current, station.id(), ship, remaining, priority);
                     current = repair.state(); remaining -= repair.used(); ships.set(s, repair.ship());
                 }
@@ -39,7 +39,7 @@ public final class BaseRepairProcessor {
         var damage = ship.moduleDamage();
         for (int mount : ShipRepairPriority.mounts(priority, design, ship)) {
             if (remaining <= 1e-9) break;
-            var module = ShipModuleDamage.damageableModule(design.equippedModuleIds().get(mount));
+            var module = ShipModuleDamage.damageableModule(design, design.equippedModuleIds().get(mount));
             if (module == null || module.materialCostsKg().isEmpty()) continue;
             var perPoint = new HashMap<String, Double>();
             module.materialCostsKg().forEach((id, kg) -> perPoint.put(id, kg / ShipModuleDamage.DURABILITY));

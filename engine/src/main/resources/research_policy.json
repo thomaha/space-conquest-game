@@ -1,0 +1,15 @@
+{
+  "foundationalPointsPerComplexity": 1000,
+  "applicationPoints": 500,
+  "refinementPoints": 500,
+  "exchangeProgressFraction": 0.4,
+  "exchangeSpeedBonus": 0.5,
+  "outcomes": [
+    {"weight": 0.05, "result": {"outcomeType": "CRITICAL_BREAKTHROUGH", "effectMultiplier": 1.2, "costMultiplier": 0.85, "complexityShift": 0}},
+    {"weight": 0.45, "result": {"outcomeType": "OPTIMIZED_SUCCESS", "effectMultiplier": 1, "costMultiplier": 1, "complexityShift": 0}},
+    {"weight": 0.4, "result": {"outcomeType": "INCREMENTAL_GAIN", "effectMultiplier": 1.1, "costMultiplier": 1.05, "complexityShift": 1}},
+    {"weight": 0.1, "result": {"outcomeType": "FLAWED_SETBACK", "effectMultiplier": 1.05, "costMultiplier": 1.25, "complexityShift": 2}}
+  ],
+  "performance": {"outcomeType": "OPTIMIZED_SUCCESS", "effectMultiplier": 1.15, "costMultiplier": 1.2, "complexityShift": 1},
+  "miniaturization": {"outcomeType": "OPTIMIZED_SUCCESS", "effectMultiplier": 1, "costMultiplier": 0.85, "complexityShift": -1}
+}

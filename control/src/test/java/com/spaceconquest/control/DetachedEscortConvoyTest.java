@@ -29,7 +29,10 @@ class DetachedEscortConvoyTest {
         assertNull(convoy.escortOrder()); assertFalse(MovingFleetEscape.together(initial, convoy, escort));
         assertEquals(List.of("convoy"), FleetThreatAssessment.assess(initial, convoy).friendlyFleetIds());
         var state = FleetProtectionProcessor.advance(initial, List.of()); var escaped = find(state, "convoy");
-        assertTrue(escaped.location().inTransit()); assertNull(escaped.escortOrder()); assertNull(escaped.interceptOrder());
+        assertTrue(escaped.location().inTransit()); assertNull(escaped.escortOrder());
+        assertEquals(escaped.id(), escaped.interceptOrder().targetFleetId());
+        assertEquals(FleetProtectionAssignment.Stage.RETURNING, escaped.interceptOrder().protection().stage());
+        assertTrue(escaped.interceptOrder().protection().escaped());
         assertEquals(convoy.ships().stream().map(ShipInstance::id).toList(), escaped.ships().stream().map(ShipInstance::id).toList());
         assertEquals("convoy", find(state, "hunter").interceptOrder().protection().convoyFleetId());
         assertEquals(state.fleets(), reload(state).fleets());
@@ -60,7 +63,7 @@ class DetachedEscortConvoyTest {
     }
     @Test void movingConvoyEscapesAndReturningEscortRejoinsActualRefugeAfterPeace() throws Exception {
         var initial = world(); var convoy = find(initial, "convoy");
-        var coast = find(new BodyFleetRendezvousTest().world("earth", false), "target").location();
+        var coast = find(new BodyFleetRendezvousTest().world("earth", false, -.005), "target").location();
         initial = replace(initial, convoy.withLocation(coast));
         var state = FleetProtectionProcessor.advance(initial, List.of()); var escaped = find(state, "convoy");
         assertNotEquals(coast.localFlight().vectorFlight().trajectory(), escaped.location().localFlight().vectorFlight().trajectory());

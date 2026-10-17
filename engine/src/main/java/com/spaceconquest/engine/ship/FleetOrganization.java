@@ -101,6 +101,7 @@ public final class FleetOrganization {
     private static String fleetProblem(GameState state, String owner, Fleet fleet) {
         if (state == null || owner == null || fleet == null || !owner.equals(fleet.ownerEntityId()) || fleet.ships().isEmpty())
             return "Choose a nonempty fleet owned by you.";
+        if (ShipRefitPlan.reserved(state, fleet)) return "Finish the ship refit before changing this fleet.";
         if (state.fleets().stream().filter(item -> item.id().equals(fleet.id())).count() != 1
                 || fleet.ships().stream().anyMatch(ship -> !owner.equals(ship.ownerEntityId())
                 || state.fleets().stream().flatMap(item -> item.ships().stream()).filter(item -> item.id().equals(ship.id())).count() != 1))

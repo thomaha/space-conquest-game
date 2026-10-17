@@ -16,6 +16,7 @@ public record NationalizeAssetCommand(String empireId, String corporationId, Str
     @Override
     public boolean validate(GameState state) {
         if (state == null || empireId == null || corporationId == null || assetId == null) return false;
+        if (com.spaceconquest.engine.ship.ShipRefitPlan.reserved(state, assetId)) return false;
         Corporation corp = state.corporations().stream()
                 .filter(item -> corporationId.equals(item.id()) && empireId.equals(item.empireId()))
                 .findFirst().orElse(null);
@@ -52,7 +53,7 @@ public record NationalizeAssetCommand(String empireId, String corporationId, Str
             facilities.add(assetId.equals(facility.id())
                     ? new IndustrialFacility(facility.id(), facility.planetId(), facility.applicationId(),
                     empireId, IndustrialFacility.PUBLIC_STATE, facility.tier(), facility.allocatedWorkers(),
-                    facility.workerProfessionId(), facility.isUndergoingExpansion(), facility.expansionProgress())
+                    facility.workerProfessionId(), facility.isUndergoingExpansion(), facility.expansionProgress(), facility.productionEquipment())
                     : facility);
         }
         List<Fleet> fleets = new ArrayList<>();

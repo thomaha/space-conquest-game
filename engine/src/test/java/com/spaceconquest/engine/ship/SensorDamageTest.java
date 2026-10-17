@@ -14,7 +14,7 @@ class SensorDamageTest {
                 1000, 1000, 1000, 100, 10, 0, 1000, false, false, ShipManufacturingProfile.baseline(), null, sensors);
     }
     private ShipInstance ship(String id, ShipDesign design, Map<Integer, Double> damage) {
-        return new ShipInstance(id, design.id(), "owner", 1000, 0, 100, Map.of()).withModuleDamage(new ShipModuleDamage(damage));
+        return new ShipInstance(id, design.id(), "owner", 1000, 0, 100, Map.of("cannon_round", 1000.0)).withModuleDamage(new ShipModuleDamage(damage));
     }
     private Fleet fleet(String id, String owner, ShipInstance ship) {
         return new Fleet(id, id, owner, "sol", "", 0, 0, 0, false, "PASSIVE", List.of(ship));

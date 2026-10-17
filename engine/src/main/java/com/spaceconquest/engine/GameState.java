@@ -89,9 +89,20 @@ public record GameState(
         List<WarDeclarationRecord> warDeclarations,
         List<DiplomaticProposal> diplomaticProposals,
         List<FleetEngagementRecord> fleetEngagements,
-        List<ApplicationOptimization> applicationOptimizations
+        List<ApplicationOptimization> applicationOptimizations,
+        com.spaceconquest.engine.combat.AuxiliaryForces auxiliaryForces,
+        List<com.spaceconquest.engine.ship.FleetServiceEvent> fleetServiceEvents,
+        List<com.spaceconquest.engine.technology.ResearchEvent> researchHistory,
+        com.spaceconquest.engine.ship.ShipyardLedger shipyardLedger,
+        com.spaceconquest.engine.ship.ShipMiningState shipMiningState,
+        com.spaceconquest.engine.economy.BusinessLedger businessLedger,
+        List<com.spaceconquest.engine.logistics.SupplyDevelopmentPlan> supplyDevelopmentPlans,
+        List<com.spaceconquest.engine.industry.SurveyTeam> surveyTeams
 ) {
     public GameState {
+        supplyDevelopmentPlans = immutableList(supplyDevelopmentPlans);
+        surveyTeams = immutableList(surveyTeams);
+        if (businessLedger == null) businessLedger = com.spaceconquest.engine.economy.BusinessLedger.empty();
         solarSystems = immutableList(solarSystems);
         empires = immutableList(empires);
         corporations = immutableList(corporations);
@@ -133,6 +144,11 @@ public record GameState(
         diplomaticProposals = immutableList(diplomaticProposals);
         fleetEngagements = immutableList(fleetEngagements);
         applicationOptimizations = immutableList(applicationOptimizations);
+        fleetServiceEvents = immutableList(fleetServiceEvents);
+        researchHistory = immutableList(researchHistory);
+        if (shipyardLedger == null) shipyardLedger = com.spaceconquest.engine.ship.ShipyardLedger.empty();
+        if (shipMiningState == null) shipMiningState = com.spaceconquest.engine.ship.ShipMiningState.empty();
+        if (auxiliaryForces == null) auxiliaryForces = com.spaceconquest.engine.combat.AuxiliaryForces.empty();
     }
 
     private static <T> List<T> immutableList(List<T> values) {
@@ -161,7 +177,7 @@ public record GameState(
                 builder.householdAccounts, builder.marketAccounts, builder.industryAccounts,
                 builder.corporateTaxAccounts, builder.launchUsageKg, builder.launchActivities,
                 builder.warDeclarations, builder.diplomaticProposals, builder.fleetEngagements,
-                builder.applicationOptimizations
+                builder.applicationOptimizations, builder.auxiliaryForces, builder.fleetServiceEvents, builder.researchHistory, builder.shipyardLedger, builder.shipMiningState, builder.businessLedger, builder.supplyDevelopmentPlans, builder.surveyTeams
         );
     }
 
@@ -218,6 +234,14 @@ public record GameState(
         private List<DiplomaticProposal> diplomaticProposals;
         private List<FleetEngagementRecord> fleetEngagements;
         private List<ApplicationOptimization> applicationOptimizations;
+        private com.spaceconquest.engine.combat.AuxiliaryForces auxiliaryForces;
+        private List<com.spaceconquest.engine.ship.FleetServiceEvent> fleetServiceEvents;
+        private List<com.spaceconquest.engine.technology.ResearchEvent> researchHistory;
+        private com.spaceconquest.engine.ship.ShipyardLedger shipyardLedger;
+        private com.spaceconquest.engine.economy.BusinessLedger businessLedger;
+        private List<com.spaceconquest.engine.logistics.SupplyDevelopmentPlan> supplyDevelopmentPlans;
+        private List<com.spaceconquest.engine.industry.SurveyTeam> surveyTeams;
+        private com.spaceconquest.engine.ship.ShipMiningState shipMiningState;
 
         public Builder() {}
 
@@ -266,6 +290,14 @@ public record GameState(
             this.diplomaticProposals = state.diplomaticProposals();
             this.fleetEngagements = state.fleetEngagements();
             this.applicationOptimizations = state.applicationOptimizations();
+            this.auxiliaryForces = state.auxiliaryForces();
+            this.fleetServiceEvents = state.fleetServiceEvents();
+            this.researchHistory = state.researchHistory();
+            this.shipyardLedger = state.shipyardLedger();
+            this.businessLedger = state.businessLedger();
+            this.supplyDevelopmentPlans = state.supplyDevelopmentPlans();
+            this.surveyTeams = state.surveyTeams();
+            this.shipMiningState = state.shipMiningState();
         }
 
         public Builder turn(long value) { this.turn = value; return this; }
@@ -312,7 +344,15 @@ public record GameState(
         public Builder diplomaticProposals(List<DiplomaticProposal> value) { this.diplomaticProposals = value; return this; }
         public Builder fleetEngagements(List<FleetEngagementRecord> value) { this.fleetEngagements = value; return this; }
         public Builder applicationOptimizations(List<ApplicationOptimization> value) { this.applicationOptimizations = value; return this; }
+        public Builder auxiliaryForces(com.spaceconquest.engine.combat.AuxiliaryForces value) { this.auxiliaryForces = value; return this; }
+        public Builder fleetServiceEvents(List<com.spaceconquest.engine.ship.FleetServiceEvent> value) { this.fleetServiceEvents = value; return this; }
+        public Builder researchHistory(List<com.spaceconquest.engine.technology.ResearchEvent> value) { this.researchHistory = value; return this; }
 
+        public Builder shipMiningState(com.spaceconquest.engine.ship.ShipMiningState value) { this.shipMiningState = value; return this; }
+        public Builder shipyardLedger(com.spaceconquest.engine.ship.ShipyardLedger value) { this.shipyardLedger = value; return this; }
+        public Builder surveyTeams(List<com.spaceconquest.engine.industry.SurveyTeam> value) { this.surveyTeams = value; return this; }
+        public Builder supplyDevelopmentPlans(List<com.spaceconquest.engine.logistics.SupplyDevelopmentPlan> value) { this.supplyDevelopmentPlans = value; return this; }
+        public Builder businessLedger(com.spaceconquest.engine.economy.BusinessLedger value) { this.businessLedger = value; return this; }
         public GameState build() {
             return new GameState(this);
         }

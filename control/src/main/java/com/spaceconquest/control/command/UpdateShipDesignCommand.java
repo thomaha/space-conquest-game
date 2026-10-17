@@ -18,6 +18,7 @@ public record UpdateShipDesignCommand(ShipDesignSpecification specification) imp
 
     private boolean editable(GameState state) {
         return state != null && specification != null
+                && state.empires().stream().anyMatch(empire -> empire.id().equals(specification.ownerEntityId()))
                 && state.fleets().stream().flatMap(fleet -> fleet.ships().stream())
                         .noneMatch(ship -> specification.id().equals(ship.designId()))
                 && state.shipConstructionOrders().stream().noneMatch(order -> specification.id().equals(order.designId()))

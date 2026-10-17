@@ -20,12 +20,15 @@ class BodyFleetRendezvousTest {
         return state.withFleets(state.fleets().stream().map(fleet -> fleet.id().equals(changed.id()) ? changed : fleet).toList());
     }
     GameState world(String id, boolean nativeCoast) throws Exception {
+        return world(id, nativeCoast, -.05);
+    }
+    GameState world(String id, boolean nativeCoast, double angle) throws Exception {
         var state = new OrbitalRendezvousTest().world(); var body = OrbitalBody.find(state, "sol", id);
         var system = state.solarSystems().getFirst();
         double mu = PlanetaryTransferComparison.GRAVITATIONAL_CONSTANT * body.mass();
         var gravity = new TwoBodyFlight.Gravity(mu, body.diameter() * 500, body.frame(), body.sphereKm(system) * 1000);
         var station = StationRendezvous.at(body, 500, state.turn());
-        var p = rotate(station.position(), -.05); var v = rotate(station.velocity(), -.05);
+        var p = rotate(station.position(), angle); var v = rotate(station.velocity(), angle);
         var tiny = new LocalSiteGeometry.Point(1e-30, 0, 0);
         var vector = new VectorFlight(new VectorFlight.Trajectory(p, v, tiny, tiny, 1, 0, gravity), p, v, 2);
         var geometry = new LocalSiteGeometry.Leg(p, add(p, v), norm(v));

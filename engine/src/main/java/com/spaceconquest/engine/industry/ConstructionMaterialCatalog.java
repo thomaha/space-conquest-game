@@ -12,6 +12,16 @@ import java.util.Map;
 public final class ConstructionMaterialCatalog {
     private ConstructionMaterialCatalog() {}
 
+    public static int installedLines(IndustrialFacility facility) {
+        return facility == null || facility.productionEquipment() == null ? 1 : facility.productionEquipment().parallelLines();
+    }
+    public static Map<String, Double> facility(GameState state, IndustrialFacility facility, int addedTiers) {
+        var bill = new LinkedHashMap<String, Double>();
+        facility(state, facility.ownerEntityId(), facility.applicationId(), addedTiers)
+                .forEach((id, kg) -> bill.put(id, kg * installedLines(facility)));
+        return Map.copyOf(bill);
+    }
+
     public static Map<String, Double> facility(GameState state, String ownerId, String applicationId, int tier) {
         double multiplier = ApplicationProduction.modifiersForOwner(state, ownerId, applicationId).costMultiplier();
         Map<String, Double> bill = new LinkedHashMap<>();
@@ -22,17 +32,54 @@ public final class ConstructionMaterialCatalog {
     public static Map<String, Double> facility(String applicationId, int tier) {
         double scale = Math.max(1, tier);
         Map<String, Double> bill = new LinkedHashMap<>();
-        bill.put("refined_iron", 500.0 * scale);
-        bill.put("refined_aluminum", 150.0 * scale);
-        bill.put("refined_copper", 50.0 * scale);
-        bill.put("silicon", 10.0 * scale);
+        var yard = com.spaceconquest.engine.ship.ShipyardTechnology.yard(applicationId);
+        var factory = FactoryDefinition.find(applicationId);
+        if (factory != null) {
+            factory.constructionMaterialsKg().forEach((material, kg) -> bill.put(material, kg * scale));
+            return Map.copyOf(bill);
+        }
+        if (yard != null) {
+            yard.materialsKg().forEach((material, kg) -> bill.put(material, kg * scale));
+            return Map.copyOf(bill);
+        }
+        var plant = PowerPlantCatalog.find(applicationId);
+        if (plant != null) {
+            plant.constructionMaterialsKg().forEach((material, kg) -> bill.put(material, kg * scale));
+            return Map.copyOf(bill);
+        }
+        var service = com.spaceconquest.engine.logistics.InfrastructureService.find(applicationId);
+        if (service == null) throw new IllegalArgumentException("No construction definition: " + applicationId);
+        service.capability().infrastructure().constructionMaterialsKg()
+                .forEach((material, kg) -> bill.put(material, kg * scale));
         return Map.copyOf(bill);
+    }
+
+    public static double facilityWork(String applicationId, int tiers, boolean expansion) {
+        var factory = FactoryDefinition.find(applicationId);
+        if (factory != null) return (expansion ? factory.expansionWorkPerTier() : factory.constructionWorkPerTier()) * tiers;
+        var plant = PowerPlantCatalog.find(applicationId);
+        if (plant != null) return (expansion ? plant.expansionWorkHoursPerTier() : plant.constructionWorkHoursPerTier()) * tiers;
+        var yard = com.spaceconquest.engine.ship.ShipyardTechnology.yard(applicationId);
+        if (yard != null) return yard.constructionWork() * tiers;
+        var service = com.spaceconquest.engine.logistics.InfrastructureService.find(applicationId);
+        if (service == null) throw new IllegalArgumentException("No construction definition: " + applicationId);
+        return (expansion ? service.capability().infrastructure().expansionWorkPerTier()
+                : service.capability().infrastructure().constructionWorkPerTier()) * tiers;
     }
 
     public static Map<String, Double> ship(ShipDesign design) {
         if (design == null) return Map.of();
-        return ship(design.totalDryMassKg(), design.hullMaterialId(),
-                design.armorMaterialId(), design.equippedModuleIds());
+        var bill = new LinkedHashMap<>(ship(design.totalDryMassKg(), design.hullMaterialId(),
+                design.armorMaterialId(), design.equippedModuleIds()));
+        for (String id : design.equippedModuleIds()) {
+            var baseline = com.spaceconquest.engine.ship.CombatModuleCatalog.module(id);
+            var installed = com.spaceconquest.engine.ship.CombatModuleCatalog.module(design, id);
+            if (baseline == null) continue;
+            baseline.materialCostsKg().forEach((material, kg) -> bill.merge(material, -kg, Double::sum));
+            if (installed != null) installed.materialCostsKg().forEach((material, kg) -> bill.merge(material, kg, Double::sum));
+        }
+        bill.values().removeIf(kg -> kg <= 0);
+        return Map.copyOf(bill);
     }
 
     public static Map<String, Double> ship(double dryMassKg, String hullMaterialId,
@@ -66,8 +113,8 @@ public final class ConstructionMaterialCatalog {
     }
 
     public static Map<String, Double> spaceElevator() {
-        return Map.of("refined_iron", 50_000.0, "refined_aluminum", 20_000.0,
-                "refined_copper", 5_000.0);
+        return com.spaceconquest.engine.logistics.InfrastructureService.find("SPACE_ELEVATOR")
+                .capability().infrastructure().constructionMaterialsKg();
     }
 
     public static Map<String, Double> stationModule(double dryMassKg) {

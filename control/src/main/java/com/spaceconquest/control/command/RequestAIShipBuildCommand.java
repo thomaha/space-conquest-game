@@ -14,17 +14,21 @@ public record RequestAIShipBuildCommand(String ownerEntityId, String designId, S
                 && ownerEntityId.equals(item.ownerEntityId())).findFirst().orElse(null);
         if (empire == null || design == null || !EmpireFleetPlanner.needsShip(state, empire, design)
                 || state.shipConstructionOrders().stream().anyMatch(order -> ownerEntityId.equals(order.ownerEntityId()))) return false;
-        var build = new QueueShipBuildCommand(ownerEntityId, designId, systemId);
-        if (!build.validate(state)) return false;
-        String yard = build.resolveYardEntity(state);
-        var bill = ShipConstructionRequirements.estimate(design).materialsKg();
-        var purchase = state.orbitalStations().stream().anyMatch(station -> yard.equals(station.id()))
-                ? ConstructionMaterials.buyOrbitalUpTo(state, systemId, yard, ownerEntityId, bill, Double.MAX_VALUE)
-                : ConstructionMaterials.buyUpTo(state, yard, ownerEntityId, bill);
+        var current = AIShipResearchRevision.current(state, design); var preview = AIShipResearchRevision.register(state, current);
+        var build = new QueueShipBuildCommand(ownerEntityId, current.id(), systemId);
+        if (!build.validate(preview)) return false;
+        String yard = build.resolveYardEntity(preview);
+        var bill = ShipConstructionRequirements.estimate(current).materialsKg();
+        var purchase = preview.orbitalStations().stream().anyMatch(station -> yard.equals(station.id()))
+                ? ConstructionMaterials.buyOrbitalUpTo(preview, systemId, yard, ownerEntityId, bill, Double.MAX_VALUE)
+                : ConstructionMaterials.buyUpTo(preview, yard, ownerEntityId, bill);
         return purchase.covers(bill);
     }
 
     @Override public GameState apply(GameState state) {
-        return validate(state) ? new QueueShipBuildCommand(ownerEntityId, designId, systemId).apply(state) : state;
+        if (!validate(state)) return state;
+        var source = state.shipDesigns().stream().filter(design -> designId.equals(design.id()) && ownerEntityId.equals(design.ownerEntityId())).findFirst().orElseThrow();
+        var current = AIShipResearchRevision.current(state, source); var registered = AIShipResearchRevision.register(state, current);
+        return com.spaceconquest.control.ai.AIShipDeploymentIntent.capture(new QueueShipBuildCommand(ownerEntityId, current.id(), systemId).apply(registered), ownerEntityId);
     }
 }

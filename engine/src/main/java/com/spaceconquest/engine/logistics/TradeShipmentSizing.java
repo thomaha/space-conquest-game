@@ -93,10 +93,7 @@ final class TradeShipmentSizing {
         if (shipment == null || shipment.preparedFleet() == null) return null;
         var quote = RoamingTradeCost.quote(state, shipment.preparedFleet(), source, target);
         if (quote == null) return null;
-        double tax = state.empires().stream().anyMatch(empire -> empire.controlledSystemIds()
-                .contains(FleetPositioning.systemForHub(state, target))) ? Math.clamp(target.transactionTariffRate(), 0, 1) : 0;
-        double profit = shipment.route().onboardKg() * (bid * (1 - tax) - seller.pricePerKg())
-                - quote.fuelCredits() - quote.launchCredits();
+        double profit = TradeOperatingProfit.estimate(shipment, source, target);
         return Double.isFinite(profit) ? new Selection(shipment, profit, quote.days()) : null;
     }
 }

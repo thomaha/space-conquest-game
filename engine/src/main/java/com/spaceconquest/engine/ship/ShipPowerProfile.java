@@ -64,7 +64,7 @@ public record ShipPowerProfile(double solarKw, double chemicalKw, double fission
             efficiency = module.operationalStats().getOrDefault("thrusterEfficiency", efficiency);
             if (PropulsionCatalog.drive(module.id()) != null) drive += module.powerDrawKw();
             else if (module.operationalStats().containsKey("cargoCapacityKg")) cargo += module.powerDrawKw();
-            else if (!"cryogenic_stasis_pod".equals(module.id())) hotel += module.powerDrawKw();
+            else if (!"cryogenic_stasis_pod".equals(module.id()) && !module.operationalStats().containsKey("miningRateKgPerTurn")) hotel += module.powerDrawKw();
         }
         return new ShipPowerProfile(solar, chemical, fission, capacity, charge, discharge,
                 tank, reactorTank, hotel, drive, cargo, efficiency, Map.of(

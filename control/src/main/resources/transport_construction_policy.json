@@ -1,0 +1,10 @@
+{
+  "observationTurns": 4,
+  "maximumCarriersPerEmpire": 4,
+  "maximumBuildPreviews": 8,
+  "maximumBuildCostCredits": 500000,
+  "empireReserveCredits": 10000,
+  "corporateReserveCredits": 10000,
+  "minimumOperatingProfitCredits": 1,
+  "maximumPaybackShipments": 20
+}

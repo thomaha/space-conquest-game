@@ -18,7 +18,7 @@ public final class ShipConstructionProcessor {
     }
 
     public GameState process(GameState state, Map<String, Integer> paidWorkersByFacility) {
-        GameState current = state;
+        GameState current = state.toBuilder().shipyardLedger(state.shipyardLedger().payroll(state)).build();
         List<ShipConstructionOrder> remaining = new ArrayList<>();
         List<ShipConstructionOrder> completed = new ArrayList<>();
         List<Fleet> fleets = new ArrayList<>(state.fleets());
@@ -30,11 +30,22 @@ public final class ShipConstructionProcessor {
                             && order.ownerEntityId().equals(item.ownerEntityId()))
                     .findFirst().orElse(null);
             if (design == null) {
+                current = ShipyardAccounting.record(current, order, 0, 0, false, "Blueprint unavailable");
                 remaining.add(order);
                 continue;
             }
-            if (ShipManufacturingCapacity.forYard(current, order.ownerEntityId(), order.systemId(), order.yardBodyId())
+            String provider = ShipyardAccess.provider(order);
+            String refitProblem = order.retirement() != null ? order.retirement().problem(current, order, design)
+                    : order.refit() == null ? null : order.refit().problem(current, order, design);
+            if (refitProblem != null) {
+                current = ShipyardAccounting.record(current, order, 0, 0, false, refitProblem);
+                remaining.add(order);
+                continue;
+            }
+            if (order.yardContract() != null && !ShipyardAccess.permitted(current, order.ownerEntityId(), provider, order.systemId())
+                    || ShipManufacturingCapacity.forYard(current, provider, order.systemId(), order.yardBodyId())
                     < ShipManufacturingCapacity.requiredComplexity(design)) {
+                current = ShipyardAccounting.record(current, order, 0, 0, false, "Yard access or manufacturing capacity unavailable");
                 remaining.add(order);
                 continue;
             }
@@ -44,28 +55,36 @@ public final class ShipConstructionProcessor {
             String yardKey = order.systemId() + "/" + order.yardBodyId();
             Double availableCapacity = remainingDailyCapacity.get(yardKey);
             if (availableCapacity == null) {
-                availableCapacity = ShipyardWorkCapacity.forYard(current, order.ownerEntityId(),
+                availableCapacity = ShipyardWorkCapacity.forYard(current, provider,
                         order.systemId(), order.yardBodyId(), paidWorkersByFacility).workPerDay();
             }
             double dailyWork = availableCapacity;
-            ConstructionProgress.Step step = orbital
-                    ? ConstructionProgress.advanceOrbital(current, order.systemId(),
-                    order.yardBodyId(), order.ownerEntityId(), order.requiredMaterialsKg(),
-                    order.consumedMaterialsKg(), order.accumulatedWorkHours(),
-                    order.requiredWorkHours(), dailyWork)
-                    : ConstructionProgress.advance(current, order.yardBodyId(),
-                    order.ownerEntityId(), order.requiredMaterialsKg(),
-                    order.consumedMaterialsKg(), order.accumulatedWorkHours(),
-                    order.requiredWorkHours(), dailyWork);
+            var progress = ContractShipConstruction.advance(current, order, dailyWork, orbital);
+            ConstructionProgress.Step step = progress.progress();
             double usedWork = Math.max(0.0, step.workHours() - order.accumulatedWorkHours());
             remainingDailyCapacity.put(yardKey, Math.max(0.0, dailyWork - usedWork));
             current = step.state();
+            double fee = order.yardContract() == null ? 0 : usedWork * order.yardContract().feeCreditsPerWorkUnit();
+            String reason = workStatus(order, step.complete(), usedWork, dailyWork);
+            current = ShipyardAccounting.record(current, order, usedWork, fee, step.complete(), reason);
             fleets = new ArrayList<>(current.fleets());
             if (step.complete()) {
-                commission(fleets, order, orbital, design);
+                if (order.retirement() != null) {
+                    current = order.retirement().complete(current, order, design);
+                    fleets = new ArrayList<>(current.fleets());
+                }
+                else if (order.refit() == null) commission(fleets, order, orbital, design);
+                else {
+                    GameState completionState = current;
+                    fleets.replaceAll(fleet -> order.refit().complete(completionState, fleet, design));
+                }
+                if (order.deployment() != null) current = current.toBuilder().shipyardLedger(current.shipyardLedger()
+                        .deployment(shipId(order), order.deployment().status("Awaiting paid deployment"))).build();
+                if (order.replacement() != null) current = current.toBuilder().shipyardLedger(current.shipyardLedger()
+                        .replacement(order.replacement().sourceShipId(), shipId(order))).build();
                 current = current.withFleets(fleets);
                 String sourceBodyId = order.yardBodyId();
-                if (sourceBodyId != null && PropulsionCatalog.mainDrive(
+                if (order.refit() == null && order.retirement() == null && sourceBodyId != null && PropulsionCatalog.mainDrive(
                         design.equippedModuleIds()) != null) {
                     current = ShipFueling.refuel(current, shipId(order), sourceBodyId,
                             Math.min(100.0, design.fuelCapacityKg()));
@@ -76,13 +95,13 @@ public final class ShipConstructionProcessor {
                 remaining.add(new ShipConstructionOrder(order.id(), order.ownerEntityId(),
                         order.designId(), order.systemId(), order.yardBodyId(),
                         step.workHours(), order.requiredWorkHours(),
-                        order.requiredMaterialsKg(), step.consumedKg()));
+                        order.requiredMaterialsKg(), step.consumedKg(), progress.contract(), order.priority() == null ? null : usedWork > 0 ? order.priority().worked() : order.priority(), order.deployment(), order.refit(), order.replacement(), order.retirement()));
             }
         }
         List<Corporation> corporations = current.corporations().stream().map(corporation -> {
             List<String> shipIds = new ArrayList<>(corporation.ownedShipIds());
             for (ShipConstructionOrder order : completed) {
-                if (corporation.id().equals(order.ownerEntityId())) shipIds.add(shipId(order));
+                if (order.refit() == null && order.retirement() == null && corporation.id().equals(order.ownerEntityId())) shipIds.add(shipId(order));
             }
             return shipIds.size() == corporation.ownedShipIds().size() ? corporation
                     : new Corporation(corporation.id(), corporation.name(), corporation.empireId(),
@@ -90,10 +109,16 @@ public final class ShipConstructionProcessor {
                     corporation.liquidCapitalReserves(), corporation.ownedFacilityIds(),
                     shipIds, corporation.claimedVeinIds());
         }).toList();
-        return current.toBuilder().shipConstructionOrders(remaining).fleets(fleets)
-                .corporations(corporations).build();
+        return com.spaceconquest.engine.combat.AuxiliaryConstruction.advance(current.toBuilder().shipConstructionOrders(remaining).fleets(fleets)
+                .corporations(corporations).build(), remainingDailyCapacity, paidWorkersByFacility);
     }
 
+    private String workStatus(ShipConstructionOrder order, boolean complete, double usedWork, double dailyWork) {
+        if (usedWork <= 0) return dailyWork <= 0 ? "Queued or missing paid workforce" : "Waiting for materials or funds";
+        if (order.retirement() != null) return complete ? "Retired and recovered materials sold" : "Paid dismantling";
+        if (order.refit() != null) return complete ? "Refit completed" : "Paid refit";
+        return complete ? "Commissioned" : "Paid construction";
+    }
     private void commission(List<Fleet> fleets, ShipConstructionOrder order, boolean orbital, ShipDesign design) {
         ShipInstance ship = new ShipInstance(shipId(order), order.designId(),
                 order.ownerEntityId(), COMMISSIONED_HULL_HEALTH, CombatModuleCatalog.shieldCapacity(design), 0.0, java.util.Map.of());

@@ -79,6 +79,6 @@ class TacticalFleetEncounterResolverTest {
     }
 
     private ShipInstance ship(String id, String owner, double hull) {
-        return new ShipInstance(id, design(owner).id(), owner, hull, 500.0, 100.0, Map.of());
+        return new ShipInstance(id, design(owner).id(), owner, hull, 500.0, 100.0, Map.of("cannon_round", 1000.0));
     }
 }

@@ -39,6 +39,7 @@ public final class InterstellarTravel {
 
     /** Keeps physical propellant aboard for destination approach without requiring a return itinerary. */
     public static Plan plan(GameState state, Fleet fleet, String targetSystemId, Map<String, Double> arrivalPropellantKg) {
+        if (ShipRefitPlan.reserved(state, fleet)) return null;
         if (arrivalPropellantKg == null || arrivalPropellantKg.values().stream()
                 .anyMatch(value -> value == null || !Double.isFinite(value) || value < 0)) return null;
         SolarSystem origin = state.solarSystems().stream()

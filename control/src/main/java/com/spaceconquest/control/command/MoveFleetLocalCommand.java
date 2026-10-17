@@ -49,6 +49,8 @@ public record MoveFleetLocalCommand(String fleetId, FleetLocation.Kind targetKin
                 && LocalTravel.surfaceLaunchPlan(state, fleet) == null) return false;
         if (targetKind == FleetLocation.Kind.DEEP_SPACE)
             return FleetLocation.Site.deepSpace().equals(destination)
+                    || state.solarSystems().stream().filter(system -> fleet.currentSystemId().equals(system.id()))
+                            .anyMatch(system -> system.asteroidBelts().stream().anyMatch(belt -> targetEntityId.equals(belt.id()) && belt.distanceKm() != null))
                     || targetEntityId.equals(fleet.currentSystemId() + "_star")
                     || state.megastructures().stream().anyMatch(mega ->
                     fleet.currentSystemId().equals(mega.systemId())

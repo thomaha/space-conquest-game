@@ -1,0 +1,71 @@
+# AI supply-chain investment
+
+Public investment can now discover missing local production links from funded marketplace shortages. Application research, physical construction, working capital and actual market settlement remain separate steps. Factories and launch providers use application capabilities rather than named factory branches.
+
+## Decisions and resource checks
+
+SupplyChainNeeds follows purchased inputs and missing construction materials upstream through application recipes. It checks physical source environments and finite source availability, avoids dependency cycles and returns upstream links before their consumers. Existing affiliated suppliers are reused. Discovery examines at most eight controlled hubs per review, twelve shortages per hub, eight dependency levels and 32 material goals. Hub selection rotates with the turn.
+
+EmpireResearchNeeds prioritizes the discovered production, generation and launch applications. SupplyChainInvestmentPlanner requests at most one affordable new facility or public supplier expansion per review. Existing cash recovery retains priority. Needed generation is built before dependent industrial load or expansion. Fuel-free generation candidates are compared using construction mass per unit of site-adjusted output; actual construction funding is checked separately at local material prices.
+
+SupplyInvestmentQuote checks researched installation requirements, uncommitted adult workers, feedstock or a funded upstream supplier, generation, construction stock and combined treasury funding. Its discarded construction preview includes the ordinary opening account transfer. A further working-capital transfer comes from real treasury money and leaves the application's treasury floor. Operating estimates include wages, purchased inputs, electricity and maintenance under application reserve limits. Tax, supplier margins and replacement reserves continue through the existing pricing and settlement rules.
+
+Prospective load includes installed machinery and available research effects. Available generation uses a discarded capacity probe that still requires paid crews, eligible research, fuel stock and fuel cash. Pending industrial loads reserve capacity. Forecasts do not buy, reserve or create real goods. Construction and production subsequently purchase actual stock through their ordinary processors.
+
+New professions are budgeted against uncommitted adults rather than requiring already employed workers in jobs that do not yet exist. Household mobility, paid staffing, skill and automation still determine actual operating throughput. Allocations alone cannot produce material or launch cargo.
+
+New public investment, corporate investment and cash-recovery electricity quotes include the prospective funded consumer load. Otherwise an idle generator's fixed costs divided by tiny household sales could block the first factory whose operation would spread those costs. This is a discarded forecast; actual billing still uses delivered electricity and settled costs. Corporate investment retains its profitability gate.
+
+RequestAISupplyInvestmentCommand recomputes the current preferred investment at execution. Changed buyer funding, construction stock, workers, ownership, research, power or treasury can reject the queued request. Competing requests cannot reuse the same successful need without passing another quote.
+
+## Supplier growth and replacement
+
+SupplyExpansionQuote compares the outstanding material request with affiliated installed output. A shortage with adequate machinery capacity calls for restored operation or delivery rather than expansion. An undersized public supplier can gain one tier using ordinary application-defined construction. The quote preserves captured equipment and paid staffing and checks the larger process against physical sources, feedstock, additional electricity, material bills and combined working capital. RequestAISupplyExpansionCommand recomputes the choice at the tick, transfers real treasury cash when needed and rejects stale or duplicate projects. Active growing cycles retain their ordinary expansion restrictions.
+
+Discovery prefers an existing viable process but follows its complete purchased-input source path. If that path is exhausted, another application at the same site can replace the production role. For example, depleted ice feedstock can lead to a researched surface-water process on a water-bearing body. Stranded assets and their equipment remain recorded rather than being dismantled.
+
+ReleaseExhaustedWorkersCommand releases public extraction jobs when a discovered source is exhausted. It can fill unstaffed application-defined machinery positions on the same controlled world where there is unmet product demand. Captured equipment and local population stay unchanged. Allocations do not create paid capacity: actual payroll and household mobility still govern the new work. Fully autonomous machinery does not acquire unnecessary operators. Cross-world worker migration still requires physical passenger transport and is not added here.
+
+## Developing sources on other worlds
+
+When a funded shortage has no viable local process path, CrossWorldSupplyPlanner searches other controlled planetary hubs for an application-defined source. The bounded review examines eight hubs and twelve shortages per destination and allows four active plans. Existing local sources retain priority. It does not invent deposits or prescribe named factory behavior.
+
+StartSupplyDevelopmentCommand recomputes the candidate, quantity, ownership and available treasury headroom at the tick. It saves a SupplyDevelopmentPlan linking the source, recipient, product, required quantity and carrier. The initial source-market purchase funding transfers from real treasury money exactly once. The recipient must have actual buyer money. Construction cost estimates and an operating allowance must fit the remaining treasury before a plan starts.
+
+This funding is purchasing power in the source's ordinary pooled market account, not a complete campaign escrow. Other purchases and changing prices can reduce it. Subsequent research, facility construction, working capital, electricity and transport must independently pass their ordinary live funding and resource checks. The plan does not promise future capacity or profit and does not repeatedly mint or refill money.
+
+Saved procurement requests feed the existing research and local investment planners. They can develop upstream production, generation and research-defined ship-launch services at both surface ports before shipment. Departure checks the recipient's paid launch capacity for the carrier's return as well as the source's service. Export requests remain distinct from local consumption so source reserves protect local demand without trapping the stock intended for export. An existing public carrier is reserved from routine fleet assignment and lifecycle work. Missing carriers become ordinary supply needs for the existing transport construction planner; that planner still requires suitable designs, funded yards and a feasible shipment. A reserved working carrier prevents duplicate construction.
+
+SupplyDevelopmentProgress waits for real purchased market stock sufficient for a full carrier load or the remaining planned quantity. Each step rechecks the carrier, launch service, materials, buyer money, transport budget and safe return. Empty approaches and cargo departures use ordinary paid travel. A quantity larger than one ship can carry uses successive trips while retaining delivered volume and cumulative route results. Remaining stock-target requests survive a partial delivery and zero-quantity cargo entries do not occupy the hold. Paid cargo alone counts as inbound supply. Completion, vanished demand or lost port control closes the plan without deleting paid assets or refunding already transferred market money. Saved movement continues under the existing route rules. Completed history is bounded to keep at most 32 saved plans including active work.
+
+## Investment inspection
+
+The industry page contains a read-only Supply-chain investment and blockers inspector. SupplyInvestmentStatus returns immutable advisory rows for the injected snapshot, including site, product, application, proposed build or expansion and its current blocker. Remote plans show their source and recipient, initial funding and current transport or development requirement. Unfunded buyers and missing physical production paths remain visible even when they produce no viable investment goal. The inspector checks up to 48 rows in a bounded review.
+
+Quotes run lazily on a background worker. A changed snapshot, a newer request or a collapsed inspection discards the old result. Rendering creates no command, buys no material and changes no treasury balance. Ready rows are conditional requirements rather than promised investment orders.
+
+## Launch support
+
+An idle owned cargo carrier at a controlled hub can create a launch-service need when another funded hub requests locally stocked cargo. Existing paid service capacity is reused. The planner selects a research-defined ship-launch provider, discovers missing propellant production and funds ordinary construction and its operating account. Subsequent cargo movement still requires real provider work, actual launch resources, carrier readiness and ordinary logistics commands.
+
+This does not plan a complete terminal or elevator network. It does not create colonies, invent missing deposits or guarantee that a remote demand signal has a profitable or feasible voyage. Existing transport and shipyard planners retain their own route, carrier and yard decisions.
+
+## Verification and remaining limits
+
+AISupplyChainCampaignTest starts with foundational knowledge, funded buyers, a workforce and generous bootstrap construction stock. The full engine researches applications, constructs generation and upstream hydrogen production, funds operation and delivers liquid hydrogen into the marketplace. Construction and operating accounts cross a current-format disk save/load boundary. Assertions require consumed water, actual wages, generated electricity and paid product sales. This is a functional campaign rather than a profitability benchmark.
+
+A second launch scenario builds an application-defined provider for an existing carrier and verifies paid cargo loading and saved daily launch usage. It does not exercise an entire offworld arrival. Other checks cover controller wiring, missing buyer cash, missing treasury cash, missing construction stock, absent workers, stale requests and unavailable generator crew or fuel. Existing transport regression suites cover their respective route and carrier paths separately.
+
+AISupplierLifecycleTest verifies paid expansion, unchanged captured equipment, higher actual market output after current-format reload, real working-capital transfers, stale rejection and switching away from exhausted feedstock. Adequate installed output does not trigger needless expansion. ResearchInvestmentLifecycleTest now declares an explicit funded buyer, rejects investment without that funding and uses current metered production settlement. Its corporate construction, production, sale and expansion checks pass.
+
+OffworldProductionCampaignTest produces water with paid workers and metered electricity, purchases working fuel, undocks, pays a private launch provider for surface pickup and flies to a station around another body. Both uninterrupted and reloaded flights reach the same arrival. Ordinary route settlement moves the finite produced cargo into the funded remote marketplace. An unfunded buyer rejects the delivery. Cash assertions account separately for the product sale and the carrier's return-fuel purchases from that marketplace. The campaign does not require a profitable voyage or execute the return. Orbital pickup now accepts explicit parking altitudes instead of requiring the unspecified default orbit.
+
+CrossWorldSupplyCampaignTest begins with an exhausted mine and no discovered mining application. It pays scientists, researches mining, constructs a new remote mine and launch provider and follows produced ore through paid delivery and a transit save/reload. The recipient receives multiple shiploads and the remote deposit loses exactly the produced mass. Other cases cover source funding conservation, stale money, depleted alternative sources, lost control, carrier reservation, missing-carrier construction and real payroll after local job reassignment.
+
+The targeted development run passed 147 tests across 30 suites, including snapshot and current-format save checks, corporate lifecycle, local supplier and offworld campaigns and asynchronous UI checks. The complete repository suite was not run. Git whitespace checks passed.
+
+Dependency discovery is bounded and greedy. It chooses one feasible source recipe rather than globally optimizing alternatives, prices, geography or byproduct portfolios. It can select a source whose later route remains blocked; the inspector exposes that blocker rather than providing free transport. New colonies, undiscovered deposits, a complete service network, public ship design creation and passenger migration are outside this pass. Private suppliers retain their separate profit-gated investment behavior. Construction labor retains provisional shared execution. Worker training time, future source availability and future market demand are not guaranteed by an investment quote. Hive economies and orbital production sites remain outside public source development. Full profitability balancing remains deferred.
+
+## Standing survey programs
+
+SurveyProgramPlanner requests baseline local field teams independently of market demand and increases effort for shortages or known depletion. Orbital teams reserve independent explorers, buy mapping equipment and travel to known safe coverage gaps through ordinary commands. Missing explorers can use an owned blueprint through the funded yard pipeline. Hidden geology never guides allocation. Discoveries unlock the existing finite-source recipe checks; surveys do not create stock. See [Continuous geological surveying](GeologicalProspecting.md).

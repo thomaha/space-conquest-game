@@ -79,7 +79,7 @@ public class MarketProcessor {
             case "purified_water" -> 1.5;
             case "gold" -> 200.0;
             case "rare_earth_fluorides" -> 50.0;
-            case "refined_silver" -> 100.0;
+            case "silver" -> 100.0;
             case "refined_rare_earths" -> 250.0;
             case "refined_uranium", "refined_thorium" -> 100.0;
             case "deuterium_gas" -> 1_000.0;
@@ -93,8 +93,11 @@ public class MarketProcessor {
                     "methane_ice", "nitrogen_gas", "oxygen_gas", "hydrogen_gas",
                     "helium_3", "carbon_monoxide_ice", "carbon_dioxide_gas" -> 2.0;
             case "food_matrix" -> 4.0;
-            case "agricultural_biomass" -> 3.0;
-            case "refined_iron", "bio_polymers" -> 5.0;
+            case "harvested_crops" -> 2.0;
+            case "agricultural_biomass" -> 1.0;
+            case "biomass_processing_residue", "cultivation_residue" -> 0.1;
+            case "bio_polymers" -> 6.0;
+            case "refined_iron" -> 5.0;
             case "refined_aluminum", "refined_copper", "silicon" -> 10.0;
             case "consumer_goods" -> 12.0;
             case "luxury_goods" -> 24.0;
@@ -135,6 +138,7 @@ public class MarketProcessor {
      * @param spaceElevators           active space elevators on the planet
      * @param infrastructureEfficiency public system infrastructure efficiency factor (<= 0 for standard 1.0)
      * @return detailed breakdown of orbital lift costs and physical metrics
+     * Use calculateOrbitalLiftCostMs2 for current body data to avoid this convenience API's unit heuristic.
      */
     public OrbitalLiftProfile calculateOrbitalLiftCost(
             double dryMassKg,
@@ -148,16 +152,26 @@ public class MarketProcessor {
             List<SpaceElevator> spaceElevators,
             double infrastructureEfficiency
     ) {
+        double gravityMs2 = surfaceGravity > 4.0 ? surfaceGravity : surfaceGravity * STANDARD_GRAVITY_G0;
+        return calculateOrbitalLiftCostMs2(dryMassKg, cargoMassKg, gravityMs2, atmosphericPressure, planetaryDiameterKm,
+                specificImpulseSec, propellantPricePerKg, massDrivers, spaceElevators, infrastructureEfficiency);
+    }
+
+    /** Explicit SI entry point for body data; low gravity must never be interpreted as Earth-g multiples. */
+    public OrbitalLiftProfile calculateOrbitalLiftCostMs2(
+            double dryMassKg, double cargoMassKg, double gravityMs2, double atmosphericPressure,
+            double planetaryDiameterKm, double specificImpulseSec, double propellantPricePerKg,
+            List<SurfaceMassDriver> massDrivers, List<SpaceElevator> spaceElevators, double infrastructureEfficiency) {
         double safeDryMass = Math.max(0.0, dryMassKg);
         double safeCargoMass = Math.max(0.0, cargoMassKg);
         double totalMassKg = safeDryMass + safeCargoMass;
 
-        if (totalMassKg <= 0.0 || surfaceGravity <= 0.0) {
+        if (totalMassKg <= 0.0 || gravityMs2 <= 0.0) {
             return new OrbitalLiftProfile(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
         }
 
-        double gravityG = (surfaceGravity > 4.0) ? (surfaceGravity / STANDARD_GRAVITY_G0) : surfaceGravity;
-        double gravityMps2 = (surfaceGravity > 4.0) ? surfaceGravity : (surfaceGravity * STANDARD_GRAVITY_G0);
+        double gravityG = gravityMs2 / STANDARD_GRAVITY_G0;
+        double gravityMps2 = gravityMs2;
 
         double effectiveAtmo = Math.max(0.0, atmosphericPressure);
         double isp = (specificImpulseSec > 0.0) ? specificImpulseSec : DEFAULT_SPECIFIC_IMPULSE_SEC;
@@ -319,6 +333,10 @@ public class MarketProcessor {
             return List.of();
         }
         return hubs.stream().map(this::updateHub).toList();
+    }
+
+    public List<CommercialHub> updateCommercialHubs(com.spaceconquest.engine.GameState state, List<CommercialHub> hubs) {
+        return SupplyMarketPricing.refresh(state.withCommercialHubs(hubs));
     }
 
     /**

@@ -38,6 +38,10 @@ public final class OrbitalTravel {
     }
 
     public static Preview preview(GameState state, Fleet fleet, FleetLocation.Site target) {
+        return preview(state, fleet, target, false);
+    }
+    public static Preview preview(GameState state, Fleet fleet, FleetLocation.Site target, boolean economical) {
+        if (ShipRefitPlan.reserved(state, fleet)) return new Preview(null, "Finish the ship refit before departing");
         if (state == null || fleet == null || target == null) return new Preview(null, "Choose a known fleet and destination");
         try {
             if (RecoveredParkingTravel.ready(fleet)) return new Preview(RecoveredParkingTravel.plan(state, fleet, target), "");
@@ -47,14 +51,14 @@ public final class OrbitalTravel {
             var to = parking(state, fleet.currentSystemId(), target);
             boolean sameBody = from != null && to != null && from.body().id().equals(to.body().id());
             if (sameBody && target.kind() == FleetLocation.Kind.DOCKED && from.altitudeKm() == to.altitudeKm()) {
-                var approach = OrbitalDocking.stationary(state, fleet, target, from);
+                var approach = OrbitalDocking.stationary(state, fleet, target, from, economical);
                 if (approach == null) throw new IllegalArgumentException("No funded station rendezvous from this parking orbit");
                 return new Preview(approach, "");
             }
             var nativeTarget = target.kind() == FleetLocation.Kind.DOCKED && to != null
                     ? FleetLocation.Site.orbit(to.body().id(), to.altitudeKm()) : target;
             var plan = sameBody ? ParkingOrbitTravel.plan(state, fleet, nativeTarget, from, to) : build(state, fleet, nativeTarget);
-            return new Preview(target.kind() == FleetLocation.Kind.DOCKED ? OrbitalDocking.plan(state, fleet, target, plan) : plan, "");
+            return new Preview(target.kind() == FleetLocation.Kind.DOCKED ? OrbitalDocking.plan(state, fleet, target, plan, economical) : plan, "");
         }
         catch (IllegalArgumentException failure) { return new Preview(null, failure.getMessage()); }
     }

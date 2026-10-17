@@ -60,7 +60,11 @@ public class CommandQueue {
             try {
                 if (command.validate(state)) {
                     logger.debug("Executing command: {}", command);
-                    state = command.apply(state);
+                    var applied = command.apply(state);
+                    state = command instanceof LoadSurfaceCargoCommand || command instanceof LoadOrbitalCargoCommand
+                            || command instanceof ChargeShipBatteryCommand || command instanceof ResupplyShipPowerCommand
+                            ? com.spaceconquest.engine.ship.FleetServiceHistory.command(state, applied,
+                                suppliedFleetId(state, command)) : applied;
                     outcomes.add(CommandOutcome.EXECUTED);
                 } else {
                     logger.warn("Rejected invalid command: {}", command);
@@ -90,6 +94,13 @@ public class CommandQueue {
 
     public int size() {
         return queue.size();
+    }
+    private static String suppliedFleetId(GameState state, GameCommand command) {
+        String shipId = command instanceof LoadSurfaceCargoCommand item ? item.shipId()
+                : command instanceof LoadOrbitalCargoCommand item ? item.shipId()
+                : command instanceof ChargeShipBatteryCommand item ? item.shipId() : ((ResupplyShipPowerCommand) command).shipId();
+        return state.fleets().stream().filter(fleet -> fleet.ships().stream().anyMatch(ship -> shipId.equals(ship.id())))
+                .map(com.spaceconquest.engine.ship.Fleet::id).findFirst().orElse("");
     }
 
     public boolean isEmpty() {

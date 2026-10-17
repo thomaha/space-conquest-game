@@ -4,8 +4,19 @@ package com.spaceconquest.engine.ship;
 public final class ShipCombatPower {
     public record Result(ShipInstance ship, double firepower, double requestedWeaponKwh, double paidWeaponKwh,
                          double directFirepower, java.util.List<ShipMissileWeapons.Launch> missileLaunches,
-                         int pointDefenseInterceptions, double paidPointDefenseKwh, java.util.List<ShipPointDefense.Shot> pointDefenseShots) {
-        public Result { missileLaunches = java.util.List.copyOf(missileLaunches); pointDefenseShots = java.util.List.copyOf(pointDefenseShots); }
+                         int pointDefenseInterceptions, double paidPointDefenseKwh, java.util.List<ShipPointDefense.Shot> pointDefenseShots,
+                         java.util.List<WeaponHit> directHits) {
+        public Result {
+            missileLaunches = java.util.List.copyOf(missileLaunches);
+            pointDefenseShots = java.util.List.copyOf(pointDefenseShots);
+            directHits = java.util.List.copyOf(directHits);
+        }
+        public Result(ShipInstance ship, double firepower, double requestedWeaponKwh, double paidWeaponKwh,
+                      double directFirepower, java.util.List<ShipMissileWeapons.Launch> missileLaunches,
+                      int pointDefenseInterceptions, double paidPointDefenseKwh, java.util.List<ShipPointDefense.Shot> pointDefenseShots) {
+            this(ship, firepower, requestedWeaponKwh, paidWeaponKwh, directFirepower, missileLaunches,
+                    pointDefenseInterceptions, paidPointDefenseKwh, pointDefenseShots, java.util.List.of());
+        }
         public Result(ShipInstance ship, double firepower, double requestedWeaponKwh, double paidWeaponKwh) {
             this(ship, firepower, requestedWeaponKwh, paidWeaponKwh, firepower, java.util.List.of(), 0, 0, java.util.List.of());
         }
@@ -39,23 +50,27 @@ public final class ShipCombatPower {
     }
     public static Result round(ShipInstance original, ShipDesign design, double hours, boolean firing, boolean recharge,
                                double separationMeters, java.util.List<Double> incomingDistances) {
+        return roundThreats(original, design, hours, firing, recharge, separationMeters,
+                incomingDistances.stream().map(distance -> new ShipPointDefense.Threat(-1, distance, true)).toList());
+    }
+    public static Result roundThreats(ShipInstance original, ShipDesign design, double hours, boolean firing, boolean recharge,
+                               double separationMeters, java.util.List<ShipPointDefense.Threat> incomingThreats) {
         if (!Double.isFinite(hours) || hours <= 0) throw new IllegalArgumentException("Invalid combat duration");
-        if (design == null || design.powerProfile() == null)
-            return new Result(original, firing ? ShipWeaponRange.directFirepower(design, original, separationMeters) : 0, 0, 0);
+        if (design == null || design.powerProfile() == null) return legacy(original, design, firing, separationMeters);
         var p = design.powerProfile(original);
-        var activity = firing || !incomingDistances.isEmpty() ? ShipServicePower.Activity.COMBAT : ShipServicePower.Activity.ESCAPE;
+        var activity = firing || !incomingThreats.isEmpty() ? ShipServicePower.Activity.COMBAT : ShipServicePower.Activity.ESCAPE;
         var ship = original.withPowerState(OrbitalPowerAccounting.startDay(ShipPowerProcessor.reserves(original)));
         double essential = p.essentialKw(ship, design), cargo = ShipPowerProcessor.cargoKw(p, ship, design);
         var upkeep = ShipPowerProcessor.allocate(p, ship.powerState(), hours, 0, essential, cargo, 0, 0, ShipServicePower.SHIELDS, activity);
-        double base = firing && upkeep.interval().supplied() && capturedWeapons(design)
-                ? ShipWeaponRange.directFirepower(design, ship.withPowerState(upkeep.interval().state()), separationMeters) : 0;
-        double condition = Math.clamp(ship.currentHullHealth() / Math.max(100, design.calculatedStructuralIntegrity() * 100), 0, 1);
+        var directQuote = firing && upkeep.interval().supplied() && capturedWeapons(design)
+                ? ShipDirectWeapons.plan(design, ship.withPowerState(upkeep.interval().state()), separationMeters, Double.POSITIVE_INFINITY)
+                : ShipDirectWeapons.Plan.empty();
         var candidates = firing && upkeep.interval().supplied() && capturedWeapons(design)
                 ? ShipMissileWeapons.candidates(design, ship.withPowerState(upkeep.interval().state()), separationMeters) : java.util.List.<ShipMissileWeapons.Launch>of();
-        double directCost = base > 0 ? ShipWeaponRange.directCapability(design, ship, "weaponSalvoKwh", separationMeters) * condition : 0;
+        double directCost = directQuote.energyKwh();
         var defenseShip = ship.withPowerState(upkeep.interval().state());
         var defensePlan = upkeep.interval().supplied() && capturedWeapons(design)
-                ? ShipPointDefense.plan(design, defenseShip, incomingDistances, Double.POSITIVE_INFINITY) : java.util.List.<ShipPointDefense.Shot>of();
+                ? ShipPointDefense.planThreats(design, defenseShip, incomingThreats, Double.POSITIVE_INFINITY) : java.util.List.<ShipPointDefense.Shot>of();
         double requested = defensePlan.stream().mapToDouble(ShipPointDefense.Shot::energyKwh).sum() + directCost + candidates.stream().mapToDouble(ShipMissileWeapons.Launch::energyKwh).sum();
         double weaponKw = requested / hours;
         var selected = requested > 0 ? ShipPowerProcessor.allocate(p, ship.powerState(), hours, 0, essential, cargo, 0, weaponKw, ShipServicePower.WEAPONS, activity) : upkeep;
@@ -72,12 +87,16 @@ public final class ShipCombatPower {
             weaponKw = low;
         }
         double available = Math.min(requested, selected.rechargeKwh());
-        var defenseShots = defensePlan.isEmpty() ? defensePlan : ShipPointDefense.plan(design, defenseShip, incomingDistances, available);
+        var defenseShots = defensePlan.isEmpty() ? defensePlan : ShipPointDefense.planThreats(design, defenseShip, incomingThreats, available);
         double defensePaid = defenseShots.stream().mapToDouble(ShipPointDefense.Shot::energyKwh).sum();
-        double directPaid = Math.min(directCost, Math.max(0, available - defensePaid));
+        var remainingDefenseStores = ShipPointDefense.consume(defenseShip, defenseShots);
+        var directPlan = directQuote.hits().isEmpty() ? ShipDirectWeapons.Plan.empty()
+                : ShipDirectWeapons.plan(design, remainingDefenseStores, separationMeters, Math.max(0, available - defensePaid));
+        double directPaid = directPlan.energyKwh();
         var launches = new java.util.ArrayList<ShipMissileWeapons.Launch>();
         double launchPaid = 0;
-        for (var candidate : candidates) {
+        var fundedCandidates = candidates.isEmpty() ? candidates : ShipMissileWeapons.candidates(design, directPlan.consume(remainingDefenseStores), separationMeters);
+        for (var candidate : fundedCandidates) {
             if (defensePaid + directPaid + launchPaid + candidate.energyKwh() <= available + 1e-9) {
                 launches.add(candidate); launchPaid += candidate.energyKwh();
             }
@@ -109,10 +128,19 @@ public final class ShipCombatPower {
         double paid = Math.min(funded, selected.rechargeKwh());
         double shields = Math.max(0, selected.rechargeKwh() - paid);
         var actual = ShipShieldRecharge.apply(ship.withPowerState(selected.interval().state()), design, shields);
-        double direct = directCost > 0 ? base * directPaid / directCost : 0;
-        actual = ShipMissileWeapons.consume(actual, launches.size());
+        double direct = directPlan.damage();
+        actual = directPlan.consume(actual);
+        actual = ShipMissileWeapons.consume(actual, launches);
         actual = ShipPointDefense.consume(actual, defenseShots);
-        return new Result(actual, direct + launches.stream().mapToDouble(ShipMissileWeapons.Launch::damage).sum(), requested, paid, direct, launches, defenseShots.size(), defensePaid, defenseShots);
+        return new Result(actual, direct + launches.stream().mapToDouble(ShipMissileWeapons.Launch::damage).sum(), requested, paid,
+                direct, launches, defenseShots.size(), defensePaid, defenseShots,
+                directPlan.hits());
+    }
+
+    private static Result legacy(ShipInstance ship, ShipDesign design, boolean firing, double meters) {
+        var plan = firing && ShipWeaponRange.directFirepower(design, ship, meters) > 0
+                ? ShipDirectWeapons.plan(design, ship, meters, Double.POSITIVE_INFINITY) : ShipDirectWeapons.Plan.empty();
+        return new Result(plan.consume(ship), plan.damage(), 0, 0, plan.damage(), java.util.List.of(), 0, 0, java.util.List.of(), plan.hits());
     }
 
     private static boolean requiredSupplied(ShipPowerProcessor.Allocation allocation) {
@@ -121,7 +149,7 @@ public final class ShipCombatPower {
     }
 
     private static boolean capturedWeapons(ShipDesign design) {
-        double upkeep = design.equippedModuleIds().stream().map(CombatModuleCatalog::module)
+        double upkeep = design.equippedModuleIds().stream().map(id -> CombatModuleCatalog.module(design, id))
                 .filter(module -> module != null && (module.operationalStats().containsKey("weaponDamage")
                         || module.operationalStats().containsKey("pointDefenseCapacity")))
                 .mapToDouble(ShipModule::powerDrawKw).sum();

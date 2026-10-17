@@ -11,144 +11,22 @@ import java.util.Map;
  */
 public class RefinementProcessor {
 
-    public static final List<RefinementRecipe> STANDARD_RECIPES = List.of(
-            new RefinementRecipe(
-                    "pyro_iron_smelting", "Pyrometallurgical Iron Smelting", "PYROMETALLURGY",
-                    RefinementRecipe.ENV_GRAVITY_LOCKED, 1.0, 100.0,
-                    Map.of("iron_ore", 1000.0, "carbon", 112.5), 4000.0,
-                    Map.of("refined_iron", 700.0), Map.of("carbon_dioxide_gas", 412.5),
-                    1, "industrial_worker"
-            ),
-            new RefinementRecipe(
-                    "zero_g_platinum", "Zero-G Magnetic Refining", "ZERO_G",
-                    RefinementRecipe.ENV_MICROGRAVITY_NATIVE, 0.0, 0.5,
-                    Map.of("platinum_ore", 1000.0), 12000.0,
-                    Map.of("refined_platinum", 500.0), Map.of("refined_iron", 300.0, "sulfur", 200.0),
-                    2, "industrial_worker"
-            ),
-            new RefinementRecipe(
-                    "alloy_steel", "Heavy Steel Alloying", "ALLOYING",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("refined_iron", 980.0, "carbon", 20.0), 8000.0,
-                    Map.of("steel", 1000.0), Map.of(),
-                    1, "industrial_worker"
-            ),
-            new RefinementRecipe(
-                    "alloy_inconel", "Inconel Superalloy Synthesis", "ALLOYING",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("nickel", 600.0, "refined_chromium", 200.0, "refined_iron", 200.0), 10000.0,
-                    Map.of("inconel_alloy", 1000.0), Map.of(),
-                    2, "industrial_worker"
-            ),
-            new RefinementRecipe(
-                    "alloy_titanium_aluminide", "Titanium Aluminide Alloying", "ALLOYING",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("refined_titanium", 500.0, "refined_aluminum", 500.0), 11000.0,
-                    Map.of("titanium_aluminide", 1000.0), Map.of(),
-                    2, "industrial_worker"
-            ),
-            new RefinementRecipe(
-                    "superconducting_cuprates", "Superconducting Cuprate Synthesis", "ALLOYING",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("refined_copper", 600.0, "refined_yttrium", 300.0, "oxygen_gas", 100.0), 14000.0,
-                    Map.of("superconducting_cuprates", 1000.0), Map.of(),
-                    3, "engineer"
-            ),
-            new RefinementRecipe(
-                    "fuel_fusion_pellets", "Synthetic Fusion Fuel Pellet Synthesis", "SYNTHETIC_FUEL",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("deuterium_gas", 500.0, "helium_3", 500.0), 15000.0,
-                    Map.of("fusion_fuel_pellets", 1000.0), Map.of(),
-                    3, "engineer"
-            ),
-            new RefinementRecipe(
-                    "consumer_goods_mfg", "Consumer Electronics and Goods", "CONSUMER_GOODS",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("bio_polymers", 499.0, "refined_aluminum", 250.0,
-                            "refined_copper", 150.0, "silicon", 100.0,
-                            "refined_rare_earths", 1.0), 6000.0,
-                    Map.of("consumer_goods", 1000.0), Map.of(),
-                    1, "industrial_worker"
-            ),
-            new RefinementRecipe(
-                    "aluminum_refining", "Aluminum Refining", "METALLURGY",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("aluminum_ore", 1000.0), 9000.0,
-                    Map.of("refined_aluminum", 500.0), Map.of("aluminum_tailings", 500.0),
-                    1, "industrial_worker"
-            ),
-            new RefinementRecipe(
-                    "copper_refining", "Copper Refining", "METALLURGY",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("copper_ore", 1000.0), 6000.0,
-                    Map.of("refined_copper", 600.0), Map.of("sulfur", 400.0),
-                    1, "industrial_worker"
-            ),
-            new RefinementRecipe(
-                    "silicon_refining", "Silicon Refining", "METALLURGY",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("silicates", 1000.0, "carbon", 187.5), 8000.0,
-                    Map.of("silicon", 500.0), Map.of("carbon_dioxide_gas", 687.5),
-                    1, "industrial_worker"
-            ),
-            new RefinementRecipe(
-                    "rare_earth_refining", "Rare Earth Separation", "METALLURGY",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("rare_earth_fluorides", 1000.0), 10000.0,
-                    Map.of("refined_rare_earths", 800.0), Map.of("fluoride_tailings", 200.0),
-                    1, "industrial_worker"
-            ),
-            new RefinementRecipe(
-                    "luxury_goods_mfg", "Luxury Goods Workshop", "CONSUMER_GOODS",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("consumer_goods", 500.0, "bio_polymers", 200.0,
-                            "refined_copper", 100.0), 5000.0,
-                    Map.of("luxury_goods", 800.0), Map.of(),
-                    1, "industrial_worker"
-            ),
-            new RefinementRecipe(
-                    "synthesis_metamaterials", "Metamaterial Composite Synthesis", "ADVANCED_COMPOSITE",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("graphene", 400.0, "titanium_aluminide", 300.0, "gold", 300.0), 18000.0,
-                    Map.of("metamaterial_composites", 1000.0), Map.of(),
-                    3, "engineer"
-            ),
-            new RefinementRecipe(
-                    "synthesis_antimatter_cells", "Antimatter Containment Cell Manufacturing", "WARP_WEAPONRY",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("refined_tungsten", 500.0, "superconducting_cuprates", 300.0, "inconel_alloy", 200.0), 25000.0,
-                    Map.of("antimatter_containment_cell", 1000.0), Map.of(),
-                    4, "engineer"
-            ),
-            new RefinementRecipe(
-                    "synthesis_quantum_spin_glass", "Quantum Spin Glass Fabrication", "QUANTUM_COMPONENTS",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("superconducting_cuprates", 400.0, "refined_gallium", 300.0, "refined_manganese", 300.0), 16000.0,
-                    Map.of("quantum_spin_glass", 1000.0), Map.of(),
-                    3, "engineer"
-            ),
-            new RefinementRecipe(
-                    "synthesis_metallic_hydrogen", "High-Pressure Metallic Hydrogen Synthesis", "DEGENERATE_MATTER",
-                    RefinementRecipe.ENV_GRAVITY_LOCKED, 5.0, 100.0,
-                    Map.of("hydrogen_gas", 1000.0), 30000.0,
-                    Map.of("stabilized_metallic_hydrogen", 1000.0), Map.of(),
-                    4, "engineer"
-            ),
-            new RefinementRecipe(
-                    "synthesis_monomolecular_wire", "Monomolecular Wire Polymerization", "TETHER_MACROSTRUCTURES",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("carbon_nanotubes", 500.0, "graphene", 500.0), 20000.0,
-                    Map.of("monomolecular_wire", 1000.0), Map.of(),
-                    3, "engineer"
-            ),
-            new RefinementRecipe(
-                    "synthesis_boron_nitride", "Crystalline Boron Nitride Crystallization", "ALLOYING",
-                    RefinementRecipe.ENV_UNIVERSAL, 0.0, 100.0,
-                    Map.of("boron_ore", 600.0, "nitrogen_gas", 400.0), 14000.0,
-                    Map.of("crystalline_boron_nitride", 1000.0), Map.of(),
-                    2, "industrial_worker"
-            )
-    );
+    public static final List<RefinementRecipe> STANDARD_RECIPES = applicationRecipes();
+
+    private static List<RefinementRecipe> applicationRecipes() {
+        var recipes = new java.util.ArrayList<RefinementRecipe>();
+        try {
+            for (var technology : com.spaceconquest.engine.DataModelLoader.loadTechnologies()) {
+                for (var application : technology.applications()) {
+                    var recipe = application.productionRecipe();
+                    if (recipe != null && recipe.factory() != null && recipe.inputSources().stream()
+                            .allMatch(input -> input.source() == com.spaceconquest.engine.industry.ProcessInput.Source.MARKET))
+                        recipes.add(recipe.factory().refinement(application.name(), recipe));
+                }
+            }
+        } catch (java.io.IOException exception) { throw new java.io.UncheckedIOException(exception); }
+        return List.copyOf(recipes);
+    }
 
     public record RefinementExecutionResult(
             boolean isSuccessful,

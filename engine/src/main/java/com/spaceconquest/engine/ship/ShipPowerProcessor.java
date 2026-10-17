@@ -230,7 +230,7 @@ public final class ShipPowerProcessor {
             ShipDesign design = state.shipDesigns().stream().filter(item -> item.id().equals(ship.designId()))
                     .findFirst().orElse(null);
             if (design == null || design.powerProfile() == null) return ship;
-            if (stopHour >= 24 && FleetShieldPolicy.recharge(state, fleet, FleetShieldPolicy.travelling(fleet))
+            if (!ShipRefitPlan.reserved(state, ship.id()) && ShipMiningProcessor.powerKw(state, fleet, ship) == 0 && stopHour >= 24 && FleetShieldPolicy.recharge(state, fleet, FleetShieldPolicy.travelling(fleet))
                     && ShipShieldRecharge.requestedKw(design, ship, 24) > 1e-9) {
                 var destination = fleet.location().inTransit() ? fleet.location().destination() : fleet.location().current();
                 var budget = ShipShieldPower.forecast(ship, design, ShipPowerPhases.withActivity(ShipPowerPhases.remaining(state, fleet, design), activity),
@@ -268,7 +268,7 @@ public final class ShipPowerProcessor {
                 var allocation = allocate(profile, current, end - start,
                         sunlight ? solarKw(profile, current, environment) : 0,
                         profile.essentialKw(ship, design), cargoKw(profile, ship, design),
-                        middle < stopHour && burningAt(fleet, middle) ? profile.driveKw() : 0, rechargeKw, ShipServicePower.SHIELDS, activity);
+                        middle < stopHour && burningAt(fleet, middle) ? profile.driveKw() : ShipMiningProcessor.powerKw(state, fleet, ship), rechargeKw, ShipServicePower.SHIELDS, activity);
                 var step = allocation.interval(); recharge += allocation.rechargeKwh();
                 firstFailure = Math.min(firstFailure, start + step.firstUnpoweredHour());
                 current = step.state();

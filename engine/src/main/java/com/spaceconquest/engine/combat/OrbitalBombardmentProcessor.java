@@ -56,7 +56,7 @@ public class OrbitalBombardmentProcessor {
                     "Shattered Belt " + targetPlanet.name(),
                     "Remnants of planet " + targetPlanet.name(),
                     targetPlanet.resources(),
-                    List.of()
+                    List.of(), targetPlanet.distance()
             ));
 
             SolarSystem updatedSys = new SolarSystem(

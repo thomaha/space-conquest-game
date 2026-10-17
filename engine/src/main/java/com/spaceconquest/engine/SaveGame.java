@@ -89,11 +89,23 @@ public record SaveGame(
         List<WarDeclarationRecord> warDeclarations,
         List<DiplomaticProposal> diplomaticProposals,
         List<FleetEngagementRecord> fleetEngagements,
-        List<ApplicationOptimization> applicationOptimizations
+        List<ApplicationOptimization> applicationOptimizations,
+        com.spaceconquest.engine.combat.AuxiliaryForces auxiliaryForces,
+        List<com.spaceconquest.engine.ship.FleetServiceEvent> fleetServiceEvents,
+        List<com.spaceconquest.engine.technology.ResearchEvent> researchHistory,
+        com.spaceconquest.engine.ship.ShipyardLedger shipyardLedger,
+        com.spaceconquest.engine.ship.ShipMiningState shipMiningState,
+        com.spaceconquest.engine.economy.BusinessLedger businessLedger,
+        List<com.spaceconquest.engine.logistics.SupplyDevelopmentPlan> supplyDevelopmentPlans,
+        List<com.spaceconquest.engine.industry.SurveyTeam> surveyTeams
 ) {
-    public static final int CURRENT_VERSION = 62;
+    public static final int CURRENT_VERSION = 1;
 
     public SaveGame {
+        supplyDevelopmentPlans = supplyDevelopmentPlans == null ? List.of() : List.copyOf(supplyDevelopmentPlans);
+        surveyTeams = surveyTeams == null ? List.of() : List.copyOf(surveyTeams);
+        if (businessLedger == null) businessLedger = com.spaceconquest.engine.economy.BusinessLedger.empty();
+        if (version != CURRENT_VERSION) throw new IllegalArgumentException("Unsupported save format version: " + version);
         if (solarSystems == null) solarSystems = List.of();
         if (empires == null) empires = List.of();
         if (corporations == null) corporations = List.of();
@@ -135,6 +147,11 @@ public record SaveGame(
         if (diplomaticProposals == null) diplomaticProposals = List.of();
         if (fleetEngagements == null) fleetEngagements = List.of();
         if (applicationOptimizations == null) applicationOptimizations = List.of();
+        fleetServiceEvents = fleetServiceEvents == null ? List.of() : List.copyOf(fleetServiceEvents);
+        researchHistory = researchHistory == null ? List.of() : List.copyOf(researchHistory);
+        if (shipyardLedger == null) shipyardLedger = com.spaceconquest.engine.ship.ShipyardLedger.empty();
+        if (shipMiningState == null) shipMiningState = com.spaceconquest.engine.ship.ShipMiningState.empty();
+        if (auxiliaryForces == null) auxiliaryForces = com.spaceconquest.engine.combat.AuxiliaryForces.empty();
     }
 
     public static SaveGame fromGameState(GameState state, String savedAt, int gameSpeed, String gameTime) {
@@ -157,7 +174,7 @@ public record SaveGame(
                 state.householdAccounts(), state.marketAccounts(), state.industryAccounts(),
                 state.corporateTaxAccounts(), state.launchUsageKg(), state.launchActivities(),
                 state.warDeclarations(), state.diplomaticProposals(),
-                state.fleetEngagements(), state.applicationOptimizations()
+                state.fleetEngagements(), state.applicationOptimizations(), state.auxiliaryForces(), state.fleetServiceEvents(), state.researchHistory(), state.shipyardLedger(), state.shipMiningState(), state.businessLedger(), state.supplyDevelopmentPlans(), state.surveyTeams()
         );
     }
 
@@ -166,17 +183,18 @@ public record SaveGame(
             try {
                 return LocalDateTime.parse(campaignStartTime);
             } catch (DateTimeParseException ignored) {
-                // Older or damaged metadata falls back to the calendar used by its save version.
+                // Missing or damaged optional metadata uses the current campaign calendar.
             }
         }
-        return version < 13 ? LocalDateTime.of(2200, 1, 1, 8, 0) : GameClock.START_TIME;
+        return GameClock.START_TIME;
     }
 
     public GameState toGameState(long turn, String status) {
         return new GameState(
                 turn, status, solarSystems, empires,
                 corporations, commercialHubs, shadowSyndicates, diplomaticRelations,
-                systemGovernors, researchProjects, technologyExchangeRoutes, shipDesigns,
+                systemGovernors, researchProjects, technologyExchangeRoutes,
+                shipDesigns,
                 shipConstructionOrders,
                 fleets, passengerManifests, geologicalDeposits, powerGrids, industrialFacilities,
                 expansionProjects, orbitalStations, spaceElevators, constructionProjects,
@@ -185,7 +203,7 @@ public record SaveGame(
                 systemEconomies, courierShips, planetaryBalanceSheets, imperialBalanceSheets,
                 householdAccounts, marketAccounts, industryAccounts, corporateTaxAccounts,
                 launchUsageKg, launchActivities, warDeclarations, diplomaticProposals,
-                fleetEngagements, applicationOptimizations
+                fleetEngagements, applicationOptimizations, auxiliaryForces, fleetServiceEvents, researchHistory, shipyardLedger, shipMiningState, businessLedger, supplyDevelopmentPlans, surveyTeams
         );
     }
 }

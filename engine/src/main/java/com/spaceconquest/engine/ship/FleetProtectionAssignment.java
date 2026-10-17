@@ -3,8 +3,13 @@ package com.spaceconquest.engine.ship;
 /** Saved original protection and recovery intent, carried by an automatic intercept order. */
 public record FleetProtectionAssignment(FleetGuardOrder guard, String convoyFleetId, String homeFleetId,
                                         FleetLocation.Site origin, Stage stage, String serviceTargetId, boolean escaped,
-                                        FleetRepairIntent repairIntent) {
-    public enum Stage { PURSUING, RETURNING, REFUELING, SUPPLYING, REPAIRING }
+                                        FleetRepairIntent repairIntent, boolean weaponService) {
+    public enum Stage { PURSUING, RETURNING, REFUELING, SUPPLYING, REPAIRING, RESUPPLYING }
+    public FleetProtectionAssignment(FleetGuardOrder guard, String convoyFleetId, String homeFleetId,
+                                     FleetLocation.Site origin, Stage stage, String serviceTargetId, boolean escaped,
+                                     FleetRepairIntent repairIntent) {
+        this(guard, convoyFleetId, homeFleetId, origin, stage, serviceTargetId, escaped, repairIntent, false);
+    }
     public FleetProtectionAssignment(FleetGuardOrder guard, String convoyFleetId, String homeFleetId,
                                      FleetLocation.Site origin, Stage stage, String serviceTargetId, boolean escaped) {
         this(guard, convoyFleetId, homeFleetId, origin, stage, serviceTargetId, escaped, null);
@@ -20,13 +25,17 @@ public record FleetProtectionAssignment(FleetGuardOrder guard, String convoyFlee
         serviceTargetId = serviceTargetId == null ? "" : serviceTargetId;
     }
     public FleetProtectionAssignment at(Stage value, String target) {
-        return new FleetProtectionAssignment(guard, convoyFleetId, homeFleetId, origin, value, target, escaped, repairIntent);
+        return new FleetProtectionAssignment(guard, convoyFleetId, homeFleetId, origin, value, target, escaped, repairIntent, weaponService);
     }
     public FleetProtectionAssignment afterEscape() {
-        return new FleetProtectionAssignment(guard, convoyFleetId, homeFleetId, origin, Stage.RETURNING, "", true, repairIntent);
+        return new FleetProtectionAssignment(guard, convoyFleetId, homeFleetId, origin, Stage.RETURNING, "", true, repairIntent, weaponService);
     }
     public FleetProtectionAssignment withRepairIntent(FleetRepairIntent value) {
         return new FleetProtectionAssignment(value == null ? guard : value.guard(), convoyFleetId, homeFleetId, origin,
-                stage, serviceTargetId, escaped, value);
+                stage, serviceTargetId, escaped, value, weaponService);
+    }
+    public FleetProtectionAssignment forWeapons() {
+        return new FleetProtectionAssignment(guard, convoyFleetId, homeFleetId, origin, stage,
+                serviceTargetId, escaped, repairIntent, true);
     }
 }

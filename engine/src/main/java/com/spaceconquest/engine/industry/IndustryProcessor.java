@@ -73,10 +73,13 @@ public class IndustryProcessor {
             IndustrialFacility facility = state.industrialFacilities().stream()
                     .filter(item -> proj.facilityId().equals(item.id())).findFirst().orElse(null);
             if (facility == null) continue;
+            var definition = FactoryDefinition.find(facility.applicationId());
+            var service = com.spaceconquest.engine.logistics.InfrastructureService.find(facility.applicationId());
+            if (definition == null && service != null) definition = service.capability().infrastructure();
             ConstructionProgress.Step step = ConstructionProgress.advance(current,
                     facility.planetId(), facility.ownerEntityId(),
                     proj.requiredMaterialsKg(), proj.consumedMaterialsKg(),
-                    proj.accumulatedWorkHours(), proj.requiredWorkHours(), 100.0);
+                    proj.accumulatedWorkHours(), proj.requiredWorkHours(), definition == null ? 100.0 : definition.constructionWorkPerDay());
             current = step.state();
             if (step.complete()) {
                 completedUpgrades.put(proj.facilityId(), proj.targetTier());
@@ -112,7 +115,7 @@ public class IndustryProcessor {
                 return new IndustrialFacility(
                         fac.id(), fac.planetId(), fac.applicationId(), fac.ownerEntityId(),
                         fac.ownershipType(), newTier, fac.allocatedWorkers(),
-                        fac.workerProfessionId(), false, 0.0
+                        fac.workerProfessionId(), false, 0.0, fac.productionEquipment()
                 );
             }
             FacilityExpansionProject project = pending.get(fac.id());
@@ -121,7 +124,7 @@ public class IndustryProcessor {
                         : Math.clamp(project.accumulatedWorkHours() / project.requiredWorkHours(), 0.0, 1.0);
                 return new IndustrialFacility(fac.id(), fac.planetId(), fac.applicationId(),
                         fac.ownerEntityId(), fac.ownershipType(), fac.tier(), fac.allocatedWorkers(),
-                        fac.workerProfessionId(), true, progress);
+                        fac.workerProfessionId(), true, progress, fac.productionEquipment());
             }
             return fac;
         }).toList();

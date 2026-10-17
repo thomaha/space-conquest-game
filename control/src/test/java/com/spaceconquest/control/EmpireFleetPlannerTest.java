@@ -49,11 +49,12 @@ class EmpireFleetPlannerTest {
         var queue = new CommandQueue();
         var commands = EmpireFleetPlanner.plan(state, state.empires().getFirst());
         commands.forEach(queue::submit);
+        AIShipDeploymentPlanner.plan(state, state.empires().getFirst()).forEach(queue::submit);
         if (twice) commands.forEach(queue::submit);
         return queue.drainAndExecute(state);
     }
 
-    @Test void ownTraderBuildsOnceAndEntersRoamingServiceThroughTheQueue() {
+    @Test void ownTraderBuildsOnceAndReservesItsHandoffUntilDepartureIsFunded() {
         var initial = world(ShipRole.CARGO_TRANSPORT, false);
         var queue = new CommandQueue();
         new EmpireAIController("ai", queue).onGameStateUpdate(initial);
@@ -66,9 +67,9 @@ class EmpireFleetPlannerTest {
         assertTrue(completed.shipConstructionOrders().isEmpty());
         assertEquals("ai", completed.fleets().getFirst().ships().getFirst().ownerEntityId());
         var assigned = executePlan(completed, true);
-        assertEquals(1, assigned.tradeRoutes().size());
-        assertTrue(assigned.tradeRoutes().getFirst().isActive());
-        assertTrue(assigned.tradeRoutes().getFirst().roaming());
+        assertTrue(assigned.tradeRoutes().isEmpty());
+        assertTrue(assigned.shipyardLedger().deployments().containsKey(assigned.fleets().getFirst().ships().getFirst().id()));
+        assertTrue(assigned.shipConstructionOrders().isEmpty());
         assertEquals(initial.shipDesigns(), assigned.shipDesigns());
         assertTrue(EmpireFleetPlanner.plan(assigned, assigned.empires().getFirst()).isEmpty());
     }
@@ -90,27 +91,24 @@ class EmpireFleetPlannerTest {
         assertEquals(mixed.shipDesigns(), ordered.shipDesigns());
     }
 
-    @Test void militaryNeedRequiresWarAndCompletedWarshipWaitsForExplicitOrders() {
+    @Test void unarmedMilitaryTemplateWaitsForResearchInsteadOfBuildingAnIneffectiveShip() {
         var peace = world(ShipRole.COMBAT_SHIP, false);
         assertTrue(EmpireFleetPlanner.plan(peace, peace.empires().getFirst()).isEmpty());
         var war = world(ShipRole.COMBAT_SHIP, true);
-        var completed = new ShipConstructionProcessor().process(executePlan(war, true));
-        var assigned = executePlan(completed, true);
-        assertEquals("PASSIVE", assigned.fleets().getFirst().fleetStance());
-        assertTrue(assigned.tradeRoutes().isEmpty());
-        assertTrue(assigned.shipConstructionOrders().isEmpty());
-        assertTrue(EmpireFleetPlanner.plan(assigned, assigned.empires().getFirst()).isEmpty());
+        assertTrue(EmpireFleetPlanner.plan(war, war.empires().getFirst()).isEmpty());
+        assertFalse(EmpireFleetNeeds.assess(war, war.empires().getFirst()).isEmpty());
+        assertTrue(FleetNeedsConstructionPlanner.plan(war, war.empires().getFirst()).isEmpty());
     }
 
     @Test void queuedCommandsRecheckLiveStockWarBlueprintOwnershipAndManualStance() {
         var war = world(ShipRole.COMBAT_SHIP, true);
-        var build = EmpireFleetPlanner.plan(war, war.empires().getFirst()).getFirst();
+        var build = new RequestAIShipBuildCommand("ai", war.shipDesigns().getFirst().id(), "sol");
         var queue = new CommandQueue();
         queue.submit(build);
         assertTrue(queue.drainAndExecute(war.toBuilder().diplomaticRelations(List.of()).build()).shipConstructionOrders().isEmpty());
         queue.submit(build);
         assertTrue(queue.drainAndExecute(war.toBuilder().commercialHubs(List.of()).build()).shipConstructionOrders().isEmpty());
-        var completed = new ShipConstructionProcessor().process(executePlan(war, false));
+        var completed = new ShipConstructionProcessor().process(build.apply(war));
         var service = new AssignAIShipServiceCommand("ai", completed.fleets().getFirst().id());
         assertFalse(service.validate(completed));
         var foreignBlueprint = design("other", ShipRole.COMBAT_SHIP);

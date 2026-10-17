@@ -37,12 +37,12 @@ class TacticalCombatArenaTest {
 
         designs = List.of(cruiser, raider);
 
-        ShipInstance attShip1 = new ShipInstance("ship_att_1", "design_cruiser", "terran_confederation", 1000, 300, 200, Map.of());
-        ShipInstance attShip2 = new ShipInstance("ship_att_2", "design_cruiser", "terran_confederation", 1000, 300, 200, Map.of());
+        ShipInstance attShip1 = new ShipInstance("ship_att_1", "design_cruiser", "terran_confederation", 1000, 300, 200, Map.of("cannon_round", 1000.0));
+        ShipInstance attShip2 = new ShipInstance("ship_att_2", "design_cruiser", "terran_confederation", 1000, 300, 200, Map.of("cannon_round", 1000.0));
         attackerFleet = new Fleet("att_fleet", "Imperial 1st Taskforce", "terran_confederation", "sol", "", 0, 0, 0, false, TacticalCombatProcessor.STANCE_AGGRESSIVE_BRAWL, List.of(attShip1, attShip2));
 
-        ShipInstance defShip1 = new ShipInstance("ship_def_1", "design_raider", "shadow_syndicate", 600, 150, 100, Map.of());
-        ShipInstance defShip2 = new ShipInstance("ship_def_2", "design_raider", "shadow_syndicate", 600, 150, 100, Map.of());
+        ShipInstance defShip1 = new ShipInstance("ship_def_1", "design_raider", "shadow_syndicate", 600, 150, 100, Map.of("cannon_round", 1000.0));
+        ShipInstance defShip2 = new ShipInstance("ship_def_2", "design_raider", "shadow_syndicate", 600, 150, 100, Map.of("cannon_round", 1000.0));
         defenderFleet = new Fleet("def_fleet", "Syndicate Raider Pack", "shadow_syndicate", "sol", "", 0, 0, 0, false, TacticalCombatProcessor.STANCE_STANDOFF_KITE, List.of(defShip1, defShip2));
     }
 
@@ -68,7 +68,7 @@ class TacticalCombatArenaTest {
         assertEquals(180.0, r1.attackerShipStates().getFirst().posX(), 0.1);
         assertEquals(640.0, r1.defenderShipStates().getFirst().posX(), 0.1);
 
-        assertTrue(r1.activeProjectiles().stream().anyMatch(p -> p.weaponType().equals("LASER") || p.weaponType().equals("TORPEDO") || p.weaponType().equals("MASS_DRIVER")));
+        assertTrue(r1.activeProjectiles().stream().anyMatch(p -> p.weaponType().equals("Ship cannon")));
     }
 
     @Test

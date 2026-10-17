@@ -20,7 +20,7 @@ class SensorContactMemoryTest {
     }
     private Fleet fleet(String owner, int count) {
         var ships = new ArrayList<ShipInstance>();
-        for (int i = 0; i < count; i++) ships.add(new ShipInstance(owner + i, owner, owner, 1000, 0, 100, Map.of()));
+        for (int i = 0; i < count; i++) ships.add(new ShipInstance(owner + i, owner, owner, 1000, 0, 100, Map.of("cannon_round", 1000.0)));
         return new Fleet(owner, owner, owner, "sol", "", 0, 0, 0, false, "PASSIVE", ships);
     }
     private GameState world() {

@@ -45,6 +45,8 @@ public class InteractiveGameplayPipelineTest {
                 List<String> techs = new java.util.ArrayList<>(e.unlockedTechIds());
                 if (!techs.contains("rocketry")) techs.add("rocketry");
                 if (!techs.contains("electricity")) techs.add("electricity");
+                if (!techs.contains("industrial_production")) techs.add("industrial_production");
+                if (!techs.contains("mining_outpost")) techs.add("mining_outpost");
                 if (!techs.contains("solar_power")) techs.add("solar_power");
                 if (!techs.contains("stellar_megastructures")) techs.add("stellar_megastructures");
                 if (!techs.contains("superconductors")) techs.add("superconductors");
@@ -61,6 +63,7 @@ public class InteractiveGameplayPipelineTest {
         engine.applyGameState(state.toBuilder()
                 .empires(updatedEmpires)
                 .build());
+        engine.stepTurn(); // Research assignments require actual settled scientist payroll.
 
         // 2. Step 1: Technology Research, Optimization & Reverse Engineering
         humanController.stageCommand(new StartResearchCommand(
@@ -75,10 +78,10 @@ public class InteractiveGameplayPipelineTest {
 
         // 3. Step 2: Planetary Prospecting, Facility Construction & Expansion
         humanController.stageCommand(new StartProspectingMissionCommand(
-                playerEmpire, "mars", 5
+                "mars", playerEmpire
         ));
         humanController.stageCommand(new BuildFacilityCommand(
-                playerEmpire, "earth", "smelter", "smelter_operator", 1
+                playerEmpire, "earth", "mining_outpost", "miner", 1
         ));
         humanController.stageCommand(new ExpandFacilityCommand(
                 "foundry_luna", 2, 5000.0
@@ -137,7 +140,8 @@ public class InteractiveGameplayPipelineTest {
         GameState mutatedState = engine.getGameState();
         assertTrue(mutatedState.researchProjects().stream().anyMatch(r -> r.targetTechOrAppId().equals("solar_power")));
         assertTrue(mutatedState.shipDesigns().stream().anyMatch(d -> d.id().equals("design_dreadnought_01")));
-        assertTrue(mutatedState.industrialFacilities().stream().anyMatch(f -> f.applicationId().equals("smelter")));
+        assertTrue(mutatedState.expansionProjects().stream().anyMatch(p -> mutatedState.industrialFacilities().stream()
+                .anyMatch(f -> f.id().equals(p.facilityId()) && f.applicationId().equals("mining_outpost"))));
         assertEquals(1, engine.getMegastructures().size());
 
         // 7. Multi-Agent Turn Advancement Loop
@@ -153,7 +157,7 @@ public class InteractiveGameplayPipelineTest {
             humanController.onGameStateUpdate(engine.getGameState());
         }
 
-        assertEquals(5, engine.getGameState().turn());
+        assertEquals(6, engine.getGameState().turn()); // Payroll settlement plus five interactive turns.
 
         // 8. Victory Condition Check
         CampaignSetup setup = CampaignSetup.createDefault();

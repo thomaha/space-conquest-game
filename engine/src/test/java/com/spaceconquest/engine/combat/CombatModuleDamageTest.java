@@ -18,7 +18,7 @@ class CombatModuleDamageTest {
                 1000, 0, 1000, 100, 1, 0, 1000, true, false);
     }
     private ShipInstance ship(ShipDesign design, double shield) {
-        return new ShipInstance(design.id() + "-ship", design.id(), "owner", 10000, shield, 500, Map.of());
+        return new ShipInstance(design.id() + "-ship", design.id(), "owner", 10000, shield, 500, Map.of("cannon_round", 1000.0));
     }
     private Fleet fleet(ShipInstance ship) {
         return new Fleet(ship.id(), ship.id(), "owner", "sol", "", 0, 0, 0, false, "PASSIVE", List.of(ship));
@@ -93,7 +93,7 @@ class CombatModuleDamageTest {
         var restored = manager.load(file).toGameState(0, "RUNNING").fleets().getFirst().ships().getFirst();
         assertEquals(damaged, restored); assertEquals(ShipCombatStats.of(design, damaged), ShipCombatStats.of(design, restored));
         var mapper = new ObjectMapper(); var json = (ObjectNode) mapper.readTree(file);
-        json.put("version", 56);
+        json.put("version", com.spaceconquest.engine.SaveGame.CURRENT_VERSION);
         ((ObjectNode) json.get("fleets").get(0).get("ships").get(0)).remove("moduleDamage");
         mapper.writeValue(file, json);
         var legacy = manager.load(file).toGameState(0, "RUNNING").fleets().getFirst().ships().getFirst();

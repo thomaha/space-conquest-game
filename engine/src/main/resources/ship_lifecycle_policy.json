@@ -1,0 +1,12 @@
+{
+  "maximumShipPreviews": 8,
+  "maximumModelPreviews": 8,
+  "treasuryReserveCredits": 5000,
+  "minimumGainFraction": 0.1,
+  "minimumRefitHullFraction": 0.6,
+  "maximumRefitBuildCostFraction": 0.75,
+  "maximumDowntimeDays": 30,
+  "downtimeCreditsPerDay": 100,
+  "utilityFloor": 0.1,
+  "capabilityWeights": {"weaponDamage": 0.5, "shieldCapacity": 0.2, "cargoCapacityKg": 0.4, "thrustN": 0.15, "sensorRangeKm": 0.15, "batteryKwh": 0.1, "generatorKw": 0.1}
+}

@@ -18,5 +18,17 @@ public record Technology(
     String description,
     int complexity,
     List<String> requiredTechnologies,
-    List<TechnicalApplication> applications
-) {}
+    List<TechnicalApplication> applications,
+    Double researchPoints
+) {
+    public Technology(String id, String name, String description, int complexity,
+                      List<String> requiredTechnologies, List<TechnicalApplication> applications) {
+        this(id, name, description, complexity, requiredTechnologies, applications, null);
+    }
+    public Technology {
+        requiredTechnologies = requiredTechnologies == null ? List.of() : List.copyOf(requiredTechnologies);
+        applications = applications == null ? List.of() : List.copyOf(applications);
+        if (researchPoints != null && (!Double.isFinite(researchPoints) || researchPoints <= 0))
+            throw new IllegalArgumentException("Invalid research cost for " + id);
+    }
+}

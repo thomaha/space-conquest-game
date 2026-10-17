@@ -18,8 +18,10 @@ import java.io.IOException;
 public record SelectOptimizationPathCommand(
         String empireId,
         String applicationId,
-        String pathChoice
+        String pathChoice,
+        com.spaceconquest.engine.technology.ResearchDecision decision
 ) implements GameCommand {
+    public SelectOptimizationPathCommand(String empireId, String applicationId, String pathChoice) { this(empireId, applicationId, pathChoice, null); }
 
     public static final String PATH_A_PERFORMANCE = "PATH_A";
     public static final String PATH_B_MINIATURIZATION = "PATH_B";
@@ -59,6 +61,10 @@ public record SelectOptimizationPathCommand(
         ApplicationOptimization selection = previous == null
                 ? new ApplicationOptimization(empireId, applicationId, canonicalPath, result)
                 : ApplicationRefinement.resolve(previous, result, canonicalPath);
-        return state.withApplicationOptimizations(ApplicationRefinement.replace(state.applicationOptimizations(), selection));
+        var updated = state.withApplicationOptimizations(ApplicationRefinement.replace(state.applicationOptimizations(), selection));
+        var reason = decision == null ? new com.spaceconquest.engine.technology.ResearchDecision(
+                com.spaceconquest.engine.technology.ResearchDecision.Actor.PLAYER, "Selected " + canonicalPath + ".", applicationId) : decision;
+        return com.spaceconquest.engine.technology.ResearchHistory.record(updated, new com.spaceconquest.engine.technology.ResearchEvent(state.turn(), empireId,
+                null, applicationId, com.spaceconquest.engine.technology.ResearchEvent.Kind.OPTIMIZED, reason, result));
     }
 }

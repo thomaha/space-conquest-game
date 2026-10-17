@@ -127,6 +127,7 @@ class SensorModuleTest {
         old.remove("sensorProfile");
         assertEquals(basic.sensorProfile(), SensorModuleCatalog.profile(mapper.treeToValue(old, ShipDesign.class)));
         old.set("equippedModuleIds", mapper.valueToTree(List.of("mod_chemical_rocket")));
+        old.remove("assembly");
         assertEquals(0, SensorModuleCatalog.profile(mapper.treeToValue(old, ShipDesign.class)).rangeKm());
     }
 

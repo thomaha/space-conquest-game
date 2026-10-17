@@ -110,9 +110,9 @@ public final class BodyFleetRendezvous {
                 if (ShipPowerForecast.ready(ShipPowerForecast.departure(state, hunter, destination, plan, null))) return plan;
             } catch (IllegalArgumentException outsideDomain) { /* No frame transition or collision is invented. */ }
         }
-        if (!target.location().inTransit() && destination.kind() == FleetLocation.Kind.ORBIT) {
+        if ((!target.location().inTransit() || RecoveredParkingTravel.ready(target)) && destination.kind() == FleetLocation.Kind.ORBIT) {
             var parking = OrbitalTravel.parking(state, target.currentSystemId(), destination);
-            var plan = OrbitalPhasing.plan(state, hunter, destination, parking, actual, capabilities, acceleration, deltaV);
+            var plan = OrbitalPhasing.plan(state, hunter, destination, parking, actual, capabilities, acceleration, deltaV, target);
             if (plan != null) {
                 double coordinated = Math.ceil(plan.days()) * 86400;
                 var end = plan.physical().vectorTrajectory().at(coordinated); var goal = predicted(state, target, coordinated);

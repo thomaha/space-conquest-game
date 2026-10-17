@@ -70,7 +70,8 @@ class ApplicationOptimizationIntegrationTest {
         assertEquals(425.0, tile.expansionProjects().getFirst().requiredWorkHours(), 0.001);
         assertEquals(425.0, tile.expansionProjects().getFirst().requiredMaterialsKg().get("refined_iron"), 0.001);
         GameState expansion = new ExpandFacilityCommand("solar", 2, 200.0, 0.0).apply(selected);
-        assertEquals(170.0, expansion.expansionProjects().getFirst().requiredWorkHours(), 0.001);
+        assertEquals(com.spaceconquest.engine.industry.PowerPlantCatalog.find("solar_power").expansionWorkHoursPerTier() * 0.85,
+                expansion.expansionProjects().getFirst().requiredWorkHours(), 0.001);
         assertEquals(425.0, expansion.expansionProjects().getFirst().requiredMaterialsKg().get("refined_iron"), 0.001);
         var application = DataModelLoader.loadTechnologies().stream().flatMap(tech -> tech.applications().stream())
                 .filter(app -> "solar_power".equals(app.id())).findFirst().orElseThrow();
@@ -88,7 +89,7 @@ class ApplicationOptimizationIntegrationTest {
                 .corporations(List.of(new Corporation("corp", "Corp", "empire", "earth", "INDUSTRY",
                         50_000.0, List.of("electrolysis"), List.of(), List.of())))
                 .industrialFacilities(List.of(new IndustrialFacility("electrolysis", "earth", "water_electrolysis",
-                        "corp", IndustrialFacility.PRIVATE_CORPORATE, 1, 10, "technician", false, 0.0)))
+                        "corp", IndustrialFacility.PRIVATE_CORPORATE, 1, 10, "industrial_worker", false, 0.0)))
                 .commercialHubs(List.of(new CommercialHub("hub", "earth", 0.0, 100_000.0, 10_000.0, 1.0,
                         Map.of("purified_water", new MarketOrder("purified_water", 10_000.0, 0.0, 1.0, 0.0)))))
                 .marketAccounts(List.of(new MarketAccount("hub", 0.0))).build();
@@ -96,11 +97,11 @@ class ApplicationOptimizationIntegrationTest {
         assertTrue(result.industryAccounts().getFirst().producedKg().isEmpty());
         assertEquals(10_000.0, result.hubs().getFirst().activeOrders().get("purified_water").supplyKg());
         corporate = corporate.withIndustrialFacilities(List.of(new IndustrialFacility("electrolysis", "earth", "water_electrolysis",
-                "corp", IndustrialFacility.PRIVATE_CORPORATE, 2, 10, "technician", false, 0.0)));
+                "corp", IndustrialFacility.PRIVATE_CORPORATE, 2, 10, "industrial_worker", false, 0.0)));
         result = new IndustryMarketProcessor().process(corporate, Map.of("electrolysis", 10), Map.of());
         var account = result.industryAccounts().getFirst();
-        assertEquals(888.9 * 1.15 * 1.5, account.producedKg().get("oxygen_gas"), 0.001);
-        assertEquals(111.1 * 1.15 * 1.5, account.producedKg().get("hydrogen_gas"), 0.001);
+        assertEquals(890.0 * 1.15 * 1.5, account.producedKg().get("oxygen_gas"), 0.001);
+        assertEquals(110.0 * 1.15 * 1.5, account.producedKg().get("hydrogen_gas"), 0.001);
         assertEquals(1_725.0, account.inputCostsCredits(), 0.001);
         assertEquals(8_275.0, result.hubs().getFirst().activeOrders().get("purified_water").supplyKg(), 0.001);
         assertEquals(1.2, ApplicationProduction.modifiersForOwner(corporate, "corp", "water_electrolysis").costMultiplier());
@@ -131,7 +132,7 @@ class ApplicationOptimizationIntegrationTest {
     }
 
     private double generation(GameState state) {
-        return new PowerGenerationProcessor().process(state, Map.of("solar", 100), Map.of())
+        return new PowerGenerationProcessor().process(state, Map.of("solar", 100), Map.of(), false)
                 .generationKw().get("earth");
     }
 

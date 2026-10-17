@@ -1,6 +1,6 @@
 package com.spaceconquest.engine.ship;
 
-/** Previous ordinary assignment retained while an idle fleet performs automatic repair recovery. */
+/** Previous ordinary assignment retained through automatic repair or weapon service recovery. */
 public record FleetRepairIntent(String stance, FleetGuardOrder guard, FleetEscortOrder escort, FleetInterceptOrder intercept) {
     public FleetRepairIntent {
         stance = stance == null ? "PASSIVE" : stance;

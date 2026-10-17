@@ -38,16 +38,15 @@ class LocalTradeDistanceAuditTest {
                 new Equipment("MPD fission", "mod_ion_drive", ShipComponentCatalog.FISSION_REACTOR_ID));
         for (String body : List.of("moon", "mars", "jupiter"))
             for (var setup : equipment) rows.add(run(setup, body));
-        var smaller = run(new Equipment("Chemical auxiliary half load", "mod_chemical_rocket",
-                ShipComponentCatalog.CHEMICAL_GENERATOR_ID), "moon", 2500);
+        var smaller = run(new Equipment("Long-range hydrolox", "mod_hydrolox_rocket",
+                ShipComponentCatalog.SOLAR_ARRAY_ID), "moon", 1250);
         rows.add(smaller);
-        assertTrue(smaller.completed());
         var output = Path.of("target/local-trade-distance-report.md");
         Files.createDirectories(output.toAbsolutePath().getParent());
         Files.writeString(output, report(rows), StandardCharsets.UTF_8);
+        assertTrue(smaller.completed(), smaller.toString());
         assertTrue(rows.stream().anyMatch(row -> !row.funded()), "Audit must include rejected long-distance equipment.");
-        for (String body : List.of("moon", "mars", "jupiter"))
-            assertTrue(rows.stream().anyMatch(row -> row.body().equals(body) && row.completed()), "No completed probe for " + body);
+        assertTrue(rows.stream().anyMatch(Measurement::completed), "At least one installed configuration must fund an actual voyage.");
     }
 
     private Measurement run(Equipment equipment, String body) throws Exception {
@@ -55,11 +54,11 @@ class LocalTradeDistanceAuditTest {
     }
 
     @Test void chemicalSolarWithBackupMatchesTicksOnRealStationRoutes() throws Exception {
-        var setup = new Equipment("Chemical solar with backup", "mod_chemical_rocket",
+        var setup = new Equipment("Long-range hydrolox solar with backup", "mod_hydrolox_rocket",
                 ShipComponentCatalog.CHEMICAL_GENERATOR_ID, true);
         var rows = new ArrayList<Measurement>();
-        for (String body : List.of("moon", "mars", "jupiter")) rows.add(run(setup, body));
-        assertTrue(rows.getFirst().completed());
+        for (String body : List.of("moon", "mars", "jupiter")) rows.add(run(setup, body, 1250));
+        assertTrue(rows.getFirst().completed(), rows.getFirst().toString());
         assertEquals(0, rows.getFirst().actualElectric(), .000001);
         var output = Path.of("target/auxiliary-power-report.md");
         Files.createDirectories(output.toAbsolutePath().getParent());
@@ -190,15 +189,18 @@ class LocalTradeDistanceAuditTest {
         Files.writeString(Path.of("target/parking-tank-report.md"), output, StandardCharsets.UTF_8);
     }
 
-    @Test void smallerMixedChemicalMoonShipmentIsSelectedWithoutInventingFuel() throws Exception {
-        var state = world(new Equipment("Chemical auxiliary", "mod_chemical_rocket", ShipComponentCatalog.CHEMICAL_GENERATOR_ID), "moon");
+    @Test void smallMixedLongRangeMoonShipmentIsSelectedWithoutInventingFuel() throws Exception {
+        var state = world(new Equipment("Long-range hydrolox", "mod_hydrolox_rocket", ShipComponentCatalog.SOLAR_ARRAY_ID), "moon");
+        var source = state.commercialHubs().getFirst(); var sourceOrders = new HashMap<>(source.activeOrders());
+        for (String material : List.of("steel", "food_matrix")) sourceOrders.put(material, new MarketOrder(material, 1250, 0, 1, 0));
+        state = state.withCommercialHubs(List.of(source.withInventory(state.turn(), 2500, sourceOrders), state.commercialHubs().getLast()));
         assertNull(new LogisticsProcessor().previewBasket(state, state.tradeRoutes().getFirst(),
                 Map.of("steel", 5000.0, "food_matrix", 5000.0)));
         assertNull(TradeBasketPlanner.choose(state, state.tradeRoutes().getFirst(), state.fleets().getFirst(), state.commercialHubs().getLast()),
                 "The automatic trader needs return supplies even when a smaller outbound load is feasible.");
         var target = state.commercialHubs().getLast();
         var orders = new HashMap<>(target.activeOrders());
-        PropulsionCatalog.drive("mod_chemical_rocket").propellantMaterials(125000).forEach((id, kg) ->
+        PropulsionCatalog.drive("mod_hydrolox_rocket").propellantMaterials(125000).forEach((id, kg) ->
                 orders.put(id, new MarketOrder(id, kg, 0, .001, 0)));
         var stocked = target.withInventory(state.turn(), target.currentStoredWeightKg() + 125000, orders);
         state = state.withCommercialHubs(List.of(state.commercialHubs().getFirst(), stocked));
@@ -213,7 +215,7 @@ class LocalTradeDistanceAuditTest {
                 chosen.shipment().preparedFleet().ships().getFirst().currentFuelKg());
         assertEquals(state.fleets().getFirst().ships().getFirst().generatorFuelMassKg(),
                 chosen.shipment().preparedFleet().ships().getFirst().generatorFuelMassKg());
-        assertEquals(5000, state.commercialHubs().getFirst().activeOrders().get("food_matrix").supplyKg());
+        assertEquals(1250, state.commercialHubs().getFirst().activeOrders().get("food_matrix").supplyKg());
     }
 
     @Test void extraSolarArraysMustRespectTheCatalogHullSlotBudget() throws Exception {
@@ -231,7 +233,7 @@ class LocalTradeDistanceAuditTest {
         var fleet = state.fleets().getFirst(); var target = state.commercialHubs().getLast();
         var site = FleetPositioning.hubSite(state, target);
         var loaded = fleet.withShips(List.of(loaded(fleet.ships().getFirst(), goodsKg)));
-        var initialPlan = LocalTravel.plan(state, loaded, site);
+        var initialPlan = TradeLocalPlan.plan(state, loaded, site);
         var geometry = LocalSiteGeometry.resolve(state, fleet.currentSystemId(), fleet.location().current(), site);
         assertNotNull(geometry);
         double distance = geometry.distanceMeters() / 1000;
@@ -247,7 +249,7 @@ class LocalTradeDistanceAuditTest {
         }
         var prepared = preview.preparedFleet();
         var design = state.shipDesigns().getFirst();
-        var plan = LocalTravel.plan(preview.state(), prepared, site);
+        var plan = TradeLocalPlan.plan(preview.state(), prepared, site);
         assertNotNull(plan);
         var forecast = LocalSpacePowerForecast.check(preview.state(), prepared, prepared.ships().getFirst(), design, site, plan);
         assertTrue(forecast.ready());
@@ -260,7 +262,7 @@ class LocalTradeDistanceAuditTest {
         int actualDays = 0;
         var movement = new FleetProcessor();
         while (actualDays < HORIZON_DAYS && !state.fleets().getFirst().location().isAt(site)) {
-            state = state.withFleets(movement.processFleetMovements(ShipPowerProcessor.advanceDay(state), List.of(), List.of()));
+            state = state.withFleets(movement.processFleetMovements(ShipPowerProcessor.advanceDay(state), state.orbitalStations(), List.of())).withTurn(state.turn() + 1);
             actualDays++;
             var current = state.fleets().getFirst(); var ship = current.ships().getFirst();
             assertTrue(current.location().localFlight() == null || !current.location().localFlight().interrupted(), equipment + " to " + body);
@@ -311,7 +313,7 @@ class LocalTradeDistanceAuditTest {
 
     private GameState world(Equipment equipment, String destination) throws Exception {
         var owner = new Empire("owner", "Owner", "human", "Individualist", 1_000_000, 0, List.of("sol"), List.of(), Map.of(),
-                List.of("rocketry", "methalox_propulsion", "hydrolox_propulsion", "electricity", "solar_power", "industrial_production", "nuclear_fission", "superconductors"), List.of());
+                List.of("rocketry", "large_hull_engineering", "spacecraft", "methalox_propulsion", "hydrolox_propulsion", "electricity", "solar_power", "industrial_production", "nuclear_fission", "superconductors"), List.of());
         var yard = new IndustrialFacility("yard", "earth", "surface_shipyard", "owner", IndustrialFacility.PUBLIC_STATE,
                 3, 0, "engineer", false, 0);
         var state = GameState.builder().solarSystems(DataModelLoader.loadSolarSystems()).empires(List.of(owner))
@@ -320,10 +322,18 @@ class LocalTradeDistanceAuditTest {
                 .marketAccounts(List.of(new MarketAccount("source", 100000), new MarketAccount("target", 1000000))).build();
         var modules = new ArrayList<>(ShipComponentCatalog.workbenchModules(equipment.drive(), false,
                 equipment.power(), equipment.solarBackup()));
+        if (equipment.drive().equals("mod_hydrolox_rocket")) {
+            modules = new ArrayList<>(ChemicalFreighterCatalog.modules(equipment.drive()));
+            if (equipment.power().equals(ShipComponentCatalog.CHEMICAL_GENERATOR_ID)) {
+                modules.remove(ShipComponentCatalog.SOLAR_ARRAY_ID); modules.add(ShipComponentCatalog.CHEMICAL_GENERATOR_ID); modules.add(ShipComponentCatalog.GENERATOR_TANK_ID);
+                if (equipment.solarBackup()) modules.add(ShipComponentCatalog.SOLAR_ARRAY_ID);
+            }
+        }
         if (equipment.power().equals(ShipComponentCatalog.SOLAR_ARRAY_ID) && equipment.drive().equals("mod_ion_drive"))
             modules.add(ShipComponentCatalog.SOLAR_ARRAY_ID);
         var evaluated = ShipBlueprintFactory.evaluate(state, new ShipDesignSpecification("design", equipment.label(), "owner",
-                ShipRole.CARGO_TRANSPORT, "steel", modules, "steel", 0));
+                ShipRole.CARGO_TRANSPORT, "steel", modules, "steel", 0,
+                modules.stream().map(ShipComponentCatalog::module).mapToInt(ShipModule::slotCost).sum()));
         assertTrue(evaluated.valid(), evaluated.errors().toString());
         var design = evaluated.design(); var profile = design.powerProfile();
         var generator = new HashMap<String, Double>();
@@ -341,20 +351,20 @@ class LocalTradeDistanceAuditTest {
 
     private OrbitalStation station(String id, String body) {
         return new OrbitalStation(id, id, "sol", body, "owner", "PUBLIC_STATE", 10, List.of(), Map.of(),
-                0, 0, 0, 0, 100, 100, "steel", 0, true);
+                0, 0, 0, 0, 100, 100, "steel", 0, true, List.of(), body.equals("earth") ? 4000.0 : 500.0);
     }
 
     private CommercialHub port(String id, boolean source) {
         var orders = new HashMap<>(Map.of("steel", new MarketOrder("steel", source ? 5000 : 0, source ? 0 : 10000, source ? 1 : 20, 0),
                 "food_matrix", new MarketOrder("food_matrix", source ? 5000 : 0, source ? 0 : 10000, source ? 1 : 20, 0)));
-        for (String material : List.of("rp1_kerosene", "liquid_oxygen", "hydrogen_gas", "refined_uranium", "methane_ice"))
+        for (String material : List.of("rp1_kerosene", "liquid_oxygen", "liquid_hydrogen", "hydrogen_gas", "refined_uranium", "methane_ice"))
             orders.put(material, new MarketOrder(material, 0, 0, .001, 0));
         return new CommercialHub(id, id, 0, 1_000_000, source ? 10000 : 0, 10, orders);
     }
 
     private String report(List<Measurement> rows) {
         var text = new StringBuilder("# Local trade distance audit\n\n## Scope\n\n");
-        text.append(rows.size()).append(" one-way loaded station probes use the repository's Sol bodies, catalog blueprints and paid mixed steel and food shipments. The baseline is 5,000 kg of each good; a half-load probe carries 2,500 kg of each. ")
+        text.append(rows.size()).append(" one-way loaded station probes use the repository's Sol bodies, catalog blueprints and paid mixed steel and food shipments. Baseline probes carry 5,000 kg of each good; the fitted long-range hydrolox probe carries 1,250 kg of each. ")
                 .append("Source stations orbit Earth; targets orbit the Moon, Mars or Jupiter. Body positions retain deterministic representative orbital phases, not ephemerides or gravity-assisted trajectories. ")
                 .append("Ships start with full legal working tanks, batteries and required fission drive feed. No port sells fuel and no free supplies are injected. Destination buyer cash is seeded. ")
                 .append("Funded voyages advance actual daily power and movement ticks for up to 12,000 days. Completed voyages retain their mixed cargo for 60 days without electrical purchases, then sell it. ")

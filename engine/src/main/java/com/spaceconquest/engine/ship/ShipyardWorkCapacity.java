@@ -60,8 +60,7 @@ public final class ShipyardWorkCapacity {
                 .filter(facility -> !target.id().equals(facility.id())
                         && target.planetId().equals(facility.planetId())
                         && profession(target).equalsIgnoreCase(profession(facility))
-                        && (facility.tier() > 0 || SURFACE_SHIPYARD_APPLICATION_ID
-                        .equals(facility.applicationId()))
+                        && (facility.tier() > 0 || com.spaceconquest.engine.ship.ShipyardTechnology.isSurface(facility.applicationId()))
                         && empireForOwner(state, facility.ownerEntityId())
                         .equals(empireForOwner(state, target.ownerEntityId())))
                 .mapToLong(facility -> Math.max(0, facility.allocatedWorkers())).sum();
@@ -93,8 +92,7 @@ public final class ShipyardWorkCapacity {
 
         Empire empire = empireRecordForOwner(state, ownerEntityId);
         var technologies = empire == null ? java.util.List.<String>of() : empire.unlockedTechIds();
-        boolean automatedAssembly = technologies.contains(TECH_AUTOMATED_ASSEMBLY);
-        double technologyMultiplier = automatedAssembly ? 1.25 : 1.0;
+        double technologyMultiplier = ShipyardTechnology.workMultiplier(technologies);
         double workerRequirementMultiplier = workerRequirementMultiplier(technologies);
 
         Map<String, Staffing> staffing = new LinkedHashMap<>();
@@ -125,22 +123,11 @@ public final class ShipyardWorkCapacity {
         Map<String, Long> paidStaff = new LinkedHashMap<>();
         Map<String, Integer> modules = new LinkedHashMap<>();
         double capacity = 0.0;
-        int gridCount = 0;
-        int slipwayCount = 0;
         for (StationModule module : station.modules()) {
             if (!module.isOnline()) continue;
-            double moduleCapacity;
-            if (StationModule.TYPE_SHIPYARD_GRID.equalsIgnoreCase(module.type())) {
-                moduleCapacity = 100.0;
-                gridCount++;
-            } else if (StationModule.TYPE_CAPITAL_SLIPWAY.equalsIgnoreCase(module.type())) {
-                moduleCapacity = 300.0;
-                slipwayCount++;
-            } else if (StationModule.TYPE_COMPONENT_ASSEMBLY.equalsIgnoreCase(module.type())) {
-                moduleCapacity = 50.0;
-            } else {
-                continue;
-            }
+            var capability = ShipyardTechnology.yard(module.type());
+            if (capability == null || !capability.buildsShips()) continue;
+            double moduleCapacity = capability.workPerDay();
             capacity += moduleCapacity;
             modules.merge(module.type(), 1, Integer::sum);
             String profession = moduleProfession(module);
@@ -151,8 +138,7 @@ public final class ShipyardWorkCapacity {
                     : Math.max(0, paidWorkersByFacility.getOrDefault(module.id(), 0));
             paidStaff.merge(profession, paid, Long::sum);
         }
-        String type = slipwayCount > 0 ? "Capital slipway"
-                : gridCount > 0 ? "Orbital shipyard grid" : "No active shipyard module";
+        String type = modules.isEmpty() ? "No active shipyard module" : "Orbital shipyard";
         return new YardBase(type, capacity, station.isOperational(), staffing, paidStaff, modules, true);
     }
 
@@ -160,7 +146,7 @@ public final class ShipyardWorkCapacity {
                                         String ownerEntityId,
                                         Map<String, Integer> paidWorkersByFacility) {
         IndustrialFacility facility = state.industrialFacilities().stream()
-                .filter(item -> SURFACE_SHIPYARD_APPLICATION_ID.equals(item.applicationId())
+                .filter(item -> com.spaceconquest.engine.ship.ShipyardTechnology.isSurface(item.applicationId())
                         && bodyId.equals(item.planetId())
                         && ownerEntityId.equals(item.ownerEntityId()))
                 .findFirst().orElse(null);
@@ -176,24 +162,24 @@ public final class ShipyardWorkCapacity {
                 || facility.workerProfessionId().isBlank()
                 ? "industrial_worker" : facility.workerProfessionId();
         long paid = paidWorkers(state, bodyId, ownerEntityId, paidWorkersByFacility);
+        var capability = ShipyardTechnology.yard(facility.applicationId());
+        if (capability == null) return null;
         return new YardBase("Surface shipyard",
-                facility.tier() > 0 ? 100.0 * facility.getEffectiveThroughputMultiplier() : 0.0,
-                facility.tier() > 0, Map.of(profession, 100), Map.of(profession, paid),
-                Map.of(SURFACE_SHIPYARD_APPLICATION_ID, 1), false);
+                facility.tier() > 0 ? capability.workPerDay() * Math.pow(capability.tierMultiplier(), facility.tier() - 1)
+                        * (facility.isUndergoingExpansion() ? capability.expansionMultiplier() : 1) : 0.0,
+                facility.tier() > 0, Map.of(profession, capability.workers()), Map.of(profession, paid),
+                Map.of(facility.applicationId(), 1), false);
     }
 
     public static boolean isYardWorkforceModule(StationModule module) {
-        return module != null && (StationModule.TYPE_SHIPYARD_GRID.equalsIgnoreCase(module.type())
-                || StationModule.TYPE_CAPITAL_SLIPWAY.equalsIgnoreCase(module.type())
-                || StationModule.TYPE_COMPONENT_ASSEMBLY.equalsIgnoreCase(module.type()));
+        return module != null && ShipyardTechnology.yard(module.type()) != null;
     }
 
     public static int requiredWorkers(StationModule module) {
         if (module == null) return 0;
         if (module.requiredWorkers() > 0) return module.requiredWorkers();
-        if (StationModule.TYPE_SHIPYARD_GRID.equalsIgnoreCase(module.type())) return 100;
-        if (StationModule.TYPE_CAPITAL_SLIPWAY.equalsIgnoreCase(module.type())) return 300;
-        if (StationModule.TYPE_COMPONENT_ASSEMBLY.equalsIgnoreCase(module.type())) return 50;
+        var capability = ShipyardTechnology.yard(module.type());
+        if (capability != null) return capability.workers();
         return 0;
     }
 
@@ -210,8 +196,7 @@ public final class ShipyardWorkCapacity {
     }
 
     private static double workerRequirementMultiplier(List<String> technologies) {
-        return (technologies.contains(TECH_AUTOMATED_ASSEMBLY) ? 0.75 : 1.0)
-                * (technologies.contains(TECH_CYBERNETIC_WORKFORCE) ? 0.75 : 1.0);
+        return ShipyardTechnology.workerMultiplier(technologies);
     }
 
     public static String moduleProfession(StationModule module) {
@@ -223,7 +208,7 @@ public final class ShipyardWorkCapacity {
     private static long paidWorkers(GameState state, String bodyId, String ownerEntityId,
                                     Map<String, Integer> paidWorkersByFacility) {
         IndustrialFacility facility = state.industrialFacilities().stream()
-                .filter(item -> SURFACE_SHIPYARD_APPLICATION_ID.equals(item.applicationId())
+                .filter(item -> com.spaceconquest.engine.ship.ShipyardTechnology.isSurface(item.applicationId())
                         && bodyId.equals(item.planetId())
                         && ownerEntityId.equals(item.ownerEntityId()))
                 .findFirst().orElse(null);

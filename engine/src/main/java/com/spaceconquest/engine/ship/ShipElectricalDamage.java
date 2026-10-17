@@ -12,7 +12,7 @@ public final class ShipElectricalDamage {
         double rated = 0, working = 0;
         for (int mount = 0; mount < design.equippedModuleIds().size(); mount++) {
             if (!id.equals(design.equippedModuleIds().get(mount))) continue;
-            var module = ShipComponentCatalog.module(id);
+            var module = CombatModuleCatalog.installedModule(design, id);
             double weight = ShipComponentCatalog.BATTERY_ID.equals(id)
                     ? module.operationalStats().get("batteryKwh") : module.powerOutputKw();
             rated += weight; working += weight * ship.moduleDamage().condition(mount);
@@ -36,7 +36,7 @@ public final class ShipElectricalDamage {
         double lost = 0;
         for (int mount = 0; mount < design.equippedModuleIds().size(); mount++) {
             String id = design.equippedModuleIds().get(mount);
-            var module = ShipComponentCatalog.module(id);
+            var module = CombatModuleCatalog.installedModule(design, id);
             if (module == null || PropulsionCatalog.drive(id) != null
                     || module.operationalStats().containsKey("cargoCapacityKg") || "cryogenic_stasis_pod".equals(id)) continue;
             if (CombatModuleCatalog.module(id) != null || SensorModuleCatalog.module(id) != null
@@ -48,7 +48,7 @@ public final class ShipElectricalDamage {
     }
 
     private static double capturedShare(ShipDesign design, ShipPowerProfile captured) {
-        double rated = design.equippedModuleIds().stream().map(ShipComponentCatalog::module)
+        double rated = design.equippedModuleIds().stream().map(id -> CombatModuleCatalog.installedModule(design, id))
                 .filter(java.util.Objects::nonNull).filter(module -> PropulsionCatalog.drive(module.id()) == null
                         && !module.operationalStats().containsKey("cargoCapacityKg") && !"cryogenic_stasis_pod".equals(module.id()))
                 .mapToDouble(ShipModule::powerDrawKw).sum();

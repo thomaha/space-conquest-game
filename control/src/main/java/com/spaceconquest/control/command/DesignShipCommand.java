@@ -18,7 +18,7 @@ public record DesignShipCommand(ShipDesignSpecification specification) implement
 
     private boolean available(GameState state) {
         return state != null && specification != null && state.shipDesigns().stream()
-                .noneMatch(design -> design.id().equals(specification.id()));
+                .noneMatch(design -> design.id().equals(specification.id())) && state.empires().stream().anyMatch(empire -> empire.id().equals(specification.ownerEntityId()));
     }
 
     @Override

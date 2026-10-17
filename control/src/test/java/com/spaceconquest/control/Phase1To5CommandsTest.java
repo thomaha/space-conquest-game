@@ -41,7 +41,8 @@ class Phase1To5CommandsTest {
         ))
                 .empires(List.of(new Empire("terran_confederation", "Terran", "human",
                         "Individualist", 1_000_000.0, 0.15, List.of("sol"), List.of(),
-                        Map.of(), List.of("industrial_production", "rocketry", "space_stations"), List.of())))
+                        Map.of(), List.of("industrial_production", "pyro_iron_smelting", "alloy_steel", "rocketry", "space_stations",
+                                "surface_to_orbit_infrastructure", "superconductors", "space_elevators"), List.of())))
                 .commercialHubs(List.of(new CommercialHub("hub_earth", "earth", 0.0,
                         1_000_000.0, 500_000.0, 10.0,
                         Map.of("refined_iron", new MarketOrder("refined_iron", 200_000.0, 0, 1, 0),
@@ -171,17 +172,24 @@ class Phase1To5CommandsTest {
     }
 
     @Test
-    void testSetFacilityRecipeCommand() {
+    void testSetFacilityRecipeCommandCannotReplaceInstalledEquipment() {
         BuildFacilityCommand facCmd = new BuildFacilityCommand(
                 "earth", "pyro_iron_smelting", "terran_confederation", "PUBLIC_STATE", 50, "industrial_worker"
         );
         GameState stateWithFac = facCmd.apply(initialState);
+        for (int tick = 0; tick < 5; tick++) stateWithFac = new com.spaceconquest.engine.industry.IndustryProcessor()
+                .processIndustrialProduction(stateWithFac);
+        assertTrue(stateWithFac.expansionProjects().isEmpty());
         String facId = stateWithFac.industrialFacilities().getFirst().id();
 
         SetFacilityRecipeCommand recipeCmd = new SetFacilityRecipeCommand(facId, "alloy_steel");
-        assertTrue(recipeCmd.validate(stateWithFac));
+        assertFalse(recipeCmd.validate(stateWithFac));
+        assertEquals(stateWithFac, recipeCmd.apply(stateWithFac));
 
-        GameState updated = recipeCmd.apply(stateWithFac);
-        assertEquals("alloy_steel", updated.industrialFacilities().getFirst().applicationId());
+        var compatible = new SetFacilityRecipeCommand(facId, "pyro_iron_smelting");
+        assertTrue(compatible.validate(stateWithFac));
+        GameState updated = compatible.apply(stateWithFac);
+        assertEquals("pyro_iron_smelting", updated.industrialFacilities().getFirst().applicationId());
+        assertEquals(stateWithFac.industrialFacilities().getFirst().productionEquipment(), updated.industrialFacilities().getFirst().productionEquipment());
     }
 }

@@ -12,6 +12,7 @@ public final class ShipRepairProcessor {
     }
 
     static Fleet repair(GameState state, Fleet fleet) {
+        if (ShipRefitPlan.reserved(state, fleet)) return fleet;
         if (Fleet.MODE_RECOVERY.equals(fleet.interstellarMode()) || (Fleet.MODE_POWER_INTERRUPTED.equals(fleet.interstellarMode())
                 || fleet.location().localFlight() != null && fleet.location().localFlight().interrupted())
                 && !PropulsionDamage.damaged(state, fleet) && !ShipElectricalDamage.damaged(state, fleet)) return fleet;
@@ -32,7 +33,7 @@ public final class ShipRepairProcessor {
                 var damage = ship.moduleDamage();
                 for (int mount : ShipRepairPriority.mounts(priority, design, ship)) {
                     if (remaining <= 1e-9) break;
-                    var module = ShipModuleDamage.damageableModule(design.equippedModuleIds().get(mount));
+                    var module = ShipModuleDamage.damageableModule(design, design.equippedModuleIds().get(mount));
                     if (module == null || module.materialCostsKg().isEmpty()) continue;
                     var perPoint = new HashMap<String, Double>();
                     module.materialCostsKg().forEach((id, kg) -> perPoint.put(id, kg / ShipModuleDamage.DURABILITY));

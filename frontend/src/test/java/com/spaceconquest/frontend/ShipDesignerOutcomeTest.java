@@ -4,6 +4,9 @@ import com.spaceconquest.control.HumanController;
 import com.spaceconquest.control.command.CommandQueue;
 import com.spaceconquest.engine.Empire;
 import com.spaceconquest.engine.GameState;
+import com.spaceconquest.engine.TechnicalApplication;
+import com.spaceconquest.engine.ship.CombatModuleCatalog;
+import com.spaceconquest.engine.ship.ShipPowerProfile;
 import com.spaceconquest.engine.ship.ShipBlueprintFactory;
 import com.spaceconquest.engine.ship.ChemicalFreighterCatalog;
 import com.spaceconquest.engine.ship.ShipComponentCatalog;
@@ -30,6 +33,29 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ShipDesignerOutcomeTest {
+    @Test void combatPowerPreviewCountsEveryApplicationDefinedProjectileLaunch() throws Exception {
+        onFxThread(() -> {
+            try {
+                var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                var application = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.valueToTree(
+                        CombatModuleCatalog.application(CombatModuleCatalog.MISSILE));
+                var stats = (com.fasterxml.jackson.databind.node.ObjectNode) application.get("combatModule").get("operationalStats");
+                stats.put("launchesPerRound", 3); stats.put("weaponSalvoKwh", 6);
+                var weapon = mapper.treeToValue(application, TechnicalApplication.class).combatModule();
+                var modules = List.of(weapon);
+                var power = ShipPowerProfile.capture(modules);
+                var method = ShipDesignerView.class.getDeclaredMethod("createPowerDemandBox", ShipPowerProfile.class, List.class, double.class);
+                method.setAccessible(true);
+                var box = (VBox) method.invoke(new ShipDesignerView(null), power, modules, 0.0);
+                var combat = (javafx.scene.text.Text) box.lookup("#designer-combat-power");
+                double expected = power.hotelKw() + 18 * 60;
+                assertTrue(combat.getText().contains(String.format("%.1f kW", expected)), combat.getText());
+                assertTrue(box.getChildren().stream().filter(javafx.scene.text.Text.class::isInstance)
+                        .map(javafx.scene.text.Text.class::cast).anyMatch(text -> text.getText().contains("18.00 kWh of salvos")));
+                assertEquals(1, CombatModuleCatalog.module(weapon.id()).operationalStats().get("launchesPerRound"));
+            } catch (ReflectiveOperationException | java.io.IOException e) { throw new AssertionError(e); }
+        });
+    }
     @Test void chemicalFreighterPresetRegistersOnTickAndPreservesEquipmentWhenEditing() throws Exception {
         var owner = new Empire("empire", "Empire", "human", "Individualist", 1e6, 0,
                 List.of(), List.of(), Map.of(), List.of("rocketry", "electricity", "solar_power", "industrial_production"), List.of());

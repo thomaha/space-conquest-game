@@ -11,16 +11,27 @@ final class OrbitalPhasing {
     static LocalTravel.Plan plan(GameState state, Fleet fleet, FleetLocation.Site destination,
                                  OrbitalTravel.Parking parking, OrbitalRecovery.InitialState actual,
                                  Map<String, LocalSpaceTravel.Capability> capabilities, double acceleration, double deltaV) {
+        return plan(state, fleet, destination, parking, actual, capabilities, acceleration, deltaV, null);
+    }
+
+    static LocalTravel.Plan plan(GameState state, Fleet fleet, FleetLocation.Site destination,
+                                 OrbitalTravel.Parking parking, OrbitalRecovery.InitialState actual,
+                                 Map<String, LocalSpaceTravel.Capability> capabilities, double acceleration, double deltaV, Fleet targetFleet) {
+        return plan(state, fleet, destination, parking, actual, capabilities, acceleration, deltaV, targetFleet, 3);
+    }
+    static LocalTravel.Plan plan(GameState state, Fleet fleet, FleetLocation.Site destination,
+                                 OrbitalTravel.Parking parking, OrbitalRecovery.InitialState actual,
+                                 Map<String, LocalSpaceTravel.Capability> capabilities, double acceleration, double deltaV, Fleet targetFleet, int maximumRevolutions) {
         double radius = norm(actual.position()), mu = actual.gravity().gravitationalParameter();
         double targetRadius = (parking.body().diameter() / 2 + parking.altitudeKm()) * 1000;
         if (Math.abs(radius - targetRadius) > 1) return null;
         double speed = Math.sqrt(mu / radius), period = 2 * Math.PI * radius / speed;
-        var station = target(state, destination, parking, state.turn());
+        var station = target(state, destination, parking, state.turn(), targetFleet);
         double phase = Math.atan2(actual.position().yMeters(), actual.position().xMeters())
                 - Math.atan2(station.position().yMeters(), station.position().xMeters());
         phase = Math.atan2(Math.sin(phase), Math.cos(phase));
         for (int offset : new int[]{0, -1, 1}) {
-            for (int revolutions = 1; revolutions <= 3; revolutions++) {
+            for (int revolutions = 1; revolutions <= maximumRevolutions; revolutions++) {
                 double seconds = period * (revolutions + offset + phase / (2 * Math.PI));
                 if (seconds <= 0 || seconds > 7 * 86400) continue;
                 double axis = Math.cbrt(mu * Math.pow(seconds / (2 * Math.PI * revolutions), 2));
@@ -30,7 +41,7 @@ final class OrbitalPhasing {
                 if (!Double.isFinite(change) || Math.abs(change) < 1e-9 || 2 * Math.abs(change) > deltaV) continue;
                 double burn = Math.max(2, 1.5 * Math.abs(change) / acceleration);
                 if (!Double.isFinite(burn) || burn > period / 50 || 2 * burn >= seconds) continue;
-                var goal = target(state, destination, parking, state.turn() + seconds / 86400);
+                var goal = target(state, destination, parking, state.turn() + seconds / 86400, targetFleet);
                 var first = scale(actual.velocity(), change / (speed * burn));
                 var last = scale(goal.velocity(), -change / (speed * burn));
                 var trajectory = solve(actual, goal, seconds, burn, first, last, acceleration, deltaV);
@@ -44,7 +55,8 @@ final class OrbitalPhasing {
         return null;
     }
 
-    private static StationRendezvous.Motion target(GameState state, FleetLocation.Site destination, OrbitalTravel.Parking parking, double day) {
+    private static StationRendezvous.Motion target(GameState state, FleetLocation.Site destination, OrbitalTravel.Parking parking, double day, Fleet targetFleet) {
+        if (targetFleet != null) return BodyFleetRendezvous.predicted(state, targetFleet, (day - state.turn()) * 86400);
         return destination.kind() == FleetLocation.Kind.ORBIT ? StationRendezvous.at(parking.body(), parking.altitudeKm(), day)
                 : StationRendezvous.at(state, destination.entityId(), day);
     }
@@ -56,7 +68,7 @@ final class OrbitalPhasing {
             var trajectory = trajectory(actual, seconds, burn, controls);
             var error = error(trajectory, goal);
             if (error == null) return null;
-            if (Math.hypot(error[0], error[1]) * seconds <= .05 && Math.hypot(error[2], error[3]) <= .00005) {
+            if (Math.hypot(error[0], error[1]) * seconds <= .01 && Math.hypot(error[2], error[3]) <= .00001) {
                 return norm(trajectory.firstAcceleration()) <= acceleration && norm(trajectory.lastAcceleration()) <= acceleration
                         && trajectory.impulse(seconds) <= deltaV ? trajectory : null;
             }

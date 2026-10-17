@@ -1,36 +1,39 @@
-#### Planetary abundance and initial composition modifiers
+# Continuous geological surveying
 
-A planetary body’s total resource blueprint is dictated directly by its host star type, using the `systemCompositionModifiers` established in the star configuration profiles.
+Surveying is a standing program. Completing a pass starts another pass rather than closing a mission. AI maintains baseline effort even when markets have no shortages and increases local effort for unmet demand or exhausted known deposits. Access, workforce, equipment, supplies and funding remain real constraints. Blocked teams retain their equipment and progress.
 
-- **The baseline rule:** It is physically possible to extract *any* element or material from *any* terrestrial or barren planet. However, the host star type sets the global availability baseline. For instance, a young **O-Class Blue Star** generates a high `heavyMetalAbundance` modifier, shifting the planet's default core to favor massive deposits of `iron_ore` or `titanium_ore`.
-- **The Earth emulation:** Like modern-day Earth, a planet features highly visible surface materials (such as `silicates`, `limestone` or `water_ice`) alongside localized, high-concentration subterranean **Veins** of rare metals or fuel components.
-- **The knowledge gap:** At the start of a colony's initialization, the empire possesses a highly restricted planetary asset map. Only a small handful of basic surface veins are tagged as `"isDiscovered": true`. The remaining volume of the planet's resources is hidden within an unmapped crust matrix variable.
+## Research and equipment
 
-#### 2. Dynamic prospecting and diminishing returns
+SurveyCapability belongs to a researchable technological application. It declares equipment materials, recurring supplies, installed work capacity, operator profession, reference crew, skill, automation, installation work, work per pass and discovery probability. Installed teams capture an immutable capability. Work uses task units rather than person-hours.
 
-To locate new resource sources, empires or private corporations must deploy active survey missions. This mechanism uses the `prospector` or `scientist` professions alongside remote-sensing applications to run a stochastic (probabilistic) discovery roll every game turn.
+Seismic crustal sounding currently installs 50 kg of steel, 5 kg of silicon and 5 kg of industrial ceramics. Five miners at reference skill perform 100 work units per day. Installation needs 200 units and a survey pass needs 1000. Field supplies consume 0.02 kg of hydrocarbons per unit, including installation. These are provisional game coefficients.
 
-- **The discovery probability formula:** The mathematical chance ($P_{\text{discover}}$) of a prospecting mission successfully locating a new, high-concentration vein decays dynamically as the colony approaches its maximum geological discovery threshold:
+Orbital hyperspectral mapping installs 10 kg of silicon, 10 kg of industrial ceramics and 20 kg of silicates at the explorer's actual surface or station port. Its automated equipment performs up to 100 units per day and spends 0.1 kWh per unit. Installation and pass work use the same 200 and 1000 unit reference values. Healthy installed sensors and physical arrival in the target orbit are required. Sensor damage reduces work capacity. Mapping preserves 48 hours of ship hotel electricity and respects discharge capacity. Ordinary ship processing still pays propulsion, hotel and sensor loads.
 
-$$P_{\text{discover}} = \text{Base Tech Efficiency} \times \text{Staff Training Modifier} \times \left(1.0 - \frac{\sum \text{Discovered Vein Volumes}}{\text{Total Estimated Planet Volume}} \right)^{\alpha}$$
+## Staffing and settlement
 
-- **The scarcity scaling factor ($\alpha$):** This exponent scales directly based on the planet's structural type. The more minerals that have already been discovered, relative to what the planet's composition baseline dictates is physically present, the harder it becomes to find more.
-- **Private vs. public prospecting:**
-    - *Public state missions:* Consume public treasury credits and state work hours. Discovered veins are flagged as public property, allowing state-owned *Mine Ships* or public installations to extract them freely.
-    - *Private corporate missions:* Autonomous private corporations allocate their own aggregated wealth to fund regional prospecting. When a corporation discovers a hidden vein, they claim exclusive extraction rights, utilizing their own private *Mine Ships* to process the raw elements for B2B market arbitrage.
+Surface teams appear only as local jobs in household payroll; they are not production factories. Standing survey jobs receive workers before competing industry jobs, within the same finite workforce allocation. Paid headcount, skill and automation determine actual work. A worker cannot also work in a mine that day.
 
-#### High-grade veins vs. crust-average background extraction
+Equipment and field supplies are bought from real local market stock and the seller receives payment. AI restores a fourteen-day payroll reserve from treasury while retaining 5000 credits. Supplies are paid by treasury and registered in ordinary marketplace demand. Missing stock or funding pauses work without consuming a partial material bill. Player survey requests establish or replenish the same standing team through queued commands.
 
-When extracting materials, the game engine calculates production costs by checking if the local miners are pulling from a defined, high-concentration **Vein** or forcing **Crust-Average Background Mining**.
+## Exploration and allocation
 
-- **High-grade veins (targeted mining):**
-    - *Mechanic:* Pulling from a discovered vein (such as an active `uranium_ore` or `platinum` deposit).
-    - *Economic profile:* Low work hour cost, minimal electricity draw and standard complexity requirements. This represents the primary, hyper-profitable stage of a colony's industrial cycle.
-- **Crust-average background mining (sifting the slag):**
-    - *Mechanic:* Triggered when a player or corporation demands a material that has no active, discovered veins on that planet or when all high-grade veins of that resource have hit complete depletion.
-    - *Economic profile:* To extract rare materials from common rock crust without a concentrated vein, processing facilities must run brute-force chemical leaching and mass-spectrometry sorting.
-    - *The financial barrier:* This action is **exponentially expensive**. It scales the required work hours per unit, material costs and electricity demands by an inverse abundance factor:
+Surface teams operate on controlled planets and moons with a local market and workforce. New accessible markets enter the standing program automatically. Local unmet demand adds a second team and known deposit exhaustion adds a third. Allocation never examines hidden deposits.
 
-$$\text{Background Extraction Cost Modifier} = \left( \frac{1.0}{\text{Global Element Rarity Modifier}} \right) \times \text{Facility Complexity Rating}$$
+Orbital survey ships cover known safe planets and moons, including worlds without local colonies. AI reserves available independent explorers from trade and lifecycle reassignment. If a suitable owned blueprint exists and no explorer remains, the ordinary funded ship construction pipeline can request one. Equipment is purchased before mapping begins.
 
-- **The gameplay loop:** If an empire urgently needs `tungsten` to build capital ship anti-ship orbital batteries, but Earth has no discovered tungsten veins remaining, they can still mine it from rare earth composites where it could exist as a minor part. However, the background processing cost will be astronomically high, consuming massive amounts of energy and workforce hours to filter through millions of kilograms of base dirt just to isolate a few grams of pure tungsten. This mechanical wall naturally drives empires and private corporations to look outward—building *Construction Ships* to drop mining stations onto zero-G asteroids or launching *Explorers* to prospect raw, untouched systems across the galactic rim.
+Completed orbital passes retain coverage by body. Allocation favors less-covered targets and stays in the current system when coverage is equal. New sensor knowledge adds targets. Travel uses normal paid local or interstellar orders and their fuel, launch and electrical checks. An unreachable coverage gap does not displace ongoing work at a reachable site. Known foreign-controlled systems, detected foreign fleets and discovered pirate bases exclude unsafe targets. Unknown systems still require the existing exploration and sensor mechanisms to reveal them.
+
+## Finite discovery and persistence
+
+Galaxy generation seeds finite hidden reserves from the natural materials listed on planets and moons. These reserves exist before surveying starts. Successful passes reveal existing deposits without changing their identity, composition or remaining quantity. Surveys never fabricate replacement iron or replenish mined-out deposits. Further passes can continue mapping after every existing vein is known.
+
+A pass uses the existing scarcity probability formula. Discovery randomness derives from stable team, body and pass identifiers, so reloading cannot reroll the same completed pass. Last-worked ticks prevent duplicate work in a tick. Teams, captured equipment, installation progress, unfinished passes, completed coverage, payroll accounts and blockers survive current-format saves. Older development saves need no migration.
+
+The industry supply inspector displays standing surface and orbital survey work and blockers from immutable snapshots. Survey discoveries become available to the normal finite-source production and supply-chain planners; discovery itself produces no market inventory.
+
+## Verification and remaining limits
+
+Campaign tests cover actual local payroll, finite worker sharing, equipment purchases, recurring supplies, real orbital travel, electrical consumption, research gates, missing resources, discovery availability for mining and save/reload during a pass. Hidden geology is deterministic and seeded once. Economic coefficients have not been balanced for profitability.
+
+Detailed terrain coverage, geology by depth, private corporate survey programs, repair expeditions and automatic design of missing explorer blueprints remain future work. Physical travel or equipment constraints can prevent surveying a known world; they must not grant remote work or free discoveries.

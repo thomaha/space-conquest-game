@@ -18,7 +18,7 @@ class ShipWeaponRangeTest {
                 1000, 1000, 1000, 100, 100, 0, 1000, false, false, ShipManufacturingProfile.baseline(), power);
     }
     private ShipInstance ship(String owner) {
-        return new ShipInstance(owner + "-ship", owner, owner, 10000, 0, 100, Map.of())
+        return new ShipInstance(owner + "-ship", owner, owner, 10000, 0, 100, Map.of(CombatModuleCatalog.module(CombatModuleCatalog.MASS_DRIVER).ammunitionId(), 200.0, "cannon_round", 200.0))
                 .withPowerState(new ShipPowerState(Map.of("refined_uranium", 1.0), "rp1", "uranium", 0, false, 1, 1, 0, 0, 0, 0, 0));
     }
     private Fleet at(String owner, double x) {
@@ -38,7 +38,7 @@ class ShipWeaponRangeTest {
     private GameState world(double meters) {
         return GameState.builder().empires(List.of(empire("own"), empire("enemy")))
                 .solarSystems(List.of(new SolarSystem("sol", "Sol", "", 0, 0, 0, 1.989e30, 1392700, "yellow", List.of(), List.of())))
-                .shipDesigns(List.of(design("own", CombatModuleCatalog.GUN, CombatModuleCatalog.LASER), design("enemy", CombatModuleCatalog.GUN)))
+                .shipDesigns(List.of(design("own", CombatModuleCatalog.GUN, CombatModuleCatalog.PARTICLE_BEAM), design("enemy", CombatModuleCatalog.GUN)))
                 .fleets(List.of(at("own", 0), at("enemy", meters)))
                 .diplomaticRelations(List.of(new DiplomaticRelation("own", "enemy", "TOTAL_WAR", 0))).build();
     }
@@ -58,11 +58,11 @@ class ShipWeaponRangeTest {
     @Test void mixedAndDamagedMountsUseTheirOwnRangeAndExactEligibleSalvoCost() {
         var design = design("own", CombatModuleCatalog.GUN, CombatModuleCatalog.LASER, CombatModuleCatalog.MASS_DRIVER);
         var source = ship("own"); var paid = ShipCombatPower.round(source, design, HOURS, true, false, 150000);
-        assertEquals(380, paid.firepower()); assertEquals(20, paid.requestedWeaponKwh()); assertEquals(20, paid.paidWeaponKwh());
-        assertEquals(1 - (design.powerProfile().hotelKw() * HOURS + 20) / 6_000_000, paid.ship().generatorFuelMassKg(), 1e-12);
+        assertEquals(220, paid.firepower()); assertEquals(12, paid.requestedWeaponKwh()); assertEquals(12, paid.paidWeaponKwh());
+        assertEquals(1 - (design.powerProfile().hotelKw() * HOURS + 12) / 6_000_000, paid.ship().generatorFuelMassKg(), 1e-12);
         var damaged = source.withModuleDamage(new ShipModuleDamage(Map.of(1, 100.0, 2, 50.0)));
         var partial = ShipCombatPower.round(damaged, design, HOURS, true, false, 150000);
-        assertEquals(110, partial.firepower()); assertEquals(6, partial.requestedWeaponKwh());
+        assertEquals(110, partial.firepower()); assertEquals(12, partial.requestedWeaponKwh());
         assertEquals(0, ShipCombatPower.round(damaged, design, HOURS, true, false, 500001).firepower());
         assertEquals(1, source.generatorFuelMassKg());
     }

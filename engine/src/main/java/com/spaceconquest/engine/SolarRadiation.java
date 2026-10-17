@@ -35,6 +35,8 @@ public final class SolarRadiation {
     /** Moons use their parent planet's stellar distance, not their distance from that planet. */
     public static double bodyDistanceKm(SolarSystem system, String bodyId) {
         if (system == null || bodyId == null) return 0;
+        var belt = system.asteroidBelts().stream().filter(item -> bodyId.equals(item.id())).findFirst().orElse(null);
+        if (belt != null) return belt.distanceKm() == null ? 0 : belt.distanceKm();
         return system.planets().stream().filter(planet -> bodyId.equals(planet.id())
                 || planet.moons().stream().anyMatch(moon -> bodyId.equals(moon.id())))
                 .mapToDouble(Planet::distance).findFirst().orElse(0);

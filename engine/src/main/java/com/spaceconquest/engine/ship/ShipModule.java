@@ -16,6 +16,7 @@ import java.util.Map;
  * @param complexityLevel   nanotechnology / production complexity rating
  * @param materialCostsKg   manufacturing material receipt in kilograms
  * @param operationalStats  specific role attributes (e.g., cargoCapacity, troopCapacity, weaponDamage)
+ * @param ammunitionId     optional resource consumed by each whole shot
  */
 public record ShipModule(
         String id,
@@ -28,10 +29,18 @@ public record ShipModule(
         double thrustOutputN,
         int complexityLevel,
         Map<String, Double> materialCostsKg,
-        Map<String, Double> operationalStats
+        Map<String, Double> operationalStats,
+        String ammunitionId
 ) {
     public ShipModule {
         materialCostsKg = materialCostsKg == null ? Map.of() : Map.copyOf(materialCostsKg);
         operationalStats = operationalStats == null ? Map.of() : Map.copyOf(operationalStats);
+        ammunitionId = ammunitionId == null ? "" : ammunitionId;
+    }
+    public ShipModule(String id, String name, String slotSize, int slotCost, double dryMassKg,
+                      double powerDrawKw, double powerOutputKw, double thrustOutputN, int complexityLevel,
+                      Map<String, Double> materialCostsKg, Map<String, Double> operationalStats) {
+        this(id, name, slotSize, slotCost, dryMassKg, powerDrawKw, powerOutputKw, thrustOutputN,
+                complexityLevel, materialCostsKg, operationalStats, "");
     }
 }

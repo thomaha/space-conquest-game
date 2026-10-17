@@ -346,7 +346,7 @@ public class DataModelLoaderTest {
     public void testLoadTechnologies() throws IOException {
         List<Technology> technologies = DataModelLoader.loadTechnologies();
         assertNotNull(technologies);
-        assertEquals(29, technologies.size());
+        assertEquals(30, technologies.size());
         assertTrue(technologies.stream().anyMatch(tech -> tech.id().equals("cryogenic_stasis")
                 && tech.applications().stream().anyMatch(application ->
                 application.id().equals("cryogenic_stasis_pod"))));

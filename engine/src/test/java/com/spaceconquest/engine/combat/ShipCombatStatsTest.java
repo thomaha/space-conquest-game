@@ -12,7 +12,7 @@ class ShipCombatStatsTest {
                 mass, 0, 1000, 100, 1, 0, 1000, true, false);
     }
     private ShipInstance ship(ShipDesign design, double hull, double shields) {
-        return new ShipInstance(design.id() + "-ship", design.id(), "owner", hull, shields, 100, Map.of());
+        return new ShipInstance(design.id() + "-ship", design.id(), "owner", hull, shields, 100, Map.of("cannon_round", 1000.0));
     }
     private Fleet fleet(ShipDesign design, ShipInstance ship) {
         return new Fleet(design.id(), design.id(), "owner", "sol", "", 0, 0, 0, false, "PASSIVE", List.of(ship));

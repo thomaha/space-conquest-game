@@ -1,0 +1,5 @@
+[
+  { "societyStructure": "Individualist", "corporationsAllowed": true },
+  { "societyStructure": "Collectivist", "corporationsAllowed": true },
+  { "societyStructure": "Hive Mind", "corporationsAllowed": false }
+]

@@ -20,6 +20,9 @@ import java.util.Map;
 
 /** Buys reactor fuel and measures staffed generation on each local grid. */
 public class PowerGenerationProcessor {
+    private final Map<String, PowerPlantCatalog.Plant> plants;
+    public PowerGenerationProcessor() { this(PowerPlantCatalog.all()); }
+    public PowerGenerationProcessor(Map<String, PowerPlantCatalog.Plant> plants) { this.plants = Map.copyOf(plants); }
     public record Result(List<Empire> empires, List<Corporation> corporations,
                          List<CommercialHub> hubs, List<MarketAccount> marketAccounts,
                          List<IndustryAccount> accounts, Map<String, Double> generationKw,
@@ -27,11 +30,17 @@ public class PowerGenerationProcessor {
 
     public Result process(GameState state, Map<String, Integer> paidWorkers,
                           Map<String, Double> paidWages) {
+        return process(state, paidWorkers, paidWages, true);
+    }
+    /** A rated-capacity probe may disable dispatch; ordinary simulation and pricing always follow demand. */
+    public Result process(GameState state, Map<String, Integer> paidWorkers,
+                          Map<String, Double> paidWages, boolean followDemand) {
         Ledger ledger = new Ledger(state);
+        var dispatch = followDemand ? dispatchFractions(state, paidWorkers, ledger) : Map.<String, Double>of();
         List<IndustryAccount> accounts = new ArrayList<>();
         Map<String, Double> generation = new HashMap<>();
         for (IndustrialFacility facility : state.industrialFacilities()) {
-            PowerPlantCatalog.Plant plant = PowerPlantCatalog.find(facility.applicationId());
+            PowerPlantCatalog.Plant plant = plants.get(facility.applicationId());
             if (plant == null) continue;
             int staffed = IndustrialFacility.HIVE_GRID.equals(facility.ownershipType())
                     ? facility.allocatedWorkers() : paidWorkers.getOrDefault(facility.id(), 0);
@@ -41,12 +50,12 @@ public class PowerGenerationProcessor {
             Empire technologyOwner = ledger.technologyOwner(facility);
             if (technologyOwner != null && technologyOwner.unlockedTechIds().contains("electricity")
                     && technologyOwner.unlockedTechIds().contains(plant.requiredTechnology())
+                    && ApplicationProduction.isAvailable(technologyOwner, facility.applicationId())
                     && staffed > 0 && facility.tier() > 0
                     && FacilityManufacturingCapacity.canOperate(state, facility)) {
-                double staffing = Math.clamp((double) staffed / plant.requiredWorkers(), 0.0, 1.0);
-                double environment = environmentFactor(state.solarSystems(), facility);
-                double scale = facility.tier() * staffing * facility.getEffectiveThroughputMultiplier()
-                        / Math.pow(1.5, Math.max(0, facility.tier() - 1));
+                double environment = environmentFactor(state.solarSystems(), facility, plant);
+                double scale = GenerationCapacity.scale(facility, plant, staffed);
+                if (followDemand) scale *= dispatch.getOrDefault(facility.id(), 0.0);
                 kw = plant.kwPerTier() * scale * environment
                         * ApplicationProduction.modifiers(state, technologyOwner.id(), facility.applicationId()).effectMultiplier();
                 if (plant.fuelMaterialId() != null && kw > 0.0) {
@@ -58,39 +67,82 @@ public class PowerGenerationProcessor {
             }
             generation.merge(facility.planetId(), kw, Double::sum);
             accounts.add(ledger.cash.withDay(new IndustryAccount(facility.id(), Map.of(), Map.of(), Map.of(),
-                    fuelCost, wages, 0.0, 0.0, kw * 24.0, 0.0)));
+                    fuelCost, wages, 0.0, 0.0, kw * 24.0, 0.0).withPaidWorkers(staffed)));
         }
         return new Result(List.copyOf(ledger.empires.values()), List.copyOf(ledger.corporations.values()),
                 List.copyOf(ledger.hubs.values()), List.copyOf(ledger.accounts.values()),
                 List.copyOf(accounts), Map.copyOf(generation), ledger.cash.snapshot());
     }
 
-    private double environmentFactor(List<SolarSystem> systems, IndustrialFacility facility) {
+    private Map<String, Double> dispatchFractions(GameState state, Map<String, Integer> paidWorkers, Ledger ledger) {
+        var capacity = new HashMap<String, Double>();
+        var availability = new HashMap<String, Double>();
+        for (var facility : state.industrialFacilities()) {
+            var plant = plants.get(facility.applicationId()); var owner = ledger.technologyOwner(facility);
+            if (plant == null || owner == null || !owner.unlockedTechIds().contains("electricity")
+                    || !owner.unlockedTechIds().contains(plant.requiredTechnology()) || !ApplicationProduction.isAvailable(owner, facility.applicationId())
+                    || !FacilityManufacturingCapacity.canOperate(state, facility)) continue;
+            int staffed = IndustrialFacility.HIVE_GRID.equals(facility.ownershipType()) ? facility.allocatedWorkers() : paidWorkers.getOrDefault(facility.id(), 0);
+            double scale = GenerationCapacity.scale(facility, plant, staffed);
+            double fraction = availableFuelFraction(ledger, facility, plant, scale);
+            availability.put(facility.id(), fraction);
+            capacity.merge(facility.planetId(), plant.kwPerTier() * scale * fraction * environmentFactor(state.solarSystems(), facility, plant)
+                    * ApplicationProduction.modifiers(state, owner.id(), facility.applicationId()).effectMultiplier(), Double::sum);
+        }
+        var result = new HashMap<String, Double>();
+        for (var grid : new PowerProcessor().balanceDay(state, capacity, paidWorkers).grids()) {
+            var storage = state.powerGrids().stream().filter(g -> g.entityId().equals(grid.entityId())).findFirst().orElse(null);
+            double chargingKw = storage == null ? 0 : Math.max(0, storage.batteryCapacityKwh() - storage.currentStoredKwh()) / 24;
+            double available = capacity.getOrDefault(grid.entityId(), 0.0);
+            double fraction = available <= 0 ? 0 : Math.clamp((grid.totalDemandKw() + chargingKw) / available, 0, 1);
+            state.industrialFacilities().stream().filter(f -> f.planetId().equals(grid.entityId())).forEach(f ->
+                    result.put(f.id(), fraction * availability.getOrDefault(f.id(), 0.0)));
+        }
+        return Map.copyOf(result);
+    }
+    private double availableFuelFraction(Ledger ledger, IndustrialFacility facility, PowerPlantCatalog.Plant plant, double scale) {
+        if (plant.fuelMaterialId() == null || plant.fuelKgPerTierDay() * scale <= 0) return 1;
+        var hub = ledger.hubs.values().stream().filter(h -> h.entityId().equals(facility.planetId())).findFirst().orElse(null);
+        var fuel = hub == null ? null : hub.activeOrders().get(plant.fuelMaterialId());
+        if (fuel == null) return 0;
+        double required = plant.fuelKgPerTierDay() * scale;
+        double fraction = Math.clamp(fuel.supplyKg() / required, 0, 1);
+        double cost = required * Math.max(0, fuel.pricePerKg());
+        return cost <= 0 || IndustrialFacility.HIVE_GRID.equals(facility.ownershipType()) ? fraction
+                : Math.min(fraction, Math.clamp(ledger.ownerBalance(facility) / cost, 0, 1));
+    }
+
+    public static double environmentFactor(List<SolarSystem> systems, IndustrialFacility facility) {
+        return environmentFactor(systems, facility, PowerPlantCatalog.find(facility.applicationId()));
+    }
+
+    private static double environmentFactor(List<SolarSystem> systems, IndustrialFacility facility, PowerPlantCatalog.Plant plant) {
+        if (plant == null) return 0;
         for (SolarSystem system : systems) {
             for (Planet planet : system.planets()) {
                 if (planet.id().equals(facility.planetId())) {
-                    return environmentFactor(system, facility.applicationId(), planet.distance(),
+                    return environmentFactor(system, plant, planet.distance(),
                             planet.atmosphere(), planet.hasLiquidWater());
                 }
                 for (Moon moon : planet.moons()) {
                     if (moon.id().equals(facility.planetId())) {
-                        return environmentFactor(system, facility.applicationId(), planet.distance(),
+                        return environmentFactor(system, plant, planet.distance(),
                                 moon.atmosphere(), moon.hasLiquidWater());
                     }
                 }
             }
         }
-        return "solar_power".equals(facility.applicationId()) ? 0 : 1;
+        return plant.environment() == PowerPlantCatalog.Environment.ANY ? 1 : 0;
     }
 
-    private double environmentFactor(SolarSystem system, String applicationId, double orbitalDistanceKm,
+    private static double environmentFactor(SolarSystem system, PowerPlantCatalog.Plant plant, double orbitalDistanceKm,
                                      String atmosphere, boolean hasLiquidWater) {
-        return switch (applicationId) {
-            case "solar_power" -> SolarRadiation.factor(system, orbitalDistanceKm)
-                    * ("none".equalsIgnoreCase(atmosphere) ? 1.0 : 0.85);
-            case "wind_power" -> "none".equalsIgnoreCase(atmosphere) ? 0.0 : 1.0;
-            case "hydropower" -> hasLiquidWater ? 1.0 : 0.0;
-            default -> 1.0;
+        return switch (plant.environment()) {
+            case SOLAR -> SolarRadiation.factor(system, orbitalDistanceKm)
+                    * ("none".equalsIgnoreCase(atmosphere) ? 1.0 : plant.atmosphericTransmission());
+            case ATMOSPHERE -> "none".equalsIgnoreCase(atmosphere) ? 0.0 : 1.0;
+            case LIQUID_WATER -> hasLiquidWater ? 1.0 : 0.0;
+            case ANY -> 1.0;
         };
     }
 

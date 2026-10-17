@@ -30,6 +30,7 @@ public record LoadOrbitalCargoCommand(String shipId, String sourceBodyId,
     }
     @Override
     public boolean validate(GameState state) {
+        if (com.spaceconquest.engine.ship.ShipRefitPlan.reserved(state, shipId)) return false;
         if (state == null || shipId == null || sourceBodyId == null || materialId == null
                 || !Double.isFinite(quantityKg) || quantityKg <= 0.0) return false;
         Fleet fleet = fleet(state);
@@ -87,13 +88,10 @@ public record LoadOrbitalCargoCommand(String shipId, String sourceBodyId,
 
     private boolean cargoEligible(GameState state, ShipInstance ship) {
         if (ConstructionMaterials.isOrbitalTransport(state, ship)) return true;
-        String module = com.spaceconquest.engine.ship.ShipMissileWeapons.AMMUNITION.equals(materialId)
-                ? com.spaceconquest.engine.ship.CombatModuleCatalog.MISSILE
-                : com.spaceconquest.engine.ship.ShipPointDefense.AMMUNITION.equals(materialId)
-                ? com.spaceconquest.engine.ship.CombatModuleCatalog.KINETIC_POINT_DEFENSE : null;
-        return module != null
-                && state.shipDesigns().stream().anyMatch(design -> design.id().equals(ship.designId())
-                && design.equippedModuleIds().contains(module));
+        return state.shipDesigns().stream().filter(design -> design.id().equals(ship.designId()))
+                .anyMatch(design -> design.equippedModuleIds().stream()
+                        .map(id -> com.spaceconquest.engine.ship.CombatModuleCatalog.module(design, id))
+                        .filter(java.util.Objects::nonNull).anyMatch(module -> materialId.equals(module.ammunitionId())));
     }
 
     private ShipInstance ship(Fleet fleet) {
@@ -102,7 +100,8 @@ public record LoadOrbitalCargoCommand(String shipId, String sourceBodyId,
     }
 
     private boolean aboveSource(GameState state, Fleet fleet) {
-        if (fleet.location().isAt(FleetLocation.Site.orbit(sourceBodyId))) return true;
+        if (!fleet.location().inTransit() && fleet.location().current().kind() == FleetLocation.Kind.ORBIT
+                && sourceBodyId.equals(fleet.location().current().entityId())) return true;
         return state.orbitalStations().stream().anyMatch(station ->
                 sourceBodyId.equals(station.planetOrbitId())
                         && fleet.location().isAt(FleetLocation.Site.docked(station.id())));

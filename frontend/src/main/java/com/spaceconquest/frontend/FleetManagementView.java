@@ -74,6 +74,7 @@ public class FleetManagementView {
     private GameState snapshot;
     private final java.util.Set<String> expandedRepairFleets = new java.util.HashSet<>();
     private final java.util.Set<String> expandedSensorFleets = new java.util.HashSet<>();
+    private final java.util.Set<String> expandedWeaponFleets = new java.util.HashSet<>();
 
     public FleetManagementView(Menubar menubar) {
         this.menubar = menubar;
@@ -185,6 +186,7 @@ public class FleetManagementView {
         content.getChildren().add(createOrbitalCargoSection());
         content.getChildren().add(FleetOrganizationCard.create(snapshot, playerEmpireId, humanController, feedbackLabel));
         content.getChildren().add(FleetFuelSharingCard.create(snapshot, playerEmpireId, humanController, feedbackLabel));
+        content.getChildren().add(ShipRefitCard.create(snapshot, playerEmpireId, () -> snapshot, humanController));
 
         // 2. Active Fleets Section
         content.getChildren().add(createActiveFleetsSection());
@@ -343,8 +345,7 @@ public class FleetManagementView {
         snapshot.industrialFacilities().stream()
                 .filter(facility -> yardEntityId.equals(facility.planetId())
                         && playerEmpireId.equals(facility.ownerEntityId())
-                        && ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID
-                        .equals(facility.applicationId()))
+                        && com.spaceconquest.engine.ship.ShipyardTechnology.isSurface(facility.applicationId()))
                 .findFirst().ifPresent(facility -> lines.add(readinessText(String.format(
                         "Surface shipyard tier: %d%s", facility.tier(),
                         facility.isUndergoingExpansion() ? " (upgrading; 50% capacity throttle)" : ""),
@@ -658,13 +659,6 @@ public class FleetManagementView {
             ShipDesign design = snapshot == null ? null : snapshot.shipDesigns().stream()
                     .filter(item -> item.id().equals(ship.designId())).findFirst().orElse(null);
             shipList.getChildren().add(ShipPowerCard.create(snapshot, fleet, ship, design, humanController, feedbackLabel));
-            if (design != null && design.equippedModuleIds().contains(com.spaceconquest.engine.ship.CombatModuleCatalog.MISSILE)) {
-                Label ammunition = new Label("Guided missiles: " + com.spaceconquest.engine.ship.ShipMissileWeapons.rounds(ship) + " whole rounds in cargo");
-                ammunition.setTextFill(Color.LIGHTCYAN); shipList.getChildren().add(ammunition);
-            }
-            if (design != null && design.equippedModuleIds().contains(com.spaceconquest.engine.ship.CombatModuleCatalog.KINETIC_POINT_DEFENSE)) {
-                Label ammunition = new Label("Kinetic defense ammunition: " + com.spaceconquest.engine.ship.ShipPointDefense.rounds(ship) + " whole cartridges in cargo"); ammunition.setTextFill(Color.LIGHTCYAN); shipList.getChildren().add(ammunition);
-            }
             PropulsionCatalog.Drive drive = design == null ? null
                     : PropulsionCatalog.mainDrive(design.equippedModuleIds());
             if (drive != null) {
@@ -700,6 +694,10 @@ public class FleetManagementView {
                 FleetInterceptCard.create(snapshot, fleet, playerEmpireId, humanController, feedbackLabel),
                 FleetEscortCard.create(snapshot, fleet, playerEmpireId, humanController, feedbackLabel), createPassengerOrders(fleet), createTroopOrders(fleet),
                 createInvasionOrders(fleet), FleetRepairStatusCard.create(snapshot, fleet, () -> snapshot, expandedRepairFleets),
+                FleetWeaponStatusCard.create(snapshot, fleet, playerEmpireId, humanController, feedbackLabel, () -> snapshot, expandedWeaponFleets),
+                FleetServiceStatusCard.create(snapshot, fleet, playerEmpireId, () -> snapshot, expandedWeaponFleets),
+                CombatTargetingHistoryCard.create(snapshot, fleet, playerEmpireId, expandedWeaponFleets),
+                AuxiliarySupplyCard.create(snapshot, fleet, playerEmpireId, humanController, feedbackLabel, () -> snapshot, expandedWeaponFleets),
                 SensorContactCard.create(snapshot, playerEmpireId, fleet.currentSystemId(), fleet, () -> snapshot, expandedSensorFleets, fleet.id()), shipList);
         return card;
     }

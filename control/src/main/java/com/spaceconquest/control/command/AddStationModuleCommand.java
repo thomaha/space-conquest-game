@@ -35,14 +35,16 @@ public record AddStationModuleCommand(
                         corporation.id().equals(station.ownerEntityId())
                                 && corporation.empireId().equals(empire.id()))));
         if (!researched) return false;
-        int reserved = state.constructionProjects().stream()
-                .filter(project -> stationId.equals(project.targetStationId())
-                        && project.plannedModule() != null)
-                .mapToInt(project -> project.plannedModule().slotSize()).sum();
+        var yard = com.spaceconquest.engine.ship.ShipyardTechnology.yard(moduleType);
+        if (yard != null && !state.empires().stream().anyMatch(empire ->
+                empire.controlledSystemIds().contains(station.systemId())
+                        && empire.unlockedTechIds().contains(com.spaceconquest.engine.ship.ShipyardTechnology.application(moduleType)))) return false;
+        long reserved = com.spaceconquest.engine.industry.CultivationSpace.farmSlots(state, stationId, "")
+                + com.spaceconquest.engine.industry.CultivationSpace.moduleSlots(state, station);
         var sensor = com.spaceconquest.engine.ship.SensorModuleCatalog.module(moduleType);
         if (StationModule.TYPE_REPAIR_WORKSHOP.equals(moduleType))
-            return station.hasAvailableSlots(reserved + com.spaceconquest.engine.ship.BaseRepairCatalog.module().slotSize());
-        return station.hasAvailableSlots(reserved + (sensor == null ? Math.max(1, slotSize) : sensor.slotCost()));
+            return reserved + com.spaceconquest.engine.ship.BaseRepairCatalog.module().slotSize() <= station.totalSlots();
+        return reserved + (yard != null ? yard.slots() : sensor == null ? Math.max(1, slotSize) : sensor.slotCost()) <= station.totalSlots();
     }
 
     @Override
@@ -64,11 +66,13 @@ public record AddStationModuleCommand(
                     sensor.workforceProfessionId(), sensor.requiredWorkers(), true);
             mass = sensor.dryMassKg();
         }
+        var yard = com.spaceconquest.engine.ship.ShipyardTechnology.yard(moduleType);
+        if (yard != null) { module = yard.module(moduleType); mass = yard.dryMassKg(); }
         ConstructionDeploymentProject project = new ConstructionDeploymentProject(
                 "module_" + UUID.randomUUID(), "", station.systemId(),
                 station.planetOrbitId(), ConstructionDeploymentProject.TYPE_STATION_MODULE,
-                0.0, Math.max(2.0, Math.ceil(mass / 10_000.0)), station.ownerEntityId(),
-                ConstructionMaterialCatalog.stationModule(mass), Map.of(),
+                0.0, yard == null ? Math.max(2.0, Math.ceil(mass / 10_000.0)) : yard.constructionWork(), station.ownerEntityId(),
+                yard == null ? ConstructionMaterialCatalog.stationModule(mass) : yard.materialsKg(), Map.of(),
                 module.name(), station.ownershipType(), station.id(), module,
                 0, station.armorMaterialId(), station.armorThicknessCm(), 0.0, false);
         List<ConstructionDeploymentProject> projects = new ArrayList<>(state.constructionProjects());

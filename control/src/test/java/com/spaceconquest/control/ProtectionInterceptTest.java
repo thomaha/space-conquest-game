@@ -40,7 +40,7 @@ class ProtectionInterceptTest {
         var mapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         state = mapper.readValue(mapper.writeValueAsString(SaveGame.fromGameState(state, "now", 1, "now")), SaveGame.class).toGameState(0, "RUNNING");
         for (int tick = 0; tick < 10 && fleet(state, "hunter").location().inTransit(); tick++) state = day(state);
-        assertTrue(fleet(state, "hunter").location().isAt(fleet(state, "target").location().current()));
+        assertTrue(ShipWeaponRange.reaches(state, fleet(state, "hunter"), fleet(state, "target")));
         assertTrue(fleet(state, "hunter").ships().getFirst().currentFuelKg() < guard.ships().getFirst().currentFuelKg());
         assertEquals(FleetProtectionAssignment.Stage.RETURNING,
                 fleet(FleetInterceptProcessor.finishContacts(state), "hunter").interceptOrder().protection().stage());

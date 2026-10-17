@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Rebuilds a medium-frame blueprint from catalog choices and the owner's live research and yard capacity. */
+/** Builds a freely sized blueprint from choices and the owner's structural research and yard capacity. */
 public final class ShipBlueprintFactory {
     public record Evaluation(ShipDesign design, ShipDesignValidator.ValidationResult physics, List<String> errors) {
         public Evaluation { errors = List.copyOf(errors); }
@@ -23,10 +23,14 @@ public final class ShipBlueprintFactory {
         if (state == null || specification == null) return invalid("A game state and design specification are required");
         if (blank(specification.id()) || blank(specification.name()) || blank(specification.ownerEntityId()))
             return invalid("A blueprint ID, name and owner are required");
-        var owner = state.empires().stream().filter(empire -> specification.ownerEntityId().equals(empire.id()))
-                .findFirst().orElse(null);
-        if (owner == null || state.corporations().stream().anyMatch(corp -> specification.ownerEntityId().equals(corp.id())))
-            return invalid("Player blueprints require an empire owner");
+        if (!specification.installationIds().isEmpty() && (specification.installationIds().size() != specification.moduleIds().size()
+                || specification.installationIds().stream().anyMatch(ShipBlueprintFactory::blank)
+                || specification.installationIds().stream().distinct().count() != specification.installationIds().size())) return invalid("Component installation identities must be unique and match the module list");
+        String ownerId = specification.ownerEntityId();
+        var owner = com.spaceconquest.engine.economy.EconomicOwnership.empireFor(state, ownerId);
+        boolean corporate = state.corporations().stream().anyMatch(corp -> ownerId.equals(corp.id()));
+        if (owner == null || corporate && !com.spaceconquest.engine.economy.EconomicOwnership.corporationsAllowed(owner))
+            return invalid("Blueprints require an empire or an affiliated corporation in a compatible society");
         if (specification.role() == null || !ShipComponentCatalog.ROLES.contains(specification.role()))
             return invalid("Unknown ship role");
         if (!Double.isFinite(specification.armorThicknessCm()) || specification.armorThicknessCm() < 0
@@ -35,7 +39,7 @@ public final class ShipBlueprintFactory {
         for (String id : specification.moduleIds()) {
             ShipModule module = ShipComponentCatalog.module(id);
             if (module == null) errors.add("Unknown component: " + id);
-            else modules.add(ShipApplicationProduction.optimize(state, owner.id(), module));
+            else modules.add(ShipApplicationProduction.optimize(state, ownerId, module));
         }
         if (!errors.isEmpty()) return new Evaluation(null, null, errors);
         if (specification.moduleIds().stream().filter(PropulsionCatalog.MAIN_DRIVE_IDS::contains).count() != 1)
@@ -50,6 +54,8 @@ public final class ShipBlueprintFactory {
             errors.add("The selected combat module has not been researched");
         if (!ShipRepairModuleCatalog.researched(specification.moduleIds(), owner.unlockedTechIds()))
             errors.add("Ship repair workshops require electricity, industrial production and robotics research");
+        if (!ShipMiningModuleCatalog.researched(specification.moduleIds(), owner.unlockedTechIds()))
+            errors.add("Mining equipment requires its technological application and prerequisites");
         if (!ChemicalFreighterCatalog.researched(specification.moduleIds(), owner.unlockedTechIds()))
             errors.add("Compact freighter equipment requires electricity and industrial production research");
         if (!ChemicalFreighterCatalog.compatible(specification.moduleIds()))
@@ -71,22 +77,26 @@ public final class ShipBlueprintFactory {
         }
         if (hull == null || armor == null) return invalid("Hull and armor must use known structural materials");
         var environment = launchEnvironment(state, owner.controlledSystemIds());
-        var physics = new ShipDesignValidator().validate(specification.role(), ShipComponentCatalog.mediumFrame(hull.id()),
+        int capacity = specification.hullCapacity() == null ? HullTechnology.initialCapacity() : specification.hullCapacity();
+        var frame = HullTechnology.frame(state, ownerId, hull.id(), capacity);
+        if (frame == null) return invalid("Hull capacity exceeds researched structural engineering limit of " + HullTechnology.maximumCapacity(state, ownerId));
+        var physics = new ShipDesignValidator().validate(specification.role(), frame,
                 modules, hull, armor, specification.armorThicknessCm(), environment.gravity(), environment.pressure(),
-                ShipManufacturingCapacity.forOwner(state, owner.id()));
+                ShipManufacturingCapacity.forOwner(state, ownerId));
         if (!environment.surface()) physics = new ShipDesignValidator.ValidationResult(physics.isValid(), false,
                 physics.structuralIntegrity(), physics.powerBalanceKw(), physics.totalDryMassKg(),
                 physics.maxCargoMassKg(), physics.fuelCapacityKg(), physics.totalThrustN(), 0,
                 physics.validationErrors());
         errors.addAll(physics.validationErrors());
         if (!errors.isEmpty()) return new Evaluation(null, physics, errors);
-        ShipDesign design = new ShipDesign(specification.id(), specification.name(), owner.id(), specification.role(),
+        ShipDesign design = new ShipDesign(specification.id(), specification.name(), ownerId, specification.role(),
                 hull.id(), specification.moduleIds(), armor.id(), specification.armorThicknessCm(),
                 physics.totalDryMassKg(), physics.maxCargoMassKg(), physics.fuelCapacityKg(), physics.powerBalanceKw(),
                 physics.structuralIntegrity(), environment.surface() ? physics.minLaunchThrustRequiredN() : 0,
-                physics.totalThrustN(), environment.surface() && physics.isLaunchCapable(), false,
-                ShipApplicationProduction.profile(state, owner.id(), modules, physics.totalDryMassKg()),
-                ShipPowerProfile.capture(modules), ShipSensorProfile.capture(modules));
+                physics.totalThrustN(), environment.surface() && physics.isLaunchCapable(), corporate,
+                ShipBlueprintAssembly.manufacturingProfile(state, ownerId, modules, physics.totalDryMassKg(), frame),
+                ShipPowerProfile.capture(modules), ShipSensorProfile.capture(modules), CombatModuleCatalog.capture(modules), frame,
+                ShipBlueprintAssembly.capture(state, specification, frame, physics.totalDryMassKg(), modules));
         return new Evaluation(design, physics, errors);
     }
 

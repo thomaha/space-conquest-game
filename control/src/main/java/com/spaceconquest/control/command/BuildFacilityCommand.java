@@ -33,7 +33,21 @@ public record BuildFacilityCommand(
         if (state == null || planetId == null || applicationId == null || ownerEntityId == null) {
             return false;
         }
-        return allocatedWorkers >= 0;
+        var work = com.spaceconquest.engine.industry.ProductionWork.definition(applicationId);
+        var factory = com.spaceconquest.engine.industry.FactoryDefinition.find(applicationId);
+        var service = com.spaceconquest.engine.logistics.InfrastructureService.find(applicationId);
+        var yard = com.spaceconquest.engine.ship.ShipyardTechnology.yard(applicationId);
+        return allocatedWorkers >= 0 && (work == null || work.equipment().operatorProfession().equals(workerProfessionId))
+                && (yard == null || (yard.surface() && yard.professionId().equals(workerProfessionId)))
+                && (service == null || (service.capability().mode() != com.spaceconquest.engine.logistics.LaunchService.Mode.SPACE_ELEVATOR
+                && service.capability().professionId().equals(workerProfessionId) && service.capability().infrastructure().permitsSite(state, planetId)))
+                && com.spaceconquest.engine.industry.CultivationSpace.canAccess(state, planetId, ownerEntityId)
+                && com.spaceconquest.engine.industry.FarmingDefinition.canInstall(state, applicationId, planetId, "",
+                FacilityManufacturingCapacity.minimumTier(state, ownerEntityId, applicationId), null)
+                && (factory == null || factory.permitsSite(state, planetId))
+                && (factory == null || com.spaceconquest.engine.industry.ProcessInput.environmentAvailable(state, planetId,
+                com.spaceconquest.engine.industry.IndustryRecipeCatalog.find(applicationId).inputSources()))
+                && FacilityResearchEligibility.allows(state, ownerEntityId, applicationId);
     }
 
     @Override
@@ -61,7 +75,7 @@ public record BuildFacilityCommand(
         List<FacilityExpansionProject> projects = new ArrayList<>(funded.expansionProjects());
         projects.add(new FacilityExpansionProject("project_" + UUID.randomUUID(), facilityId,
                 targetTier, 0.0, ApplicationProduction.constructionWorkHours(state, ownerEntityId, applicationId,
-                500.0 * targetTier), 0.0,
+                ConstructionMaterialCatalog.facilityWork(applicationId, targetTier, false)), 0.0,
                 ConstructionMaterialCatalog.facility(state, ownerEntityId, applicationId, targetTier), Map.of()));
         return funded.withExpansionProjects(projects);
     }

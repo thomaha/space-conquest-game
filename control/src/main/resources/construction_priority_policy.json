@@ -1,0 +1,18 @@
+{
+  "wartimeCombat": 100,
+  "peacetimeCombat": 25,
+  "essentialSupply": 70,
+  "replacement": 35,
+  "completion": 15,
+  "waiting": 2,
+  "suppression": 0.1,
+  "electronicWeight": 2,
+  "pointDefenseWeight": 0.1,
+  "contractWeight": 0.01,
+  "maximumContractScore": 20,
+  "maximumScore": 1000,
+  "replacementHullFraction": 0.5,
+  "starvationWaitTurns": 8,
+  "maximumOrdersPerYard": 128,
+  "peacetimeSuppressionFraction": 0.25
+}

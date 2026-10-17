@@ -8,6 +8,47 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CombatModuleTest {
+    @Test void ionAndParticleWeaponsRequireDistinctApplicationsAndCaptureConstructionCosts() {
+        var fixture = new SensorModuleTest();
+        var base = List.of("rocketry", "electricity", "industrial_production", "energy_fields", "electromagnetic_weapons");
+        for (String id : List.of(CombatModuleCatalog.ION, CombatModuleCatalog.PARTICLE_BEAM)) {
+            String application = CombatModuleCatalog.application(id).id();
+            var developed = new ArrayList<>(base); developed.add(application);
+            var result = ShipBlueprintFactory.evaluate(fixture.world(developed), specification(id));
+            assertTrue(result.valid(), result.errors().toString());
+            assertEquals(CombatModuleCatalog.module(id), CombatModuleCatalog.module(result.design(), id));
+            assertTrue(ShipConstructionRequirements.estimate(result.design()).materialsKg().get("superconducting_cuprates") >= 100);
+            assertFalse(ShipBlueprintFactory.evaluate(fixture.world(base), specification(id)).valid());
+            var other = new ArrayList<>(base); other.add(id.equals(CombatModuleCatalog.ION) ? "particle_beams" : "ion_weapons");
+            assertFalse(ShipBlueprintFactory.evaluate(fixture.world(other), specification(id)).valid());
+        }
+    }
+    @Test void ionDefenseRequiresOwnedParticleDevelopmentAndItsMatchingApplication() throws Exception {
+        var fixture = new SensorModuleTest();
+        var tech = List.of("rocketry", "electricity", "industrial_production", "energy_fields", "electromagnetic_weapons", "ion_weapons", "pd_ion_beams");
+        var state = fixture.world(tech);
+        var result = ShipBlueprintFactory.evaluate(state, specification(CombatModuleCatalog.ION_POINT_DEFENSE));
+        assertTrue(result.valid(), result.errors().toString()); assertEquals(0, CombatModuleCatalog.weaponDamage(result.design()));
+        assertTrue(result.design().powerProfile().serviceLoadsKw().get(ShipServicePower.WEAPONS) >= 30);
+        var bill = ShipConstructionRequirements.estimate(result.design()).materialsKg();
+        assertTrue(bill.get("superconducting_cuprates") >= 50); assertTrue(bill.get("radiation_hardened_semiconductors") >= 25);
+        for (var missing : List.of("electricity", "energy_fields", "electromagnetic_weapons", "ion_weapons", "pd_ion_beams"))
+            assertFalse(ShipBlueprintFactory.evaluate(fixture.world(tech.stream().filter(id -> !id.equals(missing)).toList()), specification(CombatModuleCatalog.ION_POINT_DEFENSE)).valid());
+        var catalog = DataModelLoader.loadTechnologies();
+        var ready = fixture.world(tech.stream().filter(id -> !id.equals("pd_ion_beams")).toList()).empires().getFirst();
+        assertTrue(com.spaceconquest.engine.technology.ApplicationProduction.canResearch(ready, "pd_ion_beams", true, catalog));
+        var locked = fixture.world(tech.stream().filter(id -> !id.equals("ion_weapons") && !id.equals("pd_ion_beams")).toList());
+        assertFalse(com.spaceconquest.engine.technology.ApplicationProduction.canResearch(locked.empires().getFirst(), "pd_ion_beams", true, catalog));
+        var foreign = new Empire("foreign", "Foreign", "human", "Individualist", 1000000, 0, List.of(), List.of(), Map.of(), tech, List.of());
+        var empires = new ArrayList<>(locked.empires()); empires.add(foreign);
+        assertFalse(ShipBlueprintFactory.evaluate(locked.withEmpires(empires), specification(CombatModuleCatalog.ION_POINT_DEFENSE)).valid());
+        assertFalse(CombatModuleCatalog.researched(List.of(CombatModuleCatalog.ION_POINT_DEFENSE),
+                List.of("electricity", "energy_fields", "energy_weapons", "laser_weapons", "pd_lasers", "electromagnetic_weapons", "mass_drivers", "pd_mass_drivers", "defensive_weapons")));
+        var mapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        var saved = state.withShipDesigns(List.of(result.design()));
+        var restored = mapper.readValue(mapper.writeValueAsString(SaveGame.fromGameState(saved, "now", 1, "now")), SaveGame.class).toGameState(0, "RUNNING");
+        assertEquals(saved.shipDesigns(), restored.shipDesigns());
+    }
     @Test void kineticDefenseRequiresMatchingMassDriversAndItsOwnDevelopedApplication() throws Exception {
         var fixture = new SensorModuleTest();
         var tech = List.of("rocketry", "electricity", "industrial_production", "energy_fields", "electromagnetic_weapons", "mass_drivers", "pd_mass_drivers");
@@ -50,7 +91,7 @@ class CombatModuleTest {
     }
     @Test void missileLauncherRequiresOwnersRocketryAndIndustryAndCapturesPowerAndReceipts() {
         var fixture = new SensorModuleTest();
-        var state = fixture.world(List.of("rocketry", "electricity", "industrial_production"));
+        var state = fixture.world(List.of("rocketry", "electricity", "industrial_production", "guided_missile_weapons"));
         var result = ShipBlueprintFactory.evaluate(state, specification(CombatModuleCatalog.MISSILE));
         assertTrue(result.valid(), result.errors().toString());
         assertEquals(180, CombatModuleCatalog.weaponDamage(result.design()));
@@ -65,7 +106,7 @@ class CombatModuleTest {
         return new ShipDesignSpecification(module, module, "owner", ShipRole.COMBAT_SHIP, "steel", modules, "steel", .5);
     }
     @Test void onlyOwnedResearchUnlocksCombatHardwareAndCostsEnterBlueprint() {
-        var fixture = new SensorModuleTest(); var basic = fixture.world(List.of("rocketry", "electricity", "industrial_production"));
+        var fixture = new SensorModuleTest(); var basic = fixture.world(List.of("rocketry", "electricity", "industrial_production", "ship_cannons"));
         var gun = ShipBlueprintFactory.evaluate(basic, specification(CombatModuleCatalog.GUN)); assertTrue(gun.valid(), gun.errors().toString());
         assertEquals(80, CombatModuleCatalog.weaponDamage(gun.design()));
         assertFalse(ShipBlueprintFactory.evaluate(fixture.world(List.of("rocketry", "electricity")), specification(CombatModuleCatalog.GUN)).valid());
@@ -78,7 +119,7 @@ class CombatModuleTest {
     }
     @Test void advancedResearchEnablesNewHardwareAndExistingDesignsSurviveSaveUnchanged() throws Exception {
         var state = new SensorModuleTest().world(List.of("rocketry", "electricity", "industrial_production", "energy_fields",
-                "energy_weapons", "laser_weapons", "electromagnetic_weapons", "mass_drivers", "shields"));
+                "energy_weapons", "laser_weapons", "electromagnetic_weapons", "mass_drivers", "shields", "ship_cannons"));
         var designs = new ArrayList<ShipDesign>();
         for (var module : List.of(CombatModuleCatalog.GUN, CombatModuleCatalog.LASER, CombatModuleCatalog.MASS_DRIVER, CombatModuleCatalog.SHIELD)) {
             var result = ShipBlueprintFactory.evaluate(state, specification(module)); assertTrue(result.valid(), result.errors().toString()); designs.add(result.design());

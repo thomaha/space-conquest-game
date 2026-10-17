@@ -1,0 +1,7 @@
+{
+  "targetNetMargin": 0.1,
+  "capitalRecoveryDays": 3600,
+  "transportOperatingCreditsPerDay": 25,
+  "transportMaintenanceDailyFraction": 0.0001,
+  "maximumImportCandidates": 2
+}

@@ -8,8 +8,8 @@ import java.util.Map;
  * @param projectId              unique expansion project identifier
  * @param facilityId             referenced IndustrialFacility ID
  * @param targetTier             tier being upgraded to
- * @param accumulatedWorkHours   work hours completed
- * @param requiredWorkHours      total work hours needed
+ * @param accumulatedWorkHours   completed construction work; legacy serialized field name
+ * @param requiredWorkHours      required construction work; legacy serialized field name
  * @param costCredits            monetary capital cost
  * @param requiredMaterialsKg     physical construction bill
  * @param consumedMaterialsKg     materials already incorporated into the project

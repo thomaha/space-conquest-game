@@ -21,7 +21,12 @@ public record BuildSpaceElevatorCommand(String planetId, String ownerEntityId,
             return false;
         boolean owned = state.empires().stream().anyMatch(empire -> empire.id().equals(ownerEntityId)
                 && empire.controlledSystemIds().contains(systemId));
-        return owned && state.spaceElevators().stream().noneMatch(e -> planetId.equals(e.planetId()))
+        var service = com.spaceconquest.engine.logistics.InfrastructureService.find(ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR);
+        var empire = state.empires().stream().filter(e -> e.id().equals(ownerEntityId)).findFirst().orElse(null);
+        return owned && service != null && com.spaceconquest.engine.technology.ApplicationProduction.isAvailable(empire, service.applicationId())
+                && Double.isFinite(throughputCapacityKgPerTurn) && throughputCapacityKgPerTurn >= 0
+                && throughputCapacityKgPerTurn <= service.capability().capacityKgPerTier()
+                && state.spaceElevators().stream().noneMatch(e -> planetId.equals(e.planetId()))
                 && state.constructionProjects().stream().noneMatch(project ->
                 planetId.equals(project.targetCelestialId())
                         && ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR.equals(
@@ -31,13 +36,14 @@ public record BuildSpaceElevatorCommand(String planetId, String ownerEntityId,
     @Override
     public GameState apply(GameState state) {
         if (!validate(state)) return state;
+        var capability = com.spaceconquest.engine.logistics.InfrastructureService.find(ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR).capability();
         ConstructionDeploymentProject project = new ConstructionDeploymentProject(
                 "elevator_" + UUID.randomUUID(), "",
                 ConstructionMaterials.systemForBody(state, planetId), planetId,
                 ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR,
-                0.0, 10.0, ownerEntityId, ConstructionMaterialCatalog.spaceElevator(),
+                0.0, capability.infrastructure().constructionWorkPerTier(), ownerEntityId, ConstructionMaterialCatalog.spaceElevator(),
                 Map.of(), null, null, null, null, 0, "steel", 0.0,
-                throughputCapacityKgPerTurn > 0.0 ? throughputCapacityKgPerTurn : 100_000.0,
+                throughputCapacityKgPerTurn > 0.0 ? throughputCapacityKgPerTurn : capability.capacityKgPerTier(),
                 false);
         List<ConstructionDeploymentProject> projects = new ArrayList<>(state.constructionProjects());
         projects.add(project);

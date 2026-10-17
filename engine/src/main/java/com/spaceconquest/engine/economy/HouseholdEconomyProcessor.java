@@ -42,6 +42,11 @@ public class HouseholdEconomyProcessor {
     private final HouseholdJobMobility jobMobility = new HouseholdJobMobility();
 
     public TurnResult process(GameState state, List<Race> races) {
+        var payrollFacilities = new ArrayList<IndustrialFacility>();
+        state.surveyTeams().stream().filter(t -> t.fleetId().isBlank()).filter(t -> com.spaceconquest.engine.industry.SurveyOperations.controls(state, t.empireId(), t.bodyId()))
+                .map(com.spaceconquest.engine.industry.SurveyTeam::payrollJob).forEach(payrollFacilities::add);
+        payrollFacilities.addAll(state.industrialFacilities());
+        var energyPrices = com.spaceconquest.engine.industry.GridSupplyPricing.prices(state);
         Map<String, Race> raceById = new HashMap<>();
         for (Race race : races) raceById.put(race.id(), race);
         Map<String, HouseholdAccount> previous = new HashMap<>();
@@ -57,8 +62,11 @@ public class HouseholdEconomyProcessor {
         Map<String, IndustryAccount> industryAccounts = new LinkedHashMap<>();
         for (IndustryAccount account : state.industryAccounts()) industryAccounts.put(account.facilityId(), account);
         Map<String, Integer> industryJobs = new HashMap<>();
-        for (IndustrialFacility facility : state.industrialFacilities()) {
-            industryJobs.put(facility.id(), Math.max(0, facility.allocatedWorkers()));
+        for (IndustrialFacility facility : payrollFacilities) {
+            var decision = state.businessLedger().operatingDecisions().get(facility.id());
+            industryJobs.put(facility.id(), decision == null ? Math.max(0, facility.allocatedWorkers()) : decision.requestedWorkers());
+            if (com.spaceconquest.engine.logistics.InfrastructureService.find(facility.applicationId()) != null)
+                industryJobs.computeIfPresent(facility.id(), (id, requested) -> (int) Math.min(requested, facility.productionEquipment().referenceCrew()));
         }
         for (OrbitalStation station : state.orbitalStations()) {
             for (IndustrialFacility job : orbitalYardJobs(state, station)) {
@@ -86,37 +94,37 @@ public class HouseholdEconomyProcessor {
             Map<String, Long> publicJobs = publicJobs(economy);
             for (Planet planet : system.planets()) {
                 processBody(planet.id(), planet.atmosphere(), system.id(), empire, planet.populations(), economy,
-                        state.industrialFacilities(), raceById, previous, publicJobs, industryJobs, corporations,
+                        payrollFacilities, raceById, previous, publicJobs, industryJobs, corporations,
                         empires, industryAccounts, paidWorkersByFacility, wagesByFacility,
                         hubs, marketAccounts, taxByBody, grossWagesByBody, publicWagesByBody,
                         infrastructureWagesBySystem,
-                        welfareByBody, accounts);
+                        welfareByBody, accounts, energyPrices);
                 for (Moon moon : planet.moons()) {
                     processBody(moon.id(), moon.atmosphere(), system.id(), empire, moon.populations(), economy,
-                            state.industrialFacilities(), raceById, previous, publicJobs, industryJobs, corporations,
+                            payrollFacilities, raceById, previous, publicJobs, industryJobs, corporations,
                             empires, industryAccounts, paidWorkersByFacility, wagesByFacility,
                             hubs, marketAccounts, taxByBody, grossWagesByBody, publicWagesByBody,
                             infrastructureWagesBySystem,
-                            welfareByBody, accounts);
+                            welfareByBody, accounts, energyPrices);
                 }
             }
             for (var station : state.orbitalStations()) {
                 if (!system.id().equals(station.systemId()) || station.populations().isEmpty()) continue;
-                List<IndustrialFacility> stationJobs = new ArrayList<>(state.industrialFacilities());
+                List<IndustrialFacility> stationJobs = new ArrayList<>(payrollFacilities);
                 stationJobs.addAll(orbitalYardJobs(state, station));
                 processBody(station.id(), "none", system.id(), empire, station.populations(), economy,
                         stationJobs, raceById, previous, publicJobs, industryJobs,
                         corporations, empires, industryAccounts, paidWorkersByFacility,
                         wagesByFacility, hubs, marketAccounts, taxByBody, grossWagesByBody,
-                        publicWagesByBody, infrastructureWagesBySystem, welfareByBody, accounts);
+                        publicWagesByBody, infrastructureWagesBySystem, welfareByBody, accounts, energyPrices);
             }
             for (var belt : system.asteroidBelts()) {
                 if (belt.populations().isEmpty()) continue;
                 processBody(belt.id(), "none", system.id(), empire, belt.populations(), economy,
-                        state.industrialFacilities(), raceById, previous, publicJobs, industryJobs,
+                        payrollFacilities, raceById, previous, publicJobs, industryJobs,
                         corporations, empires, industryAccounts, paidWorkersByFacility,
                         wagesByFacility, hubs, marketAccounts, taxByBody, grossWagesByBody,
-                        publicWagesByBody, infrastructureWagesBySystem, welfareByBody, accounts);
+                        publicWagesByBody, infrastructureWagesBySystem, welfareByBody, accounts, energyPrices);
             }
         }
         Set<String> activeKeys = new HashSet<>();
@@ -151,7 +159,8 @@ public class HouseholdEconomyProcessor {
                              Map<String, Double> grossWages, Map<String, Double> publicWages,
                              Map<String, Double> infrastructureWages,
                              Map<String, Double> welfareByBody,
-                             List<HouseholdAccount> accounts) {
+                             List<HouseholdAccount> accounts, Map<String, Double> energyPrices) {
+        double tariff = energyPrices.getOrDefault(bodyId, PowerBillingProcessor.PRICE_PER_KWH);
         Map<String, List<CitizenCohort>> groups = new TreeMap<>();
         for (CitizenCohort cohort : jobMobility.distribute(bodyId, systemId, populations,
                 previous, publicJobs, facilities)) {
@@ -187,7 +196,7 @@ public class HouseholdEconomyProcessor {
                     ? previous.get(key).savingsCredits() : 0.0) + income + welfare - tax);
             // Missing stock remains a physical shortage, not a cash benefit for other goods.
             double basicCost = purchasableBasicCost(bodyId, requirements, hubs)
-                    + electricityNeed * PowerBillingProcessor.PRICE_PER_KWH;
+                    + electricityNeed * tariff;
             double basicSupport = Math.max(0.0, basicCost - wallet.credits);
             welfare += basicSupport;
             wallet.credits += basicSupport;
@@ -207,7 +216,7 @@ public class HouseholdEconomyProcessor {
                     ? previous.get(key).employment() : HouseholdEmployment.none();
             double secondaryNeed = headcount * 0.005;
             double luxuryNeed = headcount * 0.001;
-            double reserved = electricityNeed * PowerBillingProcessor.PRICE_PER_KWH;
+            double reserved = electricityNeed * tariff;
             double secondaryMet = buy(bodyId, SECONDARY_GOOD, secondaryNeed, wallet, reserved,
                     hubs, marketAccounts);
             double luxuryMet = buy(bodyId, LUXURY_GOOD, luxuryNeed, wallet, reserved,

@@ -83,8 +83,12 @@ class ParkedEscortReturnTest {
         assertTrue(FleetEscapeReturn.clearToReturn(state, find(state, "hunter"), refuge.current()));
         assertNotNull(BodyFleetRendezvous.plan(state, find(state, "hunter"), find(state, "convoy")), "Funded physical parked approach");
         assertNotNull(FleetEscortReturn.plan(state, find(state, "hunter"), find(state, "convoy")), "Funded complete parked return");
-        for (int tick = 0; tick < 15 && find(state, "hunter") != null; tick++) state = FleetInterceptProcessor.finishContacts(move(FleetInterceptProcessor.advance(state)));
+        for (int tick = 0; tick < 15 && find(state, "hunter") != null; tick++) {
+            state = FleetInterceptProcessor.finishContacts(move(FleetInterceptProcessor.advance(state)));
+        }
         assertNull(find(state, "hunter")); var joined = find(state, "convoy");
-        assertEquals(refuge, joined.location()); assertEquals("hunter", joined.escortOrder().escortFleetId()); assertEquals(3, joined.ships().size());
+        assertTrue(joined.location().stationaryAt(FleetLocation.Site.orbit("earth", 500)));
+        assertEquals("hunter", joined.escortOrder().escortFleetId()); assertEquals(3, joined.ships().size());
+        assertEquals(state.fleets(), reload(state).fleets());
     }
 }

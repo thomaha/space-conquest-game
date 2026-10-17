@@ -1,5 +1,81 @@
 # Frontend module
 
+Standing geological surveys now repeat paid fieldwork and automated orbital mapping. Research defines equipment and work, explorers use normal travel and electrical reserves and finite hidden deposits are seeded during galaxy generation. Teams, coverage and blockers survive current-format saves. See [Continuous geological surveying](../GeologicalProspecting.md).
+
+Public AI can now develop a source on another controlled world when local production is unavailable. Saved plans fund source-market procurement once, guide research and construction and reserve or request transport. Exhausted extraction jobs can move to viable local machinery through ordinary payroll. The industry inspector shows plan blockers. See [AI supply-chain investment](../AISupplyChains.md).
+
+Public AI can now expand undersized suppliers and choose another local application when a feedstock path is exhausted. A paid offworld production-to-sale campaign crosses a transit save/reload. The industry page exposes investment blockers through asynchronous snapshot inspection. The corporate investment lifecycle regression is fixed without balancing profitability. See [AI supply-chain investment](../AISupplyChains.md).
+
+Launch services and shipyard discovery now consume researchable infrastructure capabilities, construction bills and application gates. Paid crew work, skill and automation now limit service throughput. Quotes include payroll, maintenance, tax and replacement reserves. Paid launch resources and delivered cargo survive current-format saves. The orbital refuelling preflight regression is fixed. See [Infrastructure applications](../InfrastructureApplications.md).
+
+All 100 material-production recipes now own their process, equipment, construction and operating definitions on researchable applications. Catalog checks cover material paths, elemental conservation and physical market delivery. See [Production coverage review](../ProductionCoverageReview.md).
+
+Operating decisions now retain measured resource constraints for immutable rendering. Procurement includes upstream process delays and funded byproduct inputs. Seasonal receipts and actual offworld return voyages are audited without tuning profitability. See [Supply-chain diagnostics](../SupplyChainDiagnostics.md).
+
+Daily business settlement now pays maintenance and carrier services, tracks unpaid invoices and holds replacement cash separately. Private operating decisions and funded local supply contracts use actual resources and buyer money. Three-year probes expose continuing losses and enclosed-food shortages. See [BusinessOperations.md](../BusinessOperations.md) and [BusinessEconomicsReport.md](../BusinessEconomicsReport.md).
+
+Existing market views render the supply-aware prices published in immutable tick snapshots. Plant cards show recorded generation and actual sales revenue without inferring sold kWh from the old fixed tariff. Pricing and route forecasting remain engine work. See [SupplyPricing.md](../SupplyPricing.md).
+
+FarmingProductionCard also renders application-defined enclosure volume, footprint, water recovery, utility energy, environmental losses and reserved station slots from the injected snapshot. See [ControlledCultivation.md](../ControlledCultivation.md).
+
+FarmingProductionCard displays application-defined land use, saved growing progress and site availability from the injected snapshot. Farm products and factory inputs remain visible through the shared industry cards. See [FarmingProduction.md](../FarmingProduction.md).
+
+Industry cards show declared local source inputs, pooled equipment capacity and installed line count. Fractional process energy remains visible for water treatment. Refineries display finite storage for their captured line count. Rendering reads application data and immutable equipment snapshots. See [ProcessSources.md](../ProcessSources.md).
+
+Migrated factory names and required operator professions come from application data. Typed process construction choices are discovered from the catalog and construction progress displays work units. Legacy construction choices remain migration gaps recorded in [FactoryApplications.md](../FactoryApplications.md).
+
+RefineryRecoveryCard renders active recovery costs, products and elemental tailings from immutable snapshots. Fresh-input and retained-lot choices use tracked commands with stale-snapshot guards. The construction selector includes rare-earth separation. See [RefineryRecovery.md](../RefineryRecovery.md).
+
+Empire industry cards render captured process capacity, baseline recipe work and energy, operator proficiency and automation. The industry construction selector includes iron smelting and steel alloying with their required professions. Actions remain queued and rendering uses immutable facility records. See [ProductionWork.md](../ProductionWork.md).
+
+ShipRefitCard now exposes the Ship upgrades and retirement panel with tracked cancellation and saved consumed-input and fee details. ShipRetirementCard computes guarded background recovery quotes and stages paid retirement through the command queue. Rendering uses immutable snapshots and rejects stale selections, snapshots and completion results. See [ShipRetirement.md](../ShipRetirement.md).
+
+ShipRefitCard now stages Start paid refit through HumanController's tracked command queue after a feasible background quote. Snapshot and selection guards invalidate outdated actions. The card renders saved refit progress and keeps all mutation in tick-owned commands. See [ShipRefits.md](../ShipRefits.md).
+
+ShipRefitCard adds a current-yard upgrade preview to the fleet view with owned ship/model selectors, component changes, separate work and cost estimates and preparation requirements. Quotes run off the JavaFX thread and reject stale requests or snapshots. ShipRefitCardTest covers rendering, ownership and asynchronous result guards. See [ShipRefits.md](../ShipRefits.md).
+
+ShipDesignerView preserves matching installation identities when editing a blueprint and renders separate frame, armor, equipment and installation work from immutable captured receipts. Ordinary design commands still commit changes at the tick. Installation IDs are internal identity metadata rather than class-specific hardpoints. See [ShipAssembly.md](../ShipAssembly.md).
+
+ShipDesignerView exposes freely selected hull capacity with its current research limit. Cargo-hold, tank, battery and combat equipment counts use the available general capacity rather than class-specific mounts. Registration and updates stage immutable specifications through existing commands. Model names and roles do not impose hull sizes. See [ShipDesign.md](../ShipDesign.md).
+
+ShipyardEconomyCard displays saved pending deployment purpose and preparation status from ShipyardLedger and ShipyardDiagnostics includes build purpose. Rendering does not purchase supplies, rank targets or modify mission state. See [AIShipDeployment.md](../AIShipDeployment.md).
+
+The empire economy view includes ShipyardEconomyCard with affiliated queue progress, fees, saved blockers, completed work history and current operator profit tax. ShipyardDiagnostics supplies immutable snapshot-only rows using settled capacity. Display counts are bounded and no purchase, travel forecast or mutation runs in the card. ShipyardEconomyCardTest checks owner filtering and receipt and blocker rendering. See [ShipyardAccounting.md](../ShipyardAccounting.md).
+
+TradeLegStatusCard displays the saved facility supply staging explanation and recognizes the source hub as the next empty-trip port. Diagnostics remain cosmetic and asynchronous; the view performs no state mutation. TradeLegStatusCardTest covers the staging explanation.
+
+Current save and load actions use the reset version 1 format through SaveGameManager. Earlier development formats are rejected by the manager. See [SaveFormat.md](../SaveFormat.md).
+
+The weapon service panel labels current recovery requirements and renders specific paid staffing, station power, material, ammunition and component damage explanations from control quotes. Existing background snapshot guards remain authoritative. Tactical playback receives expanded TARGET_SELECTION descriptions, including single-target and fallback choices, through existing detailed actions.
+
+CombatTargetingHistoryCard shows the selected owned fleet's latest three encounters and the last twelve saved targeting decisions per encounter. Formatting reads bounded immutable receipts without forecasting or simulation on the JavaFX thread. Older records explain the absent trace. Owner and participant filters exclude unrelated history; expansion survives snapshot refresh through the existing fleet panel keys.
+
+FleetServiceStatusCard shows paused mission, service destination, readiness blockers and the latest eight owned fleet service events. Inspection runs lazily in the background and rejects stale snapshot results. Receipts show actual resources, grid input and net spending. FleetServiceStatusCardTest checks rendering, stale results and failures. See [CombatModules.md](../CombatModules.md#fleet-readiness-and-resupply).
+
+FleetInterceptCard labels saved weapon resupply waits and returns using immutable recovery snapshots. Existing queued cancellation removes saved pursuit intent while committed travel continues. See [CombatModules.md](../CombatModules.md#fleet-readiness-and-resupply).
+
+SurfaceCombatHistoryRows shows up to five recent owned-participant surface encounters in the planet battery panel, including actual paid shots, stores spent, damage and funded withdrawal. Historical battery receipts survive dismantling and legacy entries explain missing details. Formatting and inspection run in the existing background path and expose no mutation. See [CombatModules.md](../CombatModules.md).
+
+PlanetDetailView adds a lazy Surface batteries panel using the selected body and player owner. Shared AuxiliarySupplyCard and AuxiliaryBuildRows overloads offer diagnostics, tracked purchases, dismantling and battery construction without a landed fleet. Charging still requires an actual owned surface ship. Owner, body and snapshot guards reject stale background results and actions while expansion persists per body. Carrier craft remain fleet controls. PlanetBatteryPanelTest verifies access, physical sources and command revalidation. See [CombatModules.md](../CombatModules.md#auxiliary-weapon-supplies).
+
+BatteryStatusRows formats immutable firing and repair diagnostics within AuxiliarySupplyCard's existing lazy background inspection. The surface panel shows funded shots, range, upkeep, condition, projected restoration and blockers with first-job shortages. It labels range and live contact as combat gates and next-tick paid staffing as authoritative. Existing snapshot guards prevent stale background results from reaching the current panel. See [CombatModules.md](../CombatModules.md#auxiliary-weapon-supplies).
+
+AuxiliarySupplyCard explains automatic paid surface-yard repairs and stages tracked DismantleBatteryCommand actions. Buttons state permanent removal with discarded stores and no refund. Destroyed batteries expose dismantling instead of resupply. Slot release is reported only after command execution; existing snapshot and duplicate-click guards remain in use. See [CombatModules.md](../CombatModules.md#auxiliary-weapon-supplies).
+
+AuxiliarySupplyCard reads saved wing and battery supplies, captured storage limits, battery damage and pending build progress from snapshots. AuxiliaryBuildRows quotes researched one-unit surface-yard orders in the background. Tracked commands stage construction and paid resupply; changed snapshots reject old actions and duplicate clicks are disabled. Order acceptance does not claim completed construction. The generic designer exposes application-defined carrier hangars. See [CombatModules.md](../CombatModules.md#auxiliary-weapon-supplies).
+
+ShipDesignerView reads WeaponSalvo round energy from application-derived modules, including every configured projectile launch. Application descriptions distinguish per-launch and per-salvo costs. See [CombatModules.md](../CombatModules.md#weapon-consumer-audit).
+
+FleetWeaponStatusCard adds lazy background readiness and local resupply quotes to fleet cards. It preserves expansion, rejects stale results and purchase clicks and stages tracked one-round cargo commands. Larger purchases retain existing supply controls. See [CombatModules.md](../CombatModules.md#fleet-readiness-and-resupply).
+
+Existing snapshot-backed fleet round counts and application-driven designer descriptions show cannon ammunition. Queued cargo commands purchase and load finite stock; views do not create rounds. See [CombatModules.md](../CombatModules.md#cannon-ammunition).
+
+New particle-beam and ion weapon modules use the existing application ownership, immutable blueprint and queued design paths. Pulse-laser descriptions and previews read captured application data. Tactical visuals distinguish immediate delivery from projectiles using immutable engine output. See [CombatModules.md](../CombatModules.md#per-weapon-delivery-and-impact).
+
+ShipDesignerView derives combat descriptions and numerical previews from application-defined optimized hardware. FleetManagementView derives ammunition resource names and whole cartridge counts from saved combat modules. Both use snapshots and ordinary queued commands. Weapon-specific numbers are not duplicated in the UI. See [CombatModules.md](../CombatModules.md#application-defined-capabilities).
+
+ShipDesignerView exposes researched ion point-defense counts through the existing snapshot and queued design flow. Its tooltip explains particle-beam development, defensive range, whole capacity, idle demand and paid shot energy. Generic previews include installed ion electrical demand. The view supplies no interception or free power. See [CombatModules.md](../CombatModules.md#ion-point-defense).
+
 ShipDesignerView adds researched mass-driver point defense through ordinary component counts and typed defensive energy previews. Its tooltip explains matching development, shorter range, finite cartridge use and paid work. FleetManagementView shows whole kinetic cartridges from snapshots. Existing queued cargo supplies purchase and load manufactured stock without frontend mutations. See [CombatModules.md](../CombatModules.md#kinetic-point-defense).
 
 ShipDesignerView exposes researched laser point-defense mounts through ordinary component counts. Normal power includes defensive idle draw and full combat power includes maximum active defensive shots. The tooltip identifies matching laser development, range, whole capacity, paid energy, damage and operation while evading. Saving uses existing queued design commands and views supply no free defense. See [CombatModules.md](../CombatModules.md#weapon-specific-point-defense).
@@ -295,3 +371,11 @@ ShipPowerCard reads condition-scaled electrical capability from the injected shi
 
 
 The fleet repair priority explanation now includes useful electrical restoration after disabled workshops, then funded mobility restoration. Mount lists and first-job quotes come from the shared engine ordering with actual fleet illumination and carried reserves; the UI does not calculate or commit repairs. See [ShipRepairs.md](../ShipRepairs.md#useful-power-restoration).
+
+TechnologyView reads paid scientist capacity, requested assignments, project progress and research quotes from its snapshot and catalog. Existing-project controls stage assignment updates, pause and cancellation through commands even when all workers are reserved. Sharing and route termination also stage commands; displayed path modifiers come from the resource policy. Unsupported salvage is disabled and no fixed progress or generic technology bonus is advertised. TechnologyResearchViewTest verifies queued controls and funded capacity. See [TechnologyMechanics.md](../TechnologyMechanics.md).
+
+TechnologyView displays available, partial or planned application support from ApplicationIntegration, including the supported subset and an explicit future-work explanation. Affected factors are labeled as design factors rather than promised live bonuses. TechnologyResearchViewTest checks planned battery effects and partial solar support using immutable snapshots. See [ApplicationIntegrationAudit.md](../ApplicationIntegrationAudit.md).
+
+TechnologyView shows blocked foundations and applications with named missing prerequisites, reserved or unfunded staffing, existing-project instructions and pending-outcome reasons. ResearchBenefitText names actual recipe outputs, power plants and linked ship hardware from operational catalogs. Current funded points and conditional days remaining come from the shared ResearchFunding quote using the injected snapshot and cached static data. Preview calculations are cosmetic and actions remain queued; no simulation is advanced by rendering. TechnologyResearchViewTest checks estimates, concrete benefits and disabled actions.
+
+ResearchHistoryCard renders the owner's latest 12 saved events and separates original active-project reasons from current needs. Its read-only developer empire selector is gated by the JVM property spaceconquest.debug.research; normal rendering does not expose foreign research. The inspector contains no mutation controls and reads only injected snapshots. TechnologyResearchViewTest checks owner filtering, changed conditions, preserved explanations and read-only inspection.

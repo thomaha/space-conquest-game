@@ -66,12 +66,19 @@ public final class MovingFleetRendezvous {
         double peak = Math.min(InterstellarTravel.MAX_CRUISE_MPS, Math.min((deltaV + velocity) / 2,
                 velocity + Math.sqrt(acceleration * gap + .5 * velocity * velocity)));
         if (peak <= velocity) return null;
-        double covered = ((peak - velocity) * (peak - velocity) - .5 * velocity * velocity) / acceleration;
-        double coast = Math.max(0, (gap - covered) / (peak - velocity));
-        var trajectory = new FlightMotion.Trajectory(start, 0, acceleration, peak,
-                peak / acceleration, coast, (peak - velocity) / acceleration, velocity, null);
+        var trajectory = trajectory(start, gap, velocity, acceleration, peak);
         // Both fleets must stay on the observed coast through the full coordinated tick.
         if (!Double.isFinite(trajectory.totalSeconds()) || Math.ceil(trajectory.totalSeconds() / DAY) * DAY > horizon) return null;
+        double deadline = Math.ceil(trajectory.totalSeconds() / DAY) * DAY - .001;
+        double low = velocity, high = peak;
+        // Retain the earliest funded arrival tick without spending all available delta-v on extra speed.
+        for (int attempt = 0; attempt < 32; attempt++) {
+            double middle = (low + high) / 2;
+            if (trajectory(start, gap, velocity, acceleration, middle).totalSeconds() <= deadline) high = middle;
+            else low = middle;
+        }
+        var economical = trajectory(start, gap, velocity, acceleration, high);
+        if (Math.ceil(economical.totalSeconds() / DAY) == Math.ceil(trajectory.totalSeconds() / DAY)) trajectory = economical;
         Map<String, Double> fuel = new HashMap<>();
         Map<String, InterstellarTravel.ReactorFuelUse> feeds = new HashMap<>();
         Map<String, JourneyPropulsion> propulsion = new HashMap<>();
@@ -87,6 +94,13 @@ public final class MovingFleetRendezvous {
                     .withProtectedPropellant(hunter.fuelPolicy().reserveKg(state, hunter, capability.ship())));
         }
         return new LocalSpaceTravel.Plan(geometry, trajectory, fuel, feeds, propulsion);
+    }
+
+    private static FlightMotion.Trajectory trajectory(double start, double gap, double velocity, double acceleration, double peak) {
+        double covered = ((peak - velocity) * (peak - velocity) - .5 * velocity * velocity) / acceleration;
+        double coast = Math.max(0, (gap - covered) / (peak - velocity));
+        return new FlightMotion.Trajectory(start, 0, acceleration, peak,
+                peak / acceleration, coast, (peak - velocity) / acceleration, velocity, null);
     }
 
     public static Fleet depart(Fleet hunter, Fleet target, LocalTravel.Plan plan) {

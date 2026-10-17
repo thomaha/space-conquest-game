@@ -10,8 +10,10 @@ import com.spaceconquest.engine.technology.ResearchVarianceResult;
 import java.io.IOException;
 
 /** Accepts a completed application improvement or discards its prototype. */
-public record ResolveApplicationResearchCommand(String empireId, String applicationId, boolean accept)
+public record ResolveApplicationResearchCommand(String empireId, String applicationId, boolean accept,
+                                                com.spaceconquest.engine.technology.ResearchDecision decision)
         implements GameCommand {
+    public ResolveApplicationResearchCommand(String empireId, String applicationId, boolean accept) { this(empireId, applicationId, accept, null); }
     @Override
     public boolean validate(GameState state) {
         if (state == null || empireId == null || applicationId == null) return false;
@@ -33,6 +35,11 @@ public record ResolveApplicationResearchCommand(String empireId, String applicat
         ApplicationOptimization resolved = accept ? ApplicationRefinement.resolve(development, development.pendingOutcome(), "RESEARCH")
                 : new ApplicationOptimization(empireId, applicationId, development.pathChoice(), development.result(),
                         null, development.completedRefinements() + 1);
-        return state.withApplicationOptimizations(ApplicationRefinement.replace(state.applicationOptimizations(), resolved));
+        var updated = state.withApplicationOptimizations(ApplicationRefinement.replace(state.applicationOptimizations(), resolved));
+        var reason = decision == null ? new com.spaceconquest.engine.technology.ResearchDecision(
+                com.spaceconquest.engine.technology.ResearchDecision.Actor.PLAYER, accept ? "Accepted the completed improvement." : "Discarded the completed prototype.", applicationId) : decision;
+        return com.spaceconquest.engine.technology.ResearchHistory.record(updated, new com.spaceconquest.engine.technology.ResearchEvent(state.turn(), empireId,
+                null, applicationId, accept ? com.spaceconquest.engine.technology.ResearchEvent.Kind.ACCEPTED : com.spaceconquest.engine.technology.ResearchEvent.Kind.DISCARDED,
+                reason, development.pendingOutcome()));
     }
 }

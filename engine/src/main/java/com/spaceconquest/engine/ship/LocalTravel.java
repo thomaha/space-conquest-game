@@ -45,6 +45,7 @@ public final class LocalTravel {
     }
 
     public static Plan plan(GameState state, Fleet fleet, FleetLocation.Site destination) {
+        if (ShipRefitPlan.reserved(state, fleet)) return null;
         if (state != null && fleet != null && destination != null && RecoveredParkingTravel.ready(fleet))
             return OrbitalTravel.preview(state, fleet, destination).plan();
         if (state == null || fleet == null || destination == null

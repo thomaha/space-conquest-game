@@ -43,17 +43,14 @@ public class CorporateProfitTaxProcessor {
                         return facility != null && IndustrialFacility.PRIVATE_CORPORATE.equals(facility.ownershipType())
                                 && corporation.id().equals(facility.ownerEntityId());
                     }).toList();
-            double profit = owned.stream().mapToDouble(IndustryAccount::realizedResultCredits).sum();
-            profit += state.tradeRoutes().stream()
-                    .filter(route -> corporation.id().equals(route.ownerEntityId()))
-                    .mapToDouble(route -> route.dailyOperatingResultCredits()).sum();
+            double profit = BusinessEarnings.result(state, corporation.id());
             List<LaunchServiceActivity> elevators = state.launchActivities().stream()
                     .filter(activity -> corporation.id().equals(activity.providerOwnerId())
+                            && !facilities.containsKey(activity.providerId())
                             && state.spaceElevators().stream().anyMatch(elevator ->
                             elevator.id().equals(activity.providerId()))).toList();
-            profit += elevators.stream().mapToDouble(activity ->
-                    activity.feeCredits() - activity.powerCostCredits()).sum();
             CorporateTaxAccount old = previous.get(corporation.id());
+            double yardProfit = state.shipyardLedger().cumulativeProfit().getOrDefault(corporation.id(), 0.0);
             double oldLoss = old == null ? 0.0 : old.lossCarryforwardCredits();
             double oldDue = old == null ? 0.0 : old.unpaidTaxCredits();
             double taxable = Math.max(0.0, profit - oldLoss);
@@ -69,7 +66,7 @@ public class CorporateProfitTaxProcessor {
                     corporation.headquartersEntityId(), corporation.marketOrientation(),
                     Math.max(0.0, corporation.liquidCapitalReserves() - paid), corporation.ownedFacilityIds(),
                     corporation.ownedShipIds(), corporation.claimedVeinIds()));
-            accounts.add(new CorporateTaxAccount(corporation.id(), loss, due, taxable, assessed, paid));
+            accounts.add(new CorporateTaxAccount(corporation.id(), loss, due, taxable, assessed, paid, yardProfit));
             distributeReceipts(corporation, owned, elevators, facilities, recipients, paid, collected);
         }
         return new Result(List.copyOf(corporations), List.copyOf(accounts), Map.copyOf(collected));

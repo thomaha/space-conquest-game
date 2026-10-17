@@ -27,7 +27,19 @@ public final class ShipApplicationProduction {
 
     private ShipApplicationProduction() {}
 
+    public static List<String> moduleIdsForApplication(String applicationId) {
+        var ids = new java.util.ArrayList<>(APPLICATIONS.entrySet().stream()
+                .filter(entry -> entry.getValue().equals(applicationId)).map(Map.Entry::getKey).sorted().toList());
+        if ("scanners".equals(applicationId)) ids.add(SensorModuleCatalog.ADVANCED);
+        ids.addAll(ShipMiningModuleCatalog.ids().stream().filter(id -> ShipMiningModuleCatalog.application(id).id().equals(applicationId)).toList());
+        return List.copyOf(ids);
+    }
+
     public static String applicationId(String moduleId) {
+        var mining = ShipMiningModuleCatalog.application(moduleId);
+        if (mining != null) return mining.id();
+        var combat = CombatModuleCatalog.application(moduleId);
+        if (combat != null) return combat.id();
         if (SensorModuleCatalog.ADVANCED.equals(moduleId) || "scanner_array_01".equals(moduleId)) return "scanners";
         return APPLICATIONS.get(moduleId);
     }
@@ -39,6 +51,13 @@ public final class ShipApplicationProduction {
         if (modifiers.effectMultiplier() == 1.0 && modifiers.costMultiplier() == 1.0
                 && modifiers.complexityShift() == 0) return module;
         Map<String, Double> stats = module.operationalStats();
+        var combat = CombatModuleCatalog.application(module.id());
+        if (combat == null) combat = ShipMiningModuleCatalog.application(module.id());
+        if (combat != null) {
+            stats = new HashMap<>(stats);
+            for (String stat : combat.effectStats())
+                stats.computeIfPresent(stat, (key, value) -> value * modifiers.effectMultiplier());
+        }
         if (stats.containsKey("sensorRangeKm")) {
             stats = new HashMap<>(stats);
             stats.computeIfPresent("sensorRangeKm", (key, range) -> range * modifiers.effectMultiplier());
@@ -59,7 +78,7 @@ public final class ShipApplicationProduction {
                 module.dryMassKg(), module.powerDrawKw(), module.powerOutputKw() * modifiers.effectMultiplier(),
                 module.thrustOutputN() * modifiers.effectMultiplier(),
                 Math.max(1, module.complexityLevel() + modifiers.complexityShift()),
-                module.materialCostsKg(), stats);
+                module.materialCostsKg(), stats, module.ammunitionId());
     }
 
     /** Applies the cost change only to the linked modules' mass share of the provisional ship bill. */
@@ -68,6 +87,7 @@ public final class ShipApplicationProduction {
         double costDeltaMass = 0.0;
         int complexity = 1;
         int stasisCapacity = 0;
+        var captured = new HashMap<String, com.spaceconquest.engine.technology.ResearchVarianceResult>();
         for (ShipModule module : optimizedModules) {
             complexity = Math.max(complexity, module.complexityLevel());
             if (PassengerStasis.MODULE_ID.equals(module.id()))
@@ -75,10 +95,33 @@ public final class ShipApplicationProduction {
                         .getOrDefault("stasisCapacity", (double) PassengerStasis.PASSENGERS_PER_POD).doubleValue());
             String applicationId = applicationId(module.id());
             if (state != null && applicationId != null) {
+                captured.put(applicationId, ApplicationProduction.modifiersForOwner(state, ownerId, applicationId));
                 costDeltaMass += module.dryMassKg()
                         * (ApplicationProduction.modifiersForOwner(state, ownerId, applicationId).costMultiplier() - 1.0);
             }
         }
-        return new ShipManufacturingProfile(1.0 + costDeltaMass / Math.max(1.0, totalDryMassKg), complexity, stasisCapacity);
+        return new ShipManufacturingProfile(1.0 + costDeltaMass / Math.max(1.0, totalDryMassKg), complexity, stasisCapacity, captured);
+    }
+
+    public static boolean developmentChanged(GameState state, ShipDesign design) {
+        if (design.hullFrame() != null && !java.util.Objects.equals(design.hullFrame(), HullTechnology.frame(state, design.ownerEntityId(),
+                design.hullMaterialId(), design.hullFrame().totalSlots()))) return true;
+        if (design.hullFrame() != null && !design.hullFrame().applicationId().isBlank()) {
+            String app = design.hullFrame().applicationId();
+            var current = ApplicationProduction.modifiersForOwner(state, design.ownerEntityId(), app);
+            var previous = design.manufacturingProfile().applicationModifiers().get(app);
+            if (current.effectMultiplier() != (previous == null ? 1 : previous.effectMultiplier())
+                    || current.costMultiplier() != (previous == null ? 1 : previous.costMultiplier())
+                    || current.complexityShift() != (previous == null ? 0 : previous.complexityShift())) return true;
+        }
+        for (String module : design.equippedModuleIds()) {
+            String application = applicationId(module); if (application == null) continue;
+            var current = ApplicationProduction.modifiersForOwner(state, design.ownerEntityId(), application);
+            var previous = design.manufacturingProfile().applicationModifiers().get(application);
+            double effect = previous == null ? 1 : previous.effectMultiplier(), cost = previous == null ? 1 : previous.costMultiplier();
+            int complexity = previous == null ? 0 : previous.complexityShift();
+            if (current.effectMultiplier() != effect || current.costMultiplier() != cost || current.complexityShift() != complexity) return true;
+        }
+        return false;
     }
 }

@@ -31,8 +31,8 @@ class LaunchServiceAccountingTest {
         assertNotNull(plan);
         assertEquals(5.0, plan.powerCostCredits(), 0.001);
         GameState launched = LaunchService.settle(opening, "carrier", plan);
-        assertEquals(92.0, corporation(launched, "carrier").liquidCapitalReserves(), 0.001);
-        assertEquals(103.0, corporation(launched, "provider").liquidCapitalReserves(), 0.001);
+        assertEquals(10_000.0 - plan.serviceFeeCredits(), corporation(launched, "carrier").liquidCapitalReserves(), 0.001);
+        assertEquals(10_000.0 + plan.serviceFeeCredits() - plan.powerCostCredits(), corporation(launched, "provider").liquidCapitalReserves(), 0.001);
 
         PowerProcessor.DayResult power = new PowerProcessor().balanceDay(launched,
                 Map.of("earth", 1_000.0), Map.of());
@@ -52,11 +52,11 @@ class LaunchServiceAccountingTest {
         IndustryAccount driver = market.industryAccounts().stream()
                 .filter(account -> "driver".equals(account.facilityId()))
                 .findFirst().orElseThrow();
-        assertEquals(8.0, driver.salesCredits(), 0.001);
+        assertEquals(plan.serviceFeeCredits(), driver.salesCredits(), 0.001);
         assertEquals(5.0, driver.powerCostsCredits(), 0.001);
         var tax = new CorporateProfitTaxProcessor().process(settled.toBuilder()
                 .industryAccounts(market.industryAccounts()).build());
-        assertEquals(0.6, tax.accounts().stream()
+        assertEquals((plan.serviceFeeCredits() - plan.powerCostCredits()) * .2, tax.accounts().stream()
                 .filter(account -> "provider".equals(account.corporationId()))
                 .findFirst().orElseThrow().assessedTaxCredits(), 0.001);
     }
@@ -65,6 +65,8 @@ class LaunchServiceAccountingTest {
     void corporateElevatorIncomeAlsoEntersTaxBase() {
         GameState opening = state().toBuilder().spaceElevators(List.of(new SpaceElevator(
                 "elevator", "earth", "provider", 2_000.0, 0.95, 100, true))).build();
+        opening = LaunchServiceWork.commission(opening, opening.spaceElevators().getFirst());
+        assertEquals(2_000, LaunchServiceWork.capacity(opening, "elevator"), 1e-6);
         LaunchService.Plan plan = LaunchService.choose(opening, "earth", "carrier",
                 1_000.0, true, true, 1_000.0, LaunchService.Mode.SPACE_ELEVATOR);
         assertNotNull(plan);
@@ -76,7 +78,8 @@ class LaunchServiceAccountingTest {
                 List.of(generator), Map.of());
         GameState settled = launched.toBuilder().corporations(billing.corporations())
                 .launchActivities(billing.launchActivities()).build();
-        var tax = new CorporateProfitTaxProcessor().process(settled);
+        var day = new IndustryMarketProcessor().process(settled, Map.of(), Map.of());
+        var tax = new CorporateProfitTaxProcessor().process(settled.toBuilder().industryAccounts(day.industryAccounts()).build());
         assertEquals((plan.serviceFeeCredits() - plan.powerCostCredits()) * 0.2,
                 tax.accounts().stream().filter(account -> "provider".equals(account.corporationId()))
                         .findFirst().orElseThrow().assessedTaxCredits(), 0.001);
@@ -94,12 +97,12 @@ class LaunchServiceAccountingTest {
         opening = opening.toBuilder().industrialFacilities(List.of(
                 opening.industrialFacilities().getFirst(), publicDriver))
                 .industryAccounts(List.of(IndustryAccount.empty("plant").withOperatingCash(100),
-                        IndustryAccount.empty("driver").withOperatingCash(100))).build();
+                        IndustryAccount.empty("driver").withOperatingCash(100).withPaidWorkers(50))).build();
         LaunchService.Plan plan = LaunchService.choose(opening, "earth", "carrier",
                 1_000, false, false, 0, LaunchService.Mode.MASS_DRIVER);
         assertNotNull(plan);
         GameState launched = LaunchService.settle(opening, "carrier", plan);
-        assertEquals(103.0, launched.industryAccounts().stream()
+        assertEquals(100.0 + plan.serviceFeeCredits() - plan.powerCostCredits(), launched.industryAccounts().stream()
                 .filter(account -> "driver".equals(account.facilityId()))
                 .findFirst().orElseThrow().operatingCashCredits(), 0.001);
         assertEquals(1_000.0, launched.empires().getFirst().treasuryCredits(), 0.001);
@@ -118,7 +121,7 @@ class LaunchServiceAccountingTest {
         var billing = new PowerBillingProcessor().process(launched, power,
                 List.of(generator), Map.of());
         assertEquals(0.0, billing.launchActivities().getFirst().powerCostCredits(), 0.001);
-        assertEquals(108.0, billing.corporations().stream()
+        assertEquals(10_000.0 + plan.serviceFeeCredits(), billing.corporations().stream()
                 .filter(item -> "provider".equals(item.id()))
                 .findFirst().orElseThrow().liquidCapitalReserves(), 0.001);
         assertTrue(billing.grids().getFirst().netBalanceKw() < 0.0);
@@ -129,13 +132,14 @@ class LaunchServiceAccountingTest {
     void selfOwnedElevatorDoesNotCreateFeeIncomeButStillPaysForPower() {
         GameState opening = state().toBuilder().spaceElevators(List.of(new SpaceElevator(
                 "elevator", "earth", "carrier", 2_000.0, 0.95, 100, true))).build();
+        opening = LaunchServiceWork.commission(opening, opening.spaceElevators().getFirst());
         LaunchService.Plan plan = LaunchService.choose(opening, "earth", "carrier",
                 1_000, true, true, 1_000, LaunchService.Mode.SPACE_ELEVATOR);
         assertNotNull(plan);
         assertEquals(plan.powerCostCredits(),
                 LaunchService.payerOperatingCost(opening, plan, "carrier"), 0.001);
         GameState launched = LaunchService.settle(opening, "carrier", plan);
-        assertEquals(100.0 - plan.powerCostCredits(),
+        assertEquals(10_000.0 - plan.powerCostCredits(),
                 corporation(launched, "carrier").liquidCapitalReserves(), 0.001);
         assertEquals(0.0, launched.launchActivities().getFirst().feeCredits(), 0.001);
     }
@@ -150,17 +154,17 @@ class LaunchServiceAccountingTest {
                 1_000, 0.2, List.of("sol"), List.of(), Map.of(),
                 List.of("electricity"), List.of());
         Corporation carrier = new Corporation("carrier", "Carrier", "emp", "earth",
-                "TRANSPORT", 100, List.of(), List.of(), List.of());
+                "TRANSPORT", 10_000, List.of(), List.of(), List.of());
         Corporation provider = new Corporation("provider", "Provider", "emp", "earth",
-                "TRANSPORT", 100, List.of("driver"), List.of(), List.of());
+                "TRANSPORT", 10_000, List.of("driver"), List.of(), List.of());
         IndustrialFacility plant = new IndustrialFacility("plant", "earth", "solar_power",
                 "emp", IndustrialFacility.PUBLIC_STATE, 1, 100, "technician", false, 0);
         IndustrialFacility driver = new IndustrialFacility("driver", "earth", "mass_driver",
-                "provider", IndustrialFacility.PRIVATE_CORPORATE, 1, 10, "technician", false, 0);
+                "provider", IndustrialFacility.PRIVATE_CORPORATE, 1, 50, "technician", false, 0);
         return GameState.builder().solarSystems(List.of(sol)).empires(List.of(empire))
                 .corporations(List.of(carrier, provider))
                 .industrialFacilities(List.of(plant, driver))
-                .industryAccounts(List.of(IndustryAccount.empty("plant").withOperatingCash(100)))
+                .industryAccounts(List.of(IndustryAccount.empty("plant").withOperatingCash(100), IndustryAccount.empty("driver").withPaidWorkers(50)))
                 .commercialHubs(List.of(new CommercialHub("hub", "earth", 0, 10_000,
                         0, 10, Map.of())))
                 .powerGrids(List.of(new PowerGridState("earth", 1_000, 0,

@@ -20,14 +20,15 @@ public final class OpeningMarketSeeder {
             "luxury_goods", "nitrates", "phosphates", "potash", "purified_water",
             "aluminum_ore", "copper_ore", "silicates", "carbon", "rare_earth_fluorides",
             "refined_aluminum", "refined_copper", "silicon", "refined_rare_earths",
-            "agricultural_biomass", "bio_polymers");
+            "agricultural_biomass", "harvested_crops", "bio_polymers");
 
     public GameState align(GameState state, List<Race> races) {
         Set<String> producingBodies = state.industrialFacilities().stream()
-                .filter(facility -> "industrial_soil_cultivation".equals(facility.applicationId()))
+                .filter(facility -> { var recipe = com.spaceconquest.engine.industry.IndustryRecipeCatalog.find(facility.applicationId());
+                    return recipe != null && recipe.farming() != null; })
                 .map(facility -> facility.planetId()).collect(java.util.stream.Collectors.toSet());
         List<CommercialHub> hubs = new MarketDemandProcessor().refresh(state, races).stream()
-                .map(hub -> producingBodies.contains(hub.entityId()) ? alignHome(hub) : hub)
+                .map(hub -> producingBodies.contains(hub.entityId()) ? alignHome(state, hub) : hub)
                 .toList();
         List<MarketAccount> accounts = hubs.stream().map(hub -> new MarketAccount(hub.id(),
                 hub.activeOrders().values().stream().mapToDouble(order -> order.demandKg()
@@ -36,12 +37,17 @@ public final class OpeningMarketSeeder {
         return state.withCommercialHubs(hubs).withMarketAccounts(accounts);
     }
 
-    private CommercialHub alignHome(CommercialHub hub) {
+    private CommercialHub alignHome(GameState state, CommercialHub hub) {
         Map<String, MarketOrder> orders = new HashMap<>(hub.activeOrders());
         for (var entry : hub.activeOrders().entrySet()) {
             if (!LIVE_CHAIN.contains(entry.getKey())) continue;
             MarketOrder old = entry.getValue();
-            int days = "bio_polymers".equals(entry.getKey()) ? 1 : 7;
+            int days = 7;
+            int growingDays = state.industrialFacilities().stream().filter(f -> f.planetId().equals(hub.entityId()))
+                    .map(f -> com.spaceconquest.engine.industry.IndustryRecipeCatalog.find(f.applicationId()))
+                    .filter(r -> r != null && r.farming() != null && r.outputsKg().containsKey(entry.getKey()))
+                    .mapToInt(r -> r.farming().growingDays()).max().orElse(0);
+            if (growingDays > 0) days = growingDays + 7;
             orders.put(entry.getKey(), new MarketOrder(entry.getKey(),
                     Math.max(0.0, old.demandKg() * days), old.demandKg(),
                     MarketProcessor.basePricePerKg(entry.getKey()), old.shortcomingScore()));

@@ -19,7 +19,7 @@ class ShipMissileWeaponsTest {
     }
     private ShipInstance ship(double ammunition) {
         return new ShipInstance("ship", "design", "owner", 1000, 0, 100,
-                Map.of(ShipMissileWeapons.AMMUNITION, ammunition, "steel", 12.0))
+                Map.of(ShipMissileWeapons.AMMUNITION, ammunition, "steel", 12.0, "cannon_round", 100.0))
                 .withPowerState(new ShipPowerState(Map.of("refined_uranium", 10.0), "rp1", "uranium", 0, false, 1, 1, 0, 0, 0, 0, 0));
     }
     private Fleet fleet(ShipInstance ship) {
@@ -58,7 +58,9 @@ class ShipMissileWeaponsTest {
         assertEquals(10 - 12 * HOURS / 6000, paid.ship().generatorFuelMassKg(), 1e-12);
         var mixed = pay(original, design(74, CombatModuleCatalog.GUN, CombatModuleCatalog.MISSILE), 0);
         assertEquals(80, mixed.directFirepower()); assertEquals(1, mixed.paidWeaponKwh());
-        assertTrue(mixed.missileLaunches().isEmpty()); assertEquals(original.storedCargoKg(), mixed.ship().storedCargoKg());
+        assertTrue(mixed.missileLaunches().isEmpty());
+        assertEquals(95, mixed.ship().storedCargoKg().get("cannon_round"));
+        assertEquals(original.storedCargoKg().get(ShipMissileWeapons.AMMUNITION), mixed.ship().storedCargoKg().get(ShipMissileWeapons.AMMUNITION));
         var depleted = original.withPowerState(new ShipPowerState(Map.of(), "rp1", "uranium", 0, false, 1, 1, 0, 0, 0, 0, 0));
         assertEquals(0, pay(depleted, insufficient, 0).firepower());
     }
@@ -107,7 +109,7 @@ class ShipMissileWeaponsTest {
                 (a, b) -> new TacticalCombatProcessor.Withdrawal(a, b, true), (a, b) -> true, (a, b) -> 0);
         assertEquals(0, result.roundReports().getFirst().attackerDamageDealt());
         assertEquals(10000, result.survivingDefenderFleet().ships().getFirst().currentHullHealth());
-        assertTrue(result.visualRounds().getFirst().eventLogs().stream().anyMatch(s -> s.contains("self-destruct")));
+        assertTrue(result.visualRounds().getFirst().eventLogs().stream().anyMatch(s -> s.contains("discarded")));
         var state = new GameState.Builder().shipDesigns(List.of(design)).fleets(List.of(result.survivingAttackerFleet())).build();
         var mapper = new ObjectMapper().configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         var loaded = mapper.readValue(mapper.writeValueAsString(SaveGame.fromGameState(state, "now", 1, "now")), SaveGame.class).toGameState(0, "RUNNING");

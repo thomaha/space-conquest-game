@@ -11,6 +11,7 @@ public final class ShipPowerResupply {
     private ShipPowerResupply() {}
 
     public static GameState buy(GameState state, String shipId, String bodyId, String fuelId, double kg) {
+        if (ShipRefitPlan.reserved(state, shipId)) return state;
         if (state == null || shipId == null || bodyId == null || fuelId == null || !Double.isFinite(kg) || kg <= 0)
             return state;
         Fleet fleet = state.fleets().stream().filter(item -> item.ships().stream().anyMatch(ship -> ship.id().equals(shipId)))

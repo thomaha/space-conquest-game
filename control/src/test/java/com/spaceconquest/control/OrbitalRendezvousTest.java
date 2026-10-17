@@ -14,7 +14,7 @@ import static com.spaceconquest.engine.ship.VectorFlight.*;
 
 class OrbitalRendezvousTest {
     GameState world() throws Exception {
-        var research = List.of("electricity", "industrial_production", "nuclear_fission", "nuclear_fusion", "energy_fields", "scanners");
+        var research = List.of("electricity", "industrial_production", "ship_cannons", "nuclear_fission", "nuclear_fusion", "energy_fields", "scanners");
         var owner = new Empire("owner", "Owner", "human", "Individualist", 1e6, 0, List.of("sol"), List.of(), Map.of(), research, List.of());
         var enemy = new Empire("enemy", "Enemy", "human", "Individualist", 1e6, 0, List.of(), List.of(), Map.of(), research, List.of());
         var sol = DataModelLoader.loadSolarSystems().stream().filter(system -> system.id().equals("sol")).findFirst().orElseThrow();
@@ -37,7 +37,7 @@ class OrbitalRendezvousTest {
                     ShipRole.COMBAT_SHIP, "steel", modules, "steel", .5));
             assertTrue(blueprint.valid(), blueprint.errors().toString()); designs.add(blueprint.design());
             var ship = new ShipInstance(id + "-ship", blueprint.design().id(), id, 100, 0, blueprint.design().fuelCapacityKg(),
-                    Map.of("fusion_fuel_pellets", 200.0)).withPowerState(new ShipPowerState(Map.of("refined_uranium", 5.0),
+                    Map.of("fusion_fuel_pellets", 200.0, "cannon_round", 100.0)).withPowerState(new ShipPowerState(Map.of("refined_uranium", 5.0),
                     "rp1", "uranium", 500, false, 1, 1, 0, 0, 0, 0, 0));
             fleets.add(new Fleet(id.equals("owner") ? "hunter" : "target", id, id, "sol", "", 0, 0, 0, false,
                     "PASSIVE", List.of(ship), FleetLocation.at(FleetLocation.Site.deepSpace())));

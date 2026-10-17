@@ -20,7 +20,7 @@ class FundedThreatAssessmentTest {
                 1000, 1000, 1000, 100, 10, 0, 1000, false, false, ShipManufacturingProfile.baseline(), power);
     }
     private ShipInstance ship(String id, ShipDesign design, String owner, double fuel, double battery, double shields) {
-        return new ShipInstance(id, design.id(), owner, 1000, shields, 100, Map.of())
+        return new ShipInstance(id, design.id(), owner, 1000, shields, 100, Map.of(CombatModuleCatalog.module(CombatModuleCatalog.MASS_DRIVER).ammunitionId(), 200.0, "cannon_round", 200.0))
                 .withPowerState(new ShipPowerState(Map.of("refined_uranium", fuel), "rp1", "uranium", battery, false, 1, 1, 0, 0, 0, 0, 0));
     }
     private Fleet fleet(String id, String owner, ShipInstance ship) {
@@ -49,13 +49,13 @@ class FundedThreatAssessmentTest {
 
     @Test void outrangedCannonFleetChoosesEscapeWithoutSpendingStores() {
         var own = design("own", 10000, 100, false, CombatModuleCatalog.GUN, CombatModuleCatalog.GUN, CombatModuleCatalog.GUN);
-        var enemy = design("enemy", 10000, 100, false, CombatModuleCatalog.LASER);
+        var enemy = design("enemy", 10000, 100, false, CombatModuleCatalog.PARTICLE_BEAM);
         var state = world(own, enemy, ship("first", own, "owner", 10, 0, 0), ship("last", enemy, "enemy", 10, 0, 0));
         state = state.withFleets(List.of(at(state.fleets().getFirst(), 0), at(state.fleets().getLast(), 750000)));
         var before = state.fleets(); var assessment = FleetThreatAssessment.assess(state, before.getFirst());
         assertEquals(FleetThreatAssessment.Action.ESCAPE, assessment.action());
         assertEquals(0, assessment.friendlyStrength());
-        assertEquals(Math.sqrt(160 * 1000), assessment.hostileStrength(), 1e-9);
+        assertEquals(Math.sqrt(180 * 1000), assessment.hostileStrength(), 1e-9);
         assertTrue(FleetThreatAssessment.strength(state, List.of(before.getFirst())) > FleetThreatAssessment.strength(state, List.of(before.getLast())));
         assertEquals(assessment, FleetThreatAssessment.assess(state, before.getFirst()));
         assertEquals(before, state.fleets());
@@ -66,18 +66,18 @@ class FundedThreatAssessmentTest {
     }
 
     @Test void mixedMountAssessmentCountsOnlyReachableSalvoOnceAcrossOpponents() {
-        var own = design("own", 10000, 100, false, CombatModuleCatalog.GUN, CombatModuleCatalog.MASS_DRIVER, CombatModuleCatalog.LASER);
-        var enemy = design("enemy", 10000, 100, false, CombatModuleCatalog.LASER);
+        var own = design("own", 10000, 100, false, CombatModuleCatalog.GUN, CombatModuleCatalog.MASS_DRIVER, CombatModuleCatalog.PARTICLE_BEAM);
+        var enemy = design("enemy", 10000, 100, false, CombatModuleCatalog.PARTICLE_BEAM);
         var state = world(own, enemy, ship("first", own, "owner", 10, 0, 0), ship("last", enemy, "enemy", 10, 0, 0));
         var friendly = at(state.fleets().getFirst(), 0); var hostile = at(state.fleets().getLast(), 150000);
         state = state.withFleets(List.of(friendly, hostile));
         var assessment = FleetThreatAssessment.assess(state, friendly);
         assertEquals(FleetThreatAssessment.Action.HOLD, assessment.action());
-        assertEquals(Math.sqrt(380 * 1000), assessment.friendlyStrength(), 1e-9);
-        assertEquals(Math.sqrt(460 * 1000), FleetThreatAssessment.strength(state, List.of(friendly)), 1e-9);
+        assertEquals(Math.sqrt(400 * 1000), assessment.friendlyStrength(), 1e-9);
+        assertEquals(Math.sqrt(480 * 1000), FleetThreatAssessment.strength(state, List.of(friendly)), 1e-9);
         assertEquals(assessment.friendlyStrength(), FleetThreatAssessment.engagementStrength(state, List.of(friendly),
                 List.of(hostile, at(hostile, 750000))), 1e-9);
-        assertEquals(Math.sqrt(160 * 1000), FleetThreatAssessment.engagementStrength(state, List.of(friendly), List.of(at(hostile, 750000))), 1e-9);
+        assertEquals(Math.sqrt(180 * 1000), FleetThreatAssessment.engagementStrength(state, List.of(friendly), List.of(at(hostile, 750000))), 1e-9);
         assertEquals(0, FleetThreatAssessment.engagementStrength(state, List.of(friendly), List.of()));
     }
 
@@ -87,7 +87,7 @@ class FundedThreatAssessmentTest {
         var weak = world(own, enemy, first, last);
         var assessed = FleetThreatAssessment.assess(weak, weak.fleets().getFirst());
         assertEquals(FleetThreatAssessment.Action.ESCAPE, assessed.action());
-        assertEquals(Math.sqrt(8 * 1000), assessed.friendlyStrength(), 1e-9);
+        assertEquals(0, assessed.friendlyStrength());
         assertEquals(Math.sqrt(80 * 1000), assessed.hostileStrength(), 1e-9);
         var restored = world(own, enemy, ship("first", own, "owner", 10, 100, 0), last);
         var funded = FleetThreatAssessment.assess(restored, restored.fleets().getFirst());
@@ -113,7 +113,7 @@ class FundedThreatAssessmentTest {
             var own = design("own", battery ? 0 : 100, 100, false); var enemy = design("enemy", 74, 100, false);
             var first = ship("first", own, "owner", battery ? 0 : .8 / 6000, battery ? .8 : 0, 0);
             var state = world(own, enemy, first, ship("last", enemy, "enemy", 10, 0, 0));
-            double expected = 80 * (.8 - 14 * HOURS);
+            double expected = 0;
             assertEquals(expected, ShipCombatPower.fundedFirepower(first, own, HOURS, true), 1e-5);
             assertEquals(Math.sqrt(expected * 1000), FleetThreatAssessment.strength(state, List.of(state.fleets().getFirst())), 1e-5);
             assertEquals(ShipCombatPower.fundedFirepower(first, own, HOURS, true),
@@ -157,7 +157,7 @@ class FundedThreatAssessmentTest {
         assertEquals(FleetThreatAssessment.Action.NO_CONTACT, FleetThreatAssessment.assess(hidden, hidden.fleets().getFirst()).action());
         var legacy = new ShipDesign("legacy", "Legacy", "owner", ShipRole.COMBAT_SHIP, "steel", List.of(CombatModuleCatalog.GUN),
                 "steel", 0, 1000, 1000, 1000, 100, 10, 0, 1000, false, false);
-        var oldShip = new ShipInstance("old", "legacy", "owner", 1000, 0, 100, Map.of());
+        var oldShip = new ShipInstance("old", "legacy", "owner", 1000, 0, 100, Map.of("cannon_round", 5.0));
         var old = state.withShipDesigns(List.of(legacy));
         assertEquals(Math.sqrt(ShipCombatStats.of(legacy, oldShip).firepower() * 1000),
                 FleetThreatAssessment.strength(old, List.of(fleet("old", "owner", oldShip))), 1e-9);

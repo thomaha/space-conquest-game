@@ -126,7 +126,7 @@ class CargoDeteriorationTest {
         var mapper = new ObjectMapper();
         var json = mapper.readTree(file);
         ((ObjectNode) json.path("fleets").get(0).path("ships").get(0).path("powerState")).remove("cargoPreservation");
-        ((ObjectNode) json).put("version", 29);
+        ((ObjectNode) json).put("version", com.spaceconquest.engine.SaveGame.CURRENT_VERSION);
         mapper.writeValue(file, json);
         var older = manager.load(file).toGameState(0, "RUNNING");
         assertEquals(CargoPreservationState.empty(), ship(older).powerState().cargoPreservation());

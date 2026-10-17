@@ -39,9 +39,9 @@ public class TacticalCombatProcessorTest {
                 20000.0, 1000.0, 200.0, 1.5, 100000.0, 500000.0, true, false
         );
 
-        ShipInstance attackerShip1 = new ShipInstance("a1", "design_dreadnought", "emp_terran", 1000.0, 500.0, 100.0, Map.of());
-        ShipInstance attackerShip2 = new ShipInstance("a2", "design_dreadnought", "emp_terran", 1000.0, 500.0, 100.0, Map.of());
-        ShipInstance defenderShip1 = new ShipInstance("d1", "design_dreadnought", "emp_alien", 300.0, 100.0, 50.0, Map.of());
+        ShipInstance attackerShip1 = new ShipInstance("a1", "design_dreadnought", "emp_terran", 1000.0, 500.0, 100.0, Map.of("cannon_round", 1000.0));
+        ShipInstance attackerShip2 = new ShipInstance("a2", "design_dreadnought", "emp_terran", 1000.0, 500.0, 100.0, Map.of("cannon_round", 1000.0));
+        ShipInstance defenderShip1 = new ShipInstance("d1", "design_dreadnought", "emp_alien", 300.0, 100.0, 50.0, Map.of("cannon_round", 1000.0));
 
         Fleet attackerFleet = new Fleet("f_att", "Terran 1st Fleet", "emp_terran", "sol", "", 0, 0, 0, false, "AGGRESSIVE", List.of(attackerShip1, attackerShip2));
         Fleet defenderFleet = new Fleet("f_def", "Alien Defense Guard", "emp_alien", "sol", "", 0, 0, 0, false, "PASSIVE", List.of(defenderShip1));
@@ -97,7 +97,7 @@ public class TacticalCombatProcessorTest {
                 20000.0, 5000.0, 100.0, 1.2, 100000.0, 400000.0, true, false
         );
 
-        ShipInstance colonyShip = new ShipInstance("ark_1", "design_colony_ark", "emp_terran", 1000.0, 200.0, 100.0, Map.of());
+        ShipInstance colonyShip = new ShipInstance("ark_1", "design_colony_ark", "emp_terran", 1000.0, 200.0, 100.0, Map.of("cannon_round", 1000.0));
         Fleet colonyFleet = new Fleet("f_colony", "Pioneer Expedition", "emp_terran", "kepler", "", 0, 0, 0, false, "PASSIVE", List.of(colonyShip));
 
         Race human = new Race("terran", "Human", "Desc", 1.0, 1.0, "Individualist", 1.0, 290.0, "Carbon based", "Oxygen", 18, 50, "Organic", "Diverse", 80);

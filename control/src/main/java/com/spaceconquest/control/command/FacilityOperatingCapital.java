@@ -20,7 +20,8 @@ final class FacilityOperatingCapital {
         Empire owner = state.empires().stream().filter(empire -> empire.id().equals(facility.ownerEntityId()))
                 .findFirst().orElse(null);
         if (owner == null) return next;
-        double capital = Math.clamp(owner.treasuryCredits(), 0.0, 50_000.0);
+        var plant = com.spaceconquest.engine.industry.PowerPlantCatalog.find(facility.applicationId());
+        double capital = Math.clamp(owner.treasuryCredits(), 0.0, plant == null ? 50_000.0 : plant.operatingCapitalCredits());
         List<Empire> empires = new ArrayList<>(state.empires());
         empires.remove(owner);
         empires.add(new Empire(owner.id(), owner.name(), owner.raceId(), owner.societyStructure(),

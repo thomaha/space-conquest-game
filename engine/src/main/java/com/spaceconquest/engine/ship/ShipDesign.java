@@ -24,6 +24,7 @@ import java.util.List;
  * @param isProprietaryCorporateDesign     true if created by private corporate AI
  * @param manufacturingProfile            captured optimization cost multiplier and manufacturing complexity
  * @param sensorProfile                   frozen sensor range and survey strength of installed modules
+ * @param combatModules                   immutable application-derived combat hardware captured for this blueprint
  */
 public record ShipDesign(
         String id,
@@ -45,14 +46,56 @@ public record ShipDesign(
         boolean isProprietaryCorporateDesign,
         ShipManufacturingProfile manufacturingProfile,
         ShipPowerProfile powerProfile,
-        ShipSensorProfile sensorProfile
+        ShipSensorProfile sensorProfile,
+        java.util.Map<String, ShipModule> combatModules,
+        ShipHullFrame hullFrame,
+        ShipBlueprintAssembly assembly
 ) {
     public ShipDesign {
         manufacturingProfile = manufacturingProfile == null ? ShipManufacturingProfile.baseline() : manufacturingProfile;
         if (equippedModuleIds == null) equippedModuleIds = List.of();
         equippedModuleIds = List.copyOf(equippedModuleIds);
+        combatModules = combatModules == null ? CombatModuleCatalog.capture(equippedModuleIds.stream()
+                .map(CombatModuleCatalog::module).filter(java.util.Objects::nonNull).toList()) : java.util.Map.copyOf(combatModules);
+        combatModules.forEach((moduleId, module) -> {
+            if (!moduleId.equals(module.id()) || CombatModuleCatalog.application(moduleId) == null)
+                throw new IllegalArgumentException("Unlinked combat module: " + moduleId);
+        });
         if (!Double.isFinite(fuelCapacityKg) || fuelCapacityKg < 0.0)
             throw new IllegalArgumentException("Invalid fuel capacity");
+        if (assembly != null && !assembly.installations().stream().map(item -> item.hardware().id()).toList().equals(equippedModuleIds))
+            throw new IllegalArgumentException("Assembly does not match blueprint components");
+    }
+    public ShipDesign(String id, String name, String ownerEntityId, String role, String hullMaterialId, List<String> equippedModuleIds,
+                      String armorMaterialId, double armorThicknessCm, double totalDryMassKg, double maxCargoMassKg, double fuelCapacityKg,
+                      double powerBalanceKw, double calculatedStructuralIntegrity, double minLaunchThrustRequiredN, double totalThrustN,
+                      boolean isValidForLaunch, boolean isProprietaryCorporateDesign, ShipManufacturingProfile manufacturingProfile,
+                      ShipPowerProfile powerProfile, ShipSensorProfile sensorProfile, java.util.Map<String, ShipModule> combatModules, ShipHullFrame hullFrame) {
+        this(id, name, ownerEntityId, role, hullMaterialId, equippedModuleIds, armorMaterialId, armorThicknessCm, totalDryMassKg,
+                maxCargoMassKg, fuelCapacityKg, powerBalanceKw, calculatedStructuralIntegrity, minLaunchThrustRequiredN, totalThrustN,
+                isValidForLaunch, isProprietaryCorporateDesign, manufacturingProfile, powerProfile, sensorProfile, combatModules, hullFrame, null);
+    }
+    public ShipDesign(String id, String name, String ownerEntityId, String role, String hullMaterialId, List<String> equippedModuleIds,
+                      String armorMaterialId, double armorThicknessCm, double totalDryMassKg, double maxCargoMassKg, double fuelCapacityKg,
+                      double powerBalanceKw, double calculatedStructuralIntegrity, double minLaunchThrustRequiredN, double totalThrustN,
+                      boolean isValidForLaunch, boolean isProprietaryCorporateDesign, ShipManufacturingProfile manufacturingProfile,
+                      ShipPowerProfile powerProfile, ShipSensorProfile sensorProfile, java.util.Map<String, ShipModule> combatModules) {
+        this(id, name, ownerEntityId, role, hullMaterialId, equippedModuleIds, armorMaterialId, armorThicknessCm, totalDryMassKg,
+                maxCargoMassKg, fuelCapacityKg, powerBalanceKw, calculatedStructuralIntegrity, minLaunchThrustRequiredN, totalThrustN,
+                isValidForLaunch, isProprietaryCorporateDesign, manufacturingProfile, powerProfile, sensorProfile, combatModules, null);
+    }
+
+    public ShipDesign(String id, String name, String ownerEntityId, String role,
+                      String hullMaterialId, List<String> equippedModuleIds, String armorMaterialId,
+                      double armorThicknessCm, double totalDryMassKg, double maxCargoMassKg,
+                      double fuelCapacityKg, double powerBalanceKw, double calculatedStructuralIntegrity,
+                      double minLaunchThrustRequiredN, double totalThrustN, boolean isValidForLaunch,
+                      boolean isProprietaryCorporateDesign, ShipManufacturingProfile manufacturingProfile,
+                      ShipPowerProfile powerProfile, ShipSensorProfile sensorProfile) {
+        this(id, name, ownerEntityId, role, hullMaterialId, equippedModuleIds, armorMaterialId, armorThicknessCm,
+                totalDryMassKg, maxCargoMassKg, fuelCapacityKg, powerBalanceKw, calculatedStructuralIntegrity,
+                minLaunchThrustRequiredN, totalThrustN, isValidForLaunch, isProprietaryCorporateDesign,
+                manufacturingProfile, powerProfile, sensorProfile, null);
     }
 
     public ShipDesign(String id, String name, String ownerEntityId, String role,

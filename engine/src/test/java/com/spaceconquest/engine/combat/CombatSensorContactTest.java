@@ -20,7 +20,7 @@ class CombatSensorContactTest {
                 1000, 1000, 1000, 100, 100, 0, 1000, false, false, ShipManufacturingProfile.baseline(), profile);
     }
     private Fleet fleet(String owner, boolean sensor) {
-        var ship = new ShipInstance(owner + "-ship", owner, owner, 10000, 0, 100, Map.of())
+        var ship = new ShipInstance(owner + "-ship", owner, owner, 10000, 0, 100, Map.of("cannon_round", 1000.0))
                 .withPowerState(new ShipPowerState(Map.of("refined_uranium", 1.0), "rp1", "uranium", 0, false, 1, 1, 0, 0, 0, 0, 0));
         if (!sensor) ship = ship.withModuleDamage(new ShipModuleDamage(Map.of(0, 100.0)));
         return new Fleet(owner, owner, owner, "sol", "", 0, 0, 0, false, "PASSIVE", List.of(ship))
@@ -58,8 +58,13 @@ class CombatSensorContactTest {
         assertEquals(10000, initial.fleets().getLast().ships().getFirst().currentHullHealth());
     }
 
-    @Test void actualPowerSheddingRemovesLiveTargetingOnSubsequentRounds() {
-        var initial = world(true, true, 5); var rounds = new AtomicInteger();
+    @Test void actualPowerSheddingRemovesLiveTargetingOnSubsequentRounds() throws Exception {
+        // An application-defined energy-only test variant can fire with scarce output before sensors are shed.
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        com.fasterxml.jackson.databind.node.ObjectNode variant = mapper.valueToTree(design("own", 5));
+        ((com.fasterxml.jackson.databind.node.ObjectNode) variant.get("combatModules").get(CombatModuleCatalog.GUN)).put("ammunitionId", "");
+        var initial = world(true, true, 5).withShipDesigns(List.of(mapper.treeToValue(variant, ShipDesign.class), design("enemy", 1000)));
+        var rounds = new AtomicInteger();
         var own = initial.fleets().getFirst(); var enemy = initial.fleets().getLast().withStance(TacticalCombatProcessor.STANCE_EVASIVE_RETREAT);
         var result = new TacticalCombatProcessor(new Random(42)).resolveFleetEngagement(own, enemy, initial.shipDesigns(),
                 (a, b) -> { rounds.incrementAndGet(); return new TacticalCombatProcessor.Withdrawal(a, b, false); },

@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class InterceptFleetCommandTest {
     private GameState world() throws Exception {
         var owner = new Empire("owner", "Owner", "human", "Individualist", 1e6, 0, List.of("sol"), List.of(), Map.of(),
-                List.of("rocketry", "hydrolox_propulsion", "electricity", "solar_power", "industrial_production"), List.of());
+                List.of("rocketry", "hydrolox_propulsion", "electricity", "solar_power", "industrial_production", "ship_cannons"), List.of());
         var state = GameState.builder().empires(List.of(owner)).solarSystems(DataModelLoader.loadSolarSystems())
                 .diplomaticRelations(List.of(new DiplomaticRelation("owner", "enemy", "TOTAL_WAR", 0))).build();
         var modules = new ArrayList<>(ChemicalFreighterCatalog.modules("mod_hydrolox_rocket"));
@@ -27,7 +27,7 @@ class InterceptFleetCommandTest {
                 fleet("target", "enemy", FleetLocation.Site.orbit("earth", 4000))));
     }
     private Fleet fleet(String id, String owner, FleetLocation.Site site) {
-        var ship = new ShipInstance(id + "-ship", "military", owner, 100, 0, 120000, Map.of())
+        var ship = new ShipInstance(id + "-ship", "military", owner, 100, 0, 120000, Map.of("cannon_round", 100.0))
                 .withPowerState(new ShipPowerState(Map.of(), "rp1", "uranium", 500, true, 1, 1, 0, 0, 0, 0, 0));
         return new Fleet(id, id, owner, "sol", "", 0, 0, 0, false, "PASSIVE", List.of(ship), FleetLocation.at(site));
     }
@@ -63,7 +63,8 @@ class InterceptFleetCommandTest {
                     .withTurn(state.turn() + 1);
         }
         assertTrue(ticks < 10);
-        assertTrue(interceptor(state).location().isAt(FleetOrganization.find(state, "target").location().current()));
+        assertTrue(ShipWeaponRange.reaches(state, interceptor(state), FleetOrganization.find(state, "target")));
+        assertFalse(interceptor(state).location().isAt(FleetOrganization.find(state, "target").location().current()));
         assertTrue(interceptor(state).ships().getFirst().currentFuelKg() < 120000);
         assertNotNull(interceptor(state).interceptOrder());
         assertNull(interceptor(FleetInterceptProcessor.finishContacts(state)).interceptOrder());

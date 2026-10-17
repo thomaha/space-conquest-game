@@ -38,4 +38,11 @@ class TradeLegStatusCardTest {
                 List.of("ship"), 0, true).withRoaming(true).withStatus("Waiting at port: no profitable safe trade.");
         assertEquals(route.status(), TradeLegStatusCard.status(GameState.builder().build(), route));
     }
+    @Test void facilitySupplyStatusExplainsTheEmptyTripFromItsSavedDecision() {
+        var route = new TradeRoute("route", "Route", "owner", "source", "destination", "steel", 12, 60, 12,
+                List.of("ship"), 0, false).withPhase(TradeRoute.SUPPLY_REPOSITIONING)
+                .withStatus("Repositioning to supply source; goods remain unpurchased until arrival.");
+        assertEquals(route.status(), TradeLegStatusCard.status(GameState.builder().build(), route));
+        assertEquals(0, route.onboardKg());
+    }
 }

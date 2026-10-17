@@ -31,6 +31,9 @@ public final class StationRendezvous {
     }
 
     public static LocalTravel.Plan plan(GameState state, Fleet fleet, FleetLocation.Site destination) {
+        return plan(state, fleet, destination, false);
+    }
+    public static LocalTravel.Plan plan(GameState state, Fleet fleet, FleetLocation.Site destination, boolean economical) {
         if (state == null || fleet == null || destination == null || destination.kind() != FleetLocation.Kind.DOCKED
                 || !RecoveredParkingTravel.ready(fleet)) return null;
         var actual = OrbitalRecovery.initialState(state, fleet);
@@ -53,6 +56,10 @@ public final class StationRendezvous {
             acceleration = Math.min(acceleration, capability.accelerationMps2()); deltaV = Math.min(deltaV, capability.deltaVMps());
         }
         for (int candidate = 0; candidate < 48; candidate++) {
+            if (candidate == 0 && economical) {
+                var phasing = OrbitalPhasing.plan(state, fleet, destination, parking, actual, capabilities, acceleration, deltaV, null, 8);
+                if (phasing != null) return phasing;
+            }
             double seconds = period / 1024 * Math.pow(1.15, candidate);
             if (seconds > 7 * 86400) break;
             var station = at(state, destination.entityId(), state.turn() + seconds / 86400);

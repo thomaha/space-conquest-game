@@ -158,10 +158,7 @@ public class MacroStructureProcessor {
         Map<String, Double> producedMaterials = new HashMap<>();
         for (StationModule mod : modules) {
             if (mod.isOnline()) {
-                if (StationModule.TYPE_HYDROPONIC_FOOD.equalsIgnoreCase(mod.type())) {
-                    producedMaterials.merge("food_matrix", 800.0, Double::sum);
-                    producedMaterials.merge("oxygen_gas", 10.0, Double::sum);
-                } else if (StationModule.TYPE_METALLURGY_FOUNDRY.equalsIgnoreCase(mod.type())) {
+                if (StationModule.TYPE_METALLURGY_FOUNDRY.equalsIgnoreCase(mod.type())) {
                     producedMaterials.merge("steel", 500.0, Double::sum);
                 } else if (StationModule.TYPE_CONSUMER_GOODS_FACTORY.equalsIgnoreCase(mod.type())) {
                     producedMaterials.merge("consumer_goods", 300.0, Double::sum);
@@ -229,7 +226,8 @@ public class MacroStructureProcessor {
                     ? ConstructionProgress.advance(current, project.targetCelestialId(),
                     project.ownerEntityId(), project.requiredMaterialsKg(),
                     project.consumedMaterialsKg(), project.accumulatedProgressTurns(),
-                    project.requiredProgressTurns(), 1.0)
+                    project.requiredProgressTurns(), com.spaceconquest.engine.logistics.InfrastructureService
+                            .find(ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR).capability().infrastructure().constructionWorkPerDay())
                     : ConstructionProgress.advanceOrbital(current, project.targetSystemId(),
                     project.targetStationId() == null ? project.targetCelestialId()
                             : project.targetStationId(), project.ownerEntityId(),
@@ -247,7 +245,9 @@ public class MacroStructureProcessor {
                         project.targetStructureType())) {
                     elevators.add(new SpaceElevator("elevator_" + project.targetCelestialId(),
                             project.targetCelestialId(), project.ownerEntityId(),
-                            project.throughputCapacityKgPerTurn(), 0.95, 100.0, true));
+                            project.throughputCapacityKgPerTurn(),
+                            com.spaceconquest.engine.logistics.InfrastructureService.find(ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR)
+                                    .capability().liftDiscount(), 100.0, true));
                 } else if (ConstructionDeploymentProject.TYPE_STATION_MODULE.equalsIgnoreCase(
                         project.targetStructureType())) {
                     for (int index = 0; index < stations.size(); index++) {
@@ -288,8 +288,10 @@ public class MacroStructureProcessor {
                         project.throughputCapacityKgPerTurn(), false, project.parkingAltitudeKm()));
             }
         }
-        return current.toBuilder().constructionProjects(remaining).orbitalStations(stations)
-                .spaceElevators(elevators).build();
+        current = current.toBuilder().constructionProjects(remaining).orbitalStations(stations).spaceElevators(elevators).build();
+        for (var elevator : elevators) if (state.spaceElevators().stream().noneMatch(old -> old.id().equals(elevator.id())))
+            current = com.spaceconquest.engine.logistics.LaunchServiceWork.commission(current, elevator);
+        return current;
     }
 
     private boolean hubExistsInOrbit(GameState state, OrbitalStation station, CommercialHub hub) {

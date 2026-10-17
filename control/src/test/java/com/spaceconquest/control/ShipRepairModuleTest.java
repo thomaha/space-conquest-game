@@ -1,7 +1,6 @@
 package com.spaceconquest.control;
 
 import com.spaceconquest.engine.*;
-import com.spaceconquest.engine.industry.ConstructionMaterialCatalog;
 import com.spaceconquest.engine.ship.*;
 import org.junit.jupiter.api.Test;
 import java.util.*;
@@ -27,8 +26,7 @@ class ShipRepairModuleTest {
         assertEquals(old.design().powerProfile().hotelKw() + 20, workshop.design().powerProfile().hotelKw());
         assertTrue(workshop.design().totalDryMassKg() >= old.design().totalDryMassKg() + 2000);
         var bill = ShipConstructionRequirements.estimate(workshop.design()).materialsKg();
-        var withoutWorkshopReceipt = ConstructionMaterialCatalog.ship(workshop.design().totalDryMassKg(), "steel", "steel",
-                old.design().equippedModuleIds());
+        var withoutWorkshopReceipt = ShipConstructionRequirements.estimate(old.design()).materialsKg();
         assertEquals(250, bill.get("steel") - withoutWorkshopReceipt.get("steel"), 1e-6);
         assertEquals(50, bill.get("refined_copper") - withoutWorkshopReceipt.get("refined_copper"), 1e-6);
         assertEquals(50, bill.get("silicon") - withoutWorkshopReceipt.get("silicon"), 1e-6);

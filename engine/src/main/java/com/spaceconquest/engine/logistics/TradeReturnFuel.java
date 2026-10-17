@@ -8,22 +8,45 @@ import java.util.*;
 /** Tick-owned direct-return insurance. Candidate failures discard every purchase. */
 final class TradeReturnFuel {
     private TradeReturnFuel() {}
+    record Departure(GameState state, Fleet planningFleet, LocalTravel.Plan localPlan) {}
+    /** Extra reserve belongs to the departure trajectory; it never changes the live fleet's normal policy. */
+    static Departure departure(GameState state, Fleet fleet, CommercialHub origin, CommercialHub destination, String shipId,
+                               Map<String, TradeCargo> freight, boolean roaming) {
+        boolean local = fleet.currentSystemId().equals(FleetPositioning.systemForHub(state, destination));
+        boolean protectedLocal = local && fleet.location().current().kind() != FleetLocation.Kind.SURFACE
+                && FleetPositioning.hubSite(state, destination).kind() != FleetLocation.Kind.SURFACE;
+        var original = fleet.fuelPolicy();
+        var attempted = new HashSet<FleetFuelPolicy>();
+        for (double fraction : protectedLocal ? TradeDepartureFuelPolicy.current().reserveFractions() : List.of(0.0)) {
+            var reserve = new FleetFuelPolicy(Math.max(original.routineFraction(), fraction), Math.max(original.elevatedFraction(), fraction), Math.max(original.wartimeFraction(), fraction));
+            if (!attempted.add(reserve)) continue;
+            var planning = fleet.withFuelPolicy(reserve);
+            var plan = protectedLocal ? TradeLocalPlan.plan(state, planning, FleetPositioning.hubSite(state, destination)) : null;
+            if (protectedLocal && plan == null || !TradeLegReadiness.inspect(state, planning, destination).ready()) continue;
+            var funded = secure(state, planning, origin, destination, shipId, freight, roaming, plan);
+            if (funded != null) return new Departure(funded, planning, plan);
+        }
+        return null;
+    }
 
     /** Null means neither carried working stores nor a paid destination reservation fund the return. */
     static GameState secure(GameState state, Fleet loaded, CommercialHub origin, CommercialHub destination,
-                            String freighterId, Map<String, TradeCargo> freight, boolean roaming) {
+                            String freighterId, Map<String, TradeCargo> freight, boolean roaming, LocalTravel.Plan localPlan) {
         if (loaded.ships().stream().allMatch(ship -> FleetSupplySimulation.design(state, ship).powerProfile() == null)) return state;
-        var arrival = arrival(state, loaded, destination);
+        var arrival = localPlan == null ? arrival(state, loaded, destination)
+                : LocalTravel.arrivalPreview(state, loaded, FleetPositioning.hubSite(state, destination), localPlan).withFuelPolicy(fleet(state, loaded.id()).fuelPolicy());
         if (arrival == null) return null;
+        var loadedArrival = arrival;
         arrival = arrival.withShips(arrival.ships().stream().map(ship -> {
             if (!ship.id().equals(freighterId)) return ship;
             var cargo = new HashMap<>(ship.storedCargoKg());
             freight.forEach((id, lot) -> cargo.computeIfPresent(id, (key, kg) -> Math.max(0, kg - lot.massKg())));
             return copy(ship, ship.currentFuelKg(), cargo);
         }).toList());
-        var quote = RoamingTradeCost.quote(state, loaded, origin, destination);
-        if (quote == null) return null;
-        var projected = replace(state.withTurn(state.turn() + (long) Math.ceil(quote.days())), arrival);
+        var quote = localPlan == null ? RoamingTradeCost.quote(state, loaded, origin, destination) : null;
+        if (localPlan == null && quote == null) return null;
+        double days = localPlan == null ? quote.days() : Math.ceil(localPlan.days());
+        var projected = replace(state.withTurn(state.turn() + (long) Math.ceil(days)), arrival);
         if (TradeLegReadiness.inspect(projected, arrival, origin).ready()) return state;
         if (roaming) {
             for (var exit : state.commercialHubs()) {
@@ -31,7 +54,7 @@ final class TradeReturnFuel {
             }
         }
         var funded = TradeReturnFuelSizing.prepare(projected, arrival, origin);
-        if (funded == null) return null;
+        if (funded == null) return deliverySupportsReturn(state, loadedArrival, origin, destination, freighterId, freight, days) ? state : null;
         var demands = new HashMap<String, Map<String, Double>>();
         var request = new HashMap<String, Double>();
         for (var ship : arrival.ships()) {
@@ -48,7 +71,7 @@ final class TradeReturnFuel {
         }
         if (request.isEmpty()) return state; // An existing private reservation funds this ship.
         var purchase = ConstructionMaterials.buyUpTo(state, destination.entityId(), loaded.ownerEntityId(), request);
-        if (!purchase.covers(request)) return null;
+        if (!purchase.covers(request)) return deliverySupportsReturn(state, loadedArrival, origin, destination, freighterId, freight, days) ? state : null;
         var paid = hub(purchase.state(), destination.id());
         var reservations = new HashMap<>(paid.reservedTradeFuel());
         var acquired = new HashMap<>(purchase.acquiredKg());
@@ -65,6 +88,25 @@ final class TradeReturnFuel {
         }
         return replaceHub(purchase.state(), paid.withReservedTradeFuel(
                 paid.currentStoredWeightKg() + purchase.totalKg(), reservations));
+    }
+    private static boolean deliverySupportsReturn(GameState state, Fleet arrival, CommercialHub origin, CommercialHub destination,
+                                                 String shipId, Map<String, TradeCargo> freight, double days) {
+        var fuels = new HashSet<String>();
+        for (var ship : arrival.ships()) {
+            var design = FleetSupplySimulation.design(state, ship);
+            var drive = PropulsionCatalog.mainDrive(design.equippedModuleIds());
+            if (drive != null) {
+                fuels.addAll(drive.propellantMaterials(1).keySet());
+                PropulsionCatalog.reactorFuels(drive.moduleId()).forEach(fuel -> fuels.add(fuel.materialId()));
+            }
+            if (design.powerProfile() != null) design.powerProfile().fuels().values().forEach(fuel -> fuels.addAll(fuel.materials(1).keySet()));
+        }
+        if (freight.keySet().stream().noneMatch(fuels::contains)) return false;
+        var source = state.tradeRoutes().stream().filter(route -> route.assignedFreighterIds().contains(shipId)).findFirst().orElse(null);
+        if (source == null) return false;
+        var route = source.atNewOrigin(origin.id()).withDestination(destination.id()).withActive(false).withRoaming(false).withLoadedManifest(freight);
+        var projected = replace(state.withTurn(state.turn() + (long) Math.ceil(days)), arrival);
+        return new LogisticsProcessor().deliveryFundsReturn(projected, route);
     }
 
     private static HashMap<String, Double> addedMaterials(GameState state, ShipInstance before, ShipInstance after) {
@@ -135,13 +177,13 @@ final class TradeReturnFuel {
         return replaceHub(current, port.withReservedTradeFuel(port.currentStoredWeightKg() - reserved.massKg() + left, reservations));
     }
 
-    private static Fleet arrival(GameState state, Fleet fleet, CommercialHub destination) {
+    static Fleet arrival(GameState state, Fleet fleet, CommercialHub destination) {
         var site = FleetPositioning.hubSite(state, destination);
         String system = FleetPositioning.systemForHub(state, destination);
         if (site == null || system == null) return null;
         if (fleet.currentSystemId().equals(system)) {
-            var plan = LocalTravel.plan(state, fleet, site);
-            return plan == null ? null : LocalTravel.arrivalPreview(state, fleet, site, plan);
+            var plan = TradeLocalPlan.plan(state, fleet, site);
+            return plan == null ? null : LocalTravel.arrivalPreview(state, fleet, site, plan).withFuelPolicy(fleet(state, fleet.id()).fuelPolicy());
         }
         Fleet crossing = fleet;
         if (!fleet.location().isAt(FleetLocation.Site.deepSpace())) {
@@ -180,7 +222,7 @@ final class TradeReturnFuel {
         }
         arrival = new Fleet(arrival.id(), arrival.name(), arrival.ownerEntityId(), system, "", 0, 0, 0,
                 false, arrival.fleetStance(), arrival.ships(), FleetLocation.at(FleetLocation.Site.deepSpace())).withFuelPolicy(arrival.fuelPolicy()).withShieldPolicy(arrival.shieldPolicy()).withEscortOrder(arrival.escortOrder());
-        var dock = LocalTravel.plan(state, arrival, site);
+        var dock = TradeLocalPlan.plan(state, arrival, site);
         return dock == null ? null : LocalTravel.arrivalPreview(state, arrival, site, dock);
     }
 

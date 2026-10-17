@@ -24,6 +24,7 @@ public final class ShipSupplyTransfer {
                 || source == null || destination == null || fuelId == null || !Double.isFinite(kg) || kg <= 0)
             return state;
         Fleet donorFleet = fleet(state, donorId), receiverFleet = fleet(state, receiverId);
+        if (ShipRefitPlan.reserved(state, donorId) || ShipRefitPlan.reserved(state, receiverId)) return state;
         if (donorFleet == null || receiverFleet == null || !coLocated(donorFleet, receiverFleet)) return state;
         if (!RescueRendezvous.contact(donorFleet, receiverFleet) && !knownSite(state, donorFleet)) return state;
         ShipInstance donor = ship(donorFleet, donorId), receiver = ship(receiverFleet, receiverId);

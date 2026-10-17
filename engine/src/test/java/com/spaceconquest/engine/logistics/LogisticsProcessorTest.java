@@ -57,8 +57,11 @@ public class LogisticsProcessorTest {
                 .corporations(List.of(corporation)).empires(List.of(empire))
                 .shipDesigns(List.of(design)).fleets(List.of(fleet))
                 .tradeRoutes(List.of(route)).build();
+        var preview = TradeLegReadiness.prepare(state, fleet, destination);
+        var readiness = TradeLegReadiness.inspect(preview, preview.fleets().getFirst(), destination);
+        assertTrue(readiness.ready(), readiness.explanation());
         GameState moved = new LogisticsProcessor().processTradeRoutes(state).state();
-        assertTrue(moved.fleets().getFirst().location().inTransit());
+        assertTrue(moved.fleets().getFirst().location().inTransit(), moved.tradeRoutes().getFirst().status());
         assertTrue(moved.fleets().getFirst().ships().getFirst().currentFuelKg() > 0.0);
         assertTrue(moved.commercialHubs().getFirst().activeOrders()
                 .get("rp1_kerosene").supplyKg() < 1_000.0);
@@ -234,9 +237,9 @@ public class LogisticsProcessorTest {
         SolarSystem sol = new SolarSystem("sol", "Sol", "", 0, 0, 0,
                 1, 1, "Yellow", List.of(earth, mars), List.of());
         CommercialHub origin = new CommercialHub("hub_earth", "earth", 0,
-                30_000, 20_100, 10, Map.of("steel", new MarketOrder("steel", 100, 0, 1, 0),
-                "rp1_kerosene", new MarketOrder("rp1_kerosene", 10_000, 0, 1, 0),
-                "liquid_oxygen", new MarketOrder("liquid_oxygen", 10_000, 0, 1, 0)));
+                3_000_000, 2_000_100, 10, Map.of("steel", new MarketOrder("steel", 100, 0, 1, 0),
+                "rp1_kerosene", new MarketOrder("rp1_kerosene", 1_000_000, 0, 1, 0),
+                "liquid_oxygen", new MarketOrder("liquid_oxygen", 1_000_000, 0, 1, 0)));
         CommercialHub destination = new CommercialHub("hub_mars", "mars", 0.02,
                 1_000, 0, 10, Map.of("steel", new MarketOrder("steel", 0, 100, 1, 0)));
         Empire empire = new Empire("emp", "Empire", "human", "Individualist",
@@ -255,7 +258,8 @@ public class LogisticsProcessorTest {
                 .commercialHubs(List.of(origin, destination)).empires(List.of(empire))
                 .industrialFacilities(List.of(new IndustrialFacility("terminal", "earth",
                         "cargo_terminal", "emp", IndustrialFacility.PUBLIC_STATE,
-                        1, 10, "technician", false, 0.0)))
+                        1, 50, "technician", false, 0.0)))
+                .industryAccounts(List.of(com.spaceconquest.engine.industry.IndustryAccount.empty("terminal").withPaidWorkers(50)))
                 .marketAccounts(List.of(new MarketAccount(origin.id(), 0),
                         new MarketAccount(destination.id(), 1_000)))
                 .shipDesigns(List.of(design)).fleets(List.of(fleet))

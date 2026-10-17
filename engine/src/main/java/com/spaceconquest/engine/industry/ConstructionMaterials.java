@@ -88,7 +88,10 @@ public final class ConstructionMaterials {
             boolean changed = false;
             for (int shipIndex = 0; shipIndex < ships.size() && remainingKg > 0.000001; shipIndex++) {
                 ShipInstance ship = ships.get(shipIndex);
-                if (!ownerId.equals(ship.ownerEntityId()) || !isOrbitalTransport(current, ship)) continue;
+                if (!ownerId.equals(ship.ownerEntityId()) || !isOrbitalTransport(current, ship)
+                        || com.spaceconquest.engine.ship.ShipRefitPlan.reserved(current, ship.id())
+                        || current.shipyardLedger().deployments().containsKey(ship.id()) || !ship.supplyState().orders().isEmpty()
+                        || current.tradeRoutes().stream().anyMatch(route -> route.carrierCommitted() && route.assignedFreighterIds().contains(ship.id()))) continue;
                 Map<String, Double> cargo = new HashMap<>(ship.storedCargoKg());
                 boolean loaded = false;
                 for (var request : new TreeMap<>(requestedKg).entrySet()) {

@@ -267,8 +267,8 @@ public class GalaxyGeneratorTest {
         var farmAccount = after.industryAccounts().stream()
                 .filter(account -> fiberId.equals(account.facilityId())).findFirst().orElseThrow();
 
-        assertTrue(farmAccount.producedKg().getOrDefault("agricultural_biomass", 0.0) > 0.0);
-        assertTrue(farmAccount.soldKg().getOrDefault("agricultural_biomass", 0.0) > 0.0);
+        assertTrue(farmAccount.producedKg().isEmpty(), "New cultivation must wait for its growing cycle");
+        assertTrue(farmAccount.soldKg().isEmpty());
         assertEquals(0.0, farmAccount.wageCostsCredits(), 0.001);
         assertEquals(0.0, farmAccount.inputCostsCredits(), 0.001);
         assertEquals(0.0, farmAccount.salesCredits(), 0.001);
@@ -298,7 +298,7 @@ public class GalaxyGeneratorTest {
     }
 
     @Test
-    public void startingHomeworldMeetsTrackedNeedsThroughFirstMonth() {
+    public void startingHomeworldMeetsBasicNeedsWhileOptionalProductionUsesFundedCapacity() {
         for (GameStartScenario scenario : GameStartScenario.values()) {
             SpaceConquestEngine engine = new SpaceConquestEngine(scenario);
             GameState opening = engine.getGameState();
@@ -306,9 +306,8 @@ public class GalaxyGeneratorTest {
                     .filter(planet -> !planet.populations().isEmpty())
                     .max(java.util.Comparator.comparingLong(planet -> planet.populations().stream()
                             .mapToLong(Population::totalCount).sum())).orElseThrow().id();
-            long homePopulation = opening.solarSystems().getFirst().planets().stream()
-                    .filter(planet -> homeId.equals(planet.id())).findFirst().orElseThrow()
-                    .populations().stream().mapToLong(Population::totalCount).sum();
+            double manufacturedConsumerGoods = 0;
+            double marketedConsumerGoods = 0;
             for (int day = 1; day <= 30; day++) {
                 engine.stepTurn();
                 GameState state = engine.getGameState();
@@ -319,31 +318,39 @@ public class GalaxyGeneratorTest {
                     String context = scenario + " day " + day + " household " + household.key();
                     assertTrue(household.unmetBasicKg().isEmpty(), context + " lacks basic goods");
                     assertEquals(0.0, household.unmetBasicElectricityKwh(), 0.001, context + " lacks power");
-                    assertEquals(1.0, household.secondaryNeedsMetFraction(), 0.001, context + " lacks secondary goods");
-                    assertEquals(1.0, household.luxuryNeedsMetFraction(), 0.001, context + " lacks luxury goods");
+                    assertOptionalPurchasesArePaid(state, household, context);
                 }
                 var homeSheets = state.planetaryBalanceSheets().stream()
                         .filter(sheet -> homeId.equals(sheet.planetId())).toList();
                 assertTrue(homeSheets.stream().allMatch(sheet -> sheet.outstandingDebtCredits() < 0.01),
                         scenario + " day " + day + " starts municipal debt: " + homeSheets);
-                double foodProduced = state.industryAccounts().stream()
+                boolean cultivating = state.industryAccounts().stream()
                         .filter(account -> state.industrialFacilities().stream().anyMatch(facility ->
                                 facility.id().equals(account.facilityId()) && homeId.equals(facility.planetId())))
-                        .mapToDouble(account -> account.producedKg().getOrDefault("food_matrix", 0.0)).sum();
-                assertTrue(foodProduced >= homePopulation * 0.1,
-                        scenario + " day " + day + " relies on opening food stock");
+                        .anyMatch(account -> account.farmingState().cultivatedBatches() > 0);
+                var food = state.commercialHubs().stream().filter(h -> h.entityId().equals(homeId)).findFirst().orElseThrow()
+                        .activeOrders().get("food_matrix");
+                int growingDays = state.industrialFacilities().stream().filter(f -> f.planetId().equals(homeId))
+                        .map(f -> com.spaceconquest.engine.industry.IndustryRecipeCatalog.find(f.applicationId()))
+                        .filter(r -> r != null && r.farming() != null).mapToInt(r -> r.farming().growingDays()).max().orElse(0);
+                assertTrue(cultivating || food.supplyKg() >= food.demandKg() * (growingDays + 30),
+                        scenario + " day " + day + " lacks cultivation before the delivery-aware food buffer is exhausted");
                 double consumerGoodsProduced = state.industryAccounts().stream()
                         .filter(account -> state.industrialFacilities().stream().anyMatch(facility ->
                                 facility.id().equals(account.facilityId()) && homeId.equals(facility.planetId())))
                         .mapToDouble(account -> account.producedKg().getOrDefault("consumer_goods", 0.0)).sum();
-                assertTrue(consumerGoodsProduced >= homePopulation * 0.005,
-                        scenario + " day " + day + " relies on opening consumer goods");
+                manufacturedConsumerGoods += consumerGoodsProduced;
+                marketedConsumerGoods += state.industryAccounts().stream().filter(a -> state.industrialFacilities().stream()
+                        .anyMatch(f -> f.id().equals(a.facilityId()) && homeId.equals(f.planetId())))
+                        .mapToDouble(a -> a.soldKg().getOrDefault("consumer_goods", 0.0)).sum();
             }
+            assertTrue(manufacturedConsumerGoods > 0, scenario + " has no actual consumer-goods replenishment");
+            assertTrue(marketedConsumerGoods > 0, scenario + " has no funded consumer-goods delivery");
         }
     }
 
     @Test
-    public void nonHumanHomeworldsMeetTrackedNeedsThroughFirstMonth() throws IOException {
+    public void nonHumanHomeworldsMeetBasicNeedsAndPayForAffordableOptionalGoods() throws IOException {
         List<Race> raceCatalog = DataModelLoader.loadRaces();
         PopulationProcessor nutrients = new PopulationProcessor();
         for (GameStartScenario scenario : GameStartScenario.values()) {
@@ -381,6 +388,7 @@ public class GalaxyGeneratorTest {
                 }
             }
             for (int day = 1; day <= 30; day++) {
+                GameState before = engine.getGameState();
                 engine.stepTurn();
                 GameState state = engine.getGameState();
                 for (var account : state.householdAccounts()) {
@@ -389,16 +397,22 @@ public class GalaxyGeneratorTest {
                     String context = scenario + " " + account.empireId() + " day " + day + " " + account.key();
                     assertTrue(account.unmetBasicKg().isEmpty(), context + " lacks basic goods");
                     assertEquals(0.0, account.unmetBasicElectricityKwh(), 0.001, context + " lacks power");
-                      assertEquals(1.0, account.secondaryNeedsMetFraction(), 0.001,
-                              context + " lacks secondary goods");
-                    assertEquals(1.0, account.luxuryNeedsMetFraction(), 0.001, context + " lacks luxury goods");
+                    assertOptionalPurchasesArePaid(state, account, context);
                 }
                 for (Empire empire : state.empires()) {
                     String homeId = homeByEmpire.get(empire.id());
                     var homeSheets = state.planetaryBalanceSheets().stream()
                             .filter(sheet -> homeId.equals(sheet.planetId())).toList();
-                    assertTrue(homeSheets.stream().allMatch(sheet -> sheet.outstandingDebtCredits() < 0.01),
-                            scenario + " " + empire.id() + " day " + day + " starts municipal debt: " + homeSheets);
+                    for (var sheet : homeSheets) {
+                        var previous = before.planetaryBalanceSheets().stream()
+                                .filter(old -> homeId.equals(old.planetId())).findFirst().orElse(null);
+                        double openingPosition = previous == null ? 0 : previous.uncollectedLocalCredits() - previous.outstandingDebtCredits();
+                        double closingPosition = sheet.uncollectedLocalCredits() - sheet.outstandingDebtCredits();
+                        double expected = openingPosition + sheet.netBalanceCredits() - sheet.empireTransferCredits();
+                        assertTrue(Double.isFinite(closingPosition), scenario + " " + empire.id() + " day " + day);
+                        assertEquals(expected, closingPosition, Math.max(.001, Math.abs(expected) * 1e-9),
+                                "Municipal deficits must remain explicit debt rather than unaccounted funding");
+                    }
                 }
             }
         }
@@ -421,5 +435,14 @@ public class GalaxyGeneratorTest {
         engine.update();
         assertEquals(1, engine.getGameState().turn());
         engine.stop();
+    }
+    private void assertOptionalPurchasesArePaid(GameState state, com.spaceconquest.engine.economy.HouseholdAccount household, String context) {
+        var hub = state.commercialHubs().stream().filter(h -> h.entityId().equals(household.bodyId())).findFirst().orElseThrow();
+        double secondary = household.headcount() * .005 * household.secondaryNeedsMetFraction();
+        double luxury = household.headcount() * .001 * household.luxuryNeedsMetFraction();
+        double minimum = secondary * hub.activeOrders().get("consumer_goods").pricePerKg()
+                + luxury * hub.activeOrders().get("luxury_goods").pricePerKg();
+        assertTrue(household.marketSpendingCredits() + Math.max(1e-6, minimum * 1e-9) >= minimum,
+                context + " received optional goods without paying their local prices");
     }
 }

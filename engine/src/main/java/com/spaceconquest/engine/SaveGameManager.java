@@ -139,12 +139,16 @@ public class SaveGameManager {
         if (file == null || !file.isFile()) {
             throw new IOException("Save file not found: " + file);
         }
-        SaveGame save = mapper.readValue(file, SaveGame.class);
+        var json = mapper.readTree(file);
+        var version = json == null ? null : json.get("version");
+        if (version == null || !version.isIntegralNumber() || !version.canConvertToInt()
+                || version.intValue() != SaveGame.CURRENT_VERSION) {
+            throw new IOException("Unsupported save format version " + (version == null ? "(missing)" : version)
+                    + ". Expected version " + SaveGame.CURRENT_VERSION + ".");
+        }
+        SaveGame save = mapper.treeToValue(json, SaveGame.class);
         if (save == null || save.solarSystems() == null) {
             throw new IOException("Invalid save file: " + file);
-        }
-        if (save.version() > SaveGame.CURRENT_VERSION) {
-            throw new IOException("Save file version " + save.version() + " is not supported");
         }
         return save;
     }

@@ -3,7 +3,6 @@ package com.spaceconquest.engine;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spaceconquest.engine.ship.ShipManufacturingCapacity;
 import com.spaceconquest.engine.industry.FacilityManufacturingCapacity;
 
 import java.io.IOException;
@@ -42,12 +41,14 @@ public class DataModelLoader {
         return load("technologies.json", new TypeReference<>() {});
     }
 
-    public static List<ShipManufacturingCapacity.YardLimit> loadShipyardManufacturingLimits() throws IOException {
-        return load("shipyard_manufacturing_limits.json", new TypeReference<>() {});
-    }
-
     public static List<FacilityManufacturingCapacity.Limit> loadFacilityManufacturingLimits() throws IOException {
         return load("facility_manufacturing_limits.json", new TypeReference<>() {});
+    }
+
+    public static List<com.spaceconquest.engine.industry.ProductionWork.Definition> loadProductionWork() throws IOException {
+        return loadTechnologies().stream().flatMap(t -> t.applications().stream())
+                .filter(a -> a.productionRecipe() != null && a.productionRecipe().work() != null)
+                .map(a -> a.productionRecipe().work()).toList();
     }
 
     public static List<StarProperty> loadStarProperties() throws IOException {

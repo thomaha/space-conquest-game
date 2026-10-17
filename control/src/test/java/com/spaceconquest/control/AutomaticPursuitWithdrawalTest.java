@@ -33,9 +33,16 @@ class AutomaticPursuitWithdrawalTest {
         assertEquals(FleetProtectionAssignment.Stage.PURSUING, hunter(state).interceptOrder().protection().stage());
         assertNotNull(hunter(state).location().localFlight());
         var flight = hunter(state).location().localFlight();
-        double hours = flight.vectorFlight() == null ? .001 : flight.vectorFlight().trajectory().burnSeconds() / 7200;
+        double hours = flight.vectorFlight() == null ? .001 : Math.min(.001, flight.vectorFlight().trajectory().burnSeconds() / 7200);
         state = replace(state, LocalFlightProcessor.advance(hunter(state), hours, false));
-        assertTrue(FleetThreatAssessment.available(hunter(state))); return state;
+        // A fresh hostile coast enters firing range after the defensive departure has committed.
+        var close = FleetOrganization.find(new BodyFleetRendezvousTest().world("earth", false, -.005), "target");
+        state = replace(state, FleetOrganization.find(state, "target").withLocation(close.location()));
+        assertTrue(FleetThreatAssessment.available(hunter(state)));
+        assertTrue(ShipWeaponRange.reaches(state, FleetOrganization.find(state, "target"), hunter(state)),
+                "Withdrawal requires currently reachable enemy fire, not potential strength outside weapon range");
+        assertTrue(FleetThreatAssessment.engagementStrength(state, List.of(FleetOrganization.find(state, "target")), List.of(hunter(state))) > 0);
+        return state;
     }
     GameState reinforce(GameState state) {
         var enemy = FleetOrganization.find(state, "target"); var ship = enemy.ships().getFirst();
@@ -47,6 +54,19 @@ class AutomaticPursuitWithdrawalTest {
         var mapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         return mapper.readValue(mapper.writeValueAsString(SaveGame.fromGameState(state, "now", 1, "now")), SaveGame.class)
                 .toGameState(state.turn(), "RUNNING");
+    }
+    @Test void distantOrUnfundedEnemyFireDoesNotTriggerWithdrawal() throws Exception {
+        var initial = reinforce(pursuing());
+        var enemy = FleetOrganization.find(initial, "target");
+        var distant = FleetOrganization.find(new BodyFleetRendezvousTest().world("earth", false), "target");
+        var outside = replace(initial, enemy.withLocation(distant.location()));
+        assertFalse(ShipWeaponRange.reaches(outside, FleetOrganization.find(outside, "target"), hunter(outside)));
+        assertEquals(outside, FleetProtectionProcessor.advance(outside, List.of()));
+        var empty = replace(initial, enemy.withShips(enemy.ships().stream().map(ship -> new ShipInstance(ship.id(), ship.designId(),
+                ship.ownerEntityId(), ship.currentHullHealth(), ship.currentShieldHealth(), ship.currentFuelKg(),
+                Map.of("fusion_fuel_pellets", ship.storedCargoKg().get("fusion_fuel_pellets"))).withPowerState(ship.powerState())).toList()));
+        assertEquals(0, FleetThreatAssessment.engagementStrength(empty, List.of(FleetOrganization.find(empty, "target")), List.of(hunter(empty))));
+        assertEquals(empty, FleetProtectionProcessor.advance(empty, List.of()));
     }
     @Test void enemyReinforcementsTriggerPaidWithdrawalAndLaterGuardRestoration() throws Exception {
         var initial = pursuing(); var fleet = hunter(initial); var original = fleet.interceptOrder().protection();
@@ -77,6 +97,7 @@ class AutomaticPursuitWithdrawalTest {
         state = FleetInterceptProcessor.advance(state);
         assertEquals(original.guard(), hunter(state).guardOrder()); assertNull(hunter(state).interceptOrder());
         assertTrue(hunter(state).ships().getFirst().currentFuelKg() < fleet.ships().getFirst().currentFuelKg());
+        assertEquals(state.fleets(), reload(state).fleets());
     }
     @Test void friendlyDamageChangesAssessmentAndUnfundedWithdrawalIsAtomic() throws Exception {
         var state = pursuing(); var fleet = hunter(state);

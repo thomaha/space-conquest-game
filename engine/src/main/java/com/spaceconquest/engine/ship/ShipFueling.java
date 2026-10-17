@@ -30,6 +30,7 @@ public final class ShipFueling {
 
     public static GameState refuel(GameState state, String shipId, String bodyId,
                                    double quantityKg, String reactorFuelId) {
+        if (ShipRefitPlan.reserved(state, shipId)) return state;
         if (state == null || shipId == null || bodyId == null
                 || !Double.isFinite(quantityKg) || quantityKg <= 0.0) return state;
         Fleet fleet = state.fleets().stream().filter(item -> item.ships().stream()

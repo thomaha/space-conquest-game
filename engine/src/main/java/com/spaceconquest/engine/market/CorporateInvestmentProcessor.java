@@ -21,7 +21,6 @@ public class CorporateInvestmentProcessor {
     public static final double SHIP_PROCUREMENT_COST = 12000.0;
     public static final double SHORTCOMING_INFRASTRUCTURE_THRESHOLD = 0.50;
     public static final double SHORTCOMING_FLEET_THRESHOLD = 0.40;
-    public static final double FACTORY_CONSTRUCTION_WORK_HOURS = 500.0;
 
     public GameState processCorporateInvestments(GameState state, Map<String, Double> trustPenalties) {
         GameState current = state;
@@ -31,15 +30,16 @@ public class CorporateInvestmentProcessor {
             GameState snapshot = current;
             CommercialHub target = current.commercialHubs().stream()
                     .filter(hub -> controlsBody(snapshot, corporation, hub.entityId()))
-                    .filter(hub -> bestOrder(corporation, hub) != null)
+                    .filter(hub -> bestInvestmentOrder(snapshot, corporation, hub, true) != null)
                     .max(Comparator.comparingDouble(hub ->
-                            opportunityScore(corporation, hub, bestOrder(corporation, hub))))
+                            opportunityScore(snapshot, corporation, hub, bestInvestmentOrder(snapshot, corporation, hub, true))))
                     .orElse(null);
             if (target == null) continue;
-            MarketOrder order = bestOrder(corporation, target);
+            MarketOrder order = bestInvestmentOrder(current, corporation, target, true);
             if (order.shortcomingScore() >= SHORTCOMING_INFRASTRUCTURE_THRESHOLD
-                    && opportunityScore(corporation, target, order) > 0.0) {
-                current = invest(current, corporation.id(), target.entityId(), "INFRASTRUCTURE", INFRASTRUCTURE_COST);
+                    && opportunityScore(current, corporation, target, order) > 0.0) {
+                current = invest(current, corporation.id(), target.entityId(), "INFRASTRUCTURE",
+                        infrastructureCost(applicationForBody(current, corporation, target.entityId(), order.resourceId())));
             }
         }
         return current;
@@ -56,7 +56,7 @@ public class CorporateInvestmentProcessor {
         Empire empire = state.empires().stream().filter(item -> corporation.empireId().equals(item.id()))
                 .findFirst().orElse(null);
         if ("INFRASTRUCTURE".equalsIgnoreCase(type)) {
-            MarketOrder order = bestOrder(corporation, hub);
+            MarketOrder order = bestInvestmentOrder(state, corporation, hub);
             String application = order == null ? null
                     : applicationForBody(state, corporation, bodyId, order.resourceId());
             if (application == null) return false;
@@ -68,24 +68,20 @@ public class CorporateInvestmentProcessor {
                                     && application.equals(facility.applicationId())));
             if (alreadyBuilding) return false;
             IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(application);
-            return credits == INFRASTRUCTURE_COST && corporation.liquidCapitalReserves() >= credits
+            return credits == infrastructureCost(application) && corporation.liquidCapitalReserves() >= credits
                     && IndustryRecipeCatalog.isUnlocked(recipe, empire)
-                    && (!"surface_water_treatment".equals(application)
-                    || hasLiquidWater(state, bodyId))
-                    && (!recipe.extractsDeposit() || state.geologicalDeposits().stream().anyMatch(deposit ->
-                    bodyId.equals(deposit.planetId()) && deposit.isDiscovered()
-                            && deposit.remainingVolumeKg() > 0.0
-                            && recipe.outputsKg().containsKey(deposit.materialId())));
+                    && (recipe.infrastructure() == null || recipe.infrastructure().permitsSite(state, bodyId))
+                    && cultivationSite(state, corporation, bodyId, recipe)
+                    && productionPowerAvailable(state, corporation, bodyId, recipe)
+                    && com.spaceconquest.engine.industry.ProcessInput.maximumBatches(state, bodyId,
+                    recipe.inputSources(), state.geologicalDeposits()) > 0;
         }
         if ("FLEET".equalsIgnoreCase(type) || "SHIP".equalsIgnoreCase(type)) {
-            ShipDesign existingDesign = ownedFleetDesign(state, corporation);
-            return credits == SHIP_PROCUREMENT_COST && corporation.liquidCapitalReserves() >= credits
-                    && empire != null && empire.unlockedTechIds().contains("rocketry")
-                    && empire.unlockedTechIds().contains("computers")
-                    && (existingDesign == null || PropulsionCatalog.researched(
-                    existingDesign.equippedModuleIds(), empire.unlockedTechIds()))
-                    && state.shipConstructionOrders().stream()
-                    .noneMatch(order -> corporationId.equals(order.ownerEntityId()));
+            if (empire == null || credits != SHIP_PROCUREMENT_COST || corporation.liquidCapitalReserves() < credits
+                    || !empire.unlockedTechIds().contains("rocketry") || !empire.unlockedTechIds().contains("computers")
+                    || state.shipConstructionOrders().stream().anyMatch(order -> corporationId.equals(order.ownerEntityId()))) return false;
+            ShipDesign existingDesign = ownedFleetDesign(state, corporation, bodyId);
+            return existingDesign != null;
         }
         return false;
     }
@@ -101,33 +97,36 @@ public class CorporateInvestmentProcessor {
             CommercialHub hub = state.commercialHubs().stream()
                     .filter(item -> bodyId.equals(item.entityId())).findFirst().orElseThrow();
             String application = applicationForBody(state, corporation, bodyId,
-                    bestOrder(corporation, hub).resourceId());
+                    bestInvestmentOrder(state, corporation, hub).resourceId());
             IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(application);
-            String id = "facility_corp_" + UUID.randomUUID();
-            int targetTier = Math.max(recipe.minTier(),
-                    FacilityManufacturingCapacity.minimumTier(state, corporationId, application));
-            String profession = switch (application) {
-                case "mining_outpost" -> "miner";
-                case "industrial_soil_cultivation" -> "farmer";
-                default -> "industrial_worker";
-            };
+            var existing = existingFactory(state, corporationId, bodyId, application);
+            var equipment = com.spaceconquest.engine.industry.ProductionWork.initialEquipment(application);
+            String id = existing == null ? "facility_corp_" + UUID.randomUUID() : existing.id();
+            int targetTier = Math.max(recipe.minTier(), Math.max(existing == null ? 1 : existing.tier() + 1,
+                    FacilityManufacturingCapacity.minimumTier(state, corporationId, application)));
+            String profession = equipment != null ? equipment.operatorProfession() : "industrial_worker";
             List<IndustrialFacility> facilities = new ArrayList<>(state.industrialFacilities());
+            facilities.removeIf(facility -> id.equals(facility.id()));
             facilities.add(new IndustrialFacility(id, bodyId, application, corporationId,
-                    IndustrialFacility.PRIVATE_CORPORATE, 0,
-                    Math.max(1, recipe.workersPerBatch()), profession, true, 0.0));
+                    IndustrialFacility.PRIVATE_CORPORATE, existing == null ? 0 : existing.tier(),
+                    existing == null ? (equipment == null ? Math.max(1, recipe.workersPerBatch()) : Math.toIntExact(equipment.referenceCrew())) : existing.allocatedWorkers(),
+                    existing == null ? profession : existing.workerProfessionId(), true, 0.0,
+                    existing == null ? null : existing.productionEquipment()));
             builder.industrialFacilities(facilities);
             List<FacilityExpansionProject> projects = new ArrayList<>(state.expansionProjects());
             projects.add(new FacilityExpansionProject("project_corp_" + UUID.randomUUID(), id,
                     targetTier, 0.0, ApplicationProduction.constructionWorkHours(
-                    state, corporationId, application, FACTORY_CONSTRUCTION_WORK_HOURS * targetTier), credits,
-                    ConstructionMaterialCatalog.facility(state, corporationId, application, targetTier), Map.of()));
+                    state, corporationId, application, ConstructionMaterialCatalog.facilityWork(application,
+                            existing == null ? targetTier : targetTier - existing.tier(), existing != null)
+                            * ConstructionMaterialCatalog.installedLines(existing)), credits,
+                    existing == null ? ConstructionMaterialCatalog.facility(state, corporationId, application, targetTier)
+                            : ConstructionMaterialCatalog.facility(state, existing, targetTier - existing.tier()), Map.of()));
             builder.expansionProjects(projects);
-            facilityIds.add(id);
+            if (!facilityIds.contains(id)) facilityIds.add(id);
         } else {
-            ShipDesign design = ownedFleetDesign(state, corporation);
+            ShipDesign design = ownedFleetDesign(state, corporation, bodyId);
             List<ShipDesign> designs = new ArrayList<>(state.shipDesigns());
-            if (design == null) {
-                design = createFleetDesign(state, corporation);
+            if (designs.stream().noneMatch(item -> item.id().equals(design.id()))) {
                 designs.add(design);
                 builder.shipDesigns(designs);
             }
@@ -135,7 +134,7 @@ public class CorporateInvestmentProcessor {
             List<ShipConstructionOrder> orders = new ArrayList<>(state.shipConstructionOrders());
             orders.add(new ShipConstructionOrder("corp_" + UUID.randomUUID(), corporationId,
                     design.id(), systemForBody(state, bodyId), bodyId, 0.0,
-                    quote.workUnits(), quote.materialsKg(), Map.of()));
+                    quote.workUnits(), quote.materialsKg(), Map.of(), ShipyardAccess.contractAt(state, corporationId, systemForBody(state, bodyId), bodyId, design)));
             builder.shipConstructionOrders(orders);
         }
         List<Corporation> corporations = new ArrayList<>();
@@ -152,43 +151,11 @@ public class CorporateInvestmentProcessor {
                 ? ShipRole.MINING_SHIP : ShipRole.CARGO_TRANSPORT;
     }
 
-    private ShipDesign ownedFleetDesign(GameState state, Corporation corporation) {
-        String role = fleetRole(corporation);
-        return state.shipDesigns().stream()
-                .filter(design -> corporation.id().equals(design.ownerEntityId()) && role.equals(design.role()))
-                .findFirst().orElse(null);
+    private ShipDesign ownedFleetDesign(GameState state, Corporation corporation, String bodyId) {
+        double cargo = state.commercialHubs().stream().filter(hub -> bodyId.equals(hub.entityId()))
+                .flatMap(hub -> hub.activeOrders().values().stream()).mapToDouble(MarketOrder::demandKg).max().orElse(0);
+        return CorporateShipDesigner.choose(state, corporation.id(), fleetRole(corporation), cargo);
     }
-
-    /** Keeps the provisional corporate hull while using researched drive stats and frozen production values. */
-    private ShipDesign createFleetDesign(GameState state, Corporation corporation) {
-        Empire empire = state.empires().stream().filter(item -> corporation.empireId().equals(item.id()))
-                .findFirst().orElseThrow();
-        String driveId = empire.unlockedTechIds().contains("nuclear_fission")
-                ? "mod_fission_thruster" : "mod_chemical_rocket";
-        ShipModule baseDrive = PropulsionCatalog.module(driveId);
-        ShipModule drive = ShipApplicationProduction.optimize(state, corporation.id(), baseDrive);
-        ShipModule cargo = ShipApplicationProduction.optimize(state, corporation.id(),
-                ShipComponentCatalog.module("mod_cargo_hold_large"));
-        boolean nuclear = empire.unlockedTechIds().contains("nuclear_fission");
-        ShipModule power = ShipApplicationProduction.optimize(state, corporation.id(), ShipComponentCatalog.module(
-                nuclear ? ShipComponentCatalog.FISSION_REACTOR_ID : ShipComponentCatalog.CHEMICAL_GENERATOR_ID));
-        ShipModule battery = ShipComponentCatalog.module(ShipComponentCatalog.BATTERY_ID);
-        ShipModule reserves = ShipComponentCatalog.module(nuclear ? ShipComponentCatalog.REACTOR_TANK_ID
-                : ShipComponentCatalog.GENERATOR_TANK_ID);
-        List<ShipModule> modules = List.of(drive, cargo, PropulsionCatalog.fuelTankModule(), power, battery, reserves);
-        double dryMass = 25_000 + power.dryMassKg() + battery.dryMassKg() + reserves.dryMassKg();
-        double cargoCapacity = cargo.operationalStats().get("cargoCapacityKg");
-        double minimumLaunchThrust = 300_000.0 * (dryMass + cargoCapacity + 15_000.0) / 90_000.0;
-        String role = fleetRole(corporation);
-        return new ShipDesign("design_corp_" + UUID.randomUUID(), corporation.name() + " " + role,
-                corporation.id(), role, "refined_aluminum",
-                modules.stream().map(ShipModule::id).toList(),
-                "steel", 2.0, dryMass, cargoCapacity, 15_000.0,
-                power.powerOutputKw() - drive.powerDrawKw() - cargo.powerDrawKw() - 2,
-                1.20, minimumLaunchThrust, drive.thrustOutputN(), drive.thrustOutputN() >= minimumLaunchThrust, true,
-                ShipApplicationProduction.profile(state, corporation.id(), modules, dryMass), ShipPowerProfile.capture(modules));
-    }
-
     public double findMaxShortcoming(Corporation corporation, List<CommercialHub> hubs) {
         return hubs == null ? 0.0 : hubs.stream().map(hub -> bestOrder(corporation, hub))
                 .filter(order -> order != null).mapToDouble(MarketOrder::shortcomingScore).max().orElse(0.0);
@@ -203,107 +170,191 @@ public class CorporateInvestmentProcessor {
                         .thenComparingDouble(MarketOrder::shortcomingScore)).orElse(null);
     }
 
+    private MarketOrder bestInvestmentOrder(GameState state, Corporation corporation, CommercialHub hub) {
+        return bestInvestmentOrder(state, corporation, hub, false);
+    }
+    private MarketOrder bestInvestmentOrder(GameState state, Corporation corporation, CommercialHub hub, boolean requireProfit) {
+        var empire = state.empires().stream().filter(value -> corporation.empireId().equals(value.id())).findFirst().orElse(null);
+        return hub.activeOrders().values().stream().filter(order -> {
+            String application = applicationForBody(state, corporation, hub.entityId(), order.resourceId());
+            if (application == null) return false;
+            var recipe = IndustryRecipeCatalog.find(application);
+            if (!IndustryRecipeCatalog.isUnlocked(recipe, empire)) return false;
+            if (state.industrialFacilities().stream().anyMatch(facility -> corporation.id().equals(facility.ownerEntityId())
+                    && hub.entityId().equals(facility.planetId()) && application.equals(facility.applicationId()) && facility.isUndergoingExpansion())) return false;
+            return com.spaceconquest.engine.industry.ProcessInput.maximumBatches(state, hub.entityId(),
+                    recipe.inputSources(), state.geologicalDeposits()) > 0;
+        }).filter(order -> order.shortcomingScore() >= SHORTCOMING_INFRASTRUCTURE_THRESHOLD
+                && (!requireProfit || opportunityScore(state, corporation, hub, order) > 0))
+                .max(Comparator.<MarketOrder>comparingDouble(order -> opportunityScore(state, corporation, hub, order)).thenComparing(MarketOrder::resourceId)).orElse(null);
+    }
+
     private double opportunityScore(Corporation corporation, CommercialHub hub, MarketOrder order) {
+        return opportunityScore(null, corporation, hub, order);
+    }
+    private double opportunityScore(GameState state, Corporation corporation, CommercialHub hub, MarketOrder order) {
         if ("TRANSPORT".equalsIgnoreCase(corporation.marketOrientation())) {
             return order.shortcomingScore();
         }
-        String application = applicationFor(corporation, order.resourceId());
+        String application = state == null ? applicationFor(corporation, order.resourceId()) : applicationForBody(state, corporation, hub.entityId(), order.resourceId());
         IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(application);
         if (recipe == null || order.demandKg() <= 0.0 || order.shortcomingScore() <= 0.0) return 0.0;
-        double revenue = recipe.outputsKg().entrySet().stream().mapToDouble(output -> {
+        var existing = state == null ? null : existingFactory(state, corporation.id(), hub.entityId(), application);
+        int tier = state == null ? recipe.minTier() : Math.max(recipe.minTier(), Math.max(existing == null ? 1 : existing.tier() + 1,
+                FacilityManufacturingCapacity.minimumTier(state, corporation.id(), application)));
+        double effect = state == null ? 1 : ApplicationProduction.modifiersForOwner(state, corporation.id(), application).effectMultiplier();
+        var empire = state == null ? null : state.empires().stream().filter(value -> corporation.empireId().equals(value.id())).findFirst().orElse(null);
+        double technology = empire == null ? 1 : recipe.technologyMultiplier(empire);
+        boolean workBased = com.spaceconquest.engine.industry.ProductionWork.definition(application) != null && state != null;
+        String profession = "industrial_worker";
+        var installed = com.spaceconquest.engine.industry.ProductionWork.initialEquipment(application);
+        if (installed != null) profession = installed.operatorProfession();
+        int operators = com.spaceconquest.engine.industry.ProductionWork.initialEquipment(application) == null ? recipe.workersPerBatch()
+                : Math.toIntExact(com.spaceconquest.engine.industry.ProductionWork.initialEquipment(application).referenceCrew());
+        var preview = new IndustrialFacility(existing == null ? "preview" : existing.id(), hub.entityId(), application, corporation.id(),
+                IndustrialFacility.PRIVATE_CORPORATE, tier, existing == null ? operators : existing.allocatedWorkers(),
+                existing == null ? profession : existing.workerProfessionId(), false, 0,
+                existing == null ? null : existing.productionEquipment());
+        double throughput = workBased ? com.spaceconquest.engine.industry.ProductionWork.quote(state, preview, preview.allocatedWorkers()).batchesPerDay()
+                : Math.pow(1.5, Math.max(0, tier - 1)) * effect * technology;
+        double priorThroughput = existing == null || !FacilityManufacturingCapacity.canOperate(state, existing) ? 0
+                : workBased ? com.spaceconquest.engine.industry.ProductionWork.quote(state, existing, existing.allocatedWorkers()).batchesPerDay()
+                : Math.pow(1.5, Math.max(0, existing.tier() - 1)) * effect * technology;
+        var operatingRecipe = workBased ? IndustryRecipeCatalog.forFacility(state, preview) : recipe;
+        double revenue = operatingRecipe.outputsKg().entrySet().stream().mapToDouble(output -> {
             MarketOrder buyer = hub.activeOrders().get(output.getKey());
             return buyer == null || buyer.demandKg() <= 0.0 ? 0.0
-                    : Math.min(output.getValue(), buyer.demandKg())
+                    : (Math.min(output.getValue() * throughput, buyer.demandKg()) - Math.min(output.getValue() * priorThroughput, buyer.demandKg()))
                     * buyer.pricePerKg() * 0.80;
         }).sum();
-        double inputs = recipe.inputsKg().entrySet().stream().mapToDouble(input -> {
+        double inputs = operatingRecipe.inputsKg().entrySet().stream().mapToDouble(input -> {
             MarketOrder seller = hub.activeOrders().get(input.getKey());
-            return input.getValue() * (seller == null
+            return input.getValue() * (throughput - priorThroughput) * (seller == null
                     ? MarketProcessor.basePricePerKg(input.getKey()) : seller.pricePerKg());
         }).sum();
-        String profession = application.endsWith("_mining") || "mining_outpost".equals(application)
-                ? "miner" : "industrial_soil_cultivation".equals(application)
-                ? "farmer" : "industrial_worker";
-        double payroll = recipe.workersPerBatch() * Profession.getBaseWageForProfession(profession);
-        double power = recipe.powerDrawKw() * 24.0 * 0.02;
-        double profit = revenue - inputs - payroll - power;
-        double construction = ConstructionMaterialCatalog.facility(application, recipe.minTier())
+        double payroll = existing == null ? operators * Profession.getBaseWageForProfession(profession) : 0;
+        if (state != null) revenue = Math.min(revenue, inputs + state.marketAccounts().stream()
+                .filter(a -> a.hubId().equals(hub.id())).mapToDouble(com.spaceconquest.engine.economy.MarketAccount::unsettledSalesCredits).findFirst().orElse(0));
+        double tariff = state == null ? com.spaceconquest.engine.industry.PowerBillingProcessor.PRICE_PER_KWH
+                : com.spaceconquest.engine.industry.GridSupplyPricing.priceWithFacility(state, preview, corporation.liquidCapitalReserves());
+        double power = workBased ? Math.max(0, throughput - priorThroughput)
+                * com.spaceconquest.engine.industry.ProductionWork.definition(state, preview).energyKwhPerBatch() * tariff
+                : recipe.powerDrawKw() * (tier - (existing == null ? 0 : existing.tier())) * 24.0 * tariff;
+        int addedTiers = existing == null ? tier : tier - existing.tier();
+        double construction = (state == null ? ConstructionMaterialCatalog.facility(application, addedTiers)
+                : existing == null ? ConstructionMaterialCatalog.facility(state, corporation.id(), application, addedTiers)
+                : ConstructionMaterialCatalog.facility(state, existing, addedTiers))
                 .entrySet().stream().mapToDouble(material ->
                         material.getValue() * MarketProcessor.basePricePerKg(material.getKey())).sum();
+        double upkeep = FacilitySupplyPricing.declaredMaintenance(preview)
+                - (existing == null ? 0 : FacilitySupplyPricing.declaredMaintenance(existing));
+        double reserve = (infrastructureCost(application) + construction) / SupplyPricingPolicy.current().capitalRecoveryDays();
+        double profit = revenue - SupplyPricingPolicy.current().requiredReceipts(inputs + payroll + power + upkeep, reserve,
+                state == null ? 0 : SupplyPricingPolicy.taxRate(state, corporation.id()));
         return Math.max(0.0, profit) * order.shortcomingScore()
-                / (INFRASTRUCTURE_COST + construction);
+                / (infrastructureCost(application) + construction);
+    }
+
+    private double infrastructureCost(String application) {
+        var definition = com.spaceconquest.engine.industry.FactoryDefinition.find(application);
+        return definition == null ? INFRASTRUCTURE_COST : definition.investmentCredits();
+    }
+
+    private IndustrialFacility existingFactory(GameState state, String owner, String body, String application) {
+        return state.industrialFacilities().stream().filter(facility -> owner.equals(facility.ownerEntityId()) && body.equals(facility.planetId())
+                && application.equals(facility.applicationId()) && facility.tier() > 0 && !facility.isUndergoingExpansion())
+                .min(Comparator.comparingInt(IndustrialFacility::tier).thenComparing(IndustrialFacility::id)).orElse(null);
     }
 
     private String applicationFor(Corporation corporation, String resourceId) {
-        return switch (corporation.marketOrientation().toUpperCase()) {
-            case "EXTRACTION" -> switch (resourceId) {
-                case "iron_ore" -> "mining_outpost";
-                case "aluminum_ore", "copper_ore", "silicates", "nitrates", "phosphates",
-                        "potash", "carbon", "water_ice", "gold", "silver_ore",
-                        "rare_earth_fluorides", "uranium_ore", "lithium_ore",
-                        "nickel_ore" -> resourceId + "_mining";
-                default -> null;
-            };
-            case "METALLURGY" -> switch (resourceId) {
-                case "refined_iron" -> "pyro_iron_smelting";
-                case "steel" -> "alloy_steel";
-                default -> null;
-            };
-            case "AGRICULTURE" -> switch (resourceId) {
-                case "food_matrix" -> "industrial_soil_cultivation";
-                case "purified_water" -> "surface_water_treatment";
-                default -> null;
-            };
-            case "CONSUMER" -> switch (resourceId) {
-                case "refined_iron" -> "pyro_iron_smelting";
-                case "steel" -> "alloy_steel";
-                case "bio_polymers" -> "biomass_processing";
-                case "refined_aluminum" -> "aluminum_refining";
-                case "refined_copper" -> "copper_refining";
-                case "silicon" -> "silicon_refining";
-                case "refined_rare_earths" -> "rare_earth_refining";
-                case "consumer_goods" -> "consumer_goods_mfg";
-                case "luxury_goods" -> "luxury_goods_mfg";
-                default -> null;
-            };
-            default -> null;
-        };
+        var defined = IndustryRecipeCatalog.all().stream()
+                .filter(recipe -> recipe.infrastructure() != null && recipe.outputsKg().containsKey(resourceId)
+                        && recipe.infrastructure().marketOrientations().stream().anyMatch(corporation.marketOrientation()::equalsIgnoreCase))
+                .map(IndustryRecipeCatalog.Recipe::applicationId).sorted().findFirst();
+        return defined.orElse(null);
     }
 
     private String applicationForBody(GameState state, Corporation corporation, String bodyId,
                                       String resourceId) {
-        String application = applicationFor(corporation, resourceId);
-        if ("surface_water_treatment".equals(application) && !hasLiquidWater(state, bodyId)) {
-            return "ice_water_treatment";
-        }
-        return application;
+        var candidates = IndustryRecipeCatalog.all().stream().filter(recipe -> recipe.infrastructure() != null
+                && recipe.outputsKg().containsKey(resourceId) && recipe.infrastructure().marketOrientations().stream()
+                .anyMatch(corporation.marketOrientation()::equalsIgnoreCase)).toList();
+        if (candidates.isEmpty()) return applicationFor(corporation, resourceId);
+        var empire = state.empires().stream().filter(e -> e.id().equals(corporation.empireId())).findFirst().orElse(null);
+        return candidates.stream().filter(recipe -> IndustryRecipeCatalog.isUnlocked(recipe, empire)
+                && recipe.infrastructure().permitsSite(state, bodyId)
+                && cultivationSite(state, corporation, bodyId, recipe)
+                && com.spaceconquest.engine.industry.ProcessInput.maximumBatches(state, bodyId,
+                recipe.inputSources(), state.geologicalDeposits()) > 0)
+                .min(Comparator.comparingDouble((IndustryRecipeCatalog.Recipe recipe) -> unitProcessCost(state, bodyId, recipe, resourceId))
+                        .thenComparing(IndustryRecipeCatalog.Recipe::applicationId))
+                .map(IndustryRecipeCatalog.Recipe::applicationId).orElse(null);
     }
 
-    private boolean hasLiquidWater(GameState state, String bodyId) {
-        for (SolarSystem system : state.solarSystems()) {
-            for (Planet planet : system.planets()) {
-                if (bodyId.equals(planet.id())) return planet.hasLiquidWater();
-                for (Moon moon : planet.moons()) {
-                    if (bodyId.equals(moon.id())) return moon.hasLiquidWater();
-                }
-            }
+    private double unitProcessCost(GameState state, String body, IndustryRecipeCatalog.Recipe recipe, String product) {
+        var hub = state.commercialHubs().stream().filter(h -> h.entityId().equals(body)).findFirst().orElse(null);
+        double inputs = recipe.inputsKg().entrySet().stream().mapToDouble(i -> {
+            var order = hub == null ? null : hub.activeOrders().get(i.getKey());
+            return i.getValue() * (order == null ? MarketProcessor.basePricePerKg(i.getKey()) : Math.max(0, order.pricePerKg()));
+        }).sum();
+        return (inputs + com.spaceconquest.engine.industry.ProductionWork.definition(recipe.applicationId()).energyKwhPerBatch()
+                * com.spaceconquest.engine.industry.GridSupplyPricing.price(state, body)) / recipe.outputsKg().get(product);
+    }
+
+    private boolean cultivationSite(GameState state, Corporation corporation, String body, IndustryRecipeCatalog.Recipe recipe) {
+        if (recipe.farming() == null) return true;
+        var existing = existingFactory(state, corporation.id(), body, recipe.applicationId());
+        if (existing != null && state.industryAccounts().stream().anyMatch(a -> a.facilityId().equals(existing.id()) && a.farmingState().cultivatedBatches() > 0)) return false;
+        int tier = Math.max(FacilityManufacturingCapacity.minimumTier(state, corporation.id(), recipe.applicationId()),
+                existing == null ? recipe.minTier() : existing.tier() + 1);
+        return com.spaceconquest.engine.industry.FarmingDefinition.canInstall(state, recipe.applicationId(), body,
+                existing == null ? "" : existing.id(), tier, existing == null ? null : existing.productionEquipment());
+    }
+
+    /** Do not commission additional load onto a known saturated grid; pending projects reserve capacity. */
+    private boolean productionPowerAvailable(GameState state, Corporation corporation, String body, IndustryRecipeCatalog.Recipe recipe) {
+        var grid = state.powerGrids().stream().filter(g -> g.entityId().equals(body)).findFirst().orElse(null);
+        if (grid == null) return true;
+        var existing = existingFactory(state, corporation.id(), body, recipe.applicationId());
+        int tier = Math.max(FacilityManufacturingCapacity.minimumTier(state, corporation.id(), recipe.applicationId()),
+                existing == null ? recipe.minTier() : existing.tier() + 1);
+        var equipment = com.spaceconquest.engine.industry.ProductionWork.initialEquipment(recipe.applicationId());
+        var preview = existing == null ? new IndustrialFacility("preview", body, recipe.applicationId(), corporation.id(),
+                IndustrialFacility.PRIVATE_CORPORATE, tier, equipment == null ? recipe.workersPerBatch() : Math.toIntExact(equipment.referenceCrew()),
+                equipment == null ? "industrial_worker" : equipment.operatorProfession(), false, 0) : atTier(existing, tier);
+        double additional = Math.max(0, nominalPower(state, preview) - (existing == null ? 0 : nominalPower(state, existing)));
+        double reserved = 0;
+        for (var project : state.expansionProjects()) {
+            var facility = state.industrialFacilities().stream().filter(f -> f.id().equals(project.facilityId()) && f.planetId().equals(body)).findFirst().orElse(null);
+            if (facility != null) reserved += Math.max(0, nominalPower(state, atTier(facility, project.targetTier())) - nominalPower(state, facility));
         }
-        return false;
+        double committed = state.industrialFacilities().stream().filter(f -> f.planetId().equals(body))
+                .mapToDouble(f -> nominalPower(state, f)).sum();
+        committed += state.householdAccounts().stream().filter(h -> h.bodyId().equals(body)).mapToDouble(h ->
+                com.spaceconquest.engine.industry.PowerBillingProcessor.householdDemandKwh(state.empires().stream()
+                        .filter(e -> e.id().equals(h.empireId())).findFirst().orElse(null), h.headcount()) / 24).sum();
+        committed += state.launchActivities().stream().filter(a -> a.bodyId().equals(body)).mapToDouble(a -> a.powerKwh() / 24).sum();
+        return additional + reserved <= Math.max(0, grid.totalGenerationKw() - Math.max(committed, grid.totalDemandKw())) + 1e-6;
+    }
+
+    private double nominalPower(GameState state, IndustrialFacility facility) {
+        if (facility.tier() <= 0) return 0;
+        return com.spaceconquest.engine.industry.ProductionWork.definition(facility.applicationId()) == null
+                ? com.spaceconquest.engine.industry.PowerProcessor.requestedIndustryKw(facility, facility.allocatedWorkers())
+                : com.spaceconquest.engine.industry.ProductionWork.quote(state, facility, facility.allocatedWorkers()).energyKwh() / 24;
+    }
+    private IndustrialFacility atTier(IndustrialFacility facility, int tier) {
+        return new IndustrialFacility(facility.id(), facility.planetId(), facility.applicationId(), facility.ownerEntityId(),
+                facility.ownershipType(), tier, facility.allocatedWorkers(), facility.workerProfessionId(), false, 0, facility.productionEquipment());
     }
 
     private boolean controlsBody(GameState state, Corporation corporation, String bodyId) {
         String systemId = systemForBody(state, bodyId);
-        return state.empires().stream().anyMatch(empire -> corporation.empireId().equals(empire.id())
+        return systemId != null && state.empires().stream().anyMatch(empire -> corporation.empireId().equals(empire.id())
                 && empire.controlledSystemIds().contains(systemId));
     }
 
     private String systemForBody(GameState state, String bodyId) {
-        for (SolarSystem system : state.solarSystems()) {
-            for (Planet planet : system.planets()) {
-                if (planet.id().equals(bodyId)) return system.id();
-                for (Moon moon : planet.moons()) if (moon.id().equals(bodyId)) return system.id();
-            }
-        }
-        return "";
+        return com.spaceconquest.engine.industry.ConstructionMaterials.systemForBody(state, bodyId);
     }
 }

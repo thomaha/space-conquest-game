@@ -1,0 +1,9 @@
+{
+  "defenseShipsPerSystem": 1,
+  "escortsPerConvoy": 1,
+  "wartimeReserveShips": 1,
+  "shipsPerDetectedEnemy": 1,
+  "maximumShipsPerSystem": 4,
+  "maximumBuildPreviews": 16,
+  "treasuryReserveCredits": 1000
+}

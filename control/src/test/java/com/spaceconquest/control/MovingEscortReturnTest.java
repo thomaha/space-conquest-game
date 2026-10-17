@@ -3,6 +3,7 @@ package com.spaceconquest.control;
 import com.fasterxml.jackson.databind.*;
 import com.spaceconquest.engine.*;
 import com.spaceconquest.engine.combat.*;
+import com.spaceconquest.engine.galaxy.SensorPosition;
 import com.spaceconquest.engine.ship.*;
 import org.junit.jupiter.api.Test;
 import java.util.*;
@@ -82,12 +83,21 @@ class MovingEscortReturnTest {
         assertTrue(find(state, "hunter").location().localFlight().interrupted());
         assertEquals(fuel, find(state, "hunter").ships().getFirst().currentFuelKg());
         assertEquals(FleetProtectionAssignment.Stage.RETURNING, find(state, "hunter").interceptOrder().protection().stage());
-        assertNotNull(MovingFleetRendezvous.plan(state, find(state, "hunter"), find(state, "target")), "Retry raw approach");
+        state = reload(state);
+        var released = find(state, "hunter");
+        var retry = MovingFleetRendezvous.plan(state, released, find(state, "target"));
+        assertNotNull(retry, "Retry raw approach");
+        assertEquals(SensorPosition.at(state, released.currentSystemId(), released.location()), retry.physical().vectorTrajectory().start());
+        assertEquals(VectorFlight.velocity(released.location().localFlight()), retry.physical().vectorTrajectory().initialVelocity());
+        assertEquals(fuel, find(state, "hunter").ships().getFirst().currentFuelKg());
         assertNotNull(FleetEscortReturn.plan(state, find(state, "hunter"), find(state, "target")), "Retry combined approach");
         state = FleetInterceptProcessor.advance(state);
         assertFalse(find(state, "hunter").location().localFlight().interrupted());
         assertEquals(missed.location().localFlight().motion().positionMeters(), find(state, "hunter").location().localFlight().motion().positionMeters(), .001);
         state = resolve(day(state)); assertNull(find(state, "hunter")); assertNotNull(find(state, "target").escortOrder());
+        assertTrue(find(state, "target").ships().stream().filter(ship -> ship.id().equals(released.ships().getFirst().id()))
+                .findFirst().orElseThrow().currentFuelKg() < fuel);
+        assertEquals(state.fleets(), reload(state).fleets());
     }
     @Test void emptyEscortRetainsReturnIntentThroughEncounterCleanupWithoutTeleporting() throws Exception {
         var initial = world(true); var escort = find(initial, "hunter");

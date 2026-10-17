@@ -24,6 +24,11 @@ public final class OrbitalFreightCost {
 
     public static OrbitalLiftProfile profile(GameState state, String bodyId, double dryMassKg,
                                              double cargoKg, double fuelPricePerKg) {
+        return profile(state, bodyId, dryMassKg, cargoKg, fuelPricePerKg, 0.0);
+    }
+
+    public static OrbitalLiftProfile profile(GameState state, String bodyId, double dryMassKg,
+                                             double cargoKg, double fuelPricePerKg, double specificImpulseSec) {
         if (state == null || bodyId == null || cargoKg <= 0.0) return null;
         Body body = state.solarSystems().stream().flatMap(system -> system.planets().stream())
                 .flatMap(planet -> {
@@ -36,8 +41,8 @@ public final class OrbitalFreightCost {
                 }).filter(item -> bodyId.equals(item.id())).findFirst().orElse(null);
         if (body == null) return null;
         double pressure = "breathable".equalsIgnoreCase(body.atmosphere()) ? 1.0 : 0.0;
-        return new MarketProcessor().calculateOrbitalLiftCost(dryMassKg,
-                cargoKg, body.gravity(), pressure, body.diameter(), 0.0, fuelPricePerKg,
+        return new MarketProcessor().calculateOrbitalLiftCostMs2(dryMassKg,
+                cargoKg, body.gravity(), pressure, body.diameter(), specificImpulseSec, fuelPricePerKg,
                 List.of(), List.of(), 1.0);
     }
 }

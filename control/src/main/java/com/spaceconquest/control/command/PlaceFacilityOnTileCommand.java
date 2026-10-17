@@ -30,7 +30,17 @@ public record PlaceFacilityOnTileCommand(
         if (state == null || planetId == null || applicationId == null || ownerEntityId == null) {
             return false;
         }
-        return tileIndex >= 0 && allocatedWorkers >= 0;
+        var work = com.spaceconquest.engine.industry.ProductionWork.definition(applicationId);
+        var factory = com.spaceconquest.engine.industry.FactoryDefinition.find(applicationId);
+        return tileIndex >= 0 && allocatedWorkers >= 0
+                && state.orbitalStations().stream().noneMatch(s -> s.id().equals(planetId))
+                && com.spaceconquest.engine.industry.FarmingDefinition.canInstall(state, applicationId, planetId, "",
+                FacilityManufacturingCapacity.minimumTier(state, ownerEntityId, applicationId), null)
+                && (factory == null || factory.permitsSite(state, planetId))
+                && (factory == null || com.spaceconquest.engine.industry.ProcessInput.environmentAvailable(state, planetId,
+                com.spaceconquest.engine.industry.IndustryRecipeCatalog.find(applicationId).inputSources()))
+                && (work == null || work.equipment().operatorProfession().equals(workerProfessionId))
+                && FacilityResearchEligibility.allows(state, ownerEntityId, applicationId);
     }
 
     @Override
@@ -58,7 +68,7 @@ public record PlaceFacilityOnTileCommand(
         List<FacilityExpansionProject> projects = new ArrayList<>(funded.expansionProjects());
         projects.add(new FacilityExpansionProject("project_" + UUID.randomUUID(), facilityId,
                 targetTier, 0.0, ApplicationProduction.constructionWorkHours(state, ownerEntityId, applicationId,
-                500.0 * targetTier), 0.0,
+                ConstructionMaterialCatalog.facilityWork(applicationId, targetTier, false)), 0.0,
                 ConstructionMaterialCatalog.facility(state, ownerEntityId, applicationId, targetTier), Map.of()));
         return funded.withExpansionProjects(projects);
     }

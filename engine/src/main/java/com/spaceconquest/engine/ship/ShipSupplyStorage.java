@@ -10,6 +10,7 @@ import java.util.Map;
 public final class ShipSupplyStorage {
     private ShipSupplyStorage() {}
     public static GameState buy(GameState state, String shipId, String bodyId, String materialId, double kg) {
+        if (ShipRefitPlan.reserved(state, shipId)) return state;
         if (state == null || shipId == null || bodyId == null || materialId == null || !Double.isFinite(kg) || kg <= 0) return state;
         var fleet = state.fleets().stream().filter(item -> item.ships().stream().anyMatch(ship -> shipId.equals(ship.id()))).findFirst().orElse(null);
         if (fleet == null || !ShipSupplyTransfer.stationary(fleet) || fleet.hasInterstellarOrder() || fleet.location().inTransit()) return state;

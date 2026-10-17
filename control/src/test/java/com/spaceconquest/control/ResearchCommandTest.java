@@ -37,6 +37,7 @@ public class ResearchCommandTest {
                 .empires(List.of(empire))
                 .systemEconomies(List.of(SystemEconomy.createDefault("sol", "emp_terran", 50_000)))
                 .build();
+        initialState = ResearchTestWorld.staffed(initialState);
     }
 
     @Test
@@ -79,11 +80,12 @@ public class ResearchCommandTest {
         GameState withProject = startCmd.apply(initialState);
 
         ReverseEngineerSalvageCommand salvageCmd = new ReverseEngineerSalvageCommand("emp_terran", "nuclear_fission", "terran", true, 2);
-        assertTrue(salvageCmd.validate(withProject));
+        assertFalse(salvageCmd.validate(withProject));
 
         GameState postSalvage = salvageCmd.apply(withProject);
         ResearchProject proj = postSalvage.researchProjects().getFirst();
-        assertTrue(proj.accumulatedPoints() > 0.0, "Progress points should have been injected from salvage");
+        assertEquals(0, proj.accumulatedPoints(), "Unsupported salvage cannot grant research");
+        assertSame(withProject, postSalvage);
     }
 
     @Test

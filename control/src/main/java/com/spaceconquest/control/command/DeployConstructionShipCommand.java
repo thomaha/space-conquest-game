@@ -37,7 +37,11 @@ public record DeployConstructionShipCommand(
                 targetCelestialId.equals(project.targetCelestialId())
                         && ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR.equals(
                         project.targetStructureType())));
+        boolean elevator = ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR.equals(targetStructureType);
+        var service = com.spaceconquest.engine.logistics.InfrastructureService.find(targetStructureType);
+        var empire = com.spaceconquest.engine.economy.EconomicOwnership.empireFor(state, owner);
         return owner != null && present && !duplicateElevator
+                && (!elevator || service != null && com.spaceconquest.engine.technology.ApplicationProduction.isAvailable(empire, service.applicationId()))
                 && (ConstructionDeploymentProject.TYPE_ORBITAL_STATION
                 .equals(targetStructureType) || ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR
                 .equals(targetStructureType));
@@ -60,11 +64,14 @@ public record DeployConstructionShipCommand(
                 targetCelestialId,
                 targetStructureType,
                 0.0,
-                requiredTurns > 0.0 ? requiredTurns : 3.0,
+                ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR.equals(targetStructureType)
+                        ? com.spaceconquest.engine.logistics.InfrastructureService.find(targetStructureType).capability().infrastructure().constructionWorkPerTier()
+                        : requiredTurns > 0.0 ? requiredTurns : 3.0,
                 owner(state), bill, Map.of(), null,
                 com.spaceconquest.engine.macrostructure.OrbitalStation.OWNERSHIP_PUBLIC_STATE,
                 null, null, 20, "steel", 5.0,
-                100_000.0, false
+                ConstructionDeploymentProject.TYPE_SPACE_ELEVATOR.equals(targetStructureType)
+                        ? com.spaceconquest.engine.logistics.InfrastructureService.find(targetStructureType).capability().capacityKgPerTier() : 0, false
         );
 
         List<ConstructionDeploymentProject> updated = new ArrayList<>(state.constructionProjects());

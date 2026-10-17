@@ -1,0 +1,11 @@
+{
+  "neutralizationWeight": 1.0,
+  "immediateThreatReductionWeight": 0.25,
+  "progressWeight": 0.1,
+  "focusMultiplier": 1.15,
+  "maxProjectionHits": 8,
+  "committedFireWeight": 0.85,
+  "arrivalDelayDiscount": 0.25,
+  "guidanceThreatWeight": 1.0,
+  "maxPendingImpacts": 64
+}

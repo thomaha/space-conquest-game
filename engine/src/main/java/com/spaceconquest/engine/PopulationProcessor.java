@@ -121,7 +121,7 @@ public class PopulationProcessor {
         } else if ("ELECTRICITY".equals(nutrientType) || "synthetic_machine".equalsIgnoreCase(race.id())) {
             required.put("refined_copper", 10.0 * popScale);
             required.put("silicon", 10.0 * popScale);
-            required.put("refined_silver", 5.0 * popScale);
+            required.put("silver", 5.0 * popScale);
         } else if ("METAL".equals(nutrientType) || "plasma_anomaly".equalsIgnoreCase(race.id())) {
             required.put("hydrogen_gas", 100.0 * popScale);
             required.put("helium_3", 20.0 * popScale);

@@ -58,6 +58,15 @@ public record SystemEconomy(
                 employedTechnicians, employedSoldiers, recruitableSoldiers, taxRate, rate);
     }
 
+    public SystemEconomy withAccumulatedMilitiaInvestment(double investment) {
+        return new SystemEconomy(systemId, empireId, educationAllocation, lawAndOrderAllocation,
+                healthAndWelfareAllocation, infrastructureAllocation, planetaryMilitiasAllocation,
+                totalBudgetCredits, investment, educationLevel, lawAndOrderLevel,
+                healthAndWelfareLevel, infrastructureLevel, planetaryMilitiaLevel, employedTeachers,
+                employedScientists, employedPolice, employedMedics, employedEngineers,
+                employedTechnicians, employedSoldiers, recruitableSoldiers, taxRate, empireContributionRate);
+    }
+
     public static SystemEconomy createDefault(String systemId, String empireId, long population) {
         double defaultBudget = Math.max(1000.0, population * 0.002);
         return new SystemEconomy(
@@ -68,7 +77,7 @@ public record SystemEconomy(
                 5000.0,
                 1.0, 1.0, 1.0, 1.0, 1.0,
                 Math.max(10, Math.round(population * 0.0005)),
-                Math.max(10, Math.round(population * 0.0003)),
+                Math.max(0, Math.round(population * 0.0003)),
                 Math.max(15, Math.round(population * 0.0008)),
                 Math.max(10, Math.round(population * 0.0004)),
                 Math.max(20, Math.round(population * 0.0010)),

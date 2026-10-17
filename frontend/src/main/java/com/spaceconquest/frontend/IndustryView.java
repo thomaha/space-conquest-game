@@ -50,6 +50,7 @@ public class IndustryView {
     private String playerEmpireId = "terran_confederation";
     private final List<IndustrialFacility> facilities = new ArrayList<>();
     private final List<FacilityExpansionProject> expansionProjects = new ArrayList<>();
+    private final java.util.Set<String> expandedInspections = new java.util.HashSet<>();
 
     public IndustryView(Menubar menubar) {
         this.menubar = menubar;
@@ -143,6 +144,7 @@ public class IndustryView {
 
         // 1. Interactive Construction & Prospecting Workbench
         content.getChildren().add(createConstructionWorkbench());
+        content.getChildren().add(SupplyInvestmentStatusCard.create(snapshot, playerEmpireId, () -> snapshot, expandedInspections));
 
         // 2. Facilities List
         content.getChildren().add(createFacilitiesSection());
@@ -158,43 +160,58 @@ public class IndustryView {
         VBox section = new VBox(10);
         section.setPadding(new Insets(12));
         section.setStyle("-fx-background-color: rgba(25, 45, 75, 0.75); -fx-background-radius: 8; -fx-border-color: #00cec9; -fx-border-width: 1; -fx-border-radius: 8;");
-
         Text title = new Text("Commission surface facilities and geological prospecting");
         title.setFill(Color.AQUA);
         title.setFont(Font.font("Verdana", FontWeight.BOLD, 15));
-
         GridPane grid = new GridPane();
         grid.setHgap(12);
         grid.setVgap(8);
-
         Label planetLbl = new Label("Target planet:");
         planetLbl.setTextFill(Color.LIGHTCYAN);
         ComboBox<String> planetCombo = new ComboBox<>();
         planetCombo.getItems().addAll("earth", "mars", "luna", "ceres", "titan", "venus", "mercury");
         planetCombo.setValue("earth");
-
         Label appLbl = new Label("Facility application:");
         appLbl.setTextFill(Color.LIGHTCYAN);
         ComboBox<String> appCombo = new ComboBox<>();
-        appCombo.getItems().addAll("smelter", "foundry", "hydroponics_dome", "consumer_factory", "fission_reactor", "fusion_reactor", "mining_outpost", "mass_driver", "surface_shipyard");
-        appCombo.setValue("smelter");
-
+        com.spaceconquest.engine.ship.ShipyardTechnology.allYards().entrySet().stream().filter(e -> e.getValue().surface()).map(java.util.Map.Entry::getKey).sorted().forEach(appCombo.getItems()::add);
+        com.spaceconquest.engine.logistics.InfrastructureService.all().entrySet().stream().filter(e -> e.getValue().capability().mode() != com.spaceconquest.engine.logistics.LaunchService.Mode.SPACE_ELEVATOR).map(java.util.Map.Entry::getKey).sorted().forEach(appCombo.getItems()::add);
+        appCombo.getItems().addAll(com.spaceconquest.engine.industry.PowerPlantCatalog.all().keySet().stream().sorted().toList());
+        com.spaceconquest.engine.industry.IndustryRecipeCatalog.all().stream()
+                .map(com.spaceconquest.engine.industry.IndustryRecipeCatalog.Recipe::applicationId)
+                .filter(id -> com.spaceconquest.engine.industry.ProductionWork.definition(id) != null)
+                .filter(id -> !appCombo.getItems().contains(id)).sorted()
+                .forEach(id -> appCombo.getItems().add(id));
+        appCombo.getSelectionModel().selectFirst();
+        appCombo.setConverter(new javafx.util.StringConverter<>() {
+            @Override public String toString(String id) { return com.spaceconquest.engine.industry.IndustryRecipeCatalog.applicationName(id); }
+            @Override public String fromString(String value) { return value; }
+        });
         Label profLbl = new Label("Worker profession:");
         profLbl.setTextFill(Color.LIGHTCYAN);
         ComboBox<String> profCombo = new ComboBox<>();
-        profCombo.getItems().addAll("miner", "smelter_operator", "hydroponics_farmer", "technician", "engineer", "industrial_worker");
-        profCombo.setValue("smelter_operator");
+        profCombo.getItems().add("industrial_worker");
+        com.spaceconquest.engine.industry.PowerPlantCatalog.all().values().stream()
+                .map(com.spaceconquest.engine.industry.PowerPlantCatalog.Plant::workerProfessionId).distinct().sorted()
+                .filter(id -> !profCombo.getItems().contains(id)).forEach(id -> profCombo.getItems().add(id));
+        com.spaceconquest.engine.industry.IndustryRecipeCatalog.all().stream()
+                .map(recipe -> com.spaceconquest.engine.industry.ProductionWork.definition(recipe.applicationId()))
+                .filter(java.util.Objects::nonNull).map(work -> work.equipment().operatorProfession()).distinct().sorted()
+                .filter(id -> !profCombo.getItems().contains(id)).forEach(id -> profCombo.getItems().add(id));
+        profCombo.setValue("industrial_worker");
         appCombo.valueProperty().addListener((observable, previous, selected) -> {
-            if (ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID.equals(selected)) {
-                profCombo.setValue("industrial_worker");
-            }
+            var service = com.spaceconquest.engine.logistics.InfrastructureService.find(selected); if (service != null) profCombo.setValue(service.capability().professionId());
+            var yard = com.spaceconquest.engine.ship.ShipyardTechnology.yard(selected);
+            if (yard != null) profCombo.setValue(yard.professionId());
+            var plant = com.spaceconquest.engine.industry.PowerPlantCatalog.find(selected);
+            if (plant != null) profCombo.setValue(plant.workerProfessionId());
+            var work = com.spaceconquest.engine.industry.ProductionWork.definition(selected);
+            if (work != null) profCombo.setValue(work.equipment().operatorProfession());
         });
-
         Label tierLbl = new Label("Facility tier:");
         tierLbl.setTextFill(Color.LIGHTCYAN);
         Spinner<Integer> tierSpinner = new Spinner<>(1, 4, 1);
         tierSpinner.setPrefWidth(70);
-
         Button buildBtn = new Button("Order facility construction");
         buildBtn.setStyle("-fx-background-color: #0984e3; -fx-text-fill: white; -fx-font-weight: bold;");
         buildBtn.setOnAction(e -> {
@@ -206,36 +223,30 @@ public class IndustryView {
                 feedbackLabel.setTextFill(Color.LIGHTGREEN);
             }
         });
-
-        Button prospectBtn = new Button("Launch geological survey (5 staff)");
+        Button prospectBtn = new Button("Establish survey team");
         prospectBtn.setStyle("-fx-background-color: #6c5ce7; -fx-text-fill: white; -fx-font-weight: bold;");
         prospectBtn.setOnAction(e -> {
             if (humanController != null) {
                 humanController.stageCommand(new StartProspectingMissionCommand(
-                        playerEmpireId, planetCombo.getValue(), 5
+                        planetCombo.getValue(), playerEmpireId
                 ));
-                feedbackLabel.setText("Dispatched geological prospecting survey team to " + planetCombo.getValue().toUpperCase());
+                feedbackLabel.setText("Requested a funded standing survey team on " + planetCombo.getValue().toUpperCase());
                 feedbackLabel.setTextFill(Color.LIGHTGREEN);
             }
         });
-
         grid.add(planetLbl, 0, 0);
         grid.add(planetCombo, 1, 0);
         grid.add(appLbl, 2, 0);
         grid.add(appCombo, 3, 0);
-
         grid.add(profLbl, 0, 1);
         grid.add(profCombo, 1, 1);
         grid.add(tierLbl, 2, 1);
         grid.add(tierSpinner, 3, 1);
-
         HBox actions = new HBox(12, buildBtn, prospectBtn);
         actions.setAlignment(Pos.CENTER_LEFT);
-
         section.getChildren().addAll(title, grid, actions);
         return section;
     }
-
     private VBox createFacilitiesSection() {
         VBox section = new VBox(8);
         section.setPadding(new Insets(10));
@@ -279,11 +290,11 @@ public class IndustryView {
                 });
                 boolean projectActive = expansionProjects.stream()
                         .anyMatch(project -> fac.id().equals(project.facilityId()));
-                upgradeBtn.setDisable(projectActive);
+                upgradeBtn.setDisable(projectActive || snapshot.spaceElevators().stream().anyMatch(e -> e.id().equals(fac.id())));
 
                 topRow.getChildren().add(facTitle);
-                if (!ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID
-                        .equals(fac.applicationId())) {
+                if (!com.spaceconquest.engine.ship.ShipyardTechnology.isSurface(fac.applicationId())
+                        && com.spaceconquest.engine.logistics.InfrastructureService.find(fac.applicationId()) == null) {
                     ComboBox<String> recipeCombo = new ComboBox<>();
                     for (RefinementRecipe rec : RefinementProcessor.STANDARD_RECIPES) {
                         recipeCombo.getItems().add(rec.id());
@@ -314,14 +325,15 @@ public class IndustryView {
                 facStatus.setFont(Font.font("Verdana", 11));
 
                 card.getChildren().addAll(topRow, facStatus);
+                if (com.spaceconquest.engine.logistics.InfrastructureService.find(fac.applicationId()) != null)
+                    card.getChildren().add(new LaunchServiceStatusCard(snapshot, fac, playerEmpireId, humanController));
                 Text complexity = new Text("  Manufacturing complexity: "
                         + FacilityManufacturingCapacity.required(snapshot, fac.ownerEntityId(), fac.applicationId())
                         + " required / " + FacilityManufacturingCapacity.available(fac.applicationId(), fac.tier())
                         + " available" + (FacilityManufacturingCapacity.canOperate(snapshot, fac) ? "" : " | Production paused"));
                 complexity.setFill(FacilityManufacturingCapacity.canOperate(snapshot, fac) ? Color.LIGHTCYAN : Color.ORANGE);
                 card.getChildren().add(complexity);
-                if (ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID
-                        .equals(fac.applicationId())) {
+                if (com.spaceconquest.engine.ship.ShipyardTechnology.isSurface(fac.applicationId())) {
                     card.getChildren().addAll(createSurfaceShipyardStatus(fac));
                     if (playerEmpireId.equals(fac.ownerEntityId())) {
                         card.getChildren().add(createShipyardStaffingControls(fac));
@@ -348,7 +360,7 @@ public class IndustryView {
             double consumedKg = project.consumedMaterialsKg().values().stream()
                     .mapToDouble(Double::doubleValue).sum();
             Text progressText = new Text(String.format(
-                    "%s: %.0f%% | work %.0f / %.0f hours | materials %.0f / %.0f kg",
+                    "%s: %.0f%% | work %.0f / %.0f units | materials %.0f / %.0f kg",
                     phase, project.getProgressPercentage(), project.accumulatedWorkHours(),
                     project.requiredWorkHours(), consumedKg, requiredKg));
             progressText.setFill(Color.LIGHTCYAN);
@@ -481,7 +493,7 @@ public class IndustryView {
                         .mapToDouble(Double::doubleValue).sum();
                 double usedKg = proj.consumedMaterialsKg().values().stream()
                         .mapToDouble(Double::doubleValue).sum();
-                Text progText = new Text(String.format("Work: %.0f / %.0f hours (%.1f%%) | Materials: %.0f / %.0f kg",
+                Text progText = new Text(String.format("Work: %.0f / %.0f units (%.1f%%) | Materials: %.0f / %.0f kg",
                         proj.accumulatedWorkHours(), proj.requiredWorkHours(),
                         proj.getProgressPercentage(), usedKg, requiredKg));
                 progText.setFill(Color.WHITE);

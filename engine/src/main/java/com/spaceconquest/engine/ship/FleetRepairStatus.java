@@ -28,7 +28,7 @@ public record FleetRepairStatus(List<Ship> ships, List<Provider> providers, doub
             var design = FleetSupplySimulation.design(state, ship);
             var mounts = new ArrayList<Mount>();
             if (design != null) for (int mount : ShipRepairPriority.mounts(priority, design, ship)) {
-                var module = ShipModuleDamage.damageableModule(design.equippedModuleIds().get(mount));
+                var module = ShipModuleDamage.damageableModule(design, design.equippedModuleIds().get(mount));
                 mounts.add(new Mount(mount, module.name(), ship.moduleDamage().damageByMount().get(mount)));
             }
             ships.add(new Ship(ship.id(), hullNeed(ship), mounts, design != null, ship.currentHullHealth() > 0));
@@ -78,7 +78,7 @@ public record FleetRepairStatus(List<Ship> ships, List<Provider> providers, doub
             if (design == null || ship.currentHullHealth() <= 0 || !fleet.ownerEntityId().equals(ship.ownerEntityId())) continue;
             var mounts = ShipRepairPriority.mounts(priority, design, ship);
             if (!mounts.isEmpty()) {
-                int mount = mounts.getFirst(); var module = ShipModuleDamage.damageableModule(design.equippedModuleIds().get(mount));
+                int mount = mounts.getFirst(); var module = ShipModuleDamage.damageableModule(design, design.equippedModuleIds().get(mount));
                 var recipe = new TreeMap<String, Double>();
                 module.materialCostsKg().forEach((id, kg) -> recipe.put(id, kg / ShipModuleDamage.DURABILITY));
                 return new Job(ship.id(), module.name(), ship.moduleDamage().damageByMount().get(mount), Map.copyOf(recipe));
@@ -96,7 +96,14 @@ public record FleetRepairStatus(List<Ship> ships, List<Provider> providers, doub
         var blockers = new ArrayList<String>(); double capacity = BaseRepairCatalog.capacity(state, station);
         if (!BaseRepairCatalog.accessible(state, station, fleet.ownerEntityId())) blockers.add("No base repair access");
         if (fleet.isInWarp() || fleet.hasInterstellarOrder()) blockers.add("Departure order prevents base service");
-        if (capacity <= 1e-9) blockers.add("Base workshop absent, offline, unstaffed or unpowered");
+        if (!station.isOperational() || station.currentHullHealth() <= 0) blockers.add("Repair station unavailable");
+        if (station.currentPowerGenerationKw() + 1e-9 < station.currentPowerDemandKw()) blockers.add("Repair station power shortage");
+        var workshops = station.modules().stream().filter(module ->
+                com.spaceconquest.engine.macrostructure.StationModule.TYPE_REPAIR_WORKSHOP.equals(module.type())).toList();
+        if (workshops.isEmpty()) blockers.add("Base workshop absent");
+        else if (workshops.stream().noneMatch(com.spaceconquest.engine.macrostructure.StationModule::isOnline)) blockers.add("All base workshops offline");
+        else if (workshops.stream().filter(com.spaceconquest.engine.macrostructure.StationModule::isOnline)
+                .noneMatch(module -> module.paidWorkers() > 0)) blockers.add("No paid repair workshop staff");
         var job = firstJob(state, fleet, fleet.ships(), priority);
         if (job == null) return new Base(station.name(), capacity, "", "", 0, 0, Map.of(), blockers);
         var quote = BaseRepairPayment.quote(state, station.id(), fleet.ownerEntityId(), job.perPoint(), Math.min(capacity, job.points()));

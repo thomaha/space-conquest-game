@@ -110,7 +110,10 @@ class LunarTradeAuditTest {
                 assertEquals(2500, selected.shipment().route().onboardKg());
                 assertNotNull(selected.shipment().state().fleets().getFirst().location().orbitalFlight());
                 assertTrue(selected.profitCredits() > 0);
-                assertEquals(6, selected.days());
+                var plan = TradeLocalPlan.plan(selected.shipment().state(), selected.shipment().preparedFleet(),
+                        FleetPositioning.hubSite(state, target));
+                assertNotNull(plan);
+                assertEquals(Math.ceil(plan.days()), selected.days());
             }
         }
     }
@@ -234,7 +237,8 @@ class LunarTradeAuditTest {
                         new MarketAccount(target.id(), 100000)))
                 .powerGrids(List.of(new PowerGridState("source-port", 1000, 0, 1000, 2000, 2000, false))).build();
         var blueprint = ShipBlueprintFactory.evaluate(state, new ShipDesignSpecification("design", "Freighter", "owner",
-                ShipRole.CARGO_TRANSPORT, "steel", ChemicalFreighterCatalog.modules(scenario.drive()), "steel", .5));
+                ShipRole.CARGO_TRANSPORT, "steel", ChemicalFreighterCatalog.modules(scenario.drive()), "steel", .5,
+                ChemicalFreighterCatalog.modules(scenario.drive()).stream().map(ShipComponentCatalog::module).mapToInt(ShipModule::slotCost).sum()));
         assertTrue(blueprint.valid(), blueprint.errors().toString());
         var ship = new ShipInstance("ship", "design", "owner", 100, 0, 0, Map.of()).withPowerState(ShipPowerState.empty());
         var fleet = new Fleet("fleet", "Trader", "owner", "sol", "", 0, 0, 0, false, "PASSIVE", List.of(ship),

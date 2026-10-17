@@ -23,7 +23,8 @@ public class PowerBillingProcessor {
                          Map<String, Integer> poweredWorkers, Map<String, Double> facilityPowerCosts,
                          Map<String, Double> plantSales, Map<String, Double> imperialReceipts,
                          Map<String, Double> imperialExpenses, List<IndustryAccount> industryAccounts,
-                         List<LaunchServiceActivity> launchActivities) {}
+                         List<LaunchServiceActivity> launchActivities,
+                         Map<String, ProductionWork.EnergyBudget> productionEnergy) {}
 
     public static double householdDemandKwh(Empire empire, long headcount) {
         if (empire == null || empire.unlockedTechIds() == null
@@ -36,6 +37,11 @@ public class PowerBillingProcessor {
 
     public Result process(GameState state, PowerProcessor.DayResult balance,
                           List<IndustryAccount> generators, Map<String, Integer> paidWorkers) {
+        return process(state, balance, generators, paidWorkers, GridSupplyPricing.tariffs(state, generators, balance));
+    }
+    /** Settles an explicit tariff quote; used for fixed-price contracts and isolated settlement checks. */
+    public Result process(GameState state, PowerProcessor.DayResult balance,
+                          List<IndustryAccount> generators, Map<String, Integer> paidWorkers, Map<String, Double> tariffs) {
         Ledger ledger = new Ledger(state);
         Map<String, Double> physical = new HashMap<>();
         Map<String, Double> billable = new HashMap<>();
@@ -43,6 +49,7 @@ public class PowerBillingProcessor {
         Map<String, Double> chargesByBody = new HashMap<>();
         Map<String, Double> costs = new HashMap<>();
         Map<String, Integer> powered = new HashMap<>(balance.poweredWorkers());
+        Map<String, ProductionWork.EnergyBudget> workEnergy = new HashMap<>();
         for (PowerGridState grid : balance.grids()) {
             double stored = state.powerGrids().stream()
                     .filter(prior -> prior.entityId().equals(grid.entityId()))
@@ -52,16 +59,17 @@ public class PowerBillingProcessor {
             billable.put(grid.entityId(), Math.max(0.0, grid.totalGenerationKw() * HOURS_PER_DAY));
         }
         List<LaunchServiceActivity> launches = billLaunches(state, physical, billable,
-                consumed, chargesByBody, ledger);
+                consumed, chargesByBody, ledger, tariffs);
         List<HouseholdAccount> households = new ArrayList<>();
         for (HouseholdAccount household : state.householdAccounts()) {
             String body = household.bodyId();
+            double tariff = tariffs.getOrDefault(body, PRICE_PER_KWH);
             double desired = household.unmetBasicElectricityKwh();
             double delivered = Math.min(desired, physical.getOrDefault(body, 0.0));
             double priced = Math.min(delivered, billable.getOrDefault(body, 0.0));
-            double purchased = Math.min(priced, household.savingsCredits() / PRICE_PER_KWH);
+            double purchased = Math.min(priced, household.savingsCredits() / tariff);
             double received = delivered - priced + purchased;
-            double payment = purchased * PRICE_PER_KWH;
+            double payment = purchased * tariff;
             households.add(household.withElectricitySettlement(received, payment));
             physical.merge(body, -received, Double::sum);
             billable.merge(body, -purchased, Double::sum);
@@ -69,15 +77,22 @@ public class PowerBillingProcessor {
             chargesByBody.merge(body, payment, Double::sum);
         }
         for (IndustrialFacility facility : state.industrialFacilities()) {
+            if (ProductionWork.definition(facility.applicationId()) != null) {
+                double energy = balance.productionEnergyKwh().getOrDefault(facility.id(), 0.0);
+                double priced = Math.min(energy, Math.max(0, billable.getOrDefault(facility.planetId(), 0.0)));
+                billable.merge(facility.planetId(), -priced, Double::sum);
+                workEnergy.put(facility.id(), new ProductionWork.EnergyBudget(energy, priced, tariffs.getOrDefault(facility.planetId(), PRICE_PER_KWH)));
+                continue;
+            }
             billFacility(facility, paidWorkers, powered, billable, consumed,
-                    chargesByBody, costs, ledger);
+                    chargesByBody, costs, ledger, tariffs.getOrDefault(facility.planetId(), PRICE_PER_KWH));
         }
         Map<String, Double> sales = payGenerators(state, generators, chargesByBody, ledger);
         List<PowerGridState> grids = settledGrids(state, balance.grids(), consumed);
         return new Result(List.copyOf(ledger.empires.values()), List.copyOf(ledger.corporations.values()),
                 List.copyOf(households), grids, Map.copyOf(powered), Map.copyOf(costs), Map.copyOf(sales),
                 Map.copyOf(ledger.receipts), Map.copyOf(ledger.expenses), ledger.cash.snapshot(),
-                List.copyOf(launches));
+                List.copyOf(launches), Map.copyOf(workEnergy));
     }
 
     private List<LaunchServiceActivity> billLaunches(GameState state,
@@ -85,14 +100,14 @@ public class PowerBillingProcessor {
                                                      Map<String, Double> billable,
                                                      Map<String, Double> consumed,
                                                      Map<String, Double> chargesByBody,
-                                                     Ledger ledger) {
+                                                     Ledger ledger, Map<String, Double> tariffs) {
         List<LaunchServiceActivity> settled = new ArrayList<>();
         for (LaunchServiceActivity activity : state.launchActivities()) {
             double delivered = Math.min(activity.powerKwh(),
                     Math.max(0.0, physical.getOrDefault(activity.bodyId(), 0.0)));
             double priced = Math.min(delivered,
                     Math.max(0.0, billable.getOrDefault(activity.bodyId(), 0.0)));
-            double charge = Math.min(activity.powerCostCredits(), priced * PRICE_PER_KWH);
+            double charge = Math.min(activity.powerCostCredits(), priced * tariffs.getOrDefault(activity.bodyId(), PRICE_PER_KWH));
             double refund = activity.powerCostCredits() - charge;
             if (refund > 0.0) ledger.adjustProvider(state, activity, refund);
             physical.merge(activity.bodyId(), -delivered, Double::sum);
@@ -107,7 +122,7 @@ public class PowerBillingProcessor {
     private void billFacility(IndustrialFacility facility, Map<String, Integer> paidWorkers,
                               Map<String, Integer> powered, Map<String, Double> billable,
                               Map<String, Double> consumed, Map<String, Double> chargesByBody,
-                              Map<String, Double> costs, Ledger ledger) {
+                              Map<String, Double> costs, Ledger ledger, double tariff) {
         IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(facility.applicationId());
         if (recipe == null) return;
         int workers = powered.getOrDefault(facility.id(), 0);
@@ -116,6 +131,7 @@ public class PowerBillingProcessor {
                 : paidWorkers.getOrDefault(facility.id(), 0);
         Empire technologyOwner = ledger.technologyOwner(facility);
         if (!IndustryRecipeCatalog.isUnlocked(recipe, technologyOwner)
+                || !com.spaceconquest.engine.economy.BusinessOperatingPlan.allowed(ledger.state, facility)
                 || facility.tier() < recipe.minTier() || workers <= 0 || paid <= 0) {
             powered.put(facility.id(), 0);
             return;
@@ -130,13 +146,13 @@ public class PowerBillingProcessor {
             return;
         }
         double pricedKwh = Math.min(fullKwh, billable.getOrDefault(body, 0.0));
-        double pricePerWorker = pricedKwh * PRICE_PER_KWH / workers;
+        double pricePerWorker = pricedKwh * tariff / workers;
         int affordable = pricePerWorker <= 0.0 ? workers : Math.min(workers,
                 (int) Math.floor((ledger.ownerBalance(facility) + 0.0000001) / pricePerWorker));
         double payment = affordable * pricePerWorker;
         powered.put(facility.id(), affordable);
         ledger.changeOwnerBalance(facility, -payment);
-        billable.merge(body, -payment / PRICE_PER_KWH, Double::sum);
+        billable.merge(body, -payment / tariff, Double::sum);
         consumed.merge(body, fullKwh * affordable / workers, Double::sum);
         chargesByBody.merge(body, payment, Double::sum);
         costs.put(facility.id(), payment);
@@ -185,6 +201,7 @@ public class PowerBillingProcessor {
     }
 
     private static final class Ledger {
+        private final GameState state;
         private final Map<String, Empire> empires = new LinkedHashMap<>();
         private final Map<String, Corporation> corporations = new LinkedHashMap<>();
         private final Map<String, Double> receipts = new HashMap<>();
@@ -192,6 +209,7 @@ public class PowerBillingProcessor {
         private final IndustryOperatingLedger cash;
 
         private Ledger(GameState state) {
+            this.state = state;
             cash = new IndustryOperatingLedger(state.industryAccounts());
             for (Empire empire : state.empires()) empires.put(empire.id(), empire);
             for (Corporation corporation : state.corporations()) corporations.put(corporation.id(), corporation);

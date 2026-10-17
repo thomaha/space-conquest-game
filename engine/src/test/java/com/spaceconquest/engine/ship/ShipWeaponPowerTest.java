@@ -18,11 +18,15 @@ class ShipWeaponPowerTest {
                 1000, 1000, 1000, 100, 10, 0, 1000, false, false, ShipManufacturingProfile.baseline(), power);
     }
     private ShipInstance ship(double fuel, double battery, double shield) {
-        return new ShipInstance("ship", "design", "owner", 1000, shield, 100, Map.of("steel", 10.0))
+        return new ShipInstance("ship", "design", "owner", 1000, shield, 100, Map.of("steel", 10.0, "cannon_round", 100.0))
                 .withPowerState(new ShipPowerState(Map.of("refined_uranium", fuel), "rp1", "uranium", battery,
                         false, 1, 1, 0, 0, 0, 0, 0));
     }
     private ShipCombatPower.Result round(ShipInstance ship, ShipDesign design) { return ShipCombatPower.round(ship, design, HOURS, true); }
+    private ShipInstance withCargo(ShipInstance ship, Map<String, Double> cargo) {
+        return new ShipInstance(ship.id(), ship.designId(), ship.ownerEntityId(), ship.currentHullHealth(),
+                ship.currentShieldHealth(), ship.currentFuelKg(), cargo).withPowerState(ship.powerState());
+    }
     private Fleet fleet(ShipInstance ship) {
         return new Fleet("fleet", "Fleet", "owner", "sol", "", 0, 0, 0, false, "PASSIVE", List.of(ship));
     }
@@ -46,12 +50,16 @@ class ShipWeaponPowerTest {
     @Test void eachWeaponPaysItsCatalogSalvoCostInAdditionToMaintenance() {
         for (var id : List.of(CombatModuleCatalog.GUN, CombatModuleCatalog.LASER, CombatModuleCatalog.MASS_DRIVER)) {
             var module = CombatModuleCatalog.module(id); double hotel = 2 + module.powerDrawKw();
-            var design = design(2000, 0, hotel, 0, id); var original = ship(10, 0, 0); var paid = round(original, design);
+            var design = design(2000, 0, hotel, 0, id); var original = ship(10, 0, 0);
+            if (!module.ammunitionId().isBlank()) original = withCargo(original, Map.of("steel", 10.0, module.ammunitionId(), module.operationalStats().get("ammunitionMassKg")));
+            var paid = round(original, design);
             double cost = module.operationalStats().get("weaponSalvoKwh");
             assertEquals(cost, paid.requestedWeaponKwh()); assertEquals(cost, paid.paidWeaponKwh(), 1e-9);
             assertEquals(module.operationalStats().get("weaponDamage"), paid.firepower(), 1e-9);
             assertEquals(10 - (hotel * HOURS + cost) / 6000, paid.ship().generatorFuelMassKg(), 1e-12);
-            assertEquals(original.storedCargoKg(), paid.ship().storedCargoKg()); assertEquals(100, paid.ship().currentFuelKg());
+            if (module.ammunitionId().isBlank()) assertEquals(original.storedCargoKg(), paid.ship().storedCargoKg());
+            else assertFalse(paid.ship().storedCargoKg().containsKey(module.ammunitionId()));
+            assertEquals(100, paid.ship().currentFuelKg());
             assertEquals(10, original.generatorFuelMassKg());
         }
     }
@@ -59,20 +67,20 @@ class ShipWeaponPowerTest {
     @Test void generatorPeakAndBatteryDischargeLimitFundedDamageWithoutDriveOutages() {
         var design = design(34, 0, 4, 0, CombatModuleCatalog.GUN);
         var half = round(ship(10, 0, 0), design);
-        assertEquals(.5, half.paidWeaponKwh(), 1e-9); assertEquals(40, half.firepower(), 1e-9);
+        assertEquals(0, half.paidWeaponKwh()); assertEquals(0, half.firepower());
         assertEquals(0, half.ship().powerState().lastUnmetEssentialKwh()); assertEquals(0, half.ship().powerState().unmetDriveKwh());
         var batteryDesign = design(0, 34, 4, 0, CombatModuleCatalog.GUN);
         var battery = round(ship(0, 100, 0), batteryDesign);
-        assertEquals(.5, battery.paidWeaponKwh(), 1e-9); assertEquals(40, battery.firepower(), 1e-9);
-        assertEquals(100 - 34 * HOURS, battery.ship().powerState().batteryChargeKwh(), 1e-9);
+        assertEquals(0, battery.paidWeaponKwh()); assertEquals(0, battery.firepower());
+        assertEquals(100 - 4 * HOURS, battery.ship().powerState().batteryChargeKwh(), 1e-9);
     }
 
     @Test void essentialAndCargoLoadsHavePriorityAndUnfundedUpkeepStopsWeapons() {
         var design = design(34, 0, 4, 10, CombatModuleCatalog.GUN); var original = ship(10, 0, 0);
         double cargo = ShipPowerProcessor.cargoKw(design.powerProfile(), original, design);
         var paid = round(original, design);
-        assertEquals((34 - 4 - cargo) * HOURS, paid.paidWeaponKwh(), 1e-9);
-        assertEquals(80 * paid.paidWeaponKwh(), paid.firepower(), 1e-9);
+        assertTrue((34 - 4 - cargo) * HOURS < 1);
+        assertEquals(0, paid.paidWeaponKwh()); assertEquals(0, paid.firepower());
         assertEquals(0, paid.ship().powerState().unmetCargoKwh());
         var shortage = round(ship(0, 0, 0), design);
         assertEquals(0, shortage.paidWeaponKwh()); assertEquals(0, shortage.firepower());
@@ -92,12 +100,11 @@ class ShipWeaponPowerTest {
         for (boolean battery : List.of(false, true)) {
             var design = design(battery ? 0 : 100, 100, 4, 0, CombatModuleCatalog.GUN);
             var paid = round(ship(battery ? 0 : .6 / 6000, battery ? .6 : 0, 0), design);
-            double firing = .6 - 4 * HOURS;
-            assertEquals(firing, paid.paidWeaponKwh(), 1e-7); assertEquals(80 * firing, paid.firepower(), 1e-5);
+            assertEquals(0, paid.paidWeaponKwh()); assertEquals(0, paid.firepower());
             assertEquals(0, paid.ship().powerState().lastUnmetEssentialKwh(), 1e-12);
             assertEquals(0, paid.ship().powerState().unmetCargoKwh(), 1e-12);
-            assertEquals(0, paid.ship().generatorFuelMassKg(), 1e-12);
-            assertEquals(0, paid.ship().powerState().batteryChargeKwh(), 1e-9);
+            assertEquals(battery ? 0 : (.6 - 4 * HOURS) / 6000, paid.ship().generatorFuelMassKg(), 1e-12);
+            assertEquals(battery ? .6 - 4 * HOURS : 0, paid.ship().powerState().batteryChargeKwh(), 1e-9);
         }
     }
 
@@ -105,20 +112,20 @@ class ShipWeaponPowerTest {
         var design = design(1000, 0, 8, 0, CombatModuleCatalog.GUN, CombatModuleCatalog.GUN, CombatModuleCatalog.GUN);
         var original = ship(10, 0, 0).withModuleDamage(new ShipModuleDamage(Map.of(0, 100.0, 1, 50.0)));
         var paid = round(original, design);
-        assertEquals(1.5, paid.paidWeaponKwh(), 1e-9); assertEquals(120, paid.firepower(), 1e-9);
+        assertEquals(2, paid.paidWeaponKwh(), 1e-9); assertEquals(120, paid.firepower(), 1e-9);
         assertEquals(original.moduleDamage(), paid.ship().moduleDamage());
         var damagedHull = new ShipInstance(original.id(), original.designId(), original.ownerEntityId(), 500, 0, 100, original.storedCargoKg())
                 .withPowerState(original.powerState()).withModuleDamage(original.moduleDamage());
         var half = round(damagedHull, design);
-        assertEquals(.75, half.paidWeaponKwh(), 1e-9); assertEquals(60, half.firepower(), 1e-9);
+        assertEquals(2, half.paidWeaponKwh(), 1e-9); assertEquals(60, half.firepower(), 1e-9);
     }
 
     @Test void firingTakesPriorityOverShieldsWithoutDuplicatingTheMinutePowerBudget() {
         for (double output : List.of(80.0, 94.0, 104.0, 114.0)) {
             var design = design(output, 0, 34, 0, CombatModuleCatalog.GUN, CombatModuleCatalog.SHIELD);
             var paid = round(ship(10, 0, 0), design);
-            double weapon = Math.min(1, (output - 34) * HOURS);
-            double recharge = Math.min(20, Math.max(0, output - 94)) * HOURS;
+            double weapon = output >= 94 ? 1 : 0;
+            double recharge = Math.min(20, Math.max(0, output - 34 - weapon / HOURS)) * HOURS;
             assertEquals(weapon, paid.paidWeaponKwh(), 1e-9); assertEquals(80 * weapon, paid.firepower(), 1e-9);
             assertEquals(recharge / 2, paid.ship().currentShieldHealth(), 1e-9);
             assertEquals(10 - (34 * HOURS + weapon + recharge) / 6000, paid.ship().generatorFuelMassKg(), 1e-12);
@@ -140,20 +147,20 @@ class ShipWeaponPowerTest {
     }
 
     @Test void realCombatLimitsReportedDamageAndRetainsPaidStoresForLaterRounds() {
-        var design = design(34, 0, 4, 0, CombatModuleCatalog.GUN);
+        var design = design(104, 0, 4, 0, CombatModuleCatalog.GUN);
         var target = new ShipInstance("target", "unknown", "enemy", 1e6, 0, 0, Map.of());
         var result = new TacticalCombatProcessor(new Random(42)).resolveFleetEngagement(fleet(ship(10, 0, 0)), fleet(target), List.of(design));
         assertEquals(10, result.roundReports().size());
-        double expected = 40 * .8 * (.9 + new Random(42).nextDouble() * .2);
+        double expected = 80;
         assertEquals(expected, result.roundReports().getFirst().attackerDamageDealt(), 1e-9);
-        assertEquals(10 - 34 * HOURS * 10 / 6000, result.survivingAttackerFleet().ships().getFirst().generatorFuelMassKg(), 1e-12);
-        assertTrue(result.visualRounds().getFirst().eventLogs().stream().anyMatch(log -> log.contains("funded 0.500 / 1.000 kWh")));
+        assertEquals(10 - (4 * HOURS + 1) * 10 / 6000, result.survivingAttackerFleet().ships().getFirst().generatorFuelMassKg(), 1e-12);
+        assertTrue(result.visualRounds().getFirst().eventLogs().stream().anyMatch(log -> log.contains("funded 1.000 / 1.000 kWh")));
         assertEquals(0, result.roundReports().getFirst().defenderDamageDealt());
     }
 
     @Test void aShipDestroyedInTheRoundStillReturnsItsAlreadyFundedFire() {
         var design = design(100, 0, 4, 0, CombatModuleCatalog.GUN);
-        var defender = new ShipInstance("defender", "design", "enemy", 1, 0, 100, Map.of())
+        var defender = new ShipInstance("defender", "design", "enemy", 1, 0, 100, Map.of("cannon_round", 5.0))
                 .withPowerState(ship(10, 0, 0).powerState());
         var result = new TacticalCombatProcessor(new Random(42)).resolveFleetEngagement(fleet(ship(10, 0, 0)), fleet(defender), List.of(design));
         assertEquals(1, result.roundReports().size()); assertTrue(result.survivingDefenderFleet().ships().isEmpty());

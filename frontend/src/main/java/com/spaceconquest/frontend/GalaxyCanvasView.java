@@ -307,12 +307,12 @@ public class GalaxyCanvasView {
         targetLbl.setTextFill(Color.GOLD);
         targetLbl.setFont(Font.font("Verdana", FontWeight.BOLD, 11));
 
-        Button prospectBtn = new Button("Survey and prospect");
+        Button prospectBtn = new Button("Establish survey team");
         prospectBtn.setStyle("-fx-background-color: #6c5ce7; -fx-text-fill: white; -fx-font-size: 10px; -fx-font-weight: bold;");
         prospectBtn.setOnAction(e -> {
             if (humanController != null) {
-                humanController.stageCommand(new StartProspectingMissionCommand(playerEmpireId, selectedPlanet.id(), 5));
-                statusLabel.setText("Dispatched prospecting team to survey " + selectedPlanet.name());
+                humanController.stageCommand(new StartProspectingMissionCommand(selectedPlanet.id(), playerEmpireId));
+                statusLabel.setText("Requested a funded standing survey team on " + selectedPlanet.name());
                 statusLabel.setTextFill(Color.LIGHTGREEN);
             }
         });

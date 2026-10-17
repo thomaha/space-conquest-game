@@ -74,20 +74,30 @@ public class PowerProcessorTest {
     }
 
     @Test
-    void gridAllocatesLimitedGenerationToFoodBeforeSmelting() {
+    void gridAllocatesLimitedGenerationToFoodBeforeSmelting() throws Exception {
         IndustrialFacility farm = new IndustrialFacility("farm", "earth", "industrial_soil_cultivation",
                 "empire", IndustrialFacility.PUBLIC_STATE, 1, 100, "farmer", false, 0.0);
         IndustrialFacility smelter = new IndustrialFacility("smelter", "earth", "pyro_iron_smelting",
                 "empire", IndustrialFacility.PUBLIC_STATE, 1, 100, "industrial_worker", false, 0.0);
         GameState state = GameState.builder().industrialFacilities(List.of(farm, smelter))
+                .solarSystems(com.spaceconquest.engine.DataModelLoader.loadSolarSystems())
+                .empires(List.of(new com.spaceconquest.engine.Empire("empire", "Empire", "human", "Individualist", 10000, 0,
+                        List.of("sol"), List.of(), Map.of(), List.of("industrial_production", "industrial_soil_cultivation", "pyro_iron_smelting"), List.of())))
+                .commercialHubs(List.of(new com.spaceconquest.engine.CommercialHub("hub", "earth", 0, 10000, 2000, 10,
+                        Map.of("nitrates", new com.spaceconquest.engine.MarketOrder("nitrates", 100, 0, 1, 0),
+                                "phosphates", new com.spaceconquest.engine.MarketOrder("phosphates", 100, 0, 1, 0),
+                                "potash", new com.spaceconquest.engine.MarketOrder("potash", 100, 0, 1, 0),
+                                "iron_ore", new com.spaceconquest.engine.MarketOrder("iron_ore", 1000, 0, 1, 0),
+                                "carbon", new com.spaceconquest.engine.MarketOrder("carbon", 200, 0, 1, 0)))))
                 .powerGrids(List.of(new PowerGridState("earth", 99_000.0, 1_000.0, 98_000.0,
                         0.0, 0.0, false))).build();
 
-        var result = powerProcessor.balanceDay(state, Map.of("earth", 3_000.0),
+        var result = powerProcessor.balanceDay(state, Map.of("earth", 25.0 / 48),
                 Map.of("farm", 100, "smelter", 100));
-        assertEquals(80, result.poweredWorkers().get("farm"));
+        assertEquals(50, result.poweredWorkers().get("farm"));
         assertEquals(0, result.poweredWorkers().get("smelter"));
-        assertEquals(3_000.0, result.grids().getFirst().totalGenerationKw(), 0.001);
+        assertEquals(12.5, result.productionEnergyKwh().get("farm"), 0.001);
+        assertEquals(25.0 / 48, result.grids().getFirst().totalGenerationKw(), 0.001);
         assertTrue(result.grids().getFirst().isDeficitBrownoutActive());
     }
 }

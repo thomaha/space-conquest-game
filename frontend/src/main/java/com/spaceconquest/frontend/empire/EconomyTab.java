@@ -101,6 +101,7 @@ public class EconomyTab {
 
             content.getChildren().add(EconomyCards.createColonyLedgerCard(report));
             content.getChildren().add(EconomyCards.createCorporateEconomyCard(report));
+            content.getChildren().add(ShipyardEconomyCard.create(parent.getLatestGameState(), playerEmpire.id()));
         } else {
             Text noEmpireText = new Text("No sovereign empire economy data available.");
             noEmpireText.setFill(Color.LIGHTCORAL);

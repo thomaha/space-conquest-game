@@ -61,7 +61,7 @@ class ShipElectricalDamageTest {
 
     @Test void disabledElectricalSupplyBlocksFundedWeaponsAndShieldRecharge() {
         var design = design(List.of(ShipComponentCatalog.FISSION_REACTOR_ID, CombatModuleCatalog.GUN, CombatModuleCatalog.SHIELD));
-        var healthy = ship("ship", Map.of(), 0, Map.of());
+        var healthy = ship("ship", Map.of(), 0, Map.of("cannon_round", 5.0));
         assertTrue(ShipCombatPower.round(healthy, design, 1.0 / 60, true).firepower() > 0);
         var damaged = healthy.withModuleDamage(new ShipModuleDamage(Map.of(0, 100.0)));
         var result = ShipCombatPower.round(damaged, design, 1.0 / 60, true);
@@ -108,7 +108,7 @@ class ShipElectricalDamageTest {
         var battery = ship("battery", Map.of(), 500, Map.of());
         var attacker = new ShipDesign("gun", "Gun", "owner", ShipRole.COMBAT_SHIP, "steel",
                 List.of(CombatModuleCatalog.GUN), "steel", 0, 1000, 0, 1000, 100, 10, 0, 2000, false, false);
-        var gun = new ShipInstance("gun", "gun", "owner", 10000, 0, 1000, Map.of());
+        var gun = new ShipInstance("gun", "gun", "owner", 10000, 0, 1000, Map.of("cannon_round", 1000.0));
         var result = new com.spaceconquest.engine.combat.TacticalCombatProcessor(new java.util.Random(42))
                 .resolveFleetEngagementWithCarrierWings(fleet(List.of(gun)),
                         new Fleet("target", "Target", "enemy", "system", "", 0, 0, 0, false, "PASSIVE", List.of(battery)),

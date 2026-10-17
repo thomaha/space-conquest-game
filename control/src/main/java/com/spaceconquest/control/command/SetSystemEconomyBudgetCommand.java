@@ -78,7 +78,8 @@ public record SetSystemEconomyBudgetCommand(
         SystemEconomy newEconomy = buildNewSystemEconomy(existing, budget, systemPop);
 
         SystemEconomyProcessor processor = new SystemEconomyProcessor();
-        SystemEconomy updatedEconomy = processor.processSystemEconomy(newEconomy, systemPop, false);
+        SystemEconomy updatedEconomy = processor.processSystemEconomy(newEconomy, systemPop, false)
+                .withAccumulatedMilitiaInvestment(newEconomy.accumulatedMilitiaInvestment());
 
         List<SystemEconomy> updatedList = new ArrayList<>(state.systemEconomies());
         updatedList.removeIf(se -> se.systemId().equals(systemId));

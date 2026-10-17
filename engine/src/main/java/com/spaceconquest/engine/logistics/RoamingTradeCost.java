@@ -22,7 +22,7 @@ final class RoamingTradeCost {
         }
         boolean crossing = !fleet.currentSystemId().equals(FleetPositioning.systemForHub(state, target));
         var firstSite = crossing ? FleetLocation.Site.deepSpace() : FleetPositioning.hubSite(state, target);
-        var local = crossing ? TradeLegReadiness.departureLocal(state, fleet) : LocalTravel.plan(state, fleet, firstSite);
+        var local = crossing ? TradeLegReadiness.departureLocal(state, fleet) : TradeLocalPlan.plan(state, fleet, firstSite);
         if (local != null) {
             days += Math.ceil(local.days());
             if (local.orbital() != null) {
@@ -61,7 +61,7 @@ final class RoamingTradeCost {
             }
             fleet = new Fleet(fleet.id(), fleet.name(), fleet.ownerEntityId(), FleetPositioning.systemForHub(state, target),
                     "", 0, 0, 0, false, fleet.fleetStance(), fleet.ships(), FleetLocation.at(FleetLocation.Site.deepSpace())).withFuelPolicy(fleet.fuelPolicy()).withShieldPolicy(fleet.shieldPolicy()).withEscortOrder(fleet.escortOrder());
-            var dock = LocalTravel.plan(state, fleet, FleetPositioning.hubSite(state, target));
+            var dock = TradeLocalPlan.plan(state, fleet, FleetPositioning.hubSite(state, target));
             if (dock == null) return null;
             days += Math.ceil(dock.days());
             addPropellant(state, fleet, materials, dock.propellantKg(), dock.reactorFuelKg());

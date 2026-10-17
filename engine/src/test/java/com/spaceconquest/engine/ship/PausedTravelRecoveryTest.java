@@ -157,9 +157,9 @@ class PausedTravelRecoveryTest {
         var state = state(false, 22 * 3, 0, true);
         var fleet = state.fleets().getFirst();
         var destination = FleetLocation.Site.orbit("moon");
-        var plan = LocalTravel.plan(state, fleet, destination);
+        // This exercises an older prepaid abstract itinerary, as in localDeparture above.
         state = state.withFleets(List.of(LocalTravel.depart(fleet, destination,
-                new LocalTravel.Plan(10, plan.propellantKg(), plan.reactorFuelKg()))));
+                new LocalTravel.Plan(10, Map.of("ship", 10.0), Map.of()))));
         double paidFuel = state.fleets().getFirst().ships().getFirst().currentFuelKg();
         var failed = tick(state);
         fleet = failed.fleets().getFirst();

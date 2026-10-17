@@ -65,7 +65,7 @@ public class FuturePhasesMultiAgentTest {
 
         // Human orders facility build and prospecting survey
         human.dispatchCommand(new BuildFacilityCommand(
-                homePlanet.id(), "refining_blast_furnace", playerEmpireId,
+                homePlanet.id(), "pyro_iron_smelting", playerEmpireId,
                 IndustrialFacility.PUBLIC_STATE, 20, "industrial_worker"
         ));
         human.dispatchCommand(new StartProspectingMissionCommand(homePlanet.id(), playerEmpireId));

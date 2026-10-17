@@ -19,6 +19,10 @@ public final class FacilityManufacturingCapacity {
     private FacilityManufacturingCapacity() {}
 
     private static Limit limit(String applicationId) {
+        var factory = FactoryDefinition.find(applicationId);
+        var service = com.spaceconquest.engine.logistics.InfrastructureService.find(applicationId);
+        if (factory == null && service != null) factory = service.capability().infrastructure();
+        if (factory != null) return new Limit(applicationId, factory.complexityOffset(), factory.complexityPerTier());
         try {
             var rules = DataModelLoader.loadFacilityManufacturingLimits();
             return rules.stream().filter(rule -> applicationId.equals(rule.applicationId())).findFirst()
@@ -32,7 +36,7 @@ public final class FacilityManufacturingCapacity {
     private static int baseline(String applicationId) {
         try {
             return DataModelLoader.loadTechnologies().stream().flatMap(technology -> technology.applications().stream())
-                    .filter(application -> applicationId.equals(application.id())).mapToInt(application -> application.complexity())
+                    .filter(application -> ApplicationProduction.capabilityApplication(applicationId).equals(application.id())).mapToInt(application -> application.complexity())
                     .findFirst().orElse(1);
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot load application complexities", e);
@@ -60,6 +64,7 @@ public final class FacilityManufacturingCapacity {
         Limit rule = limit(applicationId);
         int extraComplexity = Math.max(0, required(state, ownerId, applicationId)
                 - baseline(applicationId) - rule.complexityOffset());
-        return 1 + Math.ceilDiv(extraComplexity, rule.complexityPerTier());
+        var recipe = IndustryRecipeCatalog.find(applicationId);
+        return Math.max(recipe == null ? 1 : recipe.minTier(), 1 + Math.ceilDiv(extraComplexity, rule.complexityPerTier()));
     }
 }

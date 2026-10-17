@@ -54,6 +54,7 @@ public final class LocalSpaceTravel {
     }
 
     public static Plan plan(GameState state, Fleet fleet, FleetLocation.Site destination, Map<String, Double> reserveKg) {
+        if (ShipRefitPlan.reserved(state, fleet)) return null;
         if (state == null || fleet == null || destination == null || fleet.ships().isEmpty()
                 || fleet.location().inTransit() || fleet.hasInterstellarOrder()
                 || fleet.ships().stream().map(ShipInstance::id).distinct().count() != fleet.ships().size()) return null;

@@ -28,6 +28,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MarketDemandProcessorTest {
     @Test
+    void producingGoodsCreatesInputDemandWithoutInventingBuyersForItsOutputs() throws IOException {
+        var base = state(1_000L); var old = base.empires().getFirst();
+        var known = new java.util.ArrayList<String>();
+        DataModelLoader.loadTechnologies().forEach(t -> { known.add(t.id()); t.applications().forEach(a -> known.add(a.id())); });
+        var owner = new Empire(old.id(), old.name(), old.raceId(), old.societyStructure(), 1e8, 0,
+                old.controlledSystemIds(), old.ministries(), old.systemGovernorAssignments(), known, List.of());
+        base = base.withEmpires(List.of(owner));
+        var processor = new MarketDemandProcessor(); var races = DataModelLoader.loadRaces();
+        var without = processor.refresh(base, races).getFirst();
+        var farm = new IndustrialFacility("farm", "earth", "hydroponic_growth_arrays", "terran", "PUBLIC_STATE", 1, 4, "farmer", false, 0);
+        var producing = processor.refresh(base.withIndustrialFacilities(List.of(farm)), races).getFirst();
+        assertEquals(without.activeOrders().get("food_matrix").demandKg(), producing.activeOrders().get("food_matrix").demandKg());
+        assertEquals(without.activeOrders().get("oxygen_gas").demandKg(), producing.activeOrders().get("oxygen_gas").demandKg());
+        assertTrue(!producing.activeOrders().containsKey("cultivation_residue"));
+        assertTrue(!producing.activeOrders().containsKey("harvested_crops"));
+        assertTrue(producing.activeOrders().get("carbon_dioxide_gas").demandKg() > 0);
+        var factory = new IndustrialFacility("processor", "earth", "food_processing", "terran", "PUBLIC_STATE", 1, 10, "industrial_worker", false, 0);
+        var buying = processor.refresh(base.withIndustrialFacilities(List.of(farm, factory)), races).getFirst();
+        assertTrue(buying.activeOrders().get("harvested_crops").demandKg() > 0);
+        assertEquals(producing.activeOrders().get("food_matrix").demandKg(), buying.activeOrders().get("food_matrix").demandKg());
+    }
+
+    @Test
     void populationGrowthChangesFoodAndConsumerDemandAndMarketShortage() throws IOException {
         MarketDemandProcessor demand = new MarketDemandProcessor();
         GameState initial = state(1_000L);
@@ -119,11 +142,11 @@ class MarketDemandProcessorTest {
                 oldSystem.x(), oldSystem.y(), oldSystem.z(), oldSystem.sunMass(),
                 oldSystem.sunDiameter(), oldSystem.sunColor(), oldSystem.planets(), List.of(belt));
         IndustrialFacility mine = new IndustrialFacility("belt_mine", "belt", "mining_outpost",
-                "terran", IndustrialFacility.PUBLIC_STATE, 1, 100, "industrial_worker", false, 0.0);
+                "terran", IndustrialFacility.PUBLIC_STATE, 1, 100, "miner", false, 0.0);
         Empire old = initial.empires().getFirst();
         Empire researched = new Empire(old.id(), old.name(), old.raceId(), old.societyStructure(),
                 old.treasuryCredits(), old.corporateTaxRate(), old.controlledSystemIds(),
-                old.ministries(), old.systemGovernorAssignments(), List.of("industrial_production"),
+                old.ministries(), old.systemGovernorAssignments(), List.of("industrial_production", "mining_outpost"),
                 old.activeShipDesignIds());
         GameState mining = initial.toBuilder().solarSystems(List.of(system))
                 .industrialFacilities(List.of(mine)).empires(List.of(researched)).build();
@@ -131,7 +154,8 @@ class MarketDemandProcessorTest {
         CommercialHub beltHub = new MarketDemandProcessor().refresh(mining,
                 DataModelLoader.loadRaces()).stream().filter(hub -> "belt".equals(hub.entityId()))
                 .findFirst().orElseThrow();
-        assertTrue(beltHub.activeOrders().get("iron_ore").demandKg() > 0.0);
+        assertTrue(!beltHub.activeOrders().containsKey("iron_ore")
+                || beltHub.activeOrders().get("iron_ore").demandKg() == 0.0);
         assertTrue(beltHub.activeOrders().get("food_matrix").demandKg() > 0.0);
     }
 

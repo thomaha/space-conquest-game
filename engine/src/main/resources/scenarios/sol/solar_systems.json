@@ -363,14 +363,14 @@
     ],
     "asteroidBelts": [
       {
-        "id": "main",
+        "id": "main", "distanceKm": 403914000,
         "name": "Main Asteroid Belt",
         "description": "Located between Mars and Jupiter.",
         "resources": ["iron_ore", "nickel", "gold", "platinum_ore", "silicates", "copper_ore"],
         "populations": []
       },
       {
-        "id": "kuiper",
+        "id": "kuiper", "distanceKm": 5983920000,
         "name": "Kuiper Belt",
         "description": "Located beyond the orbit of Neptune.",
         "resources": ["water_ice", "methane_ice", "ammonia_ice"],

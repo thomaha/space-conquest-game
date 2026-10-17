@@ -26,7 +26,6 @@ import com.spaceconquest.engine.industry.GeologicalDeposit;
 import com.spaceconquest.engine.industry.IndustrialFacility;
 import com.spaceconquest.engine.industry.IndustryAccount;
 import com.spaceconquest.engine.industry.IndustryRecipeCatalog;
-import com.spaceconquest.engine.industry.PowerBillingProcessor;
 import com.spaceconquest.engine.industry.PowerGridState;
 import com.spaceconquest.engine.industry.PowerPlantCatalog;
 import com.spaceconquest.engine.industry.refinement.RefinementProcessor;
@@ -273,7 +272,9 @@ public class EmpireView {
         card.setPadding(new Insets(8));
         card.setStyle("-fx-background-color: rgba(30, 50, 90, 0.7); -fx-background-radius: 5;");
 
-        Text name = new Text(readableIndustryName(facility.applicationId()) + " [" + facility.id() + "]");
+        Text name = new Text((com.spaceconquest.engine.industry.FactoryDefinition.find(facility.applicationId()) == null
+                ? readableIndustryName(facility.applicationId()) : IndustryRecipeCatalog.applicationName(facility.applicationId()))
+                + " [" + facility.id() + "]");
         name.setFill(Color.GOLD);
         name.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
         card.getChildren().add(name);
@@ -294,11 +295,19 @@ public class EmpireView {
                 readableIndustryName(facility.workerProfessionId()))));
         card.getChildren().add(createIndustryDetailRow("Owner:", readableIndustryName(facility.ownerEntityId())));
         card.getChildren().add(createIndustryDetailRow("Configured products:", configuredProducts(facility.applicationId())));
-        IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(facility.applicationId());
+        addProductionWorkRows(card, facility);
+        card.getChildren().add(new com.spaceconquest.frontend.FarmingProductionCard(latestGameState, facility));
+        card.getChildren().add(new com.spaceconquest.frontend.BusinessFinanceCard(latestGameState, facility, playerEmpireId, humanController, () -> latestGameState));
+        card.getChildren().add(new com.spaceconquest.frontend.RefineryRecoveryCard(latestGameState, facility, playerEmpireId, humanController, () -> latestGameState));
+        IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.forFacility(latestGameState, facility);
         PowerPlantCatalog.Plant plant = PowerPlantCatalog.find(facility.applicationId());
         if (recipe != null) {
             card.getChildren().add(createIndustryDetailRow("Recipe inputs:",
-                    recipe.inputsKg().isEmpty() ? "Local deposit" : formatIndustryQuantities(recipe.inputsKg())));
+                    recipe.inputsKg().isEmpty() ? "None purchased" : formatIndustryQuantities(recipe.inputsKg())));
+            var localInputs = recipe.inputSources().stream().filter(input -> input.source() != com.spaceconquest.engine.industry.ProcessInput.Source.MARKET)
+                    .map(input -> String.format("%s: %s kg %s/batch", input.source().name().toLowerCase().replace('_', ' '),
+                            input.kgPerBatch(), readableIndustryName(input.materialId()))).collect(java.util.stream.Collectors.joining(", "));
+            if (!localInputs.isEmpty()) card.getChildren().add(createIndustryDetailRow("Local inputs:", localInputs));
         }
         card.getChildren().add(createIndustryDetailRow("Required technology:", recipe == null
                 ? (plant == null ? "No production recipe configured" : plant.requiredTechnology())
@@ -323,9 +332,7 @@ public class EmpireView {
                         String.format("%,.0f kWh", account.generatedKwh())));
             }
             card.getChildren().add(createIndustryDetailRow("Produced:", formatIndustryQuantities(account.producedKg())));
-            card.getChildren().add(createIndustryDetailRow("Sold:", plant == null
-                    ? formatIndustryQuantities(account.soldKg())
-                    : String.format("%,.0f kWh", account.salesCredits() / PowerBillingProcessor.PRICE_PER_KWH)));
+            if (plant == null) card.getChildren().add(createIndustryDetailRow("Sold:", formatIndustryQuantities(account.soldKg())));
             card.getChildren().add(createIndustryDetailRow("Unsold stock:", formatIndustryQuantities(account.unsoldStockKg())));
             card.getChildren().add(createIndustryDetailRow("Input costs:", String.format("%,.2f credits", account.inputCostsCredits())));
             card.getChildren().add(createIndustryDetailRow("Maintenance:", String.format("%,.2f credits", account.maintenanceCostsCredits())));
@@ -365,6 +372,19 @@ public class EmpireView {
                 .reduce((left, right) -> left + ", " + right).orElse("None");
     }
 
+    private void addProductionWorkRows(VBox card, IndustrialFacility facility) {
+        var equipment = facility.productionEquipment();
+        if (equipment == null) return;
+        var work = com.spaceconquest.engine.industry.ProductionWork.definition(facility.applicationId());
+        card.getChildren().add(createIndustryDetailRow("Process:", equipment.processType().toLowerCase().replace('_', ' ')));
+        if (work != null) card.getChildren().add(createIndustryDetailRow("Base recipe work:",
+                String.format("%,.0f work units/batch; %s kWh/batch", work.workPerBatch(), new java.text.DecimalFormat("#,##0.###").format(work.energyKwhPerBatch()))));
+        card.getChildren().add(createIndustryDetailRow("Equipment capacity:", String.format("%,.0f work units/day across %,d installed lines",
+                equipment.ratedWorkPerDay() * facility.getEffectiveThroughputMultiplier(), equipment.parallelLines())));
+        card.getChildren().add(createIndustryDetailRow("Operator skill:", String.format("%.0f%% of reference proficiency", equipment.operatorSkill() * 100)));
+        card.getChildren().add(createIndustryDetailRow("Automation:", String.format("%.0f%% autonomous capacity", equipment.autonomousFraction() * 100)));
+    }
+
     private HBox createIndustryDetailRow(String heading, String value) {
         HBox row = new HBox(8);
         Label label = new Label(heading);
@@ -380,6 +400,12 @@ public class EmpireView {
 
     private String configuredProducts(String applicationId) {
         if (PowerPlantCatalog.find(applicationId) != null) return "Electricity (kWh)";
+        var liveRecipe = IndustryRecipeCatalog.find(applicationId);
+        if (liveRecipe != null) return liveRecipe.outputsKg().entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(output -> String.format("%s (%s kg/recipe)", readableIndustryName(output.getKey()),
+                        new java.text.DecimalFormat("#,##0.########").format(output.getValue())))
+                .collect(java.util.stream.Collectors.joining(", "));
         return RefinementProcessor.STANDARD_RECIPES.stream()
                 .filter(recipe -> recipe.id().equals(applicationId))
                 .findFirst()

@@ -61,9 +61,10 @@ public class MarketDemandProcessor {
             for (IndustrialFacility facility : state.industrialFacilities()) {
                 if (!hub.entityId().equals(facility.planetId())) continue;
                 Empire owner = technologyOwner(facility, empires, corporations);
-                if ("cargo_terminal".equals(facility.applicationId()) && facility.tier() > 0) {
-                    PropulsionCatalog.drive("mod_chemical_rocket")
-                            .propellantMaterials(1_000.0 * facility.tier()).forEach(
+                var service = com.spaceconquest.engine.logistics.InfrastructureService.find(facility.applicationId());
+                if (service != null && service.capability().driveId() != null && facility.tier() > 0) {
+                    PropulsionCatalog.drive(service.capability().driveId())
+                            .propellantMaterials(service.capability().fuelStockKgPerTier() * facility.tier()).forEach(
                                     (material, quantity) -> demand.merge(material, quantity,
                                             Double::sum));
                     continue;
@@ -75,17 +76,13 @@ public class MarketDemandProcessor {
                             && owner.unlockedTechIds().contains(plant.requiredTechnology())
                             && FacilityManufacturingCapacity.canOperate(state, facility)
                             && plant.fuelMaterialId() != null) {
-                        double staffing = Math.clamp(
-                                (double) facility.allocatedWorkers() / plant.requiredWorkers(), 0.0, 1.0);
-                        double scale = facility.tier() * staffing
-                                * facility.getEffectiveThroughputMultiplier()
-                                / Math.pow(1.5, Math.max(0, facility.tier() - 1));
+                        double scale = com.spaceconquest.engine.industry.GenerationCapacity.scale(facility, plant, facility.allocatedWorkers());
                         demand.merge(plant.fuelMaterialId(),
                                 plant.fuelKgPerTierDay() * scale, Double::sum);
                     }
                     continue;
                 }
-                IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(facility.applicationId());
+                IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.forFacility(state, facility);
                 if (!IndustryRecipeCatalog.isUnlocked(recipe, owner)
                         || facility.tier() < recipe.minTier()
                         || !FacilityManufacturingCapacity.canOperate(state, facility)) continue;
@@ -93,14 +90,18 @@ public class MarketDemandProcessor {
                         * facility.getEffectiveThroughputMultiplier()
                         * ApplicationProduction.modifiers(state, owner.id(), facility.applicationId()).effectMultiplier()
                         * recipe.technologyMultiplier(owner) / recipe.workersPerBatch();
+                if (com.spaceconquest.engine.industry.ProductionWork.definition(facility.applicationId()) != null)
+                    batches = com.spaceconquest.engine.industry.ProductionWork.quote(state, facility, facility.allocatedWorkers()).batchesPerDay();
+                double requestedBatches = batches;
                 recipe.inputsKg().forEach((resource, kg) ->
-                        demand.merge(resource, batches * kg, Double::sum));
-                recipe.outputsKg().forEach((resource, kg) ->
-                        demand.merge(resource, batches * kg, Double::sum));
+                        demand.merge(resource, requestedBatches * kg, Double::sum));
             }
             constructionDemand.getOrDefault(hub.entityId(), Map.of()).forEach((resource, kg) ->
                     demand.merge(resource, kg, Double::sum));
+            com.spaceconquest.engine.industry.SurveyOperations.suppliesDemand(state, hub.entityId())
+                    .forEach((resource, kg) -> demand.merge(resource, kg, Double::sum));
             shipFuelDemand(state, hub, demand);
+            com.spaceconquest.engine.logistics.SupplyDevelopmentDemand.requests(state, hub.id()).forEach((id, kg) -> demand.merge(id, kg, Double::sum));
             Map<String, MarketOrder> orders = new HashMap<>(hub.activeOrders());
             addStockpileDemand(state, hub, demand);
             Set<String> allGoods = new HashSet<>(managedGoods);
@@ -291,6 +292,10 @@ public class MarketDemandProcessor {
         for (IndustryRecipeCatalog.Recipe recipe : IndustryRecipeCatalog.all()) {
             resources.addAll(recipe.inputsKg().keySet());
             resources.addAll(recipe.outputsKg().keySet());
+            if (recipe.refineryProcess() != null) {
+                resources.addAll(recipe.refineryProcess().products()); resources.addAll(recipe.refineryProcess().feedstocks());
+                recipe.refineryProcess().profiles().forEach(p -> resources.addAll(p.reagentsKg().keySet()));
+            }
         }
         return resources;
     }

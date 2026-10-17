@@ -111,15 +111,20 @@ public class StartingEconomySeeder {
                     manufacturingId, IndustrialFacility.PRIVATE_CORPORATE, tier,
                     workers / 2, "industrial_worker"));
         }
-        double demandKw = facilities.stream().mapToDouble(facility ->
-                PowerProcessor.requestedIndustryKw(facility, facility.allocatedWorkers())).sum()
+        facilities = openingProcessLines(facilities);
+        double demandKw = facilities.stream().mapToDouble(facility -> {
+            var recipe = com.spaceconquest.engine.industry.IndustryRecipeCatalog.find(facility.applicationId());
+            double research = recipe != null && com.spaceconquest.engine.industry.ProductionWork.definition(facility.applicationId()) != null
+                    ? recipe.technologyMultiplier(empire) : 1;
+            return PowerProcessor.requestedIndustryKw(facility, facility.allocatedWorkers()) * research;
+        }).sum()
                 + PowerBillingProcessor.householdDemandKwh(empire, population) / 24.0;
         double openingGenerationKw = tier * (6000.0 + 2 * 10000.0 + 4500.0);
         int extraFissionPlants = (int) Math.ceil(Math.max(0.0,
                 demandKw * 1.10 - openingGenerationKw) / (10000.0 * tier));
-        for (int index = 0; index < extraFissionPlants; index++) {
-            facilities.add(facility(prefix + "fission_extra_" + index, home, "nuclear_power_app",
-                    empire.id(), IndustrialFacility.PUBLIC_STATE, tier, workers, "engineer"));
+        if (extraFissionPlants > 0) {
+            facilities.add(com.spaceconquest.engine.industry.GenerationCapacity.pool(facility(prefix + "fission_extra_0", home, "nuclear_power_app",
+                    empire.id(), IndustrialFacility.PUBLIC_STATE, tier, workers, "engineer"), extraFissionPlants));
         }
 
         if (empire.societyStructure() != null && empire.societyStructure().toLowerCase().contains("hive")) {
@@ -128,7 +133,7 @@ public class StartingEconomySeeder {
                     .map(facility -> new IndustrialFacility(facility.id(), facility.planetId(),
                             facility.applicationId(), empire.id(), IndustrialFacility.HIVE_GRID,
                             facility.tier(), facility.allocatedWorkers(), facility.workerProfessionId(),
-                            false, 0.0))
+                            false, 0.0, facility.productionEquipment()))
                     .toList();
             return new HomeAssets(List.of(), gridFacilities);
         }
@@ -175,12 +180,18 @@ public class StartingEconomySeeder {
         double throughput = Math.pow(1.5, tier - 1)
                 * (scenario == GameStartScenario.PRE_SPACE_FLIGHT ? 1.0 : 1.10);
         Map<String, Integer> jobs = new HashMap<>();
-        jobs.put("farm", workersFor(basic.getOrDefault("food_matrix", 0.0), 120.0, 1, throughput));
+        var cultivation = com.spaceconquest.engine.industry.IndustryRecipeCatalog.find("industrial_soil_cultivation");
+        jobs.put("farm", workersFor(basic.getOrDefault("food_matrix", 0.0),
+                cultivation.outputsKg().get("food_matrix") / cultivation.farming().growingDays(),
+                cultivation.work().equipment().referenceOperators(), Math.pow(1.5, tier - 1)));
         double consumerKg = population * (0.005 + 0.001 * 500.0 / 800.0);
         double polymerKg = consumerKg * 0.499 + population * 0.001 * 200.0 / 800.0;
         jobs.put("consumer", workersFor(consumerKg, 1000.0, 10, throughput));
         jobs.put("luxury", workersFor(population * 0.001, 800.0, 10, throughput));
-        jobs.put("biomass", workersFor(polymerKg, 1000.0, 10, throughput));
+        var biomass = com.spaceconquest.engine.industry.IndustryRecipeCatalog.find("biomass_processing");
+        double biomassBatches = biomass.work().equipment().ratedWorkPerDay() / biomass.work().workPerBatch();
+        jobs.put("biomass", workersFor(polymerKg, biomass.outputsKg().get("bio_polymers") * biomassBatches,
+                biomass.work().equipment().referenceOperators(), throughput));
         double farmBatches = jobs.get("farm") * throughput;
         jobs.put("fiber", farmBatches > 0.0 ? 0 : workersFor(polymerKg, 1000.0, 10, throughput));
         double fiberBatches = jobs.get("fiber") * throughput / 10.0;
@@ -204,7 +215,8 @@ public class StartingEconomySeeder {
         jobs.put("rare_mine", workersFor(jobs.get("rare_refinery") * throughput * 100.0,
                 25.0, 100, throughput));
         jobs.put("water", workersFor(farmBatches * 50.0 + fiberBatches * 550.0
-                + jobs.get("biomass") * throughput * 10.0, 1000.0, 10, throughput));
+                + jobs.get("biomass") * throughput * biomassBatches * biomass.inputsKg().get("purified_water")
+                / biomass.work().equipment().referenceOperators(), 1000.0, 10, throughput));
         jobs.put("carbon", workersFor(jobs.get("silicon") * throughput * 18.75
                 + fiberBatches * 400.0 + 112.5 * throughput, 1000.0, 100, throughput));
         return Map.copyOf(jobs);
@@ -217,8 +229,27 @@ public class StartingEconomySeeder {
 
     private IndustrialFacility facility(String id, Planet home, String application, String owner,
                                         String ownership, int tier, int workers, String profession) {
+        var equipment = com.spaceconquest.engine.industry.ProductionWork.initialEquipment(application);
         return new IndustrialFacility(id, home.id(), application, owner, ownership, tier,
-                workers, profession, false, 0.0);
+                workers, equipment == null ? profession : equipment.operatorProfession(), false, 0.0);
+    }
+
+    /** Opening workforce plans commission real parallel lines rather than overstaffing one machine. */
+    private ArrayList<IndustrialFacility> openingProcessLines(List<IndustrialFacility> planned) {
+        var result = new ArrayList<IndustrialFacility>();
+        for (var facility : planned) {
+            var equipment = facility.productionEquipment();
+            if (equipment == null || equipment.referenceOperators() <= 0 || facility.allocatedWorkers() <= equipment.referenceOperators()) {
+                result.add(facility); continue;
+            }
+            int lines = Math.max(equipment.parallelLines(), Math.ceilDiv(facility.allocatedWorkers(), equipment.referenceOperators()));
+            var installed = new com.spaceconquest.engine.industry.ProductionEquipment(equipment.id(), equipment.processType(),
+                    equipment.workUnitsPerDay(), equipment.referenceOperators(), equipment.operatorProfession(),
+                    equipment.autonomousFraction(), equipment.operatorSkill(), lines);
+            result.add(new IndustrialFacility(facility.id(), facility.planetId(), facility.applicationId(), facility.ownerEntityId(),
+                    facility.ownershipType(), facility.tier(), facility.allocatedWorkers(), installed.operatorProfession(), false, 0, installed));
+        }
+        return result;
     }
 
     private Corporation corporation(String id, Empire empire, Planet home, String orientation,

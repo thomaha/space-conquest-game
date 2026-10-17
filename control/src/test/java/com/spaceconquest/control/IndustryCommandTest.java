@@ -30,13 +30,15 @@ public class IndustryCommandTest {
                 .turn(1)
                 .status("RUNNING")
                 .geologicalDeposits(List.of(hiddenVein))
+                .empires(List.of(new com.spaceconquest.engine.Empire("emp_terran", "Terran", "human", "Individualist", 100000, 0,
+                        List.of("sol"), List.of(), java.util.Map.of(), List.of("industrial_production", "pyro_iron_smelting"), List.of())))
                 .build();
     }
 
     @Test
     public void testBuildFacilityCommand() {
         BuildFacilityCommand cmd = new BuildFacilityCommand(
-                "earth", "refining_blast_furnace", "emp_terran",
+                "earth", "pyro_iron_smelting", "emp_terran",
                 IndustrialFacility.PUBLIC_STATE, 25, "industrial_worker"
         );
         assertTrue(cmd.validate(initialState));
@@ -45,7 +47,7 @@ public class IndustryCommandTest {
         assertEquals(1, stateWithFacility.industrialFacilities().size());
         IndustrialFacility fac = stateWithFacility.industrialFacilities().getFirst();
         assertEquals("earth", fac.planetId());
-        assertEquals("refining_blast_furnace", fac.applicationId());
+        assertEquals("pyro_iron_smelting", fac.applicationId());
         assertEquals(0, fac.tier());
         assertEquals(25, fac.allocatedWorkers());
         assertTrue(fac.isUndergoingExpansion());
@@ -55,7 +57,7 @@ public class IndustryCommandTest {
     @Test
     public void testExpandFacilityCommand() {
         BuildFacilityCommand buildCmd = new BuildFacilityCommand(
-                "earth", "refining_blast_furnace", "emp_terran",
+                "earth", "pyro_iron_smelting", "emp_terran",
                 IndustrialFacility.PUBLIC_STATE, 25, "industrial_worker"
         );
         GameState site = buildCmd.apply(initialState);
@@ -80,9 +82,7 @@ public class IndustryCommandTest {
     @Test
     public void testStartProspectingMissionCommand() {
         StartProspectingMissionCommand cmd = new StartProspectingMissionCommand("earth", "emp_terran");
-        assertTrue(cmd.validate(initialState));
-
-        GameState postSurveyState = cmd.apply(initialState);
-        assertFalse(postSurveyState.geologicalDeposits().isEmpty());
+        assertFalse(cmd.validate(initialState), "An unresearched and unequipped survey cannot discover free ore");
+        assertSame(initialState, cmd.apply(initialState));
     }
 }

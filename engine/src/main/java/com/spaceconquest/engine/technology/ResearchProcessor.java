@@ -14,13 +14,22 @@ import java.util.Random;
 public class ResearchProcessor {
 
     private final Random random;
+    private final ResearchPolicy policy;
 
     public ResearchProcessor() {
         this(new Random());
     }
 
     public ResearchProcessor(Random random) {
-        this.random = random;
+        this(random, ResearchPolicy.current());
+    }
+    public ResearchProcessor(Random random, ResearchPolicy policy) { this.random = random; this.policy = policy; }
+    public ResearchProject advanceFundedProject(ResearchProject project, double points, List<TechnologyExchangeRoute> routes) {
+        if (project.assignedScientists() <= 0 || project.isComplete()) return project;
+        double earned = ResearchFunding.earned(project, points, routes);
+        return new ResearchProject(project.id(), project.empireId(), project.targetTechOrAppId(), project.isApplication(),
+                Math.min(project.requiredPoints(), project.accumulatedPoints() + earned), project.requiredPoints(),
+                project.assignedScientists(), project.speedModifier(), project.decision());
     }
 
     /**
@@ -100,7 +109,7 @@ public class ResearchProcessor {
                 newAccumulated,
                 project.requiredPoints(),
                 project.assignedScientists(),
-                project.speedModifier()
+                project.speedModifier(), project.decision()
         );
     }
 
@@ -117,35 +126,7 @@ public class ResearchProcessor {
     }
 
     public ResearchVarianceResult rollBreakthrough(double roll) {
-        if (roll < 0.05) {
-            return new ResearchVarianceResult(
-                    ResearchVarianceResult.CRITICAL_BREAKTHROUGH,
-                    1.20,
-                    0.85,
-                    0
-            );
-        } else if (roll < 0.50) {
-            return new ResearchVarianceResult(
-                    ResearchVarianceResult.OPTIMIZED_SUCCESS,
-                    1.00,
-                    1.00,
-                    0
-            );
-        } else if (roll < 0.90) {
-            return new ResearchVarianceResult(
-                    ResearchVarianceResult.INCREMENTAL_GAIN,
-                    1.10,
-                    1.05,
-                    1
-            );
-        } else {
-            return new ResearchVarianceResult(
-                    ResearchVarianceResult.FLAWED_SETBACK,
-                    1.05,
-                    1.25,
-                    2
-            );
-        }
+        return policy.roll(roll);
     }
 
     /**
@@ -158,17 +139,17 @@ public class ResearchProcessor {
         if ("PATH_A".equalsIgnoreCase(pathChoice) || "PERFORMANCE".equalsIgnoreCase(pathChoice)) {
             return new ResearchVarianceResult(
                     ResearchVarianceResult.OPTIMIZED_SUCCESS,
-                    1.15 * factor,
-                    1.20 * factor,
-                    (int) Math.round(1.0 * factor)
+                    policy.performance().effectMultiplier() * factor,
+                    policy.performance().costMultiplier() * factor,
+                    (int) Math.round(policy.performance().complexityShift() * factor)
             );
         } else {
             // Default to Path B (miniaturization)
             return new ResearchVarianceResult(
                     ResearchVarianceResult.OPTIMIZED_SUCCESS,
-                    1.00,
-                    0.85 * factor,
-                    -(int) Math.round(1.0 * factor)
+                    policy.miniaturization().effectMultiplier(),
+                    policy.miniaturization().costMultiplier() * factor,
+                    (int) Math.round(policy.miniaturization().complexityShift() * factor)
             );
         }
     }

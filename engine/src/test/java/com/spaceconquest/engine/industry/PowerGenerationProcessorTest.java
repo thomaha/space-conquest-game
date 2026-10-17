@@ -39,7 +39,7 @@ class PowerGenerationProcessorTest {
     @Test
     void staffedReactorPaysForFuelAndReplacesStoredGenerationEstimate() {
         GameState state = state(List.of("electricity", "nuclear_fission"), 10.0, 500.0);
-        var result = generator.process(state, Map.of("reactor", 100), Map.of("reactor", 40.0));
+        var result = generator.process(state, Map.of("reactor", 100), Map.of("reactor", 40.0), false);
 
         assertEquals(10_000.0, result.generationKw().get("earth"), 0.001);
         assertEquals(240_000.0, result.accounts().getFirst().generatedKwh(), 0.001);
@@ -70,7 +70,7 @@ class PowerGenerationProcessorTest {
 
     @Test
     void renewableCombustionAndFusionPlantsUseDistinctFuelRules() {
-        GameState base = state(List.of("electricity", "nuclear_fusion"), 0.0, 500.0);
+        GameState base = state(List.of("electricity", "nuclear_fusion", "solar_power", "combustion_power", "fusion_power_app"), 0.0, 500.0);
         IndustrialFacility solar = plant("solar", "solar_power");
         IndustrialFacility combustion = plant("burner", "combustion_power");
         IndustrialFacility fusion = plant("fusion", "fusion_power_app");
@@ -83,7 +83,7 @@ class PowerGenerationProcessorTest {
                         IndustryAccount.empty("burner").withOperatingCash(500.0),
                         IndustryAccount.empty("fusion").withOperatingCash(500.0))).build();
 
-        var result = generator.process(state, Map.of("solar", 100, "burner", 100, "fusion", 100), Map.of());
+        var result = generator.process(state, Map.of("solar", 100, "burner", 100, "fusion", 100), Map.of(), false);
         assertEquals(29_500.0, result.generationKw().get("earth"), 0.001);
         assertEquals(0.0, result.accounts().getFirst().generatedKwh(), 0.001);
         assertEquals(0.0, result.accounts().getFirst().inputCostsCredits(), 0.001);
@@ -102,16 +102,42 @@ class PowerGenerationProcessorTest {
                 List.of(), List.of(moon), List.of());
         SolarSystem sol = new SolarSystem("sol", "Sol", "", 0.0, 0.0, 0.0,
                 1.989e30, 1.0, "Yellow", List.of(earth), List.of());
-        GameState state = state(List.of("electricity"), 0.0, 500.0).toBuilder()
+        GameState state = state(List.of("electricity", "solar_power", "wind_power", "hydropower"), 0.0, 500.0).toBuilder()
                 .solarSystems(List.of(sol))
                 .industrialFacilities(List.of(plant("solar", "solar_power", "moon"),
                         plant("wind", "wind_power", "moon"),
                         plant("hydro", "hydropower", "moon"))).build();
 
-        var result = generator.process(state, Map.of("solar", 100, "wind", 100, "hydro", 100), Map.of());
+        var result = generator.process(state, Map.of("solar", 100, "wind", 100, "hydro", 100), Map.of(), false);
         assertEquals(6_000.0, result.generationKw().get("moon"), 0.001);
         assertEquals(0.0, result.accounts().get(1).generatedKwh(), 0.001);
         assertEquals(0.0, result.accounts().get(2).generatedKwh(), 0.001);
+    }
+
+    @Test void normalDispatchBuysOnlyFuelForDemandAndAvailableBatteryRoom() {
+        var state = state(List.of("electricity", "nuclear_fission"), 10, 500).toBuilder()
+                .powerGrids(List.of(new PowerGridState("earth", 0, 0, 0, 2000, 0, false))).build();
+        var result = generator.process(state, Map.of("reactor", 100), Map.of());
+        assertEquals(2000, result.accounts().getFirst().generatedKwh(), 1e-8);
+        assertEquals(10.0 * 2000 / 240000 * 2, result.accounts().getFirst().inputCostsCredits(), 1e-8);
+        var full = state.toBuilder().powerGrids(List.of(new PowerGridState("earth", 0, 0, 0, 2000, 2000, false))).build();
+        var idle = generator.process(full, Map.of("reactor", 100), Map.of());
+        assertEquals(0, idle.accounts().getFirst().generatedKwh());
+        assertEquals(0, idle.accounts().getFirst().inputCostsCredits());
+        assertEquals(10, idle.hubs().getFirst().activeOrders().get("refined_uranium").supplyKg());
+    }
+
+    @Test void anUnfueledPlantDoesNotCurtailAnotherPlantsAvailableOutput() {
+        var state = state(List.of("electricity", "nuclear_fission", "combustion_power"), 0, 500);
+        var burner = plant("burner", "combustion_power");
+        var hub = new CommercialHub("hub", "earth", 0, 1000, 100, 10,
+                Map.of("hydrocarbons", new MarketOrder("hydrocarbons", 100, 0, 2, 0)));
+        state = state.toBuilder().industrialFacilities(List.of(state.industrialFacilities().getFirst(), burner)).commercialHubs(List.of(hub))
+                .industryAccounts(List.of(IndustryAccount.empty("reactor").withOperatingCash(500), IndustryAccount.empty("burner").withOperatingCash(500)))
+                .powerGrids(List.of(new PowerGridState("earth", 0, 0, 0, 1000, 0, false))).build();
+        var result = generator.process(state, Map.of("reactor", 100, "burner", 100), Map.of());
+        assertEquals(1000, result.accounts().stream().mapToDouble(IndustryAccount::generatedKwh).sum(), 1e-8);
+        assertEquals(0, result.accounts().getFirst().generatedKwh());
     }
 
     private IndustrialFacility plant(String id, String application) {
@@ -124,8 +150,9 @@ class PowerGenerationProcessorTest {
     }
 
     private GameState state(List<String> tech, double fuelKg, double treasury) {
+        var knowledge = new java.util.ArrayList<>(tech); knowledge.add("nuclear_power_app");
         Empire empire = new Empire("empire", "Empire", "human", "Individualist", treasury,
-                0.2, List.of("sol"), List.of(), Map.of(), tech, List.of());
+                0.2, List.of("sol"), List.of(), Map.of(), knowledge, List.of());
         IndustrialFacility reactor = new IndustrialFacility("reactor", "earth", "nuclear_power_app",
                 "empire", IndustrialFacility.PUBLIC_STATE, 1, 100, "engineer", false, 0.0);
         CommercialHub hub = new CommercialHub("hub", "earth", 0.05, 1_000.0, fuelKg, 10.0,

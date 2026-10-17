@@ -50,11 +50,12 @@ public record CreateTradeRouteCommand(
                 || !Double.isFinite(maxDestinationCapacityKg) || maxDestinationCapacityKg <= 0)
             return false;
         String shipId = assignedFreighterIds.getFirst();
-        if (shipId == null || state.tradeRoutes().stream().anyMatch(route -> route.isActive()
+        if (com.spaceconquest.engine.ship.ShipRefitPlan.reserved(state, shipId)) return false;
+        if (shipId == null || state.tradeRoutes().stream().anyMatch(route -> route.carrierCommitted()
                 && route.assignedFreighterIds().contains(shipId))) return false;
         boolean fleetIsCommitted = state.fleets().stream().filter(fleet ->
                 fleet.ships().stream().anyMatch(ship -> shipId.equals(ship.id())))
-                .anyMatch(fleet -> state.tradeRoutes().stream().filter(TradeRoute::isActive)
+                .anyMatch(fleet -> state.tradeRoutes().stream().filter(TradeRoute::carrierCommitted)
                         .flatMap(route -> route.assignedFreighterIds().stream())
                         .anyMatch(assigned -> fleet.ships().stream()
                                 .anyMatch(ship -> assigned.equals(ship.id()))));

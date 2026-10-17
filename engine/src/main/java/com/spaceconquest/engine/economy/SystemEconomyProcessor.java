@@ -93,7 +93,7 @@ public class SystemEconomyProcessor {
                     5000.0,
                     1.0, 1.0, 1.0, 1.0, 1.0,
                     Math.max(10, (long) (systemPopulation * 0.0005)),
-                    Math.max(10, (long) (systemPopulation * 0.0003)),
+                    Math.max(0, (long) (systemPopulation * 0.0003)),
                     Math.max(15, (long) (systemPopulation * 0.0008)),
                     Math.max(10, (long) (systemPopulation * 0.0004)),
                     Math.max(20, (long) (systemPopulation * 0.0010)),
@@ -144,7 +144,7 @@ public class SystemEconomyProcessor {
         double updatedMilitiaInvestment = (current.accumulatedMilitiaInvestment() * MILITIA_INVESTMENT_DECAY) + turnMilitiaSpending;
 
         long teachers = Math.max(10, Math.round(systemPopulation * 0.0005 * eduIndex));
-        long scientists = Math.max(10, Math.round(systemPopulation * 0.0003 * eduIndex));
+        long scientists = Math.max(0, Math.round(systemPopulation * 0.0003 * eduIndex));
         long police = Math.max(15, Math.round(systemPopulation * 0.0008 * lawIndex));
         long medics = Math.max(10, Math.round(systemPopulation * 0.0004 * healthIndex));
         long engineers = Math.max(20, Math.round(systemPopulation * 0.0010 * infraIndex));

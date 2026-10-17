@@ -85,12 +85,18 @@ public final class FleetThreatAssessment {
             double meters = opponents == null ? 0 : opponents.stream()
                     .mapToDouble(target -> ShipWeaponRange.separation(state, fleet, target)).min().orElse(Double.POSITIVE_INFINITY);
             for (var ship : fleet.ships()) {
-                if (ship.currentHullHealth() <= 0) continue;
+                if (ShipRefitPlan.reserved(state, ship.id()) || ship.currentHullHealth() <= 0) continue;
                 var design = state.shipDesigns().stream().filter(item -> ship.designId().equals(item.id())).findFirst().orElse(null);
                 var stats = com.spaceconquest.engine.combat.ShipCombatStats.of(design, ship);
                 double stance = com.spaceconquest.engine.combat.ShipCombatStats.stanceModifier(fleet.fleetStance());
                 double funded = ShipCombatPower.fundedFirepower(ship, design,
                         com.spaceconquest.engine.combat.TacticalCombatProcessor.SECONDS_PER_ROUND / 3600, stance > 0, meters);
+                var battery = state.auxiliaryForces().batteries().stream().filter(b -> b.ownerEntityId().equals(fleet.ownerEntityId())
+                        && b.battery().combatEntityId().equals(ship.id()) && fleet.location().isAt(FleetLocation.Site.surface(b.battery().planetId())))
+                        .map(com.spaceconquest.engine.combat.AuxiliaryForces.OwnedBattery::battery).findFirst().orElse(null);
+                if (battery != null) funded = battery.isOperational() && Double.isFinite(meters) && stance > 0
+                        ? battery.stores().fire(battery.weapon(), 1, meters).hits().stream().mapToDouble(com.spaceconquest.engine.ship.WeaponHit::damage).sum()
+                                * ship.moduleDamage().condition(0) : 0;
                 firepower += funded * stance;
                 endurance += stats.endurance();
             }

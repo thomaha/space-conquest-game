@@ -11,7 +11,7 @@ public record GuardObjectCommand(String ownerEntityId, String fleetId,
         if (state == null || ownerEntityId == null || fleetId == null || targetType == null || targetId == null) return false;
         var fleet = state.fleets().stream().filter(item -> fleetId.equals(item.id())
                 && ownerEntityId.equals(item.ownerEntityId())).findFirst().orElse(null);
-        if (fleet == null || fleet.ships().isEmpty()
+        if (fleet == null || ShipRefitPlan.reserved(state, fleet) || fleet.ships().isEmpty()
                 || fleet.ships().stream().anyMatch(ship -> !ownerEntityId.equals(ship.ownerEntityId()))
                 || fleet.ships().stream().noneMatch(ship -> state.shipDesigns().stream().anyMatch(design ->
                 ship.designId().equals(design.id()) && ownerEntityId.equals(design.ownerEntityId())

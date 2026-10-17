@@ -24,20 +24,26 @@ public final class OrbitalDocking {
     private OrbitalDocking() {}
 
     static LocalTravel.Plan stationary(GameState state, Fleet fleet, FleetLocation.Site target, OrbitalTravel.Parking from) {
+        return stationary(state, fleet, target, from, false);
+    }
+    static LocalTravel.Plan stationary(GameState state, Fleet fleet, FleetLocation.Site target, OrbitalTravel.Parking from, boolean economical) {
         var motion = fleet.location().current().kind() == FleetLocation.Kind.DOCKED
                 ? StationRendezvous.at(state, fleet.location().current().entityId(), state.turn())
                 : StationRendezvous.at(from.body(), from.altitudeKm(), state.turn());
-        return StationRendezvous.plan(state, coast(state, fleet, from.body(), motion.position(), motion.velocity(), false), target);
+        return StationRendezvous.plan(state, coast(state, fleet, from.body(), motion.position(), motion.velocity(), false), target, economical);
     }
 
     static LocalTravel.Plan plan(GameState state, Fleet fleet, FleetLocation.Site target, LocalTravel.Plan nativePlan) {
+        return plan(state, fleet, target, nativePlan, false);
+    }
+    static LocalTravel.Plan plan(GameState state, Fleet fleet, FleetLocation.Site target, LocalTravel.Plan nativePlan, boolean economical) {
         var original = nativePlan.orbital();
         double departure = Math.max(86400, Math.ceil(original.maneuvers().get(1).seconds() / 86400) * 86400);
         var projected = fleet.withShips(fleet.ships().stream().map(ship -> OrbitalPowerAccounting.captureProjection(ship,
                 FleetSupplySimulation.design(state, ship), original, departure).ship()).toList());
         var parked = captured(state, projected, original, departure, false);
         var future = state.withTurn(state.turn() + Math.round(departure / 86400));
-        var approach = StationRendezvous.plan(future, parked, target);
+        var approach = StationRendezvous.plan(future, parked, target, economical);
         if (approach == null) throw new IllegalArgumentException("No funded station rendezvous after orbital capture");
         var itinerary = original.withDocking(new Approach(departure, approach.physical(), ShipSolarEnvironment.journey(future, parked, target)));
         var fuel = new HashMap<String, Double>();

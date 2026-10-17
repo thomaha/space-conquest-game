@@ -1,0 +1,16 @@
+{
+  "maximumRequestsPerTurn": 8,
+  "propellantReserveFraction": 0.25,
+  "maximumTargetPreviews": 16,
+  "defenseWeight": 30,
+  "detectedThreatWeight": 100,
+  "escortWeight": 60,
+  "reinforcementWeight": 40,
+  "friendlyForceWeight": 30,
+  "incomingWeight": 40,
+  "distanceWeight": 10,
+  "remotePriorityMargin": 10,
+  "maximumTravelDays": 365,
+  "arrivalPropellantFraction": 0.1,
+  "minimumTreasuryCredits": 1000
+}

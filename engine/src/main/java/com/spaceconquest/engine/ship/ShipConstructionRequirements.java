@@ -22,8 +22,13 @@ public final class ShipConstructionRequirements {
 
     public static Estimate estimate(ShipDesign design) {
         if (design == null) return new Estimate(Map.of(), 0.0);
-        return estimate(design.totalDryMassKg(), design.hullMaterialId(),
-                design.armorMaterialId(), design.equippedModuleIds(), design.manufacturingProfile());
+        if (design.assembly() != null) {
+            var total = design.assembly().total();
+            return new Estimate(total.materialsKg(), total.workHours());
+        }
+        var materials = new LinkedHashMap<String, Double>();
+        ConstructionMaterialCatalog.ship(design).forEach((id, kg) -> materials.put(id, kg * design.manufacturingProfile().costMultiplier()));
+        return new Estimate(materials, Math.max(MINIMUM_WORK_UNITS, design.totalDryMassKg() / KG_PER_WORK_UNIT) * design.manufacturingProfile().costMultiplier());
     }
 
     public static Estimate estimate(double dryMassKg, String hullMaterialId,

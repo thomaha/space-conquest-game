@@ -72,7 +72,7 @@ public class SpaceConquestEngineTest {
         List<CommercialHub> starved = opening.commercialHubs().stream().map(hub -> {
             if (!"earth".equals(hub.entityId())) return hub;
             Map<String, MarketOrder> orders = new HashMap<>(hub.activeOrders());
-            orders.put("food_matrix", new MarketOrder("food_matrix", 0.0, 0.0, 2.0, 0.0));
+            orders.put("food_matrix", new MarketOrder("food_matrix", 0.0, 100000.0, 2.0, 100.0));
             for (String material : List.of("refined_iron", "refined_aluminum", "refined_copper", "silicon")) {
                 orders.put(material, new MarketOrder(material, 2_000.0, 0.0, 1.0, 0.0));
             }
@@ -83,6 +83,7 @@ public class SpaceConquestEngineTest {
             if (!"terran_confederation".equals(empire.id())) return empire;
             List<String> technologies = new ArrayList<>(empire.unlockedTechIds());
             technologies.add("industrial_production");
+            technologies.add("industrial_soil_cultivation");
             return new Empire(empire.id(), empire.name(), empire.raceId(), empire.societyStructure(),
                     empire.treasuryCredits(), empire.corporateTaxRate(), empire.controlledSystemIds(),
                     empire.ministries(), empire.systemGovernorAssignments(), technologies,

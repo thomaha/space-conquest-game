@@ -12,9 +12,12 @@ public record AssignAIShipServiceCommand(String ownerEntityId, String fleetId) i
         if (state == null || ownerEntityId == null || fleetId == null) return null;
         if (state.empires().stream().noneMatch(empire -> ownerEntityId.equals(empire.id()))
                 && state.corporations().stream().noneMatch(corp -> ownerEntityId.equals(corp.id()))) return null;
+        var home = com.spaceconquest.engine.economy.EconomicOwnership.empireFor(state, ownerEntityId);
+        if (home == null || !ownerEntityId.equals(home.id()) && !com.spaceconquest.engine.economy.EconomicOwnership.corporationsAllowed(home)) return null;
         var fleet = state.fleets().stream().filter(item -> fleetId.equals(item.id())
                 && ownerEntityId.equals(item.ownerEntityId())).findFirst().orElse(null);
-        if (fleet == null || fleet.hasInterstellarOrder() || fleet.location().inTransit() || fleet.ships().isEmpty()
+        if (fleet == null || ShipRefitPlan.reserved(state, fleet) || fleet.hasInterstellarOrder() || fleet.location().inTransit() || fleet.ships().isEmpty()
+                || fleet.ships().stream().anyMatch(ship -> state.shipyardLedger().deployments().containsKey(ship.id()))
                 || !"PASSIVE".equalsIgnoreCase(fleet.fleetStance())
                 || fleet.ships().stream().anyMatch(ship -> !ownerEntityId.equals(ship.ownerEntityId()))
                 || state.tradeRoutes().stream().anyMatch(route -> (route.isActive() || route.onboardKg() > 0

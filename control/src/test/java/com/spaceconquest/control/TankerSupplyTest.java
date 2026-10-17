@@ -141,7 +141,7 @@ class TankerSupplyTest {
         manager.save(file, current, 1, "2027-01-01T08:00:00");
         var mapper = new ObjectMapper();
         var json = (ObjectNode) mapper.readTree(file);
-        json.put("version", 33);
+        json.put("version", com.spaceconquest.engine.SaveGame.CURRENT_VERSION);
         ((ObjectNode) json.get("fleets").get(0)).remove("journeyPropulsion");
         ((ObjectNode) json.get("fleets").get(0).get("ships").get(0).get("supplyState").get("order")).remove("destination");
         mapper.writeValue(file, json);

@@ -16,5 +16,16 @@ public record ShipHullFrame(
         int totalSlots,
         String structuralMaterialId,
         double frameMassKg,
-        double baseStructuralStrength
-) {}
+        double baseStructuralStrength,
+        String applicationId,
+        int researchedMaximumSlots,
+        double strengthMultiplier
+) {
+    public ShipHullFrame {
+        if (totalSlots < 1 || researchedMaximumSlots < totalSlots || !Double.isFinite(frameMassKg) || frameMassKg <= 0
+                || !Double.isFinite(strengthMultiplier) || strengthMultiplier <= 0) throw new IllegalArgumentException("Invalid captured hull definition");
+    }
+    public ShipHullFrame(String id, String name, int totalSlots, String structuralMaterialId, double frameMassKg, double baseStructuralStrength) {
+        this(id, name, totalSlots, structuralMaterialId, frameMassKg, baseStructuralStrength, "", totalSlots, 1);
+    }
+}

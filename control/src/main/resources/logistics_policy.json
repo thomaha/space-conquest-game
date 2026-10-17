@@ -1,0 +1,11 @@
+{
+  "shortageObservationTurns": 2,
+  "reorderDays": 1,
+  "targetDays": 3,
+  "sourceReserveDays": 3,
+  "minimumDeliveryDays": 1,
+  "maximumDepartureCostCredits": 50000,
+  "treasuryReserveCredits": 10000,
+  "maximumShipmentPreviews": 8,
+  "maximumRepositionDays": 30
+}

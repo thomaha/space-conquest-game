@@ -1,0 +1,7 @@
+{
+  "publicYardsOpen": true,
+  "corporateYardsOpen": true,
+  "feeCreditsPerWorkUnit": 2,
+  "maximumQueuedWorkDays": 30,
+  "maximumHistoryEntries": 256
+}

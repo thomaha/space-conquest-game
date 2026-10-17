@@ -25,7 +25,7 @@ class NewPillarsIntegrationTest {
     void setUp() {
         Empire terran = new Empire(
                 "terran_confederation", "Terran Confederation", "human", "Individualist",
-                100000.0, 0.12, List.of("sol"), List.of(), java.util.Map.of(), List.of(), List.of()
+                100000.0, 0.12, List.of("sol"), List.of(), java.util.Map.of(), List.of("electricity", "solar_power"), List.of()
         );
 
         Fleet testFleet = new Fleet(
@@ -44,7 +44,7 @@ class NewPillarsIntegrationTest {
     @Test
     void testPlaceFacilityOnTileCommand() {
         PlaceFacilityOnTileCommand cmd = new PlaceFacilityOnTileCommand(
-                "earth", 5, "solar_power_array", "terran_confederation", "PUBLIC_STATE", 50, "technician"
+                "earth", 5, "solar_power", "terran_confederation", "PUBLIC_STATE", 50, "technician"
         );
 
         assertTrue(cmd.validate(initialState));
@@ -53,7 +53,7 @@ class NewPillarsIntegrationTest {
         assertNotNull(nextState);
         assertEquals(1, nextState.industrialFacilities().size());
         assertEquals("earth", nextState.industrialFacilities().getFirst().planetId());
-        assertEquals("solar_power_array", nextState.industrialFacilities().getFirst().applicationId());
+        assertEquals("solar_power", nextState.industrialFacilities().getFirst().applicationId());
     }
 
     @Test

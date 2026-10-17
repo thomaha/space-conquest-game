@@ -27,7 +27,14 @@ public final class LaunchService {
     public record Plan(Mode mode, String providerId, String providerOwnerId,
                        String bodyId, String hubId, double payloadKg,
                        double serviceFeeCredits, double fuelKg, double fuelCostCredits,
-                       double powerKw, double powerCostCredits) {
+                       double powerKw, double powerCostCredits, Map<String, Double> fuelMaterialsKg) {
+        public Plan { fuelMaterialsKg = Map.copyOf(fuelMaterialsKg); }
+        public Plan(Mode mode, String providerId, String providerOwnerId, String bodyId, String hubId,
+                    double payloadKg, double serviceFeeCredits, double fuelKg, double fuelCostCredits,
+                    double powerKw, double powerCostCredits) {
+            this(mode, providerId, providerOwnerId, bodyId, hubId, payloadKg, serviceFeeCredits,
+                    fuelKg, fuelCostCredits, powerKw, powerCostCredits, Map.of());
+        }
         public double totalCredits() { return serviceFeeCredits + fuelCostCredits + powerCostCredits; }
     }
 
@@ -74,35 +81,40 @@ public final class LaunchService {
         for (IndustrialFacility facility : state.industrialFacilities()) {
             if (!bodyId.equals(facility.planetId()) || facility.tier() <= 0
                     || !knownOwner(state, facility.ownerEntityId())) continue;
-            if ("cargo_terminal".equals(facility.applicationId())) {
-                Plan rocket = rocket(state, facility, hub, payloadKg, shipLaunch, shipDryMassKg);
-                if (rocket != null && available(state, facility.id(),
-                        100_000.0 * facility.tier(), payloadKg)) plans.add(rocket);
-            } else if (!shipLaunch && !passengers
-                    && "mass_driver".equals(facility.applicationId())) {
-                double capacity = 1_000.0 * facility.tier();
-                double power = 250.0 * facility.tier();
+            var definition = InfrastructureService.find(facility.applicationId());
+            if (definition == null) continue;
+            var service = definition.capability();
+            if (service.mode() == Mode.SPACE_ELEVATOR) continue;
+            if ((shipLaunch && !service.shipLaunch()) || (passengers && !service.passengers())) continue;
+            if (!available(state, facility.id(), LaunchServiceWork.capacity(state, facility.id()), payloadKg)) continue;
+            if (service.mode() == Mode.ROCKET) {
+                Plan rocket = rocket(state, facility, hub, payloadKg, shipLaunch, shipDryMassKg, service);
+                if (rocket != null) plans.add(rocket);
+            } else {
+                double power = service.powerKwPerTier() * facility.tier() + service.powerKwPerKg() * payloadKg;
                 double electricity = electricityCost(state, bodyId, power);
-                if (available(state, facility.id(), capacity, payloadKg)
-                        && hasPower(state, bodyId, power))
-                    plans.add(new Plan(Mode.MASS_DRIVER, facility.id(), facility.ownerEntityId(),
+                if (hasPower(state, bodyId, power))
+                    plans.add(new Plan(service.mode(), facility.id(), facility.ownerEntityId(),
                             bodyId, hub.id(), payloadKg,
-                            Math.max(0.01, payloadKg * 0.0005 + electricity * 1.5),
+                            LaunchServiceWork.fee(state, facility.id(), payloadKg, electricity,
+                                    Math.max(service.minimumFee(), payloadKg * service.feePerKg() + electricity * service.powerPriceMultiplier())),
                             0.0, 0.0, power, electricity));
             }
         }
         for (SpaceElevator elevator : state.spaceElevators()) {
-            double power = payloadKg * 0.02;
+            var service = InfrastructureService.find("SPACE_ELEVATOR").capability();
+            double power = payloadKg * service.powerKwPerKg();
             if (!bodyId.equals(elevator.planetId()) || !elevator.isOperational()
                     || elevator.structuralIntegrityPercent() <= 0.0
                     || !knownOwner(state, elevator.ownerEntityId())
                     || !available(state, elevator.id(),
-                    elevator.transitThroughputCapacityKgPerTurn(), payloadKg)
+                    Math.min(elevator.transitThroughputCapacityKgPerTurn(), LaunchServiceWork.capacity(state, elevator.id())), payloadKg)
                     || !hasPower(state, bodyId, power)) continue;
             plans.add(new Plan(Mode.SPACE_ELEVATOR, elevator.id(), elevator.ownerEntityId(),
                     bodyId, hub.id(), payloadKg,
-                    Math.max(0.01, payloadKg * 0.05
-                            * (1.0 - Math.clamp(elevator.surfaceToOrbitCostDiscount(), 0.0, 1.0))),
+                    LaunchServiceWork.fee(state, elevator.id(), payloadKg, electricityCost(state, bodyId, power),
+                            Math.max(service.minimumFee(), payloadKg * service.feePerKg()
+                                    * (1.0 - Math.clamp(elevator.surfaceToOrbitCostDiscount(), 0.0, 1.0)))),
                     0.0, 0.0, power, electricityCost(state, bodyId, power)));
         }
         double cash = balance(state, payerId);
@@ -117,32 +129,33 @@ public final class LaunchService {
 
     private static Plan rocket(GameState state, IndustrialFacility facility,
                                CommercialHub hub, double payloadKg, boolean shipLaunch,
-                               double shipDryMassKg) {
-        PropulsionCatalog.Drive drive = PropulsionCatalog.drive("mod_chemical_rocket");
-        MarketOrder fuel = hub.activeOrders().get(drive.propellantId());
-        MarketOrder oxidizer = hub.activeOrders().get(drive.oxidizerId());
-        if (fuel == null || oxidizer == null || !Double.isFinite(fuel.pricePerKg())
-                || !Double.isFinite(oxidizer.pricePerKg()) || fuel.pricePerKg() <= 0.0
-                || oxidizer.pricePerKg() <= 0.0)
-            return null;
-        double dryMass = shipLaunch ? shipDryMassKg : 1_000.0;
-        double blendedPrice = fuel.pricePerKg() * drive.fuelFraction()
-                + oxidizer.pricePerKg() * (1.0 - drive.fuelFraction());
+                               double shipDryMassKg, InfrastructureService service) {
+        PropulsionCatalog.Drive drive = PropulsionCatalog.drive(service.driveId());
+        if (drive == null) return null;
+        var mixture = drive.propellantMaterials(1);
+        double blendedPrice = 0;
+        for (var material : mixture.entrySet()) {
+            var order = hub.activeOrders().get(material.getKey());
+            if (order == null || !Double.isFinite(order.pricePerKg()) || order.pricePerKg() <= 0) return null;
+            blendedPrice += material.getValue() * order.pricePerKg();
+        }
+        double dryMass = shipLaunch ? shipDryMassKg : service.vehicleDryMassKg();
         OrbitalLiftProfile profile = OrbitalFreightCost.profile(state, hub.entityId(),
-                dryMass, payloadKg, blendedPrice);
-        if (profile == null || !Double.isFinite(profile.propellantConsumedKg())
-                || profile.propellantConsumedKg() * drive.fuelFraction() > fuel.supplyKg()
-                || profile.propellantConsumedKg() * (1.0 - drive.fuelFraction())
-                > oxidizer.supplyKg()) return null;
-        double fee = profile.spaceportHandlingFeeCredits()
-                + profile.turnaroundWearCostCredits();
+                dryMass, payloadKg, blendedPrice, drive.exhaustVelocityMps() / 9.80665);
+        if (profile == null || !Double.isFinite(profile.propellantConsumedKg())) return null;
+        var fuelMaterials = drive.propellantMaterials(profile.propellantConsumedKg());
+        if (fuelMaterials.entrySet().stream().anyMatch(e -> e.getValue() > hub.activeOrders().get(e.getKey()).supplyKg())) return null;
+        double fee = Math.max(service.minimumFee(), (dryMass + payloadKg) * service.feePerKg()
+                + profile.turnaroundWearCostCredits());
         return new Plan(Mode.ROCKET, facility.id(), facility.ownerEntityId(),
-                hub.entityId(), hub.id(), payloadKg, fee, profile.propellantConsumedKg(),
-                profile.propellantConsumedKg() * blendedPrice, 0.0, 0.0);
+                hub.entityId(), hub.id(), payloadKg, LaunchServiceWork.fee(state, facility.id(), payloadKg, 0, fee), profile.propellantConsumedKg(),
+                profile.propellantConsumedKg() * blendedPrice, 0.0, 0.0,
+                fuelMaterials);
     }
 
     public static GameState settle(GameState state, String payerId, Plan plan) {
-        if (plan == null || balance(state, payerId) + 0.000001 < payerCost(plan, payerId)
+        if (plan == null || !resourcesAvailable(state, plan)
+                || balance(state, payerId) + 0.000001 < payerCost(plan, payerId)
                 || !providerCanPayPower(state, plan, payerId))
             return state;
         GameState current = adjustOwner(state, payerId, -payerCost(plan, payerId));
@@ -163,8 +176,7 @@ public final class LaunchService {
     }
 
     private static GameState consumeFuel(GameState state, Plan plan) {
-        PropulsionCatalog.Drive drive = PropulsionCatalog.drive("mod_chemical_rocket");
-        Map<String, Double> consumed = drive.propellantMaterials(plan.fuelKg());
+        Map<String, Double> consumed = plan.fuelMaterialsKg();
         List<CommercialHub> hubs = new ArrayList<>(state.commercialHubs());
         for (int index = 0; index < hubs.size(); index++) {
             CommercialHub hub = hubs.get(index);
@@ -214,7 +226,7 @@ public final class LaunchService {
                 bodyId.equals(facility.planetId()) && facility.tier() > 0
                         && !IndustrialFacility.HIVE_GRID.equals(facility.ownershipType())
                         && PowerPlantCatalog.find(facility.applicationId()) != null);
-        return hasSeller ? powerKw * PowerBillingProcessor.PRICE_PER_KWH : 0.0;
+        return hasSeller ? powerKw * com.spaceconquest.engine.industry.GridSupplyPricing.price(state, bodyId) : 0.0;
     }
 
     private static boolean providerCanPayPower(GameState state, Plan plan, String payerId) {
@@ -253,6 +265,30 @@ public final class LaunchService {
                                      double capacityKg, double payloadKg) {
         return payloadKg + state.launchUsageKg().getOrDefault(providerId, 0.0)
                 <= capacityKg + 0.000001;
+    }
+
+    private static boolean resourcesAvailable(GameState state, Plan plan) {
+        if (plan.powerKw() > 0 && !hasPower(state, plan.bodyId(), plan.powerKw())) return false;
+        double capacity;
+        if (plan.mode() == Mode.SPACE_ELEVATOR) {
+            var elevator = state.spaceElevators().stream().filter(e -> plan.providerId().equals(e.id())
+                    && plan.providerOwnerId().equals(e.ownerEntityId()) && e.isOperational()
+                    && e.structuralIntegrityPercent() > 0).findFirst().orElse(null);
+            if (elevator == null) return false;
+            capacity = elevator.transitThroughputCapacityKgPerTurn();
+        } else {
+            var facility = state.industrialFacilities().stream().filter(f -> plan.providerId().equals(f.id())
+                    && plan.providerOwnerId().equals(f.ownerEntityId()) && f.tier() > 0).findFirst().orElse(null);
+            if (facility == null) return false;
+            var service = InfrastructureService.find(facility.applicationId());
+            if (service == null || service.capability().mode() != plan.mode()) return false;
+            capacity = service.capability().capacityKgPerTier() * facility.tier();
+        }
+        if (!available(state, plan.providerId(), Math.min(capacity, LaunchServiceWork.capacity(state, plan.providerId())), plan.payloadKg())) return false;
+        if (plan.fuelKg() <= 0) return true;
+        var hub = state.commercialHubs().stream().filter(h -> plan.hubId().equals(h.id())).findFirst().orElse(null);
+        return hub != null && !plan.fuelMaterialsKg().isEmpty() && plan.fuelMaterialsKg().entrySet().stream().allMatch(e ->
+                hub.activeOrders().containsKey(e.getKey()) && hub.activeOrders().get(e.getKey()).supplyKg() + 1e-6 >= e.getValue());
     }
 
     private static boolean knownOwner(GameState state, String ownerId) {

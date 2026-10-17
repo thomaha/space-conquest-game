@@ -6,7 +6,6 @@ import com.spaceconquest.control.command.AssignGovernorCommand;
 import com.spaceconquest.control.command.BuildMegastructureCommand;
 import com.spaceconquest.control.command.CommandQueue;
 import com.spaceconquest.control.command.ResolveDiplomaticProposalCommand;
-import com.spaceconquest.control.command.SetSystemEconomyBudgetCommand;
 import com.spaceconquest.control.command.StartResearchCommand;
 import com.spaceconquest.control.command.SubsidizeCorporationCommand;
 import com.spaceconquest.control.command.VoteResolutionCommand;
@@ -33,6 +32,12 @@ public class EmpireAIController implements Controller {
 
     private final String empireId;
     private final CommandQueue commandQueue;
+    private final EmpirePowerPlanner powerPlanner = new EmpirePowerPlanner();
+    private final EmpireOperatingCapitalPlanner operatingCapitalPlanner = new EmpireOperatingCapitalPlanner();
+    private final EmpireEconomicPlanner economicPlanner = new EmpireEconomicPlanner();
+    private final EmpireLogisticsPlanner logisticsPlanner = new EmpireLogisticsPlanner();
+    private final TransportConstructionPlanner transportConstructionPlanner = new TransportConstructionPlanner();
+    private final ShipyardInvestmentPlanner shipyardInvestmentPlanner = new ShipyardInvestmentPlanner();
 
     public EmpireAIController(String empireId, CommandQueue commandQueue) {
         this.empireId = empireId;
@@ -49,43 +54,43 @@ public class EmpireAIController implements Controller {
 
         Empire empire = state.empires().stream().filter(e -> e.id().equals(empireId)).findFirst().orElse(null);
         if (empire == null) return;
+        CrossWorldSupplyPlanner.commands(state, empire).forEach(commandQueue::submit);
+        AIShipDeploymentPlanner.plan(state, empire).forEach(commandQueue::submit);
 
-        EmpireFleetPlanner.plan(state, empire).forEach(commandQueue::submit);
+        var operatingSupport = operatingCapitalPlanner.plan(state, empire);
+        operatingSupport.forEach(commandQueue::submit);
+        if (operatingSupport.isEmpty() && !EmpireOperatingCapitalPlanner.needsSupport(state, empire))
+            powerPlanner.plan(state, empire).forEach(commandQueue::submit);
+        var supply = logisticsPlanner.plan(state, empire);
+        supply.commands().forEach(commandQueue::submit);
+        transportConstructionPlanner.plan(state, empire, !supply.commands().isEmpty() || !supply.reservedFleetIds().isEmpty()).forEach(commandQueue::submit);
+        var reservedFleets = new java.util.HashSet<>(supply.reservedFleetIds());
+        reservedFleets.addAll(CrossWorldSupplyPlanner.reservedFleets(state, empire));
+        reservedFleets.addAll(SurveyProgramPlanner.reservedFleets(state, empire));
+        var lifecycle = ShipLifecyclePlanner.plan(state, empire, reservedFleets);
+        lifecycle.commands().forEach(commandQueue::submit);
+        reservedFleets.addAll(lifecycle.reservedFleetIds());
+        EmpireFleetPlanner.plan(state, empire, reservedFleets).forEach(commandQueue::submit);
+        FleetNeedsConstructionPlanner.plan(state, empire).forEach(commandQueue::submit);
+        if (operatingSupport.isEmpty() && !EmpireOperatingCapitalPlanner.needsSupport(state, empire))
+            shipyardInvestmentPlanner.plan(state, empire).forEach(commandQueue::submit);
+        commandQueue.submit(new com.spaceconquest.control.command.PrioritizeAIShipConstructionCommand(empire.id()));
 
         boolean isHiveMind = "Hive Mind".equalsIgnoreCase(empire.societyStructure())
                 || "Hive mind".equalsIgnoreCase(empire.societyStructure());
 
-        manageResearch(state, empire);
+        SurveyProgramPlanner.plan(state, empire).forEach(commandQueue::submit);
+        EmpireResearchPlanner.plan(state, empire).forEach(commandQueue::submit);
+        if (operatingSupport.isEmpty() && !EmpireOperatingCapitalPlanner.needsSupport(state, empire))
+            SupplyChainInvestmentPlanner.plan(state, empire).forEach(commandQueue::submit);
         resolveDiplomaticProposals(state, empire);
 
         if (!isHiveMind) {
             manageCabinetAndGovernors(empire);
             manageCorporateSubsidies(state, empire);
             manageDiplomacyAndSenate(state, empire);
-            manageMegastructuresAndEconomies(state, empire);
-        }
-    }
-
-    private void manageResearch(GameState state, Empire empire) {
-        boolean hasActiveResearch = state.researchProjects().stream()
-                .anyMatch(p -> p.empireId().equals(empireId) && !p.isComplete());
-
-        if (!hasActiveResearch) {
-            try {
-                List<Technology> allTechs = DataModelLoader.loadTechnologies();
-                for (Technology tech : allTechs) {
-                    if (!empire.unlockedTechIds().contains(tech.id())) {
-                        boolean reqsMet = tech.requiredTechnologies().stream()
-                                .allMatch(req -> empire.unlockedTechIds().contains(req));
-                        if (reqsMet) {
-                            commandQueue.submit(new StartResearchCommand(empireId, tech.id(), false, 5));
-                            break;
-                        }
-                    }
-                }
-            } catch (IOException e) {
-                logger.error("Failed to load technologies for AI research selection", e);
-            }
+            manageMegastructures(state, empire);
+            economicPlanner.plan(state, empire).forEach(commandQueue::submit);
         }
     }
 
@@ -141,7 +146,7 @@ public class EmpireAIController implements Controller {
         }
     }
 
-    private void manageMegastructuresAndEconomies(GameState state, Empire empire) {
+    private void manageMegastructures(GameState state, Empire empire) {
         if (empire.treasuryCredits() >= 100000.0) {
             boolean hasMegastructure = state.megastructures().stream()
                     .anyMatch(m -> m.ownerEmpireId().equalsIgnoreCase(empireId));
@@ -153,14 +158,5 @@ public class EmpireAIController implements Controller {
             }
         }
 
-        for (String systemId : empire.controlledSystemIds()) {
-            boolean hasEconomy = state.systemEconomies().stream()
-                    .anyMatch(se -> se.systemId().equals(systemId));
-            if (!hasEconomy) {
-                commandQueue.submit(new SetSystemEconomyBudgetCommand(
-                        empireId, systemId, 0.20, 0.20, 0.20, 0.20, 0.20, 1000.0, 0.10
-                ));
-            }
-        }
     }
 }

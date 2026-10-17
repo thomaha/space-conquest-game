@@ -3,7 +3,6 @@ package com.spaceconquest.engine.industry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.UUID;
 
 /**
  * Executes stochastic geological prospecting discovery rolls and manages subterranean mineral extraction.
@@ -105,21 +104,6 @@ public class ProspectingProcessor {
                 } else {
                     updatedPlanetDeposits.add(dep);
                 }
-            }
-
-            if (!uncoveredExisting) {
-                // Procedurally generate a new discovered deposit
-                String newId = "dep_" + UUID.randomUUID().toString().substring(0, 8);
-                updatedPlanetDeposits.add(new GeologicalDeposit(
-                        newId,
-                        planetId,
-                        "refined_iron",
-                        500_000.0,
-                        500_000.0,
-                        1.25,
-                        true,
-                        surveyorEntityId
-                ));
             }
 
             planetDeposits = updatedPlanetDeposits;

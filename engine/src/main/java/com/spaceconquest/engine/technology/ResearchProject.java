@@ -20,8 +20,13 @@ public record ResearchProject(
         double accumulatedPoints,
         double requiredPoints,
         int assignedScientists,
-        double speedModifier
+        double speedModifier,
+        ResearchDecision decision
 ) {
+    public ResearchProject(String id, String empireId, String targetTechOrAppId, boolean isApplication,
+                           double accumulatedPoints, double requiredPoints, int assignedScientists, double speedModifier) {
+        this(id, empireId, targetTechOrAppId, isApplication, accumulatedPoints, requiredPoints, assignedScientists, speedModifier, null);
+    }
     public boolean isComplete() {
         return accumulatedPoints >= requiredPoints;
     }

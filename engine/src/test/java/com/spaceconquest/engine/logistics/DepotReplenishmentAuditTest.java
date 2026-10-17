@@ -25,6 +25,7 @@ class DepotReplenishmentAuditTest {
     private static final double RAW_FUEL_PRICE = .005;
     private static final double DEPOT_FUEL_PRICE = .01;
     private static final double TANK = 120000;
+    private static final double INITIAL_SUPPLIER_FUEL_KG = 4000000;
     private static final Map<String, Double> GOODS = Map.of("steel", 1250.0, "food_matrix", 1250.0);
     private record Wave(int number, long turn, double deliveredKg, double supplierFuel, double lunarFuel,
                         double chainCash, double inventory, double result) {}
@@ -143,9 +144,10 @@ class DepotReplenishmentAuditTest {
     private void supply(Run run, Map<String, Double> cargo) throws Exception {
         assertTrue(fleet(run.state, "supplier").location().isAt(FleetLocation.Site.docked("low-port")));
         var prior = run.state;
-        double needed = 30000 - ship(prior, "supplier").currentFuelKg();
+        double capacity = FleetSupplySimulation.design(prior, ship(prior, "supplier")).fuelCapacityKg();
+        double needed = capacity - ship(prior, "supplier").currentFuelKg();
         run.state = ShipFueling.refuel(prior, "supplier", "low-port", needed);
-        assertEquals(30000, ship(run.state, "supplier").currentFuelKg(), 1e-5);
+        assertEquals(capacity, ship(run.state, "supplier").currentFuelKg(), 1e-5);
         assertEquals(needed * RAW_FUEL_PRICE, ownerCash(prior, "supplier-owner") - ownerCash(run.state, "supplier-owner"), 1e-5);
         var processor = new LogisticsProcessor();
         var shipment = processor.previewBasket(run.state, route(run.state, "supply"), cargo);
@@ -220,7 +222,8 @@ class DepotReplenishmentAuditTest {
         assertEquals(0, low.activeOrders().get("liquid_hydrogen").supplyKg(), 1e-5);
         for (String good : GOODS.keySet()) assertEquals(0, low.activeOrders().get(good).supplyKg(), 1e-5);
         double rp1Loaded = run.supplierFuel + ship(run.state, "supplier").currentFuelKg();
-        var rp1 = PropulsionCatalog.drive("mod_chemical_rocket").propellantMaterials(600000 - rp1Loaded);
+        var drive = PropulsionCatalog.drive("mod_chemical_rocket");
+        var rp1 = drive.propellantMaterials(INITIAL_SUPPLIER_FUEL_KG - rp1Loaded);
         rp1.forEach((id, quantity) -> assertEquals(quantity, low.activeOrders().get(id).supplyKg(), 1e-5));
         assertEquals(rp1.values().stream().mapToDouble(Double::doubleValue).sum(), low.currentStoredWeightKg(), 1e-5);
     }
@@ -239,12 +242,12 @@ class DepotReplenishmentAuditTest {
     }
 
     private GameState world() throws Exception {
-        var technologies = List.of("rocketry", "hydrolox_propulsion", "electricity", "solar_power", "industrial_production", "space_stations");
+        var technologies = List.of("rocketry", "spacecraft", "large_hull_engineering", "hydrolox_propulsion", "electricity", "solar_power", "industrial_production", "space_stations");
         var supplier = new Empire("supplier-owner", "Supplier", "human", "Individualist", 1e6, 0, List.of(), List.of(), Map.of(), technologies, List.of());
         var trader = new Empire("trader-owner", "Trader", "human", "Individualist", 1e6, 0, List.of(), List.of(), Map.of(), technologies, List.of());
         var provider = new Empire("provider", "Port operator", "human", "Individualist", 1e6, 0, List.of(), List.of(), Map.of(), technologies, List.of());
         var lowOrders = new HashMap<String, MarketOrder>();
-        var quantities = new HashMap<>(PropulsionCatalog.drive("mod_chemical_rocket").propellantMaterials(600000));
+        var quantities = new HashMap<>(PropulsionCatalog.drive("mod_chemical_rocket").propellantMaterials(INITIAL_SUPPLIER_FUEL_KG));
         PropulsionCatalog.drive("mod_hydrolox_rocket").propellantMaterials(360000).forEach((id, kg) -> quantities.merge(id, kg, Double::sum));
         quantities.forEach((id, kg) -> lowOrders.put(id, new MarketOrder(id, kg, 0, RAW_FUEL_PRICE, 0)));
         GOODS.forEach((id, kg) -> lowOrders.put(id, new MarketOrder(id, kg * 3, 0, .8, 0)));
@@ -256,19 +259,21 @@ class DepotReplenishmentAuditTest {
         GOODS.forEach((id, kg) -> moonOrders.put(id, new MarketOrder(id, 0, kg * 3, 3, 0)));
         var state = GameState.builder().solarSystems(DataModelLoader.loadSolarSystems()).empires(List.of(supplier, trader, provider))
                 .orbitalStations(List.of(port("low-port", "earth", 500), port("depot-port", "earth", 2000), port("moon-port", "moon", 500)))
-                .commercialHubs(List.of(new CommercialHub("low-market", "low-port", 0, 2e6, 967500, 10, lowOrders),
+                .commercialHubs(List.of(new CommercialHub("low-market", "low-port", 0, 6e6, 4367500, 10, lowOrders),
                         new CommercialHub("depot-market", "depot-port", 0, 2e6, 0, 10, depotOrders),
                         new CommercialHub("moon-market", "moon-port", 0, 2e6, 0, 10, moonOrders)))
                 .marketAccounts(List.of(new MarketAccount("low-market", 100000), new MarketAccount("depot-market", 100000),
                         new MarketAccount("moon-market", 100000)))
                 .powerGrids(List.of(new PowerGridState("low-port", 1000, 0, 1000, 10000, 10000, false),
                         new PowerGridState("depot-port", 1000, 0, 1000, 10000, 10000, false))).build();
-        var modules = List.of("mod_chemical_rocket", PropulsionCatalog.FUEL_TANK_MODULE_ID, PropulsionCatalog.FUEL_TANK_MODULE_ID,
-                "mod_cargo_vault", ShipComponentCatalog.SOLAR_ARRAY_ID, ShipComponentCatalog.SOLAR_ARRAY_ID, ShipComponentCatalog.BATTERY_ID);
+        var modules = List.of("mod_chemical_rocket", ChemicalFreighterCatalog.MAIN_TANK,
+                "mod_cargo_vault", ShipComponentCatalog.SOLAR_ARRAY_ID, ShipComponentCatalog.BATTERY_ID);
         var supplyDesign = ShipBlueprintFactory.evaluate(state, new ShipDesignSpecification("supply-design", "Depot supplier", "supplier-owner",
-                ShipRole.CARGO_TRANSPORT, "steel", modules, "steel", .5));
+                ShipRole.CARGO_TRANSPORT, "steel", modules, "steel", .5,
+                modules.stream().map(ShipComponentCatalog::module).mapToInt(ShipModule::slotCost).sum()));
         var lunarDesign = ShipBlueprintFactory.evaluate(state, new ShipDesignSpecification("lunar-design", "Lunar freighter", "trader-owner",
-                ShipRole.CARGO_TRANSPORT, "steel", ChemicalFreighterCatalog.modules("mod_hydrolox_rocket"), "steel", .5));
+                ShipRole.CARGO_TRANSPORT, "steel", ChemicalFreighterCatalog.modules("mod_hydrolox_rocket"), "steel", .5,
+                ChemicalFreighterCatalog.modules("mod_hydrolox_rocket").stream().map(ShipComponentCatalog::module).mapToInt(ShipModule::slotCost).sum()));
         assertTrue(supplyDesign.valid(), supplyDesign.errors().toString());
         assertTrue(lunarDesign.valid(), lunarDesign.errors().toString());
         assertEquals(30000, supplyDesign.design().maxCargoMassKg());
@@ -313,7 +318,7 @@ class DepotReplenishmentAuditTest {
     private String report(Run run) {
         var text = new StringBuilder("# Depot replenishment audit\n\n")
                 .append("An initially empty 2,000 km Earth depot receives 360,000 kg hydrolox propellant and 7,500 kg mixed cargo from ")
-                .append("finite stocks at a 500 km source port. A validated RP-1 supplier with a 30,000 kg cargo vault and 30,000 kg main tank ")
+                .append("finite stocks at a 500 km source port. A validated RP-1 supplier with a 30,000 kg cargo vault and 120,000 kg main tank ")
                 .append("flies fifteen paid deliveries and fifteen funded empty returns. Three initially empty catalog hydrolox freighters ")
                 .append("each make one explicit one-way lunar shipment. No ship is teleported or replenished by a fixture after opening.\n\n")
                 .append("Source fuel is 0.005 credits/kg and goods are 0.8 credits/kg; depot quotes are 0.01 and 1.0. Lunar posted goods prices ")

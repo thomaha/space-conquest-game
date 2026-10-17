@@ -45,6 +45,8 @@ public final class ShipComponentCatalog {
 
     public static ShipModule module(String id) {
         if (id == null) return null;
+        ShipModule mining = ShipMiningModuleCatalog.module(id);
+        if (mining != null) return mining;
         ShipModule repair = ShipRepairModuleCatalog.module(id);
         if (repair != null) return repair;
         ShipModule combat = CombatModuleCatalog.module(id);

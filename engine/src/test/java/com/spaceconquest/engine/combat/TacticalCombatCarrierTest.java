@@ -56,8 +56,10 @@ class TacticalCombatCarrierTest {
 
         CarrierWing bombers = new CarrierWing(
                 "wing_bomber_1", "carrier_1", CarrierWing.TYPE_TORPEDO_BOMBER,
-                12, 12, 50.0, 25.0, CarrierWing.TARGET_CAPITAL_SHIPS
+                12, 12, 50.0, "guided_missile_weapons", CarrierWing.TARGET_CAPITAL_SHIPS
         );
+        bombers = bombers.withStores(new AuxiliaryWeaponStores(Map.of(bombers.weapon().ammunitionId(),
+                12 * bombers.weapon().operationalStats().get("ammunitionMassKg")), 100));
 
         TacticalCombatProcessor.CombatEngagementResult result = processor.resolveFleetEngagementWithCarrierWings(
                 attacker, defender, List.of(carrierDesign, frigateDesign),
@@ -93,8 +95,10 @@ class TacticalCombatCarrierTest {
         );
 
         PlanetaryDefenseBattery battery = new PlanetaryDefenseBattery(
-                "battery_earth_1", "earth", 150.0, 2, true
+                "battery_earth_1", "earth", "mass_drivers", 2, true
         );
+        battery = battery.withStores(new AuxiliaryWeaponStores(Map.of(battery.weapon().ammunitionId(),
+                battery.weapon().operationalStats().get("ammunitionMassKg")), 100));
 
         ShipDesign transDesign = new ShipDesign(
                 "design_transport", "Troop Transport", "centauri_dominion",

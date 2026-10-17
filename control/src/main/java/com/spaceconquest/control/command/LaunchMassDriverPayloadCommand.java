@@ -31,7 +31,9 @@ public record LaunchMassDriverPayloadCommand(
                 || !Double.isFinite(payloadTons) || payloadTons <= 0.0) return false;
         IndustrialFacility driver = state.industrialFacilities().stream()
                 .filter(item -> massDriverId.equals(item.id())
-                        && "mass_driver".equals(item.applicationId()) && item.tier() > 0)
+                        && com.spaceconquest.engine.logistics.InfrastructureService.find(item.applicationId()) != null
+                        && com.spaceconquest.engine.logistics.InfrastructureService.find(item.applicationId()).capability().mode()
+                        == LaunchService.Mode.MASS_DRIVER && item.tier() > 0)
                 .findFirst().orElse(null);
         if (driver == null) return false;
         boolean ownerMatches = ownerEntityId == null || state.fleets().stream()

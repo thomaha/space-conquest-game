@@ -249,15 +249,15 @@ public class GameStateTest {
     }
 
     @Test
-    public void testOlderSaveWithoutMunicipalFieldsLoadsWithEmptyBalances() throws IOException {
+    public void testCurrentSaveWithEmptyOptionalCollectionsUsesCurrentCalendar() throws IOException {
         Path path = tempDir.resolve("legacy.scsave");
         Files.writeString(path, """
-                {"version":9,"savedAt":"2026-01-01T00:00:00Z","gameSpeed":1,
+                {"version":1,"savedAt":"2026-01-01T00:00:00Z","gameSpeed":1,
                  "gameTime":"2026-01-01T00:00:00Z","solarSystems":[]}
                 """);
 
         SaveGame loaded = new SaveGameManager(tempDir).load(path.toFile());
-        assertEquals(LocalDateTime.of(2200, 1, 1, 8, 0), loaded.resolvedCampaignStartTime());
+        assertEquals(GameClock.START_TIME, loaded.resolvedCampaignStartTime());
         assertTrue(loaded.courierShips().isEmpty());
         assertTrue(loaded.planetaryBalanceSheets().isEmpty());
         assertTrue(loaded.imperialBalanceSheets().isEmpty());
@@ -322,10 +322,10 @@ public class GameStateTest {
     }
 
     @Test
-    public void olderOrbitalStationSaveDefaultsMissingPayrollFields() throws IOException {
+    public void currentOrbitalStationSaveDefaultsUnsettledPayrollFields() throws IOException {
         Path path = tempDir.resolve("legacy_orbital_payroll.scsave");
         Files.writeString(path, """
-                {"version":22,"savedAt":"2026-01-01T00:00:00Z","gameSpeed":1,
+                {"version":1,"savedAt":"2026-01-01T00:00:00Z","gameSpeed":1,
                  "gameTime":"2026-01-01T00:00:00Z","solarSystems":[],
                  "orbitalStations":[{"id":"station","name":"Yard","systemId":"sol",
                    "planetOrbitId":"earth","ownerEntityId":"terran",

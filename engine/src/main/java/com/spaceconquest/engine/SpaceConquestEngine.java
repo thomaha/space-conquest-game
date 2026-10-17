@@ -1,5 +1,4 @@
 package com.spaceconquest.engine;
-
 import com.spaceconquest.engine.audio.AudioSynthesizer;
 import com.spaceconquest.engine.combat.ColonizationProcessor;
 import com.spaceconquest.engine.combat.OrbitalBombardmentProcessor;
@@ -15,7 +14,6 @@ import com.spaceconquest.engine.economy.ImperialFinanceCoordinator;
 import com.spaceconquest.engine.economy.HouseholdAccount;
 import com.spaceconquest.engine.economy.HouseholdEconomyProcessor;
 import com.spaceconquest.engine.economy.MarketAccount;
-import com.spaceconquest.engine.economy.CorporateProfitTaxProcessor;
 import com.spaceconquest.engine.economy.CorporateTaxAccount;
 import com.spaceconquest.engine.economy.PlanetaryMunicipalProcessor;
 import com.spaceconquest.engine.economy.SystemEconomy;
@@ -73,7 +71,6 @@ import com.spaceconquest.engine.terraforming.GeoengineeringProject;
 import com.spaceconquest.engine.terraforming.TerraformingProcessor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -99,8 +96,9 @@ public class SpaceConquestEngine implements GameEngine {
     private List<TechnologyExchangeRoute> technologyExchangeRoutes = new ArrayList<>();
     private List<ShipDesign> shipDesigns = new ArrayList<>();
     private List<ShipConstructionOrder> shipConstructionOrders = new ArrayList<>();
+    private com.spaceconquest.engine.ship.ShipyardLedger shipyardLedger = com.spaceconquest.engine.ship.ShipyardLedger.empty();
     private List<Fleet> fleets = new ArrayList<>();
-    private List<GeologicalDeposit> geologicalDeposits = new ArrayList<>();
+    private List<GeologicalDeposit> geologicalDeposits = new ArrayList<>(); private com.spaceconquest.engine.ship.ShipMiningState shipMiningState = com.spaceconquest.engine.ship.ShipMiningState.empty();
     private List<PowerGridState> powerGrids = new ArrayList<>();
     private List<PassengerManifest> passengerManifests = new ArrayList<>();
     private List<IndustrialFacility> industrialFacilities = new ArrayList<>();
@@ -128,8 +126,11 @@ public class SpaceConquestEngine implements GameEngine {
     private List<DiplomaticProposal> diplomaticProposals = new ArrayList<>();
     private List<FleetEngagementRecord> fleetEngagements = new ArrayList<>();
     private List<ApplicationOptimization> applicationOptimizations = new ArrayList<>();
+    private com.spaceconquest.engine.combat.AuxiliaryForces auxiliaryForces = com.spaceconquest.engine.combat.AuxiliaryForces.empty();
+    private List<com.spaceconquest.engine.ship.FleetServiceEvent> fleetServiceEvents = List.of();
+    private List<com.spaceconquest.engine.technology.ResearchEvent> researchHistory = List.of();
     private List<IndustryAccount> industryAccounts = new ArrayList<>();
-    private List<CorporateTaxAccount> corporateTaxAccounts = new ArrayList<>();
+    private List<CorporateTaxAccount> corporateTaxAccounts = new ArrayList<>(); private List<com.spaceconquest.engine.logistics.SupplyDevelopmentPlan> supplyDevelopmentPlans = List.of(); private List<com.spaceconquest.engine.industry.SurveyTeam> surveyTeams = List.of(); private com.spaceconquest.engine.economy.BusinessLedger businessLedger = com.spaceconquest.engine.economy.BusinessLedger.empty();
     private final ImperialFinanceCoordinator imperialFinance = new ImperialFinanceCoordinator();
 
     private final PopulationProcessor populationProcessor = new PopulationProcessor();
@@ -152,10 +153,10 @@ public class SpaceConquestEngine implements GameEngine {
     private final ProspectingProcessor prospectingProcessor = new ProspectingProcessor();
     private final PowerProcessor powerProcessor = new PowerProcessor();
     private final PowerGenerationProcessor powerGenerationProcessor = new PowerGenerationProcessor();
-    private final CorporateProfitTaxProcessor corporateProfitTaxProcessor = new CorporateProfitTaxProcessor();
     private final IndustryProcessor industryProcessor = new IndustryProcessor();
     private final IndustryMarketProcessor industryMarketProcessor = new IndustryMarketProcessor();
-    private final TacticalCombatProcessor tacticalCombatProcessor = new TacticalCombatProcessor();
+    private final java.util.Random combatRandom = new java.util.Random();
+    private final TacticalCombatProcessor tacticalCombatProcessor = new TacticalCombatProcessor(combatRandom);
     private final FleetEncounterResolver fleetEncounterResolver = new TacticalFleetEncounterResolver(tacticalCombatProcessor, () -> races);
     private final OrbitalBombardmentProcessor orbitalBombardmentProcessor = new OrbitalBombardmentProcessor();
     private final ColonizationProcessor colonizationProcessor = new ColonizationProcessor();
@@ -179,7 +180,7 @@ public class SpaceConquestEngine implements GameEngine {
             logger.error("Failed to load catalogs", e);
         }
     }
-
+    public SpaceConquestEngine(long combatSeed) { this(); combatRandom.setSeed(combatSeed); }
     /** Preserves the former Sol and Earth fixture as an explicit scenario. */
     public static SpaceConquestEngine fromSolScenario() {
         SpaceConquestEngine engine = new SpaceConquestEngine();
@@ -287,8 +288,8 @@ public class SpaceConquestEngine implements GameEngine {
         }
 
         updateGovernance();
-        updateResearch();
         updateMarketsAndEconomy();
+        updateResearch();
         updateMacroStructures();
         updateEspionage();
         updateFleets();
@@ -422,7 +423,7 @@ public class SpaceConquestEngine implements GameEngine {
         GameState construction = macroStructureProcessor.advanceConstructionProjects(getGameState());
         constructionProjects = construction.constructionProjects();
         orbitalStations = construction.orbitalStations();
-        spaceElevators = construction.spaceElevators();
+        spaceElevators = construction.spaceElevators(); industrialFacilities = construction.industrialFacilities(); industryAccounts = construction.industryAccounts();
         fleets = construction.fleets();
         empires = construction.empires(); corporations = construction.corporations();
         commercialHubs = construction.commercialHubs(); marketAccounts = construction.marketAccounts();
@@ -444,7 +445,7 @@ public class SpaceConquestEngine implements GameEngine {
                 payroll.paidWorkersByFacility());
         industrialFacilities = construction.industrialFacilities();
         expansionProjects = construction.expansionProjects();
-        shipConstructionOrders = construction.shipConstructionOrders(); fleets = construction.fleets();
+        shipyardLedger = construction.shipyardLedger(); shipConstructionOrders = construction.shipConstructionOrders(); fleets = construction.fleets(); auxiliaryForces = construction.auxiliaryForces();
         empires = construction.empires();
         corporations = construction.corporations();
         commercialHubs = construction.commercialHubs();
@@ -462,10 +463,10 @@ public class SpaceConquestEngine implements GameEngine {
         PowerProcessor.DayResult balance = powerProcessor.balanceDay(getGameState(),
                 power.generationKw(), payroll.paidWorkersByFacility());
         List<Empire> beforeLaunchPowerSettlement = empires;
+        GameState beforePowerBilling = getGameState();
         PowerBillingProcessor.Result billing = new PowerBillingProcessor().process(getGameState(),
                 balance, power.accounts(), payroll.paidWorkersByFacility());
-        empires = billing.empires();
-        corporations = billing.corporations();
+        empires = billing.empires(); corporations = billing.corporations();
         householdAccounts = billing.households();
         powerGrids = billing.grids();
         industryAccounts = billing.industryAccounts();
@@ -474,20 +475,20 @@ public class SpaceConquestEngine implements GameEngine {
         imperialFinance.recordIndustryFlows(billing.imperialReceipts(), billing.imperialExpenses());
         IndustryMarketProcessor.TurnResult marketResult = industryMarketProcessor.process(
                 getGameState(), billing.poweredWorkers(), payroll.wagesByFacility(),
-                payroll.paidWorkersByFacility());
-        empires = marketResult.empires();
-        corporations = marketResult.corporations();
+                payroll.paidWorkersByFacility(), billing.productionEnergy());
+        empires = marketResult.empires(); corporations = marketResult.corporations();
         commercialHubs = marketResult.hubs();
         marketAccounts = marketResult.marketAccounts();
         geologicalDeposits = marketResult.deposits();
+        powerGrids = com.spaceconquest.engine.industry.ProductionWork.settleGrids(beforePowerBilling, billing.grids(), marketResult.productionEnergyKwh());
         Map<String, IndustryAccount> accounts = new LinkedHashMap<>();
         for (IndustryAccount account : marketResult.industryAccounts()) accounts.put(account.facilityId(),
                 account.withPowerCost(billing.facilityPowerCosts().getOrDefault(account.facilityId(), 0.0)));
         for (IndustryAccount account : power.accounts()) accounts.computeIfPresent(account.facilityId(),
                 (id, settled) -> settled.withDailyTransactions(account.withPowerSale(
-                        billing.plantSales().getOrDefault(id, 0.0))
+                        billing.plantSales().getOrDefault(id, 0.0) + marketResult.productionPlantSales().getOrDefault(id, 0.0))
                         .withMaintenanceCost(settled.maintenanceCostsCredits())));
-        industryAccounts = List.copyOf(accounts.values());
+        industryAccounts = List.copyOf(accounts.values()); businessLedger = marketResult.businessLedger();
         imperialFinance.recordIndustryFlows(marketResult.imperialReceipts(), marketResult.imperialExpenses());
     }
     private void updateFleets() {
@@ -496,17 +497,17 @@ public class SpaceConquestEngine implements GameEngine {
         fleets = protection.fleets();
         tradeRoutes = protection.tradeRoutes();
         GameState interception = com.spaceconquest.engine.ship.FleetInterceptProcessor.advance(getGameState());
-        fleets = interception.fleets();
+        fleets = interception.fleets(); fleetServiceEvents = interception.fleetServiceEvents();
         commercialHubs = interception.commercialHubs(); marketAccounts = interception.marketAccounts();
         empires = interception.empires(); corporations = interception.corporations();
-        fleets = fleetProcessor.processFleetMovements(
-                com.spaceconquest.engine.ship.ShipPowerProcessor.advanceDay(getGameState()), orbitalStations, diplomaticRelations);
+        GameState mining = com.spaceconquest.engine.ship.ShipMiningProcessor.powerAndAdvance(getGameState()); geologicalDeposits = mining.geologicalDeposits(); shipMiningState = mining.shipMiningState();
+        fleets = fleetProcessor.processFleetMovements(mining.fleets(), orbitalStations, diplomaticRelations);
         GameState arrivals = com.spaceconquest.engine.ship.BaseRepairProcessor.advanceDay(PassengerTransitProcessor.advanceDay(getGameState(), races));
         GameState engagements = fleetEncounterResolver.resolveEncounters(arrivals);
         fleets = engagements.fleets(); commercialHubs = arrivals.commercialHubs(); marketAccounts = arrivals.marketAccounts();
         solarSystems = arrivals.solarSystems(); empires = arrivals.empires(); corporations = arrivals.corporations();
         passengerManifests = arrivals.passengerManifests();
-        fleetEngagements = new ArrayList<>(engagements.fleetEngagements());
+        fleetEngagements = new ArrayList<>(engagements.fleetEngagements()); auxiliaryForces = engagements.auxiliaryForces();
         fogOfWarStates = sensorProcessor.updateSensorCoverage(getGameState(), List.of());
     }
     private void updateResearch() {
@@ -514,6 +515,7 @@ public class SpaceConquestEngine implements GameEngine {
         researchProjects = new ArrayList<>(result.projects());
         empires = new ArrayList<>(result.empires());
         applicationOptimizations = new ArrayList<>(result.optimizations());
+        researchHistory = result.history();
     }
 
     private void updateGovernance() {
@@ -588,9 +590,10 @@ public class SpaceConquestEngine implements GameEngine {
     }
 
     private void updateMarketsAndEconomy() {
-        commercialHubs = marketProcessor.updateCommercialHubs(
+        commercialHubs = marketProcessor.updateCommercialHubs(getGameState(),
                 marketDemandProcessor.refresh(getGameState(), races));
         ensureMarketAccounts();
+        GameState procurement = com.spaceconquest.engine.market.SupplyProcurement.prepare(getGameState()); businessLedger = procurement.businessLedger(); marketAccounts = procurement.marketAccounts();
         Map<String, Double> trustPenalties = activeCorporateTrustPenalties();
         GameState invested = corporateInvestmentProcessor.processCorporateInvestments(getGameState(), trustPenalties);
         corporations = invested.corporations();
@@ -618,6 +621,7 @@ public class SpaceConquestEngine implements GameEngine {
         systemEconomies = economyResult.updatedEconomies();
         empires = economyResult.updatedEmpires();
 
+        businessLedger = com.spaceconquest.engine.economy.BusinessOperatingPlan.prepare(getGameState()).businessLedger();
         HouseholdEconomyProcessor.TurnResult householdResult = householdEconomyProcessor.process(getGameState(), races);
         householdAccounts = householdResult.householdAccounts();
         orbitalStations = householdResult.orbitalStations();
@@ -630,9 +634,11 @@ public class SpaceConquestEngine implements GameEngine {
         imperialFinance.recordTreasuryChanges(beforeIndustryPayroll, empires);
 
         updateIndustryAndPower(householdResult);
-        CorporateProfitTaxProcessor.Result profitTax = corporateProfitTaxProcessor.process(getGameState());
-        corporations = profitTax.corporations();
-        corporateTaxAccounts = profitTax.accounts();
+        var survey = com.spaceconquest.engine.industry.SurveyOperations.advance(getGameState(), householdResult.paidWorkersByFacility());
+        fleets = survey.fleets(); industryAccounts = survey.industryAccounts(); surveyTeams = survey.surveyTeams(); geologicalDeposits = survey.geologicalDeposits(); commercialHubs = survey.commercialHubs(); marketAccounts = survey.marketAccounts(); empires = survey.empires();
+        var profitTax = com.spaceconquest.engine.economy.BusinessSettlement.closeDay(getGameState());
+        corporations = profitTax.state().corporations(); corporateTaxAccounts = profitTax.state().corporateTaxAccounts();
+        empires = profitTax.state().empires(); industryAccounts = profitTax.state().industryAccounts(); businessLedger = profitTax.state().businessLedger();
 
         PlanetaryMunicipalProcessor.MunicipalTurnResult municipalResult =
                 planetaryMunicipalProcessor.processMunicipalFinances(getGameState(), householdResult,
@@ -681,7 +687,7 @@ public class SpaceConquestEngine implements GameEngine {
     private AsteroidBelt updateAsteroidBelt(AsteroidBelt ab, String empireId) {
         return new AsteroidBelt(
             ab.id(), ab.name(), ab.description(), ab.resources(),
-            ab.populations().stream().map(pop -> updatePopulation(pop, ab.id(), empireId)).toList()
+            ab.populations().stream().map(pop -> updatePopulation(pop, ab.id(), empireId)).toList(), ab.distanceKm()
         );
     }
     private Population updatePopulation(Population pop, String bodyId, String empireId) {
@@ -752,6 +758,7 @@ public class SpaceConquestEngine implements GameEngine {
         }
         return penalties;
     }
+
     @Override
     public synchronized GameState getGameState() {
         return new GameState(
@@ -765,7 +772,7 @@ public class SpaceConquestEngine implements GameEngine {
                 tradeRoutes, fogOfWarStates, systemEconomies, courierShips,
                 planetaryBalanceSheets, imperialBalanceSheets, householdAccounts, marketAccounts,
                 industryAccounts, corporateTaxAccounts, launchUsageKg, launchActivities,
-                warDeclarations, diplomaticProposals, fleetEngagements, applicationOptimizations
+                warDeclarations, diplomaticProposals, fleetEngagements, applicationOptimizations, auxiliaryForces, fleetServiceEvents, researchHistory, shipyardLedger, shipMiningState, businessLedger, supplyDevelopmentPlans, surveyTeams
         );
     }
 
@@ -871,10 +878,10 @@ public class SpaceConquestEngine implements GameEngine {
         this.systemGovernors = new ArrayList<>(state.systemGovernors());
         this.researchProjects = new ArrayList<>(state.researchProjects());
         this.technologyExchangeRoutes = new ArrayList<>(state.technologyExchangeRoutes());
-        this.shipDesigns = new ArrayList<>(state.shipDesigns()); this.shipConstructionOrders = new ArrayList<>(state.shipConstructionOrders());
+        this.shipyardLedger = state.shipyardLedger(); this.shipDesigns = new ArrayList<>(state.shipDesigns()); this.shipConstructionOrders = new ArrayList<>(state.shipConstructionOrders());
         this.fleets = new ArrayList<>(state.fleets());
         this.passengerManifests = new ArrayList<>(state.passengerManifests());
-        this.geologicalDeposits = new ArrayList<>(state.geologicalDeposits());
+        this.geologicalDeposits = new ArrayList<>(state.geologicalDeposits()); this.shipMiningState = state.shipMiningState();
         this.powerGrids = new ArrayList<>(state.powerGrids());
         this.industrialFacilities = new ArrayList<>(state.industrialFacilities());
         this.expansionProjects = new ArrayList<>(state.expansionProjects());
@@ -904,13 +911,14 @@ public class SpaceConquestEngine implements GameEngine {
         this.householdAccounts = new ArrayList<>(state.householdAccounts());
         this.marketAccounts = new ArrayList<>(state.marketAccounts());
         this.industryAccounts = new ArrayList<>(state.industryAccounts());
-        this.corporateTaxAccounts = new ArrayList<>(state.corporateTaxAccounts());
+        this.corporateTaxAccounts = new ArrayList<>(state.corporateTaxAccounts()); this.businessLedger = state.businessLedger(); this.supplyDevelopmentPlans = state.supplyDevelopmentPlans(); this.surveyTeams = state.surveyTeams();
         this.launchUsageKg = new HashMap<>(state.launchUsageKg());
         this.launchActivities = new ArrayList<>(state.launchActivities());
         this.warDeclarations = new ArrayList<>(state.warDeclarations());
         this.diplomaticProposals = new ArrayList<>(state.diplomaticProposals());
         this.fleetEngagements = new ArrayList<>(state.fleetEngagements());
-        this.applicationOptimizations = new ArrayList<>(state.applicationOptimizations());
+        this.applicationOptimizations = new ArrayList<>(state.applicationOptimizations()); this.auxiliaryForces = state.auxiliaryForces(); fleetServiceEvents = state.fleetServiceEvents();
+        researchHistory = state.researchHistory();
     }
 
     public synchronized void recordCommandTreasuryChanges(List<Empire> before, List<Empire> after) {
@@ -920,19 +928,15 @@ public class SpaceConquestEngine implements GameEngine {
     public List<PlanetaryBalanceSheet> getPlanetaryBalanceSheets() {
         return planetaryBalanceSheets;
     }
-
     public void setPlanetaryBalanceSheets(List<PlanetaryBalanceSheet> planetaryBalanceSheets) {
         this.planetaryBalanceSheets = planetaryBalanceSheets != null ? new ArrayList<>(planetaryBalanceSheets) : new ArrayList<>();
     }
-
     public List<SystemEconomy> getSystemEconomies() {
         return systemEconomies;
     }
-
     public void setSystemEconomies(List<SystemEconomy> systemEconomies) {
         this.systemEconomies = systemEconomies != null ? new ArrayList<>(systemEconomies) : new ArrayList<>();
     }
-
     private List<SystemEconomy> initializeDefaultSystemEconomies(List<SolarSystem> systems, List<Empire> empiresList) {
         List<SystemEconomy> list = new ArrayList<>();
         if (systems == null) return list;
@@ -971,15 +975,12 @@ public class SpaceConquestEngine implements GameEngine {
         }
         return list;
     }
-
     public List<TradeRoute> getTradeRoutes() {
         return tradeRoutes;
     }
-
     public void setTradeRoutes(List<TradeRoute> tradeRoutes) {
         this.tradeRoutes = tradeRoutes != null ? new ArrayList<>(tradeRoutes) : new ArrayList<>();
     }
-
     public List<FogOfWarState> getFogOfWarStates() {
         return fogOfWarStates;
     }
@@ -989,7 +990,6 @@ public class SpaceConquestEngine implements GameEngine {
     public LogisticsProcessor getLogisticsProcessor() {
         return logisticsProcessor;
     }
-
     public SensorProcessor getSensorProcessor() {
         return sensorProcessor;
     }

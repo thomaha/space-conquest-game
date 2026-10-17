@@ -57,7 +57,9 @@ public class ShipDesignerView {
     private GameState snapshot;
     private String editingDesignId;
     private ComboBox<String> sensorChoice;
+    private Spinner<Integer> hullCapacityChoice;
     private final java.util.Map<String, Spinner<Integer>> combatChoices = new java.util.LinkedHashMap<>();
+    private final java.util.Map<String, Spinner<Integer>> equipmentChoices = new java.util.LinkedHashMap<>();
 
     private record PendingDesign(ShipDesign design, CompletableFuture<CommandOutcome> completion,
                                  boolean updating) {}
@@ -203,9 +205,9 @@ public class ShipDesignerView {
         header.setFill(Color.LIGHTCYAN);
         header.setFont(Font.font("Verdana", FontWeight.BOLD, 16));
 
-        TextField nameField = new TextField("Vanguard class cruiser");
+        TextField nameField = new TextField("Custom ship design");
         ComboBox<String> roleCombo = new ComboBox<>();
-        roleCombo.getItems().addAll("COMBAT_SHIP", "CARGO_TRANSPORT", "COLONY_SHIP", "EXPLORER", "MINING_SHIP", "TROOP_TRANSPORT", "CARRIER_SHIP", "CONSTRUCTION_SHIP");
+        roleCombo.getItems().addAll(ShipComponentCatalog.ROLES.stream().sorted().toList());
         roleCombo.setValue("COMBAT_SHIP");
 
         ComboBox<String> matCombo = new ComboBox<>();
@@ -242,24 +244,12 @@ public class ShipDesignerView {
                         && playerEmpireId.equals(design.ownerEntityId())
                         && !design.isProprietaryCorporateDesign())
                 .findFirst().orElse(null);
-        if (editingDesign != null) {
-            nameField.setText(editingDesign.name());
-            roleCombo.setValue(editingDesign.role());
-            matCombo.setValue(editingDesign.hullMaterialId());
-            armorCombo.setValue(editingDesign.armorMaterialId());
-            armorSpinner.getValueFactory().setValue(Math.clamp(editingDesign.armorThicknessCm(),
-                    0.5, 10.0));
-            PropulsionCatalog.MAIN_DRIVE_IDS.stream()
-                    .filter(editingDesign.equippedModuleIds()::contains)
-                    .map(PropulsionCatalog::module).findFirst().ifPresent(engineCombo::setValue);
-            powerCombo.getItems().stream().filter(option -> option.matches(editingDesign.equippedModuleIds()))
-                    .findFirst().ifPresent(powerCombo::setValue);
-            stasisPod.setSelected(editingDesign.equippedModuleIds()
-                    .contains(PassengerStasis.MODULE_ID));
-        }
+        restoreEditingChoices(editingDesign, nameField, roleCombo, matCombo, armorCombo, armorSpinner, engineCombo, powerCombo, stasisPod);
 
         var sensorRow = createSensorChoice(editingDesign);
+        var hullRow = createHullCapacityChoice(editingDesign);
         var combatRows = createCombatChoices(editingDesign);
+        var equipmentRows = createEquipmentChoices(editingDesign);
         GridPane grid = createWorkbenchForm(nameField, roleCombo, matCombo, armorCombo,
                 armorSpinner, engineCombo, powerCombo);
 
@@ -269,8 +259,10 @@ public class ShipDesignerView {
                 matCombo.getValue(), armorCombo.getValue(), armorSpinner.getValue(),
                 engineCombo.getValue(), powerCombo.getValue(), stasisPod.isSelected());
         refreshStats.run();
+        hullCapacityChoice.valueProperty().addListener((observable, old, selected) -> refreshStats.run());
         sensorChoice.valueProperty().addListener((observable, old, selected) -> refreshStats.run());
         combatChoices.values().forEach(choice -> choice.valueProperty().addListener((observable, old, selected) -> refreshStats.run()));
+        equipmentChoices.values().forEach(choice -> choice.valueProperty().addListener((observable, old, selected) -> refreshStats.run()));
         engineCombo.valueProperty().addListener((observable, old, selected) -> refreshStats.run());
         powerCombo.valueProperty().addListener((observable, old, selected) -> refreshStats.run());
         roleCombo.valueProperty().addListener((observable, old, selected) -> refreshStats.run());
@@ -294,10 +286,10 @@ public class ShipDesignerView {
                 renderContent();
             });
             section.getChildren().addAll(header, new Label("Editing: " + editingDesign.name()),
-                    grid, stasisPod, sensorRow, combatRows, statsBox, estimateBox,
+                    grid, hullRow, stasisPod, sensorRow, equipmentRows, combatRows, statsBox, estimateBox,
                     new HBox(8, saveBlueprintBtn, cancelEdit));
         } else {
-            section.getChildren().addAll(header, grid, stasisPod, sensorRow, combatRows, statsBox, estimateBox,
+            section.getChildren().addAll(header, grid, hullRow, stasisPod, sensorRow, equipmentRows, combatRows, statsBox, estimateBox,
                     saveBlueprintBtn);
         }
         return section;
@@ -382,9 +374,9 @@ public class ShipDesignerView {
             estimateBox.getChildren().add(new Label("Research a propulsion drive to design a ship."));
             return;
         }
+        var moduleIds = workbenchModules(selectedDrive.id(), stasisSelected, selectedPower);
         var specification = new ShipDesignSpecification("preview", "Preview", playerEmpireId,
-                role, hullMaterialId, workbenchModules(selectedDrive.id(), stasisSelected, selectedPower),
-                armorMaterialId, armorThickness);
+                role, hullMaterialId, moduleIds, armorMaterialId, armorThickness, hullCapacityChoice.getValue(), installationIdentities(moduleIds, "preview"));
         var evaluation = ShipBlueprintFactory.evaluate(snapshot, specification);
         if (evaluation.physics() != null)
             statsBox.getChildren().setAll(createWorkbenchStatsBox(evaluation.physics()).getChildren());
@@ -402,6 +394,9 @@ public class ShipDesignerView {
         }
         var manufacturing = evaluation.design().manufacturingProfile();
         ShipConstructionRequirements.Estimate estimate = ShipConstructionRequirements.estimate(evaluation.design());
+        var assembly = evaluation.design().assembly();
+        if (assembly != null) estimateBox.getChildren().add(new Label(String.format("Work hours — frame: %.1f; armor: %.1f; equipment: %.1f; installation: %.1f",
+                assembly.frame().workHours(), assembly.armor().workHours(), assembly.installations().stream().mapToDouble(item -> item.production().workHours()).sum(), assembly.integration().workHours())));
         long minimumTurns = (long) Math.ceil(estimate.workUnits() / 100.0);
         List<javafx.scene.Node> estimateLines = new ArrayList<>();
         Text estimateHeader = new Text("Estimated production requirements");
@@ -433,10 +428,10 @@ public class ShipDesignerView {
     private VBox createPowerDemandBox(com.spaceconquest.engine.ship.ShipPowerProfile power,
                                      List<ShipModule> modules, double cargoCapacity) {
         double normal = power.hotelKw() + power.cargoKw() * (cargoCapacity > 0 ? 1 : .1);
-        double salvo = modules.stream().mapToDouble(module -> module.operationalStats().getOrDefault("weaponSalvoKwh", 0.0)
+        double salvo = modules.stream().mapToDouble(module -> com.spaceconquest.engine.ship.WeaponSalvo.of(module).energyKwh()
                 + module.operationalStats().getOrDefault("pointDefenseCapacity", 0.0) * module.operationalStats().getOrDefault("pointDefenseShotKwh", 0.0)).sum();
-        double shield = modules.stream().mapToDouble(module -> module.operationalStats().getOrDefault("shieldRechargePointsPerHour", 0.0)).sum()
-                * com.spaceconquest.engine.ship.ShipShieldRecharge.KWH_PER_POINT;
+        double shield = modules.stream().mapToDouble(module -> module.operationalStats().getOrDefault("shieldRechargePointsPerHour", 0.0)
+                * module.operationalStats().getOrDefault("shieldRechargeKwhPerPoint", 0.0)).sum();
         double hours = com.spaceconquest.engine.combat.TacticalCombatProcessor.SECONDS_PER_ROUND / 3600;
         double combat = normal + salvo / hours + shield;
         var box = new VBox(4);
@@ -475,10 +470,10 @@ public class ShipDesignerView {
             if (engineCombo.getValue() == null) return;
             String id = editingDesign == null ? "design_" + UUID.randomUUID().toString().substring(0, 8)
                     : editingDesign.id();
+            var moduleIds = workbenchModules(engineCombo.getValue().id(), stasisPod.isSelected(), powerCombo.getValue());
             var specification = new ShipDesignSpecification(id, nameField.getText(), playerEmpireId,
-                    roleCombo.getValue(), matCombo.getValue(),
-                    workbenchModules(engineCombo.getValue().id(), stasisPod.isSelected(), powerCombo.getValue()),
-                    armorCombo.getValue(), armorSpinner.getValue());
+                    roleCombo.getValue(), matCombo.getValue(), moduleIds,
+                    armorCombo.getValue(), armorSpinner.getValue(), hullCapacityChoice.getValue(), installationIdentities(moduleIds, id));
             var evaluation = ShipBlueprintFactory.evaluate(snapshot, specification);
             if (!evaluation.valid()) {
                 feedbackLabel.setText("Blueprint invalid: " + String.join(", ", evaluation.errors()));
@@ -610,47 +605,63 @@ public class ShipDesignerView {
                 .findFirst().orElse(List.of());
         var hardwareIds = new ArrayList<>(com.spaceconquest.engine.ship.CombatModuleCatalog.IDS);
         hardwareIds.add(com.spaceconquest.engine.ship.ShipRepairModuleCatalog.WORKSHOP);
+        hardwareIds.addAll(com.spaceconquest.engine.ship.ShipMiningModuleCatalog.ids());
         for (String id : hardwareIds) {
             int installed = editing == null ? 0 : (int) editing.equippedModuleIds().stream().filter(id::equals).count();
             if (installed == 0 && (!com.spaceconquest.engine.ship.CombatModuleCatalog.researched(List.of(id), technologies)
-                    || !com.spaceconquest.engine.ship.ShipRepairModuleCatalog.researched(List.of(id), technologies))) continue;
+                    || !com.spaceconquest.engine.ship.ShipRepairModuleCatalog.researched(List.of(id), technologies)
+                    || !com.spaceconquest.engine.ship.ShipMiningModuleCatalog.researched(List.of(id), technologies))) continue;
             var module = ShipComponentCatalog.module(id);
-            var count = new Spinner<Integer>(0, Math.max(60, installed), installed); count.setPrefWidth(90);
+            int capacity = com.spaceconquest.engine.ship.HullTechnology.maximumCapacity(snapshot, playerEmpireId);
+            var count = new Spinner<Integer>(0, Math.max(capacity / module.slotCost(), installed), installed); count.setPrefWidth(90);
             if (com.spaceconquest.engine.ship.ShipRepairModuleCatalog.WORKSHOP.equals(id))
                 count.setTooltip(new javafx.scene.control.Tooltip("Repairs its host then other ships in the same fleet using host cargo. "
                         + "20 repair points per day per healthy powered workshop. Trade-assigned hosts retain their freight."));
-            if (com.spaceconquest.engine.ship.CombatModuleCatalog.SHIELD.equals(id))
-                count.setTooltip(new javafx.scene.control.Tooltip("200 shield capacity per healthy emitter. Recharge uses 2 kWh per point "
-                        + "at up to 10 points per hour, including combat. Quiet travel defers recharge until shared sensors detect a hostile fleet. "
-                        + "Damage reduces capacity and recharge rate. Required travel power and a 48-hour arrival reserve take priority."));
-            if (module.operationalStats().containsKey("weaponSalvoKwh"))
-                count.setTooltip(new javafx.scene.control.Tooltip(module.operationalStats().get("weaponSalvoKwh")
-                        + " kWh per healthy mount's combat salvo, in addition to continuous maintenance. "
-                        + "Maximum range: " + module.operationalStats().get("weaponRangeMeters") / 1000 + " km. "
-                        + "Live sensor contact and actual separation determine firing. Limited power reduces output. "
-                        + "Ship upkeep takes priority, followed by firing then shield recharge."));
-            if (com.spaceconquest.engine.ship.CombatModuleCatalog.MISSILE.equals(id))
-                count.setTooltip(new javafx.scene.control.Tooltip("One whole 100 kg guided_missile cargo round and 2 kWh per launch per minute. "
-                        + "10 kW idle draw, 2000 km maximum reach and 10 km/s provisional flight speed. Damage arrives in a later round. "
-                        + "Live shared guidance is required throughout flight. Lost contact or engagement end causes self-destruction. "
-                        + "Buy and load manufactured ammunition through ship cargo supplies; launchers start empty."));
-            if (com.spaceconquest.engine.ship.CombatModuleCatalog.LASER_POINT_DEFENSE.equals(id))
-                count.setTooltip(new javafx.scene.control.Tooltip("Requires developed laser weapons and the laser point-defense application. "
-                        + "20 kW idle draw. Up to two incoming missiles per healthy mount per minute within 50 km, at 1 kWh each. "
-                        + "Funded defense precedes offensive salvos and shield recharge. Damage and power shortages reduce capacity. "
-                        + "Requires live detection; operates while evading. It contributes no offensive ship damage."));
-            if (com.spaceconquest.engine.ship.CombatModuleCatalog.KINETIC_POINT_DEFENSE.equals(id))
-                count.setTooltip(new javafx.scene.control.Tooltip("Requires developed mass drivers and their point-defense application. "
-                        + "15 kW idle draw. Up to three incoming missiles per healthy mount per minute within 25 km. "
-                        + "Each interception consumes 0.5 kWh and one whole 5 kg kinetic_pd_round cargo cartridge. "
-                        + "Buy and load manufactured ammunition through cargo supplies. Empty magazines cannot intercept. "
-                        + "Damage and power shortages reduce capacity; no offensive ship damage is provided."));
+            if (com.spaceconquest.engine.ship.CombatModuleCatalog.application(id) != null)
+                count.setTooltip(new javafx.scene.control.Tooltip(com.spaceconquest.engine.ship.CombatModuleCatalog.description(
+                        com.spaceconquest.engine.ship.ShipApplicationProduction.optimize(snapshot, playerEmpireId, module))));
             combatChoices.put(id, count); rows.getChildren().add(new HBox(8, new Label(module.name() + ":"), count));
         }
         return rows;
     }
+    private void restoreEditingChoices(ShipDesign editing, TextField name, ComboBox<String> role, ComboBox<String> material,
+                                       ComboBox<String> armor, Spinner<Double> thickness, ComboBox<ShipModule> engine,
+                                       ComboBox<ShipPowerOption> power, CheckBox stasis) {
+        if (editing == null) return;
+        name.setText(editing.name()); role.setValue(editing.role()); material.setValue(editing.hullMaterialId()); armor.setValue(editing.armorMaterialId());
+        thickness.getValueFactory().setValue(Math.clamp(editing.armorThicknessCm(), .5, 10));
+        PropulsionCatalog.MAIN_DRIVE_IDS.stream().filter(editing.equippedModuleIds()::contains).map(PropulsionCatalog::module).findFirst().ifPresent(engine::setValue);
+        power.getItems().stream().filter(option -> option.matches(editing.equippedModuleIds())).findFirst().ifPresent(power::setValue);
+        stasis.setSelected(editing.equippedModuleIds().contains(PassengerStasis.MODULE_ID));
+    }
+    private VBox createEquipmentChoices(ShipDesign editing) {
+        equipmentChoices.clear(); var rows = new VBox(6);
+        int capacity = com.spaceconquest.engine.ship.HullTechnology.maximumCapacity(snapshot, playerEmpireId);
+        for (String id : List.of("mod_cargo_vault", PropulsionCatalog.FUEL_TANK_MODULE_ID, ShipComponentCatalog.BATTERY_ID)) {
+            var module = ShipComponentCatalog.module(id);
+            int installed = editing == null ? 1 : (int) editing.equippedModuleIds().stream().filter(id::equals).count();
+            var count = new Spinner<Integer>(0, Math.max(installed, capacity / module.slotCost()), installed); count.setPrefWidth(90);
+            equipmentChoices.put(id, count); rows.getChildren().add(new HBox(8, new Label(module.name() + ":"), count));
+        }
+        return rows;
+    }
+    private HBox createHullCapacityChoice(ShipDesign editing) {
+        int maximum = Math.max(1, com.spaceconquest.engine.ship.HullTechnology.maximumCapacity(snapshot, playerEmpireId));
+        int selected = editing == null || editing.hullFrame() == null ? com.spaceconquest.engine.ship.HullTechnology.initialCapacity() : editing.hullFrame().totalSlots();
+        hullCapacityChoice = new Spinner<Integer>(1, Math.max(maximum, selected), selected);
+        hullCapacityChoice.setPrefWidth(100);
+        return new HBox(8, new Label("Hull capacity:"), hullCapacityChoice, new Label("Research limit: " + maximum + " capacity units; choose any module mix that fits"));
+    }
+    private List<String> installationIdentities(List<String> modules, String designId) {
+        var previous = registeredDesigns.stream().filter(design -> design.id().equals(editingDesignId)).findFirst().orElse(null);
+        return com.spaceconquest.engine.ship.ShipBlueprintAssembly.identitiesFor(previous, modules, designId);
+    }
     private List<String> workbenchModules(String drive, boolean stasis, ShipPowerOption power) {
         List<String> modules = new ArrayList<>(ShipComponentCatalog.workbenchModules(drive, stasis, power.primaryId(), power.solarSupport()));
+        for (var entry : equipmentChoices.entrySet()) {
+            modules.removeIf(entry.getKey()::equals);
+            for (int count = 0; count < entry.getValue().getValue(); count++) modules.add(entry.getKey());
+        }
         if (sensorChoice != null && com.spaceconquest.engine.ship.SensorModuleCatalog.module(sensorChoice.getValue()) != null)
             modules.add(sensorChoice.getValue());
         for (var entry : combatChoices.entrySet())

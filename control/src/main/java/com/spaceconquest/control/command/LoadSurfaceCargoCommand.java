@@ -17,6 +17,7 @@ public record LoadSurfaceCargoCommand(String shipId, String bodyId,
                                       String materialId, double quantityKg) implements GameCommand {
     @Override
     public boolean validate(GameState state) {
+        if (com.spaceconquest.engine.ship.ShipRefitPlan.reserved(state, shipId)) return false;
         if (state == null || shipId == null || bodyId == null || materialId == null
                 || !Double.isFinite(quantityKg) || quantityKg <= 0) return false;
         Fleet fleet = state.fleets().stream().filter(item -> item.ships().stream()

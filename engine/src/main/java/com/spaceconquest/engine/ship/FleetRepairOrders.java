@@ -8,12 +8,19 @@ import java.util.*;
 public final class FleetRepairOrders {
     private FleetRepairOrders() {}
     public static GameState advance(GameState state) {
+        return advance(state, null);
+    }
+    /** Targeted quote or tick execution retains the same funded repair and saved-intent gates. */
+    public static GameState advance(GameState state, String fleetId) {
         var result = state;
         for (var original : state.fleets()) {
+            if (fleetId != null && !fleetId.equals(original.id())) continue;
             var fleet = FleetOrganization.find(result, original.id());
             if (!eligible(result, fleet) || FleetRepairRecovery.need(result, fleet) <= 1e-9) continue;
             var intent = FleetRepairIntent.capture(fleet);
-            var assignment = new FleetProtectionAssignment(fleet.guardOrder(), "", fleet.id(), fleet.location().current(),
+            var origin = fleet.guardOrder() != null ? fleet.guardOrder().site()
+                    : RecoveredParkingTravel.ready(fleet) ? fleet.location().destination() : fleet.location().current();
+            var assignment = new FleetProtectionAssignment(fleet.guardOrder(), "", fleet.id(), origin,
                     FleetProtectionAssignment.Stage.RETURNING, "", false, intent);
             var ordered = fleet.withGuardOrder(null).withEscortOrder(null)
                     .withInterceptOrder(new FleetInterceptOrder(fleet.ownerEntityId(), fleet.id(), fleet.currentSystemId(), assignment));
@@ -25,7 +32,7 @@ public final class FleetRepairOrders {
         return result;
     }
     private static boolean eligible(GameState state, Fleet fleet) {
-        return fleet != null && !fleet.ships().isEmpty() && FleetReturnTravel.available(fleet) && !fleet.location().inTransit()
+        return fleet != null && !ShipRefitPlan.reserved(state, fleet) && !fleet.ships().isEmpty() && FleetReturnTravel.available(fleet)
                 && fleet.location().current().kind() != FleetLocation.Kind.SURFACE
                 && fleet.interstellarMode().isBlank() && (fleet.interceptOrder() == null || fleet.interceptOrder().protection() == null)
                 && fleet.ships().stream().allMatch(ship -> fleet.ownerEntityId().equals(ship.ownerEntityId())

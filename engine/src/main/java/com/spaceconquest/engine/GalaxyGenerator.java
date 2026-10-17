@@ -179,7 +179,8 @@ public class GalaxyGenerator {
         GameState initial = GameState.builder()
                 .status("RUNNING")
                 .solarSystems(systems)
-                .empires(allEmpires)
+                .empires(allEmpires.stream().map(empire -> com.spaceconquest.engine.scenario.StartingApplicationKnowledge
+                        .forAssets(empire, allFacilities, allCorporations)).toList())
                 .corporations(allCorporations)
                 .commercialHubs(allHubs)
                 .geologicalDeposits(allDeposits)
@@ -189,6 +190,7 @@ public class GalaxyGenerator {
                 .systemEconomies(allEconomies)
                 .householdAccounts(economySeeder.createOpeningHouseholds(systems, allEmpires))
                 .build();
+        initial = com.spaceconquest.engine.industry.GeologicalSurveySeeder.seed(initial);
         initial = new OpeningMarketSeeder().align(initial, races);
         if (activeScenario != GameStartScenario.PRE_SPACE_FLIGHT) {
             CorporateInvestmentProcessor investments = new CorporateInvestmentProcessor();
@@ -213,7 +215,9 @@ public class GalaxyGenerator {
             for (int index = 0; index < empires.size(); index++) {
                 Empire owner = empires.get(index);
                 if (!owner.id().equals(facility.ownerEntityId())) continue;
-                double capital = Math.clamp(owner.treasuryCredits(), 0.0, 50_000.0);
+                double capital = Math.clamp(owner.treasuryCredits(), 0.0, 50_000.0
+                        * (com.spaceconquest.engine.industry.PowerPlantCatalog.find(facility.applicationId()) == null ? 1
+                        : com.spaceconquest.engine.industry.GenerationCapacity.units(facility)));
                 accounts.add(IndustryAccount.empty(facility.id()).withOperatingCash(capital));
                 empires.set(index, new Empire(owner.id(), owner.name(), owner.raceId(),
                         owner.societyStructure(), owner.treasuryCredits() - capital,
@@ -807,11 +811,11 @@ public class GalaxyGenerator {
         return belts.stream()
                 .map(ab -> {
                     if (scenario == GameStartScenario.PRE_SPACE_FLIGHT) {
-                        return new AsteroidBelt(ab.id(), ab.name(), ab.description(), ab.resources(), List.of());
+                        return new AsteroidBelt(ab.id(), ab.name(), ab.description(), ab.resources(), List.of(), ab.distanceKm());
                     } else if (scenario == GameStartScenario.ADVANCED_ROCKETRY) {
-                        return new AsteroidBelt(ab.id(), ab.name(), ab.description(), ab.resources(), List.of(generateColonyPopulation(primaryRace, 25_000L)));
+                        return new AsteroidBelt(ab.id(), ab.name(), ab.description(), ab.resources(), List.of(generateColonyPopulation(primaryRace, 25_000L)), ab.distanceKm());
                     } else {
-                        return new AsteroidBelt(ab.id(), ab.name(), ab.description(), ab.resources(), List.of(generateColonyPopulation(primaryRace, 100_000L)));
+                        return new AsteroidBelt(ab.id(), ab.name(), ab.description(), ab.resources(), List.of(generateColonyPopulation(primaryRace, 100_000L)), ab.distanceKm());
                     }
                 })
                 .toList();

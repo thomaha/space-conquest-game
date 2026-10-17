@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class MovingFleetRendezvousTest {
     GameState world(boolean drifting, double speed) throws Exception {
         var owner = new Empire("owner", "Owner", "human", "Individualist", 1e6, 0, List.of("sol"), List.of(), Map.of(),
-                List.of("rocketry", "hydrolox_propulsion", "electricity", "solar_power", "industrial_production"), List.of());
+                List.of("rocketry", "hydrolox_propulsion", "electricity", "solar_power", "industrial_production", "ship_cannons"), List.of());
         var sol = DataModelLoader.loadSolarSystems().stream().filter(system -> system.id().equals("sol")).findFirst().orElseThrow();
         var earth = sol.planets().stream().filter(planet -> planet.id().equals("earth")).findFirst().orElseThrow();
         var smallSystem = new SolarSystem(sol.id(), sol.name(), sol.description(), sol.x(), sol.y(), sol.z(),
@@ -36,7 +36,7 @@ class MovingFleetRendezvousTest {
         return state.withShipDesigns(List.of(evaluated.design())).withFleets(List.of(fleet("hunter", "owner", source), target));
     }
     private Fleet fleet(String id, String owner, FleetLocation.Site site) {
-        var ship = new ShipInstance(id + "-ship", "military", owner, 100, 0, 120000, Map.of())
+        var ship = new ShipInstance(id + "-ship", "military", owner, 100, 0, 120000, Map.of("cannon_round", 100.0))
                 .withPowerState(new ShipPowerState(Map.of(), "rp1", "uranium", 500, true, 1, 1, 0, 0, 0, 0, 0));
         return new Fleet(id, id, owner, "sol", "", 0, 0, 0, false, "PASSIVE", List.of(ship), FleetLocation.at(site));
     }

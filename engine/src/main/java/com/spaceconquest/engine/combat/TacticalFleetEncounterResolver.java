@@ -59,16 +59,19 @@ public final class TacticalFleetEncounterResolver implements FleetEncounterResol
                 if (defender == null || attacker.id().equals(defender.id()) || engagedFleetIds.contains(defender.id())
                         || attacker.interceptOrder() != null && !attacker.interceptOrder().targetFleetId().equals(defender.id())
                         || !atWar(attacker.ownerEntityId(), defender.ownerEntityId(), state.diplomaticRelations())
-                        || !(contact(context[0], fleets, attacker, defender) && com.spaceconquest.engine.ship.ShipWeaponRange.reaches(state, attacker, defender))
-                        && !(contact(context[0], fleets, defender, attacker) && com.spaceconquest.engine.ship.ShipWeaponRange.reaches(state, defender, attacker))) {
+                        || !(contact(context[0], fleets, attacker, defender) && reaches(context[0], attacker, defender))
+                        && !(contact(context[0], fleets, defender, attacker) && reaches(context[0], defender, attacker))) {
                     continue;
                 }
-                TacticalCombatProcessor.CombatEngagementResult result = combatProcessor.resolveFleetEngagement(
-                        attacker, defender, state.shipDesigns(), (first, second) -> withdraw(context, fleets, first, second),
+                TacticalCombatProcessor.CombatEngagementResult result = combatProcessor.forState(context[0]).resolveFleetEngagementWithCarrierWings(
+                        attacker, defender, state.shipDesigns(), context[0].auxiliaryForces().wingsFor(attacker),
+                        context[0].auxiliaryForces().wingsFor(defender), null, TacticalCombatProcessor.TARGET_SUBSYSTEM_ALL,
+                        (first, second) -> withdraw(context, fleets, first, second),
                         (first, second) -> contact(context[0], fleets, first, second),
                         (first, second) -> com.spaceconquest.engine.ship.ShipWeaponRange.separation(context[0], first, second));
                 replaceFleet(fleets, result.survivingAttackerFleet());
                 replaceFleet(fleets, result.survivingDefenderFleet());
+                context[0] = context[0].toBuilder().auxiliaryForces(context[0].auxiliaryForces().afterCombat(result, fleets)).build();
                 engagedFleetIds.add(attacker.id());
                 engagedFleetIds.add(defender.id());
                 history.add(toRecord(state, attacker, defender, result));
@@ -82,8 +85,8 @@ public final class TacticalFleetEncounterResolver implements FleetEncounterResol
         if (history.size() > MAX_SAVED_ENGAGEMENTS) {
             history = new ArrayList<>(history.subList(history.size() - MAX_SAVED_ENGAGEMENTS, history.size()));
         }
-        return com.spaceconquest.engine.ship.FleetInterceptProcessor.finishContacts(
-                context[0].toBuilder().fleets(fleets).fleetEngagements(history).build());
+        return SurfaceBatteryEncounterResolver.resolve(com.spaceconquest.engine.ship.FleetInterceptProcessor.finishContacts(
+                context[0].toBuilder().fleets(fleets).fleetEngagements(history).build()), combatProcessor, races.get());
     }
 
     private TacticalCombatProcessor.Withdrawal withdraw(GameState[] context, List<Fleet> fleets, Fleet first, Fleet second) {
@@ -104,6 +107,11 @@ public final class TacticalFleetEncounterResolver implements FleetEncounterResol
         var current = state.withFleets(fleets.stream().map(fleet -> fleet.id().equals(observer.id()) ? observer
                 : fleet.id().equals(target.id()) ? target : fleet).toList());
         return com.spaceconquest.engine.galaxy.SensorCoverage.detects(current, observer.ownerEntityId(), target);
+    }
+
+    private boolean reaches(GameState state, Fleet fleet, Fleet target) {
+        return com.spaceconquest.engine.ship.ShipWeaponRange.reaches(state, fleet, target)
+                || state.auxiliaryForces().reaches(fleet, com.spaceconquest.engine.ship.ShipWeaponRange.separation(state, fleet, target));
     }
 
     private boolean canEngage(Fleet fleet) {
@@ -150,6 +158,6 @@ public final class TacticalFleetEncounterResolver implements FleetEncounterResol
         return new FleetEngagementRecord(state.turn(), attacker.currentSystemId(), ranged ? rendezvous ? "RENDEZVOUS" : "WEAPON_RANGE" : site.kind().name(),
                 ranged ? defender.id() : site.entityId(),
                 attacker.id(), attacker.ownerEntityId(), defender.id(), defender.ownerEntityId(),
-                result.winnerOwnerEntityId(), destroyedShips, result.roundReports().size());
+                result.winnerOwnerEntityId(), destroyedShips, result.roundReports().size(), null, FleetEngagementRecord.targeting(result));
     }
 }

@@ -1,0 +1,11 @@
+{
+  "drives": ["mod_fission_thruster", "mod_chemical_rocket"],
+  "cargoModules": ["mod_cargo_hold_large"],
+  "hullMaterials": ["refined_aluminum", "steel"],
+  "armorMaterial": "steel",
+  "armorThicknessCm": 0.5,
+  "maximumCargoModules": 3,
+  "maximumFuelTanks": 3,
+  "maximumCandidates": 72,
+  "spareCapacityFraction": 0
+}

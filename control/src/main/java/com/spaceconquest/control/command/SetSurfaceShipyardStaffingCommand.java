@@ -34,7 +34,7 @@ public record SetSurfaceShipyardStaffingCommand(String empireId, String facility
             updated.set(index, new IndustrialFacility(facility.id(), facility.planetId(),
                     facility.applicationId(), facility.ownerEntityId(), facility.ownershipType(),
                     facility.tier(), allocatedWorkers, facility.workerProfessionId(),
-                    facility.isUndergoingExpansion(), facility.expansionProgress()));
+                    facility.isUndergoingExpansion(), facility.expansionProgress(), facility.productionEquipment()));
             break;
         }
         return state.withIndustrialFacilities(updated);
@@ -43,8 +43,7 @@ public record SetSurfaceShipyardStaffingCommand(String empireId, String facility
     private IndustrialFacility findFacility(GameState state) {
         return state.industrialFacilities().stream()
                 .filter(facility -> facilityId.equals(facility.id())
-                        && ShipyardWorkCapacity.SURFACE_SHIPYARD_APPLICATION_ID
-                        .equals(facility.applicationId()))
+                        && com.spaceconquest.engine.ship.ShipyardTechnology.isSurface(facility.applicationId()))
                 .findFirst().orElse(null);
     }
 }

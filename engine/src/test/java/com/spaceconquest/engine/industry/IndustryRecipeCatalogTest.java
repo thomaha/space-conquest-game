@@ -20,6 +20,8 @@ class IndustryRecipeCatalogTest {
         for (IndustryRecipeCatalog.Recipe recipe : IndustryRecipeCatalog.all()) {
             used.addAll(recipe.inputsKg().keySet());
             used.addAll(recipe.outputsKg().keySet());
+            recipe.inputSources().forEach(input -> used.add(input.materialId()));
+            if (recipe.factory() != null) used.addAll(recipe.factory().constructionMaterialsKg().keySet());
         }
         for (PowerPlantCatalog.Plant plant : PowerPlantCatalog.all().values()) {
             if (plant.fuelMaterialId() != null) used.add(plant.fuelMaterialId());

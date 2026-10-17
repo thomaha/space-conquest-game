@@ -1,0 +1,13 @@
+{
+  "observationTurns": 4,
+  "maximumYardPreviews": 8,
+  "minimumQueuedDays": 6,
+  "minimumUtilization": 0.95,
+  "maximumInvestmentCredits": 500000,
+  "empireReserveCredits": 10000,
+  "corporateReserveCredits": 10000,
+  "payrollReserveDays": 4,
+  "minimumProfitCredits": 1,
+  "maximumForecastDays": 30,
+  "maximumSurfaceTierIncrease": 3
+}

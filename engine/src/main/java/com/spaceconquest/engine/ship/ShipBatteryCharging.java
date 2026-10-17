@@ -13,6 +13,7 @@ public final class ShipBatteryCharging {
     private ShipBatteryCharging() {}
 
     public static GameState charge(GameState state, String shipId, String sourceId, double inputKwh) {
+        if (ShipRefitPlan.reserved(state, shipId)) return state;
         if (state == null || shipId == null || sourceId == null || !Double.isFinite(inputKwh) || inputKwh <= 0) return state;
         Fleet fleet = state.fleets().stream().filter(item -> item.ships().stream().anyMatch(ship -> ship.id().equals(shipId)))
                 .findFirst().orElse(null);
@@ -41,7 +42,7 @@ public final class ShipBatteryCharging {
                     .map(Empire::id).findFirst().orElse(null);
         }
         if (provider == null) return state;
-        double price = inputKwh * PowerBillingProcessor.PRICE_PER_KWH;
+        double price = inputKwh * com.spaceconquest.engine.industry.GridSupplyPricing.price(state, sourceId);
         if (balance(state, ship.ownerEntityId()) < price || balance(state, provider) < 0) return state;
         GameState paid = changeCash(changeCash(state, ship.ownerEntityId(), -price), provider, price);
         var grids = new ArrayList<>(paid.powerGrids());

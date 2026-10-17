@@ -123,11 +123,7 @@ final class TradeBasketPlanner {
         var target = state.commercialHubs().stream().filter(hub -> hub.id().equals(route.destinationEntityId())).findFirst().orElseThrow();
         var quote = RoamingTradeCost.quote(state, shipment.preparedFleet(), source, target);
         if (quote == null) return null;
-        double sale = quantities.entrySet().stream().mapToDouble(item -> item.getValue()
-                * target.activeOrders().get(item.getKey()).pricePerKg() * IndustryMarketProcessor.WHOLESALE_SHARE).sum();
-        double tax = state.empires().stream().anyMatch(empire -> empire.controlledSystemIds()
-                .contains(FleetPositioning.systemForHub(state, target))) ? Math.clamp(target.transactionTariffRate(), 0, 1) : 0;
-        double profit = sale * (1 - tax) - shipment.route().onboardCostCredits() - quote.fuelCredits() - quote.launchCredits();
+        double profit = TradeOperatingProfit.estimate(shipment, source, target);
         return Double.isFinite(profit) ? new TradeShipmentSizing.Selection(shipment, profit, quote.days()) : null;
     }
 }

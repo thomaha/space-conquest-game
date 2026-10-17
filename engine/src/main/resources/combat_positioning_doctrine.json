@@ -1,0 +1,11 @@
+{
+  "rangeFractions": [0.9, 0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625, 0.0078125, 0.00390625],
+  "neutralizationWeight": 1.0,
+  "progressWeight": 0.1,
+  "incomingDamageWeight": 0.25,
+  "distanceWeight": 0.01,
+  "arrivalDelayDiscount": 0.25,
+  "travelDayDiscount": 0.05,
+  "minimumImprovement": 0.05,
+  "maxSalvoImpacts": 64
+}

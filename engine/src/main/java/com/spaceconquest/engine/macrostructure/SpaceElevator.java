@@ -22,6 +22,7 @@ public record SpaceElevator(
         boolean isOperational
 ) {
     public SpaceElevator {
-        if (surfaceToOrbitCostDiscount <= 0.0) surfaceToOrbitCostDiscount = 0.95;
+        if (!Double.isFinite(surfaceToOrbitCostDiscount) || surfaceToOrbitCostDiscount < 0 || surfaceToOrbitCostDiscount > 1)
+            throw new IllegalArgumentException("Invalid elevator lift discount");
     }
 }

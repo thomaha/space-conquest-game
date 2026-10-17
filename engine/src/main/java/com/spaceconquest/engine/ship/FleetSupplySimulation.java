@@ -37,6 +37,7 @@ public final class FleetSupplySimulation {
     }
     public static GameState configure(GameState state, String supplierId, String receiverId, String fuelId, double kg,
                                        double delay, ShipSupplyTransfer.Destination destination) {
+        if (ShipRefitPlan.reserved(state, supplierId) || ShipRefitPlan.reserved(state, receiverId)) return state;
         if (state == null || supplierId == null || receiverId == null || fuelId == null || supplierId.equals(receiverId)
                 || !Double.isFinite(kg) || kg <= 0 || !Double.isFinite(delay) || delay < 0 || destination == null) return state;
         var fleet = state.fleets().stream().filter(item -> item.ships().stream().anyMatch(ship -> ship.id().equals(supplierId))).findFirst().orElse(null);

@@ -11,9 +11,9 @@ public final class ShipWeaponRange {
         if (design == null || ship == null || ship.currentHullHealth() <= 0) return 0;
         double range = 0;
         for (int mount = 0; mount < design.equippedModuleIds().size(); mount++) {
-            var module = CombatModuleCatalog.module(design.equippedModuleIds().get(mount));
+            var module = CombatModuleCatalog.module(design, design.equippedModuleIds().get(mount));
             if (module != null && ship.moduleDamage().condition(mount) > 0
-                    && (!CombatModuleCatalog.MISSILE.equals(module.id()) || ShipMissileWeapons.rounds(ship) > 0))
+                    && ShipWeaponAmmunition.rounds(ship.storedCargoKg(), module) > 0)
                 range = Math.max(range, module.operationalStats().getOrDefault("weaponRangeMeters", 0.0));
         }
         return range;
@@ -27,16 +27,25 @@ public final class ShipWeaponRange {
     private static double capability(ShipDesign design, ShipInstance ship, String stat, double meters, boolean direct) {
         if (design == null || ship == null || Double.isNaN(meters) || meters < 0) return 0;
         double value = 0;
-        int ammunition = ShipMissileWeapons.rounds(ship);
+        var ammunition = new java.util.HashMap<>(ship.storedCargoKg());
         for (int mount = 0; mount < design.equippedModuleIds().size(); mount++) {
-            var module = CombatModuleCatalog.module(design.equippedModuleIds().get(mount));
-            if (module != null && CombatModuleCatalog.MISSILE.equals(module.id())) {
-                if (direct || ammunition <= 0 || ship.moduleDamage().condition(mount) <= 0
+            var module = CombatModuleCatalog.module(design, design.equippedModuleIds().get(mount));
+            int shots = 1;
+            if (ShipMissileWeapons.projectile(module)) {
+                if (direct || ship.moduleDamage().condition(mount) <= 0
                         || module.operationalStats().get("weaponRangeMeters") < meters) continue;
-                ammunition--;
+                shots = Math.min(ShipWeaponAmmunition.rounds(ammunition, module), (int) Math.floor(module.operationalStats().get("launchesPerRound")));
+                ShipWeaponAmmunition.reserve(ammunition, module, shots);
+            } else if (module != null && !module.ammunitionId().isBlank()) {
+                if (ship.moduleDamage().condition(mount) <= 0 || module.operationalStats().get("weaponRangeMeters") < meters) continue;
+                shots = Math.min(ShipWeaponAmmunition.rounds(ammunition, module), WeaponHit.pulses(module));
+                ShipWeaponAmmunition.reserve(ammunition, module, shots);
+                if (WeaponHit.pulses(module) > 0 && module.operationalStats().getOrDefault("weaponRangeMeters", -1.0) >= meters)
+                    value += module.operationalStats().getOrDefault(stat, 0.0) * ship.moduleDamage().condition(mount) * shots / WeaponHit.pulses(module);
+                continue;
             }
             if (module != null && module.operationalStats().getOrDefault("weaponRangeMeters", -1.0) >= meters)
-                value += module.operationalStats().getOrDefault(stat, 0.0) * ship.moduleDamage().condition(mount);
+                value += module.operationalStats().getOrDefault(stat, 0.0) * ship.moduleDamage().condition(mount) * shots;
         }
         return value;
     }

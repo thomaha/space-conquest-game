@@ -21,7 +21,13 @@ import java.util.HashSet;
 public class PowerProcessor {
     private static final double HOURS_PER_DAY = 24.0;
 
-    public record DayResult(List<PowerGridState> grids, Map<String, Integer> poweredWorkers) {}
+    public record DayResult(List<PowerGridState> grids, Map<String, Integer> poweredWorkers,
+                            Map<String, Double> productionEnergyKwh) {
+        public DayResult { grids = List.copyOf(grids); poweredWorkers = Map.copyOf(poweredWorkers); productionEnergyKwh = Map.copyOf(productionEnergyKwh); }
+        public DayResult(List<PowerGridState> grids, Map<String, Integer> poweredWorkers) {
+            this(grids, poweredWorkers, Map.of());
+        }
+    }
 
     /**
      * Balances the planetary power grid for one turn cycle.
@@ -69,6 +75,7 @@ public class PowerProcessor {
     public DayResult balanceDay(GameState state, Map<String, Double> generationKw,
                                 Map<String, Integer> paidWorkers) {
         Map<String, Integer> powered = new HashMap<>(paidWorkers);
+        Map<String, Double> workEnergy = new HashMap<>();
         List<PowerGridState> grids = new ArrayList<>();
         Set<String> bodies = new HashSet<>(generationKw.keySet());
         for (PowerGridState grid : state.powerGrids()) bodies.add(grid.entityId());
@@ -100,23 +107,27 @@ public class PowerProcessor {
                         ? Math.max(0, facility.allocatedWorkers())
                         : paidWorkers.getOrDefault(facility.id(), 0);
                 IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(facility.applicationId());
-                if (workers <= 0 || recipe == null) continue;
-                double requested = requestedIndustryKw(facility, workers);
+                boolean workBased = ProductionWork.definition(facility.applicationId()) != null;
+                if ((!workBased && workers <= 0) || recipe == null) continue;
+                double requested = workBased ? ProductionWork.requestedKw(state, facility, workers) : requestedIndustryKw(facility, workers);
                 demandKw += requested;
                 double fraction = requested <= 0.0 ? 1.0 : Math.clamp(availableKw / requested, 0.0, 1.0);
-                powered.put(facility.id(), (int) Math.floor(workers * fraction));
+                if (workBased) workEnergy.put(facility.id(), requested * fraction * HOURS_PER_DAY);
+                powered.put(facility.id(), workBased && requested <= 0 ? 0 : (int) Math.floor(workers * fraction));
                 availableKw = Math.max(0.0, availableKw - requested * fraction);
             }
             grids.add(balanceGrid(bodyId, generated, demandKw, battery, capacity));
         }
-        return new DayResult(List.copyOf(grids), Map.copyOf(powered));
+        return new DayResult(grids, powered, workEnergy);
     }
 
     private int powerPriority(IndustrialFacility facility) {
-        return "industrial_soil_cultivation".equals(facility.applicationId()) ? 0 : 1;
+        var infrastructure = FactoryDefinition.find(facility.applicationId());
+        return infrastructure != null && !infrastructure.shedDuringBrownout() ? 0 : 1;
     }
 
     public static double requestedIndustryKw(IndustrialFacility facility, int workers) {
+        if (ProductionWork.definition(facility.applicationId()) != null) return ProductionWork.nominalKw(facility, workers);
         IndustryRecipeCatalog.Recipe recipe = IndustryRecipeCatalog.find(facility.applicationId());
         return recipe == null || workers <= 0 ? 0.0 : recipe.powerDrawKw()
                 * Math.max(1, facility.tier())
@@ -161,7 +172,8 @@ public class PowerProcessor {
         List<IndustrialFacility> processed = new ArrayList<>();
         for (IndustrialFacility facility : facilities) {
             String appId = facility.applicationId().toLowerCase();
-            boolean isHeavyIndustry = appId.contains("refin") || appId.contains("foundry")
+            var definition = FactoryDefinition.find(facility.applicationId());
+            boolean isHeavyIndustry = definition != null ? definition.shedDuringBrownout() : appId.contains("refin") || appId.contains("foundry")
                     || appId.contains("metallurgy") || appId.contains("nanotube") || appId.contains("heavy");
 
             if (isHeavyIndustry) {
@@ -176,7 +188,7 @@ public class PowerProcessor {
                         0, // Idled during brownout
                         facility.workerProfessionId(),
                         facility.isUndergoingExpansion(),
-                        facility.expansionProgress()
+                        facility.expansionProgress(), facility.productionEquipment()
                 ));
             } else {
                 processed.add(facility);

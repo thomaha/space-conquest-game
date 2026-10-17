@@ -21,6 +21,9 @@ These are intended boundaries. Current integration gaps are recorded in the modu
 - All design entries are subject to change. Entries marked with Draft are especially unsettled and await a final definition. The absence of Draft does not imply implementation.
 
 ## Code rules
+- Older development saves do not require compatibility or migration support at this stage. Validate the current data model and current-format save/load behavior.
+- Factories are generic input-processing-output facilities. Every factory-specific name, property, input specification, output specification, process requirement and capability must be defined by a researchable technological application. Engine, control and frontend code must consume that data or immutable capabilities captured from it rather than hardcoding named factory behavior. Shared execution may implement generic resource constraints, work capacity, elemental conservation, recovery and market settlement. Existing hardcoded factory tables and ID-based branches are migration gaps and must not be extended.
+- All weapon capabilities must be defined by technological applications. Weapon consumers must read application data or immutable blueprint capabilities captured from that data rather than hardcoding weapon-specific values.
 - Java files are not allowed to be longer than 1000 lines.
 - Code methods should not exceed 100 lines of code.
 - Never execute long-running simulation math, pathfinding, or heavy IO operations on the JavaFX application thread.

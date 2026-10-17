@@ -17,15 +17,20 @@ public final class ShipServicePower {
     }
     private ShipServicePower() {}
     static String service(String id) {
+        return service(ShipComponentCatalog.module(id));
+    }
+    private static String service(ShipModule module) {
+        if (module == null) return null;
+        String id = module.id();
         if (SensorModuleCatalog.module(id) != null) return SENSORS;
         if (ShipRepairModuleCatalog.module(id) != null) return WORKSHOPS;
-        if (CombatModuleCatalog.SHIELD.equals(id)) return SHIELDS;
+        if (module.operationalStats().containsKey("shieldCapacity")) return SHIELDS;
         return CombatModuleCatalog.module(id) != null ? WEAPONS : null;
     }
     static Map<String, Double> capture(List<ShipModule> modules) {
         var loads = new HashMap<String, Double>();
         for (var module : modules) {
-            String service = service(module.id());
+            String service = service(module);
             if (service != null) loads.merge(service, module.powerDrawKw(), Double::sum);
         }
         return Map.copyOf(loads);
@@ -33,8 +38,10 @@ public final class ShipServicePower {
     static Map<String, Double> live(ShipDesign design, ShipInstance ship, double capturedShare) {
         var loads = new HashMap<String, Double>();
         for (int mount = 0; mount < design.equippedModuleIds().size(); mount++) {
-            String id = design.equippedModuleIds().get(mount), service = service(id);
-            if (service != null) loads.merge(service, ShipComponentCatalog.module(id).powerDrawKw()
+            String id = design.equippedModuleIds().get(mount);
+            var module = CombatModuleCatalog.installedModule(design, id);
+            String service = service(module);
+            if (service != null) loads.merge(service, module.powerDrawKw()
                     * ship.moduleDamage().condition(mount) * capturedShare, Double::sum);
         }
         return Map.copyOf(loads);

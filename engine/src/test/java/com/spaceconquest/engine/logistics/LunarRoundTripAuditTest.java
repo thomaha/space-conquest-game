@@ -96,7 +96,7 @@ class LunarRoundTripAuditTest {
         for (int batch = 0; batch < 4; batch++) dispatchAndReturn(run, "supplier", "depot-supply", "low-port",
                 PropulsionCatalog.drive("mod_hydrolox_rocket").propellantMaterials(30000), 30000);
         dispatchAndReturn(run, "supplier", "depot-supply", "low-port", GOODS, 30000);
-        dispatch(run, "trader", "lunar", "depot-port", GOODS, 120000);
+        dispatch(run, "trader", "lunar", "depot-port", GOODS, 120000, false);
         for (int day = 0; day < 10 && !fleet(run.state, "trader").location().isAt(FleetLocation.Site.docked("moon-port")); day++) day(run);
         assertEquals(2500, route(run.state, "lunar").totalVolumeMovedKg(), 1e-5);
         assertEquals(TradeRoute.RETURNING, route(run.state, "lunar").phase());
@@ -116,6 +116,37 @@ class LunarRoundTripAuditTest {
         assertFalse(fleet(run.state, "trader").location().inTransit());
     }
 
+    @Test void paidFuelDeliveryFundsItsReturnWithoutInventingDestinationStockOrChangingPolicy() throws Exception {
+        var state = world();
+        state = state.withFleets(List.of(fleet(state, "tanker"))).withTradeRoutes(List.of(route(state, "moon-supply")));
+        state = ShipBatteryCharging.charge(state, "tanker", "depot-port", 500 / .9);
+        state = ShipPowerResupply.buy(state, "tanker", "depot-port", "uranium", 100);
+        state = ShipFueling.refuel(state, "tanker", "depot-port", 60000);
+        var original = state;
+        var shipment = new LogisticsProcessor().previewBasket(state, route(state, "moon-supply"),
+                Map.of("hydrogen_gas", 17000.0, "refined_uranium", 50.0), true);
+        assertNotNull(shipment);
+        assertEquals(0, hub(original, "moon-market").currentStoredWeightKg());
+        assertEquals(hub(original, "moon-market"), hub(shipment.state(), "moon-market"), "No future delivery enters live port inventory during departure");
+        assertEquals(fleet(original, "tanker").fuelPolicy(), fleet(shipment.state(), "tanker").fuelPolicy());
+        assertEquals(totalCash(original), totalCash(shipment.state()), 1e-5);
+        var run = new Run(shipment.state().withTradeRoutes(List.of(shipment.route().withActive(false))));
+        run.state = reload(run.state, "fuel-delivery-departure");
+        assertEquals(fleet(original, "tanker").fuelPolicy(), fleet(run.state, "tanker").fuelPolicy());
+        for (int days = 0; days < 60 && !(route(run.state, "moon-supply").onboardKg() == 0
+                && fleet(run.state, "tanker").location().isAt(FleetLocation.Site.docked("depot-port"))); days++) day(run);
+        assertEquals(17050, route(run.state, "moon-supply").totalVolumeMovedKg(), 1e-5);
+        assertTrue(fleet(run.state, "tanker").location().isAt(FleetLocation.Site.docked("depot-port")));
+        assertEquals(totalCash(original), totalCash(run.state), 1e-5);
+        for (String material : FUELS) assertEquals(stock(run.opening, material) - stock(run.state, material),
+                run.consumed.getOrDefault(material, 0.0), 1e-4, material);
+        var emptyBuyer = original.withMarketAccounts(original.marketAccounts().stream().map(account -> account.hubId().equals("moon-market")
+                ? new MarketAccount(account.hubId(), 0) : account).toList());
+        assertNull(new LogisticsProcessor().previewBasket(emptyBuyer, route(emptyBuyer, "moon-supply"),
+                Map.of("hydrogen_gas", 17000.0, "refined_uranium", 50.0), true));
+        assertEquals(hub(original, "moon-market"), hub(emptyBuyer, "moon-market"));
+    }
+
     void dispatchAndReturn(Run run, String shipId, String routeId, String origin,
                                    Map<String, Double> cargo, double capacity) throws Exception {
         double before = route(run.state, routeId).totalVolumeMovedKg();
@@ -124,6 +155,8 @@ class LunarRoundTripAuditTest {
         while (!(fleet(run.state, shipId).location().isAt(FleetLocation.Site.docked(origin))
                 && TradeRoute.LOADING.equals(route(run.state, routeId).phase())) && days++ < 60) day(run);
         assertTrue(days < 60, shipId + " return blocked: " + route(run.state, routeId).status()
+                + " site " + fleet(run.state, shipId).location().current() + " destination " + fleet(run.state, shipId).location().destination()
+                + " manifest " + ship(run.state, shipId).storedCargoKg()
                 + " fuel " + ship(run.state, shipId).currentFuelKg() + " phase " + route(run.state, routeId).phase()
                 + " " + TradeLegReadiness.inspect(run.state, fleet(run.state, shipId),
                 hub(run.state, route(run.state, routeId).originEntityId())));
@@ -302,9 +335,10 @@ class LunarRoundTripAuditTest {
         var state = comparisonWorld();
         var modules = new ArrayList<>(List.of("mod_fission_thruster", "mod_cargo_hold_large",
                 ShipComponentCatalog.FISSION_REACTOR_ID, ShipComponentCatalog.REACTOR_TANK_ID));
-        for (int tank = 0; tank < 3; tank++) modules.add(PropulsionCatalog.FUEL_TANK_MODULE_ID);
+        for (int tank = 0; tank < 4; tank++) modules.add(PropulsionCatalog.FUEL_TANK_MODULE_ID);
         var design = ShipBlueprintFactory.evaluate(state, new ShipDesignSpecification("tanker-design", "Improved tanker",
-                "supplier-owner", ShipRole.CARGO_TRANSPORT, "steel", modules, "steel", .5));
+                "supplier-owner", ShipRole.CARGO_TRANSPORT, "steel", modules, "steel", .5,
+                modules.stream().map(ShipComponentCatalog::module).mapToInt(ShipModule::slotCost).sum()));
         assertTrue(design.valid(), design.errors().toString());
         state = state.withShipDesigns(state.shipDesigns().stream().map(item -> item.id().equals("tanker-design") ? design.design() : item).toList());
         state = state.withCommercialHubs(state.commercialHubs().stream().map(hub -> {
@@ -333,7 +367,7 @@ class LunarRoundTripAuditTest {
     void oneWay(Run run, String shipId, String routeId, String origin, String destination,
                         Map<String, Double> cargo, double tank) throws Exception {
         double before = route(run.state, routeId).totalVolumeMovedKg();
-        dispatch(run, shipId, routeId, origin, cargo, tank);
+        dispatch(run, shipId, routeId, origin, cargo, tank, false);
         int days = 0;
         while (!(fleet(run.state, shipId).location().isAt(FleetLocation.Site.docked(destination))
                 && TradeRoute.LOADING.equals(route(run.state, routeId).phase())) && days++ < 30) day(run);
@@ -349,7 +383,7 @@ class LunarRoundTripAuditTest {
         assertEquals(30000, ship(run.state, "supplier").currentFuelKg(), 1e-5);
         var destination = FleetLocation.Site.docked("depot-port");
         assertTrue(TradeLegReadiness.inspect(run.state, fleet(run.state, "supplier"), hub(run.state, "depot-market")).ready());
-        var plan = LocalTravel.plan(run.state, fleet(run.state, "supplier"), destination);
+        var plan = TradeLocalPlan.plan(run.state, fleet(run.state, "supplier"), destination);
         assertNotNull(plan);
         var departed = LocalTravel.depart(fleet(run.state, "supplier"), destination, plan);
         run.state = run.state.withFleets(run.state.fleets().stream().map(item -> item.id().equals("supplier") ? departed : item).toList());
@@ -622,12 +656,13 @@ class LunarRoundTripAuditTest {
     }
 
     private TankerQuote quoteTanker(GameState state, double hydrolox, double hydrogen) {
-        var shipment = new LogisticsProcessor().previewBasket(state, route(state, "moon-supply"), tankerCargo(hydrolox, hydrogen));
+        var shipment = new LogisticsProcessor().previewBasket(state, route(state, "moon-supply"), tankerCargo(hydrolox, hydrogen), true);
         if (shipment == null) return null;
         var site = FleetLocation.Site.docked("moon-port");
-        var outward = LocalTravel.plan(shipment.state(), shipment.preparedFleet(), site);
+        var outward = TradeLocalPlan.plan(shipment.state(), shipment.preparedFleet(), site);
         if (outward == null) return null;
-        var arrival = LocalTravel.arrivalPreview(shipment.state(), shipment.preparedFleet(), site, outward);
+        var arrival = TradeReturnFuel.arrival(shipment.state(), shipment.preparedFleet(), hub(shipment.state(), "moon-market"));
+        if (arrival == null) return null;
         var projected = shipment.state().withFleets(shipment.state().fleets().stream()
                 .map(item -> item.id().equals("tanker") ? arrival : item).toList())
                 .withTurn(state.turn() + (long) Math.ceil(outward.days()))
@@ -636,7 +671,7 @@ class LunarRoundTripAuditTest {
         assertEquals(0, route(projected, "moon-supply").onboardKg(), 1e-5);
         var funded = TradeLegReadiness.prepare(projected, fleet(projected, "tanker"), hub(projected, "depot-market"));
         if (!TradeLegReadiness.inspect(funded, fleet(funded, "tanker"), hub(funded, "depot-market")).ready()) return null;
-        var returning = LocalTravel.plan(funded, fleet(funded, "tanker"), FleetLocation.Site.docked("depot-port"));
+        var returning = TradeLocalPlan.plan(funded, fleet(funded, "tanker"), FleetLocation.Site.docked("depot-port"));
         if (returning == null) return null;
         var returned = LocalTravel.arrivalPreview(funded, fleet(funded, "tanker"), FleetLocation.Site.docked("depot-port"), returning);
         var end = funded.withFleets(funded.fleets().stream().map(item -> item.id().equals("tanker") ? returned : item).toList());
@@ -648,11 +683,22 @@ class LunarRoundTripAuditTest {
 
     private void dispatch(Run run, String shipId, String routeId, String origin,
                           Map<String, Double> cargo, double capacity) throws Exception {
+        dispatch(run, shipId, routeId, origin, cargo, capacity, true);
+    }
+    private void dispatch(Run run, String shipId, String routeId, String origin,
+                          Map<String, Double> cargo, double capacity, boolean secureReturn) throws Exception {
+        capacity = FleetSupplySimulation.design(run.state, ship(run.state, shipId)).fuelCapacityKg();
         assertTrue(fleet(run.state, shipId).location().isAt(FleetLocation.Site.docked(origin)));
         double needed = capacity - ship(run.state, shipId).currentFuelKg();
         if (needed > 1e-5) run.state = ShipFueling.refuel(run.state, shipId, origin, needed);
         assertEquals(capacity, ship(run.state, shipId).currentFuelKg(), 1e-5);
-        var shipment = new LogisticsProcessor().previewBasket(run.state, route(run.state, routeId), cargo);
+        var shipment = new LogisticsProcessor().previewBasket(run.state, route(run.state, routeId), cargo, secureReturn);
+        // A paid orbital itinerary may be unavailable at this phase. Wait real engine days rather
+        // than assuming every repeated departure has the same rendezvous geometry.
+        for (int wait = 0; shipment == null && secureReturn && wait < 7; wait++) {
+            day(run);
+            shipment = new LogisticsProcessor().previewBasket(run.state, route(run.state, routeId), cargo, true);
+        }
         if (shipment == null) {
             var original = ship(run.state, shipId);
             var loaded = new HashMap<>(original.storedCargoKg());
@@ -660,11 +706,12 @@ class LunarRoundTripAuditTest {
             var diagnostic = ShipPowerResupply.replace(run.state, new ShipInstance(original.id(), original.designId(), original.ownerEntityId(),
                     original.currentHullHealth(), original.currentShieldHealth(), original.currentFuelKg(), loaded,
                     original.passengerCount(), original.passengerRaceId(), original.transitMode(), original.powerState(), original.supplyState()));
-            fail(shipId + " loaded leg: " + TradeLegReadiness.inspect(diagnostic,
+            fail(shipId + " at day " + run.state.turn() + " cargo " + cargo + " loaded leg: " + TradeLegReadiness.inspect(diagnostic,
                     fleet(diagnostic, shipId), hub(diagnostic, route(diagnostic, routeId).destinationEntityId())));
         }
-        run.state = shipment.state().withTradeRoutes(shipment.state().tradeRoutes().stream()
-                .map(item -> item.id().equals(routeId) ? shipment.route().withActive(false) : item).toList());
+        var accepted = shipment;
+        run.state = accepted.state().withTradeRoutes(accepted.state().tradeRoutes().stream()
+                .map(item -> item.id().equals(routeId) ? accepted.route().withActive(false) : item).toList());
         run.state = reload(run.state, "flight-" + run.trips);
     }
 
@@ -695,14 +742,14 @@ class LunarRoundTripAuditTest {
     }
 
     private GameState world() throws Exception {
-        var tech = List.of("rocketry", "hydrolox_propulsion", "electricity", "solar_power", "industrial_production",
+        var tech = List.of("rocketry", "spacecraft", "large_hull_engineering", "hydrolox_propulsion", "electricity", "solar_power", "industrial_production",
                 "space_stations", "nuclear_fission");
         var owners = List.of(owner("supplier-owner", tech), owner("trader-owner", tech), owner("provider", tech));
-        var low = new HashMap<String, Double>(PropulsionCatalog.drive("mod_chemical_rocket").propellantMaterials(1000000));
+        var low = new HashMap<String, Double>(PropulsionCatalog.drive("mod_chemical_rocket").propellantMaterials(4000000));
         PropulsionCatalog.drive("mod_hydrolox_rocket").propellantMaterials(990000).forEach((id, kg) -> low.merge(id, kg, Double::sum));
         GOODS.forEach((id, kg) -> low.put(id, kg * 3));
         var depot = new HashMap<String, Double>();
-        depot.put("hydrogen_gas", 5000000.0); depot.put("refined_uranium", 10000.0);
+        depot.put("hydrogen_gas", 10000000.0); depot.put("refined_uranium", 20000.0);
         var state = GameState.builder().solarSystems(DataModelLoader.loadSolarSystems()).empires(owners)
                 .orbitalStations(List.of(port("low-port", "earth", 500), port("depot-port", "earth", 2000), port("moon-port", "moon", 500)))
                 .commercialHubs(List.of(market("low-market", "low-port", low, 0),
@@ -711,9 +758,11 @@ class LunarRoundTripAuditTest {
                         new MarketAccount("moon-market", 1e6)))
                 .powerGrids(List.of(new PowerGridState("low-port", 1000, 0, 1000, 10000, 10000, false),
                         new PowerGridState("depot-port", 1000, 0, 1000, 10000, 10000, false))).build();
-        var supplierModules = List.of("mod_chemical_rocket", PropulsionCatalog.FUEL_TANK_MODULE_ID, PropulsionCatalog.FUEL_TANK_MODULE_ID,
-                "mod_cargo_vault", ShipComponentCatalog.SOLAR_ARRAY_ID, ShipComponentCatalog.SOLAR_ARRAY_ID, ShipComponentCatalog.BATTERY_ID);
+        var supplierModules = List.of("mod_chemical_rocket", ChemicalFreighterCatalog.MAIN_TANK,
+                "mod_cargo_vault", ShipComponentCatalog.SOLAR_ARRAY_ID, ShipComponentCatalog.BATTERY_ID);
         var tankerModules = new ArrayList<>(ShipComponentCatalog.workbenchModules("mod_fission_thruster", false, ShipComponentCatalog.FISSION_REACTOR_ID));
+        tankerModules.add(PropulsionCatalog.FUEL_TANK_MODULE_ID);
+        tankerModules.add(PropulsionCatalog.FUEL_TANK_MODULE_ID);
         tankerModules.add(PropulsionCatalog.FUEL_TANK_MODULE_ID);
         var designs = new ArrayList<ShipDesign>();
         var specifications = List.of(new ShipDesignSpecification("supplier-design", "Supplier", "supplier-owner", ShipRole.CARGO_TRANSPORT,
@@ -723,7 +772,10 @@ class LunarRoundTripAuditTest {
                 new ShipDesignSpecification("trader-design", "Lunar freighter", "trader-owner", ShipRole.CARGO_TRANSPORT,
                         "steel", ChemicalFreighterCatalog.modules("mod_hydrolox_rocket"), "steel", .5));
         for (var specification : specifications) {
-            var evaluation = ShipBlueprintFactory.evaluate(state, specification);
+            var fitted = new ShipDesignSpecification(specification.id(), specification.name(), specification.ownerEntityId(), specification.role(),
+                    specification.hullMaterialId(), specification.moduleIds(), specification.armorMaterialId(), specification.armorThicknessCm(),
+                    specification.moduleIds().stream().map(ShipComponentCatalog::module).mapToInt(ShipModule::slotCost).sum());
+            var evaluation = ShipBlueprintFactory.evaluate(state, fitted);
             assertTrue(evaluation.valid(), evaluation.errors().toString()); designs.add(evaluation.design());
         }
         return state.withShipDesigns(designs).withFleets(List.of(fleet("supplier", "supplier-owner", "low-port", .05),
@@ -738,7 +790,8 @@ class LunarRoundTripAuditTest {
         for (String material : FUELS) orders.put(material, new MarketOrder(material, opening.getOrDefault(material, 0.0), 5e6, price(material), 0));
         GOODS.forEach((material, kg) -> orders.put(material, new MarketOrder(material, opening.getOrDefault(material, 0.0),
                 10000, goodsPrice == 0 ? .8 : goodsPrice, 0)));
-        return new CommercialHub(id, port, 0, 8e6, opening.values().stream().mapToDouble(Double::doubleValue).sum(), 10, orders);
+        return new CommercialHub(id, port, 0, id.equals("depot-market") ? 12e6 : 8e6,
+                opening.values().stream().mapToDouble(Double::doubleValue).sum(), 10, orders);
     }
     private Empire owner(String id, List<String> tech) {
         return new Empire(id, id, "human", "Individualist", 1e6, 0, List.of(), List.of(), Map.of(), tech, List.of());

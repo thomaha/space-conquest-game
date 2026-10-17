@@ -83,7 +83,7 @@ public class ShipDesignValidator {
                 res.totalThrustN(),
                 res.isLaunchCapable() && res.isValid(),
                 isProprietaryCorporate, ShipManufacturingProfile.baseline(), null,
-                ShipSensorProfile.capture(modules)
+                ShipSensorProfile.capture(modules), CombatModuleCatalog.capture(modules)
         );
     }
 
@@ -115,7 +115,9 @@ public class ShipDesignValidator {
             errors.add("Total allocated module slots (" + agg.totalSlots() + ") exceeds hull frame limit (" + maxFrameSlots + ")");
         }
 
-        double armorMass = agg.totalSlots() * Math.max(0.0, armorThicknessCm) * 150.0;
+        double armorMass = frame != null && !frame.applicationId().isBlank()
+                ? frame.totalSlots() * Math.max(0, armorThicknessCm) * HullTechnology.assemblyTechnology(frame).armorKgPerCapacityCm()
+                : agg.totalSlots() * Math.max(0.0, armorThicknessCm) * 150.0;
         double frameDryMass = (frame != null) ? frame.frameMassKg() : 5000.0;
         double totalDryMass = frameDryMass + agg.dryMass() + armorMass;
 
@@ -204,7 +206,7 @@ public class ShipDesignValidator {
             materialStrength = frame.baseStructuralStrength();
         }
         double dryMassMod = Math.min(0.85, totalDryMass / 1000000.0);
-        return (materialStrength / Math.max(1, totalSlotsAllocated)) * (1.0 - dryMassMod);
+        return (materialStrength / Math.max(1, totalSlotsAllocated)) * (1.0 - dryMassMod) * (frame == null ? 1 : frame.strengthMultiplier());
     }
 
     private void validateRoleRequirements(String role, ModuleAggregation agg, double supplyCapacity, List<String> errors) {

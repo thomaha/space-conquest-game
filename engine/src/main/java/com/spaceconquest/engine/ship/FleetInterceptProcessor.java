@@ -11,7 +11,7 @@ public final class FleetInterceptProcessor {
     private FleetInterceptProcessor() {}
 
     public static boolean militaryAvailable(GameState state, Fleet fleet) {
-        return fleet != null && !fleet.ships().isEmpty() && fleet.guardOrder() == null && fleet.escortOrder() == null
+        return fleet != null && !ShipRefitPlan.reserved(state, fleet) && !fleet.ships().isEmpty() && fleet.guardOrder() == null && fleet.escortOrder() == null
                 && fleet.ships().stream().allMatch(ship -> fleet.ownerEntityId().equals(ship.ownerEntityId())
                 && ship.currentHullHealth() > 0 && ship.passengerCount() == 0 && ship.supplyState().orders().isEmpty()
                 && (ship.powerState() == null || ship.powerState().rescueStatus() == null
@@ -49,7 +49,7 @@ public final class FleetInterceptProcessor {
         // A committed journey continues physically after cancellation. No mid-flight teleport or redirection.
         if (fleet.location().inTransit() && !BodyFleetRendezvous.ballisticAvailable(fleet) || fleet.hasInterstellarOrder()
                 || fleet.isInWarp() || fleet.flightMotion() != null || !fleet.interstellarMode().isBlank()
-                || !fleet.location().inTransit() && ShipWeaponRange.reaches(state, fleet, target)
+                || !fleet.location().inTransit() && FleetCombatPositioning.holds(state, fleet, target)
                 || !target.location().inTransit() && fleet.location().isAt(target.location().current())) return fleet;
         if (target.location().inTransit()) {
             var standOff = BodyFleetStandOff.plan(state, fleet, target);
@@ -64,6 +64,7 @@ public final class FleetInterceptProcessor {
                 || destination.kind() == FleetLocation.Kind.SURFACE) return fleet;
         var standOff = FleetStandOffApproach.plan(state, fleet, target);
         if (standOff != null) return LocalTravel.depart(fleet, standOff.destination(), standOff.plan());
+        if (ShipWeaponRange.reaches(state, fleet, target)) return fleet;
         var plan = LocalTravel.plan(state, fleet, destination);
         if (plan == null || plan.orbital() == null && plan.physical() == null
                 || !ShipPowerForecast.ready(ShipPowerForecast.departure(state, fleet, destination, plan, null)))
@@ -88,7 +89,7 @@ public final class FleetInterceptProcessor {
             return target == null || !contact(contacts, fleet, target)
                     || !target.location().inTransit() && fleet.currentSystemId().equals(target.currentSystemId())
                     && fleet.location().isAt(target.location().current())
-                    || !fleet.location().inTransit() && ShipWeaponRange.reaches(contacts, fleet, target) ? finish(fleet) : fleet;
+                    || !fleet.location().inTransit() && FleetCombatPositioning.holds(contacts, fleet, target) ? finish(fleet) : fleet;
         }).toList());
     }
 

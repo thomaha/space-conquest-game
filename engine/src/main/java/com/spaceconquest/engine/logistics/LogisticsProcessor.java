@@ -66,7 +66,7 @@ public class LogisticsProcessor {
                 continue;
             }
             double beforeMaintenance = balance(current, route.ownerEntityId());
-            current = TradePortMaintenance.supply(current, carrier.fleet());
+            if (!TradeRoute.SUPPLY_REPOSITIONING.equals(route.phase())) current = TradePortMaintenance.supply(current, carrier.fleet());
             route = route.withOperatingCost(Math.max(0, beforeMaintenance - balance(current, route.ownerEntityId())));
             carrier = findCarrier(current, route);
             if (TradeRoute.DELIVERING.equals(route.phase())) route = route.withAvailableCargo(carrier.ship().storedCargoKg());
@@ -75,6 +75,10 @@ public class LogisticsProcessor {
                 case TradeRoute.DELIVERING -> deliver(current, route, carrier);
                 case TradeRoute.RETURNING -> returnCarrier(current, route, carrier);
                 case TradeRoute.REPOSITIONING -> reposition(current, route, carrier);
+                case TradeRoute.SUPPLY_REPOSITIONING -> {
+                    var staging = FacilitySupplyStaging.advance(current, route, carrier.fleet(), this);
+                    yield new RouteStep(staging.state(), staging.route(), 0);
+                }
                 case TradeRoute.PAUSED_DELIVERY, TradeRoute.PAUSED_RETURN, TradeRoute.RETURNING_CARGO -> {
                     var resumed = TradeEscape.advance(current, route, carrier.fleet(), carrier.ship());
                     yield new RouteStep(resumed.state(), resumed.route(), 0);
@@ -349,7 +353,8 @@ public class LogisticsProcessor {
         var origin = hub(state, route.originEntityId()); var destination = hub(state, route.destinationEntityId());
         boolean orbitalPickup = carrier != null && origin != null && FleetPositioning.hubSite(state, origin) != null
                 && FleetPositioning.hubSite(state, origin).kind() == FleetLocation.Kind.SURFACE
-                && carrier.fleet().location().isAt(FleetLocation.Site.orbit(origin.entityId()));
+                && !carrier.fleet().location().inTransit() && carrier.fleet().location().current().kind() == FleetLocation.Kind.ORBIT
+                && carrier.fleet().location().current().entityId().equals(origin.entityId());
         if (carrier == null || origin == null || destination == null || requested.isEmpty()
                 || origin.id().equals(destination.id()) || !FleetPositioning.atHub(state, carrier.fleet(), origin) && !orbitalPickup
                 || carrier.fleet().hasInterstellarOrder() || carrier.fleet().location().inTransit()) return null;
@@ -393,11 +398,13 @@ public class LogisticsProcessor {
         current = TradeLegReadiness.prepare(current, loaded, destination);
         Fleet prepared = findCarrier(current, route).fleet();
         if (!TradeLegReadiness.inspect(current, prepared, destination).ready()) return null;
+        LocalTravel.Plan departurePlan = null;
         if (secureReturn) {
-            current = TradeReturnFuel.secure(current, prepared, origin, destination, carrier.ship().id(), manifest, route.roaming());
-            if (current == null) return null;
+            var departure = TradeReturnFuel.departure(current, prepared, origin, destination, carrier.ship().id(), manifest, route.roaming());
+            if (departure == null) return null;
+            current = departure.state(); prepared = departure.planningFleet(); departurePlan = departure.localPlan();
         }
-        current = moveToward(current, carrier.fleet().id(), destination);
+        current = moveToward(current, carrier.fleet().id(), destination, departurePlan);
         Fleet moved = findCarrier(current, route).fleet();
         if (!moved.hasInterstellarOrder() && !moved.location().inTransit()) return null;
         return new ShipmentPreview(current, route.withLoadedManifest(manifest)
@@ -494,21 +501,27 @@ public class LogisticsProcessor {
                 order.pricePerKg());
         current = changeShipCargo(current, carrier.ship().id(), route.materialId(), quantity);
         double beforeMove = balance(current, route.ownerEntityId());
-        if (carrier.design().powerProfile() != null || !FleetPositioning.systemForHub(current, destination).equals(carrier.fleet().currentSystemId())) {
+        if (carrier.design().powerProfile() != null || com.spaceconquest.engine.ship.PropulsionCatalog.mainDrive(carrier.design().equippedModuleIds()) != null
+                || !FleetPositioning.systemForHub(current, destination).equals(carrier.fleet().currentSystemId())) {
             Fleet loaded = current.fleets().stream().filter(item -> item.id().equals(carrier.fleet().id())).findFirst().orElseThrow();
             current = TradeLegReadiness.prepare(current, loaded, destination);
             loaded = current.fleets().stream().filter(item -> item.id().equals(carrier.fleet().id())).findFirst().orElseThrow();
             if (!TradeLegReadiness.inspect(current, loaded, destination).ready()) return new RouteStep(state, route, 0);
         }
         Fleet prepared = current.fleets().stream().filter(item -> item.id().equals(carrier.fleet().id())).findFirst().orElseThrow();
-        if (secureReturn) current = TradeReturnFuel.secure(current, prepared, origin, destination, carrier.ship().id(),
-                Map.of(route.materialId(), new TradeCargo(quantity, purchase + lift)), route.roaming());
+        LocalTravel.Plan departurePlan = null;
+        if (secureReturn) {
+            var departure = TradeReturnFuel.departure(current, prepared, origin, destination, carrier.ship().id(),
+                    Map.of(route.materialId(), new TradeCargo(quantity, purchase + lift)), route.roaming());
+            if (departure == null) current = null;
+            else { current = departure.state(); prepared = departure.planningFleet(); departurePlan = departure.localPlan(); }
+        }
         if (current == null) return new RouteStep(state, route.withStatus("Waiting: return fuel cannot be secured at the destination."), 0);
         if (surface && !orbitalPickup && !route.roaming()) {
             CarrierDeparture departure = departFromSurface(current, carrier.fleet().id(), origin.entityId());
             current = departure.state();
             lift = departure.launchCostCredits();
-        } else current = moveToward(current, carrier.fleet().id(), destination);
+        } else current = moveToward(current, carrier.fleet().id(), destination, departurePlan);
         Fleet moved = findCarrier(current, route).fleet();
         if (!moved.hasInterstellarOrder() && !moved.location().inTransit()) return new RouteStep(state, route, 0);
         double fuelCost = Math.max(0.0, beforeMove - balance(current, route.ownerEntityId())
@@ -558,6 +571,9 @@ public class LogisticsProcessor {
     }
 
     private RouteStep deliver(GameState state, TradeRoute route, Carrier carrier) {
+        return deliver(state, route, carrier, true);
+    }
+    private RouteStep deliver(GameState state, TradeRoute route, Carrier carrier, boolean beginReturn) {
         CommercialHub destination = hub(state, route.destinationEntityId());
         if (destination == null) return new RouteStep(state, route, 0.0);
         if (!FleetPositioning.atHub(state, carrier.fleet(), destination))
@@ -577,9 +593,21 @@ public class LogisticsProcessor {
         }
         CommercialHub origin = hub(current, route.originEntityId());
         double beforeMove = balance(current, route.ownerEntityId());
-        if (TradeRoute.RETURNING.equals(delivered.phase()) && origin != null)
+        if (beginReturn && TradeRoute.RETURNING.equals(delivered.phase()) && origin != null)
             current = moveToward(current, carrier.fleet().id(), origin);
         return new RouteStep(current, delivered.withOperatingCost(Math.max(0, beforeMove - balance(current, route.ownerEntityId()))), quantity);
+    }
+    /** Discarded exact delivery and funded return, without processing unrelated routes or advancing a tick. */
+    boolean deliveryFundsReturn(GameState state, TradeRoute route) {
+        return fundedDelivery(state, route) != null;
+    }
+    /** Forecasts a real sale and paid working stores, leaving the carrier at its arrival port. */
+    GameState fundedDelivery(GameState state, TradeRoute route) {
+        var carrier = findCarrier(state, route); if (carrier == null) return null;
+        var delivered = deliver(state, route, carrier, false);
+        if (delivered.route().onboardKg() > 1e-6) return null;
+        var current = TradeLegReadiness.prepare(delivered.state(), findCarrier(delivered.state(), route).fleet(), hub(state, route.originEntityId()));
+        return TradeLegReadiness.inspect(current, findCarrier(current, route).fleet(), hub(current, route.originEntityId())).ready() ? current : null;
     }
 
     private RouteStep deliverMaterial(GameState state, TradeRoute route, Carrier carrier) {
@@ -684,6 +712,9 @@ public class LogisticsProcessor {
     }
 
     GameState moveToward(GameState state, String fleetId, CommercialHub destination) {
+        return moveToward(state, fleetId, destination, null);
+    }
+    private GameState moveToward(GameState state, String fleetId, CommercialHub destination, LocalTravel.Plan departurePlan) {
         String systemId = FleetPositioning.systemForHub(state, destination);
         FleetLocation.Site site = FleetPositioning.hubSite(state, destination);
         if (systemId == null || site == null) return state;
@@ -736,12 +767,13 @@ public class LogisticsProcessor {
                         plan.distanceMeters(), plan.accelerationMps2(), 0.0,
                         plan.peakSpeedMps(), plan.fuelBudgetKg(), null, plan.propulsion()).withFuelPolicy(fleet.fuelPolicy()).withShieldPolicy(fleet.shieldPolicy()).withEscortOrder(fleet.escortOrder());
             } else if (!fleet.location().isAt(site)) {
-                GameState ready = prepareLocalDeparture(state, fleet, site);
+                GameState ready = departurePlan == null ? prepareLocalDeparture(state, fleet, site) : state;
                 if (ready == null) continue;
                 state = ready;
                 fleets = new ArrayList<>(state.fleets());
                 fleet = fleets.get(index);
-                LocalTravel.Plan local = LocalTravel.plan(state, fleet, site);
+                LocalTravel.Plan local = departurePlan == null ? TradeLocalPlan.plan(state, fleet, site) : departurePlan;
+                if (local == null || !com.spaceconquest.engine.ship.ShipPowerForecast.ready(com.spaceconquest.engine.ship.ShipPowerForecast.departure(state, fleet, site, local, null))) continue;
                 moved = LocalTravel.depart(fleet, site, local);
             }
             fleets.set(index, moved);
@@ -765,7 +797,7 @@ public class LogisticsProcessor {
         }
         Fleet updated = ready.fleets().stream().filter(item -> fleet.id().equals(item.id()))
                 .findFirst().orElse(null);
-        LocalTravel.Plan plan = updated == null ? null : LocalTravel.plan(ready, updated, destination);
+        LocalTravel.Plan plan = updated == null ? null : TradeLocalPlan.plan(ready, updated, destination);
         if (plan == null || !com.spaceconquest.engine.ship.ShipPowerForecast.ready(
                 com.spaceconquest.engine.ship.ShipPowerForecast.departure(ready, updated, destination, plan, null)))
             return null;
@@ -778,7 +810,7 @@ public class LogisticsProcessor {
 
     private GameState refuelForLocalLeg(GameState state, Fleet fleet,
                                        FleetLocation.Site destination) {
-        if (LocalTravel.plan(state, fleet, destination) != null
+        if (TradeLocalPlan.plan(state, fleet, destination) != null
                 || fleet.location().current().kind() == FleetLocation.Kind.DEEP_SPACE)
             return state;
         String hubBody = fleet.location().current().entityId();
@@ -862,7 +894,7 @@ public class LogisticsProcessor {
                 refuelForLocalLeg(state, departing, destination), departing, destination);
         ready = refuelForLocalLeg(ready, departing, destination);
         Fleet updated = ready.fleets().stream().filter(fleet -> fleet.id().equals(fleetId)).findFirst().orElseThrow();
-        LocalTravel.Plan plan = LocalTravel.plan(ready, updated, destination);
+        LocalTravel.Plan plan = TradeLocalPlan.plan(ready, updated, destination);
         if (plan == null || !com.spaceconquest.engine.ship.ShipPowerForecast.ready(
                 com.spaceconquest.engine.ship.ShipPowerForecast.departure(ready, updated, destination, plan, null)))
             return new CarrierDeparture(state, 0);
@@ -873,7 +905,7 @@ public class LogisticsProcessor {
         GameState departureState = state;
         List<Fleet> fleets = state.fleets().stream().map(fleet ->
                 fleetId.equals(fleet.id()) ? LocalTravel.depart(fleet,
-                        FleetLocation.Site.orbit(bodyId), LocalTravel.plan(departureState, fleet,
+                        FleetLocation.Site.orbit(bodyId), TradeLocalPlan.plan(departureState, fleet,
                                 FleetLocation.Site.orbit(bodyId))) : fleet).toList();
         return new CarrierDeparture(state.withFleets(fleets),
                 LaunchService.payerOperatingCost(ready, launch, updated.ownerEntityId()));

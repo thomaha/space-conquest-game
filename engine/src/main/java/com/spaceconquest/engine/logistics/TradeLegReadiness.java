@@ -44,7 +44,7 @@ public final class TradeLegReadiness {
             return new Report(false, "Travel is already in progress.");
         if (FleetPositioning.atHub(state, fleet, destination)) return new Report(true, "At the trading port.");
         if (system.equals(fleet.currentSystemId())) {
-            var local = LocalTravel.plan(state, fleet, site);
+            var local = TradeLocalPlan.plan(state, fleet, site);
             if (local == null) {
                 if (OrbitalTravel.applies(state, fleet, site))
                     return new Report(false, "Waiting: " + OrbitalTravel.preview(state, fleet, site).problem());
@@ -88,7 +88,7 @@ public final class TradeLegReadiness {
         }
         arrival = new Fleet(arrival.id(), arrival.name(), arrival.ownerEntityId(), system, "", 0, 0, 0,
                 false, arrival.fleetStance(), arrival.ships(), FleetLocation.at(FleetLocation.Site.deepSpace())).withFuelPolicy(arrival.fuelPolicy()).withShieldPolicy(arrival.shieldPolicy()).withEscortOrder(arrival.escortOrder());
-        var dock = LocalTravel.plan(state, arrival, site);
+        var dock = TradeLocalPlan.plan(state, arrival, site);
         if (dock == null) return new Report(false, "Waiting: destination approach propellant or reactor feed is insufficient.");
         if (!ShipPowerForecast.ready(ShipPowerForecast.departure(state, arrival, site, dock, null)))
             return new Report(false, "Waiting: destination approach electricity and 48-hour port reserve are insufficient.");

@@ -50,6 +50,8 @@ public final class LocalSiteGeometry {
             return com.spaceconquest.engine.galaxy.SensorPosition.at(state, systemId, FleetLocation.at(site));
         }
         if (site.kind() == FleetLocation.Kind.DEEP_SPACE) {
+            var belt = system.asteroidBelts().stream().filter(item -> site.entityId().equals(item.id())).findFirst().orElse(null);
+            if (belt != null) return belt.distanceKm() == null ? null : circle(belt.distanceKm(), "belt:" + belt.id(), 0);
             if (site.equals(FleetLocation.Site.deepSpace())) return rendezvous(system);
             if (site.entityId().equals(systemId + "_star"))
                 return circle(system.sunDiameter(), "star:" + systemId, 0);

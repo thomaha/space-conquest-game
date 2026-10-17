@@ -37,6 +37,7 @@ public class PlanetDetailView {
     private final List<GeologicalDeposit> deposits = new ArrayList<>();
     private final List<PowerGridState> powerGrids = new ArrayList<>();
     private final List<Megastructure> megastructures = new ArrayList<>();
+    private final java.util.Set<String> expandedBatteryPanels = new java.util.HashSet<>();
 
     public PlanetDetailView(Menubar menubar) {
         this.menubar = menubar;
@@ -49,6 +50,7 @@ public class PlanetDetailView {
     public void setPlayerEmpireId(String empireId) {
         if (empireId != null && !empireId.isEmpty()) {
             this.playerEmpireId = empireId;
+            if (root != null && root.isVisible()) renderContent();
         }
     }
 
@@ -173,18 +175,24 @@ public class PlanetDetailView {
         // 2. Interactive Surface Biome Grid - Span both columns as requested
         VBox surfaceSection = createSurfaceBiomeGridSection();
         surfaceSection.setPrefHeight(450); // Larger height for detail view
-        mainGrid.add(surfaceSection, 0, 1, 2, 1);
+        mainGrid.add(surfaceSection, 0, 2, 2, 1);
 
         // 3. Power Grids Section
-        mainGrid.add(createPowerGridsSection(), 0, 2);
+        mainGrid.add(createPowerGridsSection(), 0, 3);
 
         // 4. Megastructures Section
-        mainGrid.add(createMegastructuresSection(), 1, 2);
+        mainGrid.add(createMegastructuresSection(), 1, 3);
 
         // 5. Geological Mineral Veins Section
-        mainGrid.add(createGeologicalDepositsSection(), 0, 3, 2, 1);
+        mainGrid.add(createGeologicalDepositsSection(), 0, 4, 2, 1);
 
         content.getChildren().add(mainGrid);
+        if (snapshot != null && selectedBody != null) {
+            String body = selectedBody.id(); String owner = playerEmpireId;
+            mainGrid.add(AuxiliarySupplyCard.createSurface(snapshot, body, owner, humanController, feedbackLabel,
+                    () -> selectedBody != null && body.equals(selectedBody.id()) && owner.equals(playerEmpireId) ? snapshot : null,
+                    expandedBatteryPanels), 0, 1, 2, 1);
+        }
     }
 
     private VBox createSurfaceBiomeGridSection() {
@@ -224,14 +232,14 @@ public class PlanetDetailView {
         planetCombo.getItems().addAll("earth", "mars", "luna", "ceres", "titan", "venus");
         planetCombo.setValue("earth");
 
-        Button surveyBtn = new Button("Launch geological survey");
+        Button surveyBtn = new Button("Establish survey team");
         surveyBtn.setStyle("-fx-background-color: #2ed573; -fx-text-fill: black; -fx-font-weight: bold;");
         surveyBtn.setOnAction(e -> {
             if (humanController != null) {
                 humanController.stageCommand(new StartProspectingMissionCommand(
-                        playerEmpireId, planetCombo.getValue(), 5
+                        planetCombo.getValue(), playerEmpireId
                 ));
-                feedbackLabel.setText("Dispatched geological prospecting team to " + planetCombo.getValue().toUpperCase());
+                feedbackLabel.setText("Requested a funded standing survey team on " + planetCombo.getValue().toUpperCase());
                 feedbackLabel.setTextFill(Color.LIGHTGREEN);
             }
         });

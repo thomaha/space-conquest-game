@@ -1,0 +1,21 @@
+{
+  "reviewIntervalTurns": 5,
+  "allocationStep": 0.04,
+  "taxStep": 0.02,
+  "budgetStepFraction": 0.10,
+  "minimumBudgetCredits": 1000,
+  "maximumBudgetCredits": 1000000,
+  "budgetPerResident": 0.002,
+  "minimumTaxRate": 0.05,
+  "maximumTaxRate": 0.35,
+  "baselineTaxRate": 0.10,
+  "maximumTransferRate": 0.50,
+  "transferStep": 0.10,
+  "localReserveDays": 3,
+  "treasuryReserveCredits": 10000,
+  "subsidyCashHorizonDays": 10,
+  "hardshipCoverageThreshold": 0.60,
+  "fiscalDeadbandFraction": 0.05,
+  "baseWeights": {"education": 1, "law": 1, "health": 1, "infrastructure": 1, "militia": 1},
+  "needWeights": {"education": 1, "law": 1, "health": 1, "infrastructure": 1, "militia": 1}
+}

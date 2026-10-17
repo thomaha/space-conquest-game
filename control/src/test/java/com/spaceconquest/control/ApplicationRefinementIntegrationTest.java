@@ -123,8 +123,8 @@ class ApplicationRefinementIntegrationTest {
     }
 
     private GameState state() {
-        return GameState.builder().empires(List.of(new Empire("empire", "Empire", "human", "Individualist",
+        return ResearchTestWorld.staffed(GameState.builder().empires(List.of(new Empire("empire", "Empire", "human", "Individualist",
                 100_000, 0, List.of(), List.of(), Map.of(), List.of("electricity", "solar_power"), List.of())))
-                .systemEconomies(List.of(SystemEconomy.createDefault("sol", "empire", 100_000))).build();
+                .systemEconomies(List.of(SystemEconomy.createDefault("sol", "empire", 100_000))).build());
     }
 }

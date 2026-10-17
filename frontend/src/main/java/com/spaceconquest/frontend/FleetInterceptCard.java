@@ -50,7 +50,8 @@ final class FleetInterceptCard {
         var status = new Label(fleet.interceptOrder() == null ? "Intercept: none" : !repair ? "Intercept order active"
                 : recovery.stage() == com.spaceconquest.engine.ship.FleetProtectionAssignment.Stage.REPAIRING
                     ? recovery.serviceTargetId().isBlank() ? "Repairing onboard" : "Repairing at " + recovery.serviceTargetId()
-                    : "Returning after repair");
+                    : recovery.stage() == com.spaceconquest.engine.ship.FleetProtectionAssignment.Stage.RESUPPLYING
+                        ? "Weapon service: waiting for funded resupply" : recovery.weaponService() ? "Returning after weapon service" : "Returning after repair");
         return new HBox(8, status, targets, intercept, cancel);
     }
 }

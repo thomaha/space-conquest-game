@@ -12,9 +12,14 @@ public final class FleetProtectionReturn {
         for (var original : state.fleets()) {
             var fleet = FleetOrganization.find(result, original.id());
             if (fleet == null || fleet.interceptOrder() == null || fleet.interceptOrder().protection() == null) continue;
-            var assignment = fleet.interceptOrder().protection();
-            if (assignment.stage() == FleetProtectionAssignment.Stage.PURSUING
+            var saved = fleet.interceptOrder().protection();
+            if (saved.stage() == FleetProtectionAssignment.Stage.PURSUING
                     || !FleetReturnTravel.available(fleet) && !(FleetEscortReturn.convoy(result, fleet) != null && FleetEscortReturn.ballisticAvailable(fleet))) continue;
+            if (saved.escaped() && !saved.weaponService() && FleetWeaponRecovery.needs(result, fleet)) {
+                fleet = fleet.withInterceptOrder(fleet.interceptOrder().withProtection(saved.forWeapons()));
+                result = FleetReturnTravel.replace(result, fleet);
+            }
+            var assignment = fleet.interceptOrder().protection();
             if (assignment.stage() == FleetProtectionAssignment.Stage.SUPPLYING) { result = FleetFuelRecovery.deliver(result, fleet); continue; }
             if (assignment.escaped()) {
                 var home = destination(result, fleet);
@@ -39,6 +44,18 @@ public final class FleetProtectionReturn {
                     result = FleetReturnTravel.replace(result, fleet.withInterceptOrder(null));
                 continue;
             }
+            if (assignment.weaponService() && FleetWeaponRecovery.needsBeforeReturn(result, fleet)) {
+                result = FleetRepairRecovery.recover(result, fleet, destination);
+                fleet = FleetOrganization.find(result, fleet.id());
+                if (fleet.interceptOrder().protection().stage() != FleetProtectionAssignment.Stage.REPAIRING)
+                    result = FleetReturnTravel.replace(result, FleetReturnTravel.stage(fleet,
+                            FleetProtectionAssignment.Stage.RESUPPLYING, fleet.interceptOrder().protection().serviceTargetId()));
+                continue;
+            }
+            if (assignment.stage() == FleetProtectionAssignment.Stage.RESUPPLYING) {
+                result = FleetReturnTravel.replace(result, FleetReturnTravel.stage(fleet, FleetProtectionAssignment.Stage.RETURNING, ""));
+                fleet = FleetOrganization.find(result, fleet.id());
+            }
             if (assignment.stage() == FleetProtectionAssignment.Stage.REPAIRING) {
                 result = FleetReturnTravel.replace(result, FleetReturnTravel.stage(fleet, FleetProtectionAssignment.Stage.RETURNING, ""));
                 fleet = FleetOrganization.find(result, fleet.id());
@@ -59,9 +76,19 @@ public final class FleetProtectionReturn {
             var plan = FleetReturnTravel.plan(result, fleet, destination);
             if (plan != null) { result = FleetReturnTravel.replace(result, movingConvoy == null ? LocalTravel.depart(fleet, destination, plan)
                     : FleetEscortReturn.depart(fleet, movingConvoy, plan)); continue; }
+            // Reach the convoy's parking radius first when a direct phase-matched approach cannot be funded.
+            // The saved escort intent survives; physical contact still requires a subsequent rendezvous.
+            if (movingConvoy != null && (!movingConvoy.location().inTransit() || RecoveredParkingTravel.ready(movingConvoy)) && RecoveredParkingTravel.ready(fleet)
+                    && !RecoveredParkingTravel.atSite(fleet.location(), destination)) {
+                var parkingPlan = FleetReturnTravel.localPlan(result, fleet, destination);
+                if (parkingPlan != null) {
+                    result = FleetReturnTravel.replace(result, LocalTravel.depart(fleet, destination, parkingPlan));
+                    continue;
+                }
+            }
             result = splitAndRecover(result, fleet, destination);
         }
-        return result;
+        return FleetServiceHistory.orders(state, result);
     }
     public static FleetLocation.Site destination(GameState state, Fleet fleet) {
         var assignment = fleet.interceptOrder().protection();

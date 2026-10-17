@@ -331,7 +331,7 @@ public class TacticalCombatArenaView {
         gc.setStroke(Color.web(p.colorHex()));
         gc.setLineWidth(p.weaponType().equals("TORPEDO") ? 3 : 2);
 
-        if ("LASER".equals(p.weaponType())) {
+        if (p.instantDelivery()) {
             gc.strokeLine(p.startX(), p.startY(), p.targetX(), p.targetY());
         } else {
             // Trajectory dash line
